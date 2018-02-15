@@ -96,23 +96,28 @@ class IntentModel(TFModel):
                                                 filter_width=kern_size_i,
                                                 use_batch_norm=True,
                                                 training=self.train_mode_ph)
-                units_i = tf.keras.layers.GlobalMaxPool1D()(units_i)
+                units_i = tf.reduce_max(units_i, axis=1)
+                # units_i = tf.keras.layers.GlobalMaxPool1D()(units_i)
                 units.append(units_i)
             
         units = tf.concat(units, 1) 
         with tf.variable_scope('Classifier'):
             with tf.variable_scope('Layer_1'):
                 units = tf.nn.dropout(units, self.dropout_ph)
+                l2 = tf.contrib.layers.l2_regularizer(self.opt['coef_reg_den'])
                 units = tf.layers.dense(units,
                                         self.opt['dense_size'],
+                                        kernel_regularizer=l2,
                                         kernel_initializer=xavier_initializer())  
                 units = tf.layers.batch_normalization(units,
                                                       training=self.train_mode_ph)
                 units = tf.nn.relu(units)
             with tf.variable_scope('Layer_2'):
                 units = tf.nn.dropout(units, self.dropout_ph)
+                l2 = tf.contrib.layers.l2_regularizer(self.opt['coef_reg_den'])
                 units = tf.layers.dense(units,
                                         self.opt['num_classes'],
+                                        kernel_regularizer=l2,
                                         kernel_initializer=xavier_initializer())  
                 units = tf.layers.batch_normalization(units,
                                                       training=self.train_mode_ph)
@@ -177,7 +182,7 @@ class IntentModel(TFModel):
         if scope_names is not None:
             vars_to_train = set()
             for sn in scope_names:
-                scope_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
+                scope_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
                                                scope=sn)
                 vars_to_train.update(scope_vars)
             return list(vars_to_train)
