@@ -118,7 +118,6 @@ class IntentModel(TFModel):
                                                       training=self.train_mode_ph)
 
         self.probs_op = tf.nn.sigmoid(units)
-        self.prediction_op = tf.argmax(prediction, axis=-1, name='prediction')
         cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=units,
                                                                 labels=self.y_ph)
         self.loss_op = tf.reduce_mean(cross_entropy, name='loss')
@@ -136,12 +135,16 @@ class IntentModel(TFModel):
         self.y_ph = \
             tf.placeholder(tf.float32, [None, self.opt['num_classes']])
 
-    def _get_train_op(self, loss, learning_rate, optimizer=None, clip_norm=1.):
-        """Get train operation for given loss
+    def _get_train_op(self, loss, learning_rate, optimizer=None, scope_names=None,
+                      clip_norm=1.):
+        """Construct training operation using `scope_names` scopes with
+        - gradient clipping and
+        - batch normalization fix.
 
         Args:
             loss: loss function, tf tensor of scalar
             learning_rate: scalar or placeholder
+            scope_names: list of trainable scope names
             optimizer: instance of tf.train.Optimizer, Adam, by default
 
         Returns:
@@ -149,14 +152,33 @@ class IntentModel(TFModel):
         """
 
         optimizer = optimizer or tf.train.AdamOptimizer
-        optimizer = optimizer(learning_rate)
-        if clip_norm is not None:
-            grads_and_vars = \
-                optimizer.compute_gradients(loss, tf.trainable_variables())
-            grads_and_vars = [(tf.clip_by_norm(grad, clip_norm), var)\
-                              for grad, var in grads_and_vars]
-            return optimizer.apply_gradients(grads_and_vars, name='train_op')
-        return optimizer.minimize(loss)
+        vars = self._get_trainable_variables(scope_names) 
+
+        extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(extra_update_ops):
+
+            optimizer = optimizer(learning_rate)
+
+            if clip_norm is not None:
+                grads_and_vars = optimizer.compute_gradients(loss, vars)
+                grads_and_vars = [(tf.clip_by_norm(grad, clip_norm), var)\
+                                  for grad, var in grads_and_vars]
+                return optimizer.apply_gradients(grads_and_vars, name='train_op')
+
+            return optimizer.minimize(loss, var_list=vars)
+
+    @staticmethod
+    def _get_trainable_variables(scope_names=None):
+        all_vars = tf.trainable_variables()
+        if scope_names is not None:
+            vars_to_train = set()
+            for sn in scope_names:
+                scope_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
+                                               scope=sn)
+                vars_to_train.update(scope_vars)
+            return list(vars_to_train)
+        else:
+            return all_vars
 
     def texts2vec(self, utterances):
         """
@@ -205,8 +227,8 @@ class IntentModel(TFModel):
     def _get_feed_dict(self, x, y=None, learning_rate=None, dropout_rate=None,
                        train_mode=False):
         feed_dict = {
-            self.X_ph = x,
-            self.train_mode_ph = train_mode
+            self.X_ph: x,
+            self.train_mode_ph: train_mode
         }
         if y is not None:
             feed_dict[self.y_ph] = y
@@ -218,25 +240,22 @@ class IntentModel(TFModel):
             feed_dict[self.dropout_ph] = 1.
         return feed_dict
 
-    def _train_step(self, features, labels):
-        return
-
     def infer(self, data, *args, **kwargs):
         if isinstance(data, str):
             return self.infer_on_batch([data], *args, **kwargs)[0]
         return self.infer_on_batch(data, *args, **kwargs)
 
     def infer_on_batch(self, batch, prob=False):
-        features = self.texts2vec(self.tokenizer.infer(batch))
-        preds = self._forward(features)
-        if prob:
-            return preds
-        return proba2labels(preds,
-                            confident_threshold=self.opt['confident_threshold'],
-                            classes=self.classes)
+        x, mask = self.texts2vec(self.tokenizer.infer(batch))
 
-    def _forward(self, features):
-        return
+        feed_dict = self._get_feed_dict(x, mask, train_mode=False)
+        preds = self.sess.run([self.probs_op], feed_dict=feed_dict) 
+
+        if not prob:
+            return proba2labels(preds,
+                                confident_threshold=self.opt['confident_threshold'],
+                                classes=self.classes)
+        return preds
 
     def cnn_model(self, params):
         """
