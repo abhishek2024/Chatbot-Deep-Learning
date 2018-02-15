@@ -38,7 +38,7 @@ class IntentModel(TFModel):
                  tokenizer: NLTKTokenizer,
                  save_path,
                  load_path=None,
-                 train_now=False
+                 train_now=False,
                  **params):
 
         super().__init__(save_path=save_path,
@@ -88,8 +88,77 @@ class IntentModel(TFModel):
 
         self._add_placeholders()
 
+        units = []
+        for i, kern_size_i in enumerate(params['kernel_sizes_cnn']):
+            with tf.variable_scope('ConvNet_{}'.format(i)):
+                units_i = \
+                    dense_convolutional_network(self.X_ph,
+                                                n_filters=params['filters_cnn'],
+                                                n_layers=1,
+                                                filter_width=kern_size_i,
+                                                use_batch_norm=True,
+                                                training=self.train_flag_ph)
+                units_i = tf.keras.layers.GlobalMaxPool1D()(units_i)
+                units.append(units_i)
+            
+        units = tf.concat(units, 1) 
+        with tf.variable_scope('Classifier'):
+            with tf.variable_scope('Layer_1'):
+                units = tf.nn.dropout(units, self.dropout_ph)
+                units = tf.layers.dense(units,
+                                        self.opt['dense_size'],
+                                        kernel_initializer=xavier_initializer())  
+                units = tf.layers.batch_normalization(units,
+                                                      training=self.train_flag_ph)
+                units = tf.nn.relu(units)
+            with tf.variable_scope('Layer_2'):
+                units = tf.nn.dropout(units, self.dropout_ph)
+                units = tf.layers.dense(units,
+                                        self.opt['num_classes'],
+                                        kernel_initializer=xavier_initializer())  
+                units = tf.layers.batch_normalization(units,
+                                                      training=self.train_flag_ph)
+
+        self.probs = tf.nn.sigmoid(units)
+        self.prediction = tf.argmax(prediction, axis=-1, name='prediction')
+        cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=units,
+                                                                labels=self.y_ph)
+        self.loss = tf.reduce_mean(cross_entropy, name='loss')
+        self.train_op = self._get_train_op(self.loss, self.learning_rate_ph)
+
     def _add_placeholders(self):
-        return
+        self.X_ph = \
+            tf.placeholder(tf.float32, 
+                           [None, self.opt['text_size'], self.opt['embedding_size']],
+                           name='features')
+        self.train_flag_ph = tf.placeholder_with_default(False, shape=[])
+        self.dropout_ph = tf.placeholder_with_default(1.0, shape=[])
+        self.learning_rate_ph = \
+            tf.placeholder(dtype=tf.float32, shape=[], name='learning_rate')
+        self.y_ph = \
+            tf.placeholder(tf.float32, [None, self.opt['num_classes']])
+
+    def _get_train_op(self, loss, learning_rate, optimizer=None, clip_norm=1.):
+        """Get train operation for given loss
+
+        Args:
+            loss: loss function, tf tensor of scalar
+            learning_rate: scalar or placeholder
+            optimizer: instance of tf.train.Optimizer, Adam, by default
+
+        Returns:
+            train_op
+        """
+
+        optimizer = optimizer or tf.train.AdamOptimizer
+        optimizer = optimizer(learning_rate)
+        if clip_norm is not None:
+            grads_and_vars = \
+                optimizer.compute_gradients(loss, tf.trainable_variables())
+            grads_and_vars = [(tf.clip_by_norm(grad, clip_norm), var)\
+                              for grad, var in grads_and_vars]
+            return optimizer.apply_gradients(grads_and_vars, name='train_op')
+        return optimizer.minimize(loss)
 
     def texts2vec(self, sentences):
         """
@@ -107,7 +176,7 @@ class IntentModel(TFModel):
         for sen in sentences:
             tokens = [el for el in sen.split() if el]
             if len(tokens) > self.opt['text_size']:
-                tokens = tokens[:self.opt['text_size']
+                tokens = tokens[:self.opt['text_size']]
 
             embeddings = self.fasttext_model.infer(' '.join(tokens))
 
@@ -122,10 +191,17 @@ class IntentModel(TFModel):
 
     @check_attr_true('train_now')
     def train_on_batch(self, batch):
-        x, y = batch
-        features = self.texts2vec(self.tokenizer.infer(x))
-        onehot_labels = labels2onehot(y, classes=self.classes)
+        batch_x, batch_y = batch
+        features = self.texts2vec(self.tokenizer.infer(batch_x))
+        onehot_labels = labels2onehot(batch_y, classes=self.classes)
         self._train_step(features, onehot_labels)
+        loss, _ = self.sess.run([self.loss, self.train_op],
+                                feed_dict=feed_dict)
+        return loss
+
+    def _get_feed_dict(self, features):
+        feed_dict = {}
+
 
     def _train_step(self, features, labels):
         return
