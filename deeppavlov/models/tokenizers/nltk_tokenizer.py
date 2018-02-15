@@ -32,9 +32,7 @@ class NLTKTokenizer(Inferable):
     def infer(self, instance, *args, **kwargs):
         if type(instance) is str:
             return " ".join(self.tokenizer(instance))
-
-        elif type(instance) is list:
-            tokenized_batch = []
-            for text in instance:
-                tokenized_batch.append(" ".join(self.tokenizer(text)))
-            return tokenized_batch
+        tokenized_batch = []
+        for text in instance:
+            tokenized_batch.append(" ".join(self.tokenizer(text)))
+        return tokenized_batch

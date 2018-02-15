@@ -11,6 +11,7 @@ from deeppavlov.datasets.intent_dataset import IntentDataset
 from deeppavlov.datasets.typos_dataset import TyposDataset
 from deeppavlov.datasets.classification_dataset import ClassificationDataset
 from deeppavlov.models.classifiers.intents.intent_model import KerasIntentModel
+from deeppavlov.models.classifiers.intents_tf.intent_model import TFIntentModel
 from deeppavlov.models.commutators.random_commutator import RandomCommutator
 from deeppavlov.models.embedders.fasttext_embedder import FasttextEmbedder
 from deeppavlov.models.embedders.dict_embedder import DictEmbedder

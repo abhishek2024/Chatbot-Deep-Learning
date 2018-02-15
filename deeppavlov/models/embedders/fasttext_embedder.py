@@ -124,8 +124,7 @@ class FasttextEmbedder(Inferable):
         res = []
         if type(instance) is str:
             res = self._encode(instance, mean)
-
-        elif type(instance) is list:
+        else:
             for sentence in instance:
                 embedded_tokens = self._encode(sentence, mean)
                 res.append(embedded_tokens)

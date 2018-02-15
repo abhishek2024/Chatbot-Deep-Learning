@@ -15,6 +15,8 @@ limitations under the License.
 """
 
 import numpy as np
+import tensorflow as tf
+from tensorflow.contrib.layers import xavier_initializer
 
 from deeppavlov.core.common.attributes import check_attr_true
 from deeppavlov.core.common.registry import register
@@ -22,6 +24,7 @@ from deeppavlov.core.models.tf_model import TFModel
 from deeppavlov.models.embedders.fasttext_embedder import FasttextEmbedder
 from deeppavlov.models.tokenizers.nltk_tokenizer import NLTKTokenizer
 from deeppavlov.models.classifiers.intents_tf.utils import labels2onehot, probs2labels
+from deeppavlov.models.ner.layers import dense_convolutional_network
 
 from deeppavlov.core.common.log import get_logger
 
@@ -29,8 +32,8 @@ from deeppavlov.core.common.log import get_logger
 log = get_logger(__name__)
 
 
-@register('intent_model_tf')
-class IntentModel(TFModel):
+@register('tf_intent_model')
+class TFIntentModel(TFModel):
 
     def __init__(self,
                  vocabs,
@@ -52,7 +55,7 @@ class IntentModel(TFModel):
         # Tokenizer and vocabulary of classes
         self.tokenizer = tokenizer
         self.classes = sorted(list(vocabs["classes_vocab"].keys()))
-        self.opt['num_classes'] = self.classes.shape[0]
+        self.opt['num_classes'] = len(self.classes)
         self.fasttext_model = embedder
         self.opt['embedding_size'] = self.fasttext_model.dim
 
@@ -86,16 +89,43 @@ class IntentModel(TFModel):
 
         self._add_placeholders()
 
+        units = self._build_body()
+
+        self.probs_op = tf.nn.sigmoid(units)
+        cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=units,
+                                                                labels=self.y_ph)
+        self.loss_op = tf.reduce_mean(cross_entropy, name='loss')
+
+        optimizer = None
+        if self.opt['optimizer'] == 'Adam':
+            optimizer = tf.train.AdamOptimizer
+        self.train_op = self._get_train_op(self.loss_op,
+                                           learning_rate=self.learning_rate_ph,
+                                           optimizer=optimizer)
+
+    def _add_placeholders(self):
+        self.X_ph = \
+            tf.placeholder(tf.float32, 
+                           [None, None, self.opt['embedding_size']],
+                           name='features')
+        self.train_mode_ph = tf.placeholder_with_default(False, shape=[])
+        self.dropout_ph = tf.placeholder_with_default(1.0, shape=[])
+        self.learning_rate_ph = \
+            tf.placeholder(dtype=tf.float32, shape=[], name='learning_rate')
+        self.y_ph = \
+            tf.placeholder(tf.float32, [None, self.opt['num_classes']])
+
+    def _build_body(self):
         units = []
-        for i, kern_size_i in enumerate(params['kernel_sizes_cnn']):
+        for i, kern_size_i in enumerate(self.opt['kernel_sizes_cnn']):
             with tf.variable_scope('ConvNet_{}'.format(i)):
                 units_i = \
                     dense_convolutional_network(self.X_ph,
-                                                n_filters=params['filters_cnn'],
+                                                n_filters=self.opt['filters_cnn'],
                                                 n_layers=1,
                                                 filter_width=kern_size_i,
                                                 use_batch_norm=True,
-                                                training=self.train_mode_ph)
+                                                training_ph=self.train_mode_ph)
                 units_i = tf.reduce_max(units_i, axis=1)
                 # units_i = tf.keras.layers.GlobalMaxPool1D()(units_i)
                 units.append(units_i)
@@ -121,30 +151,7 @@ class IntentModel(TFModel):
                                         kernel_initializer=xavier_initializer())  
                 units = tf.layers.batch_normalization(units,
                                                       training=self.train_mode_ph)
-
-        self.probs_op = tf.nn.sigmoid(units)
-        cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=units,
-                                                                labels=self.y_ph)
-        self.loss_op = tf.reduce_mean(cross_entropy, name='loss')
-
-        optimizer = None
-        if self.opt['optimizer'] == 'Adam':
-            optimizer = tf.train.AdamOptimizer
-        self.train_op = self._get_train_op(self.loss_op,
-                                           learning_rate=self.learning_rate_ph,
-                                           optimizer=optimizer)
-
-    def _add_placeholders(self):
-        self.X_ph = \
-            tf.placeholder(tf.float32, 
-                           [None, None, self.opt['embedding_size']],
-                           name='features')
-        self.train_mode_ph = tf.placeholder_with_default(False, shape=[])
-        self.dropout_ph = tf.placeholder_with_default(1.0, shape=[])
-        self.learning_rate_ph = \
-            tf.placeholder(dtype=tf.float32, shape=[], name='learning_rate')
-        self.y_ph = \
-            tf.placeholder(tf.float32, [None, self.opt['num_classes']])
+        return units
 
     def _get_train_op(self, loss, learning_rate, optimizer=None, scope_names=None,
                       clip_norm=1.):
@@ -192,8 +199,12 @@ class IntentModel(TFModel):
     @check_attr_true('train_now')
     def train_on_batch(self, batch):
         batch_x, batch_y = batch
-        x, mask = self.texts2vec(self.tokenizer.infer(batch_x))
+        #print("batch_x =", batch_x)
+        #print("same batch_x =", batch_x)
+        #print("tokenized =", self.tokenizer.infer(batch_x))
+        x, _ = self.texts2vec(self.tokenizer.infer(batch_x))
         y = labels2onehot(batch_y, classes=self.classes)
+        #print("X.shape = {}, y.shape = {}".format(x.shape, y.shape))
 
         feed_dict = self._get_feed_dict(x,
                                         y=y,
@@ -215,8 +226,8 @@ class IntentModel(TFModel):
         Returns:
             array of embedded texts
         """
-        batch_size = len(sentences)
-        max_utt_len = max([len(utt) for utt in utterances] + [2])
+        batch_size = len(utterances)
+        max_utt_len = max([len(utt.split()) for utt in utterances] + [2])
 
         x = np.zeros([batch_size, max_utt_len, self.opt['embedding_size']],
                      dtype=np.float32)
@@ -224,11 +235,11 @@ class IntentModel(TFModel):
                         dtype=np.int32)
         
         for i, utt in enumerate(utterances):
-            x[i, :len(utt)] = self.fasttext_model.infer(utt)
+            x_utt = self.fasttext_model.infer(utt)
+            x[i, :len(x_utt)] = x_utt
             mask[i, :len(utt)] = 1
 
         return x, mask
-
 
     def _get_learning_rate(self):
         #TODO: decaying learning rate
@@ -244,7 +255,7 @@ class IntentModel(TFModel):
             feed_dict[self.y_ph] = y
         if learning_rate is not None:
             feed_dict[self.learning_rate_ph] = learning_rate
-        if self.train_mode and dropout_rate is not None:
+        if train_mode and dropout_rate is not None:
             feed_dict[self.dropout_ph] = dropout_rate
         else:
             feed_dict[self.dropout_ph] = 1.
@@ -256,16 +267,26 @@ class IntentModel(TFModel):
         return self.infer_on_batch(data, *args, **kwargs)
 
     def infer_on_batch(self, batch, prob=False):
-        x, mask = self.texts2vec(self.tokenizer.infer(batch))
+        x, _ = self.texts2vec(self.tokenizer.infer(batch))
 
-        feed_dict = self._get_feed_dict(x, mask, train_mode=False)
-        preds = self.sess.run([self.probs_op], feed_dict=feed_dict) 
+        feed_dict = self._get_feed_dict(x, train_mode=False)
+        #print("x.shape = {}".format(x.shape))
+        preds = self.sess.run(self.probs_op, feed_dict=feed_dict) 
 
         if not prob:
             return probs2labels(preds,
-                                confident_threshold=self.opt['confident_threshold'],
+                                threshold=self.opt['confident_threshold'],
                                 classes=self.classes)
         return preds
+
+    def _forward(self, x):
+        pass
+
+    def _train_step(self, x, y):
+        pass
+
+    def reset(self):
+        pass
 
     def shutdown(self):
         self.sess.close()
