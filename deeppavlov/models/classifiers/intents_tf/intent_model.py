@@ -70,12 +70,10 @@ class IntentModel(TFModel):
             self.sess.run(tf.global_variables_initializer())
 
     def _init_params(self, params={}):
-        self.opt = {"lear_metrics": ["binary_accuracy"],
-                    "confident_threshold": 0.5,
+        self.opt = {"confident_threshold": 0.5,
                     "optimizer": "Adam",
                     "lear_rate": 0.1,
                     "lear_rate_decay": 0.1,
-                    "loss": "binary_crossentropy",
                     "coef_reg_cnn": 1e-4,
                     "coef_reg_den": 1e-4,
                     "dropout_rate": 0.5}
@@ -97,7 +95,7 @@ class IntentModel(TFModel):
                                                 n_layers=1,
                                                 filter_width=kern_size_i,
                                                 use_batch_norm=True,
-                                                training=self.train_flag_ph)
+                                                training=self.train_mode_ph)
                 units_i = tf.keras.layers.GlobalMaxPool1D()(units_i)
                 units.append(units_i)
             
@@ -109,7 +107,7 @@ class IntentModel(TFModel):
                                         self.opt['dense_size'],
                                         kernel_initializer=xavier_initializer())  
                 units = tf.layers.batch_normalization(units,
-                                                      training=self.train_flag_ph)
+                                                      training=self.train_mode_ph)
                 units = tf.nn.relu(units)
             with tf.variable_scope('Layer_2'):
                 units = tf.nn.dropout(units, self.dropout_ph)
@@ -117,21 +115,21 @@ class IntentModel(TFModel):
                                         self.opt['num_classes'],
                                         kernel_initializer=xavier_initializer())  
                 units = tf.layers.batch_normalization(units,
-                                                      training=self.train_flag_ph)
+                                                      training=self.train_mode_ph)
 
-        self.probs = tf.nn.sigmoid(units)
-        self.prediction = tf.argmax(prediction, axis=-1, name='prediction')
+        self.probs_op = tf.nn.sigmoid(units)
+        self.prediction_op = tf.argmax(prediction, axis=-1, name='prediction')
         cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=units,
                                                                 labels=self.y_ph)
-        self.loss = tf.reduce_mean(cross_entropy, name='loss')
-        self.train_op = self._get_train_op(self.loss, self.learning_rate_ph)
+        self.loss_op = tf.reduce_mean(cross_entropy, name='loss')
+        self.train_op = self._get_train_op(self.loss_op, self.learning_rate_ph)
 
     def _add_placeholders(self):
         self.X_ph = \
             tf.placeholder(tf.float32, 
-                           [None, self.opt['text_size'], self.opt['embedding_size']],
+                           [None, None, self.opt['embedding_size']],
                            name='features')
-        self.train_flag_ph = tf.placeholder_with_default(False, shape=[])
+        self.train_mode_ph = tf.placeholder_with_default(False, shape=[])
         self.dropout_ph = tf.placeholder_with_default(1.0, shape=[])
         self.learning_rate_ph = \
             tf.placeholder(dtype=tf.float32, shape=[], name='learning_rate')
@@ -160,10 +158,10 @@ class IntentModel(TFModel):
             return optimizer.apply_gradients(grads_and_vars, name='train_op')
         return optimizer.minimize(loss)
 
-    def texts2vec(self, sentences):
+    def texts2vec(self, utterances):
         """
         Convert texts to vector representations using embedder and
-        padding up to self.opt["text_size"] tokens
+        padding up to max(max_i(len(tokens_i)), 2) tokens
 
         Args:
             sentences: list of texts
@@ -171,37 +169,54 @@ class IntentModel(TFModel):
         Returns:
             array of embedded texts
         """
-        embeddings_batch = []
-        padd_emb = np.zeros(self.opt['embedding_size'])
-        for sen in sentences:
-            tokens = [el for el in sen.split() if el]
-            if len(tokens) > self.opt['text_size']:
-                tokens = tokens[:self.opt['text_size']]
+        batch_size = len(sentences)
+        max_utt_len = max([len(utt) for utt in utterances] + [2])
 
-            embeddings = self.fasttext_model.infer(' '.join(tokens))
+        x = np.zeros([batch_size, max_utt_len, self.opt['embedding_size']],
+                     dtype=np.float32)
+        mask = np.zeros([batch_size, max_utt_len, self.opt['embedding_size']],
+                        dtype=np.int32)
+        
+        for i, utt in enumerate(utterances):
+            x[i, :len(utt)] = self.fasttext_model.infer(utt)
+            mask[i, :len(utt)] = 1
 
-            padd_size = self.opt['text_size'] - len(tokens)
-            if padd_size > 0:
-                embeddings = [padd_emb] * padd_size + embeddings
-
-            embeddings_batch.append(embeddings)
-
-        embeddings_batch = np.asarray(embeddings_batch)
-        return embeddings_batch
+        return x, mask
 
     @check_attr_true('train_now')
     def train_on_batch(self, batch):
         batch_x, batch_y = batch
-        features = self.texts2vec(self.tokenizer.infer(batch_x))
-        onehot_labels = labels2onehot(batch_y, classes=self.classes)
-        self._train_step(features, onehot_labels)
-        loss, _ = self.sess.run([self.loss, self.train_op],
+        x, mask = self.texts2vec(self.tokenizer.infer(batch_x))
+        y = labels2onehot(batch_y, classes=self.classes)
+
+        feed_dict = self._get_feed_dict(x,
+                                        y=y,
+                                        learning_rate=self._get_learning_rate(),
+                                        dropout_rate=self.opt['dropout_rate'],
+                                        train_mode=True)
+        loss, _ = self.sess.run([self.loss_op, self.train_op],
                                 feed_dict=feed_dict)
         return loss
 
-    def _get_feed_dict(self, features):
-        feed_dict = {}
+    def _get_learning_rate(self):
+        #TODO: decaying learning rate
+        return self.opt['lear_rate']
 
+    def _get_feed_dict(self, x, y=None, learning_rate=None, dropout_rate=None,
+                       train_mode=False):
+        feed_dict = {
+            self.X_ph = x,
+            self.train_mode_ph = train_mode
+        }
+        if y is not None:
+            feed_dict[self.y_ph] = y
+        if learning_rate is not None:
+            feed_dict[self.learning_rate_ph] = learning_rate
+        if self.train_mode and dropout_rate is not None:
+            feed_dict[self.dropout_ph] = dropout_rate
+        else:
+            feed_dict[self.dropout_ph] = 1.
+        return feed_dict
 
     def _train_step(self, features, labels):
         return
