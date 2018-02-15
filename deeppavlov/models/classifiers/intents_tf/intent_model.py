@@ -19,9 +19,9 @@ import numpy as np
 from deeppavlov.core.common.attributes import check_attr_true
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
-from deeppavlov.models.classifiers.intents.utils import labels2onehot, log_metrics, proba2labels
 from deeppavlov.models.embedders.fasttext_embedder import FasttextEmbedder
 from deeppavlov.models.tokenizers.nltk_tokenizer import NLTKTokenizer
+from deeppavlov.models.classifiers.intents_tf.utils import labels2onehot, probs2labels
 
 from deeppavlov.core.common.log import get_logger
 
@@ -51,7 +51,7 @@ class IntentModel(TFModel):
 
         # Tokenizer and vocabulary of classes
         self.tokenizer = tokenizer
-        self.classes = np.sort(list(vocabs["classes_vocab"].keys()))
+        self.classes = sorted(list(vocabs["classes_vocab"].keys()))
         self.opt['num_classes'] = self.classes.shape[0]
         self.fasttext_model = embedder
         self.opt['embedding_size'] = self.fasttext_model.dim
@@ -121,7 +121,13 @@ class IntentModel(TFModel):
         cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=units,
                                                                 labels=self.y_ph)
         self.loss_op = tf.reduce_mean(cross_entropy, name='loss')
-        self.train_op = self._get_train_op(self.loss_op, self.learning_rate_ph)
+
+        optimizer = None
+        if self.opt['optimizer'] == 'Adam':
+            optimizer = tf.train.AdamOptimizer
+        self.train_op = self._get_train_op(self.loss_op,
+                                           learning_rate=self.learning_rate_ph,
+                                           optimizer=optimizer)
 
     def _add_placeholders(self):
         self.X_ph = \
@@ -137,7 +143,7 @@ class IntentModel(TFModel):
 
     def _get_train_op(self, loss, learning_rate, optimizer=None, scope_names=None,
                       clip_norm=1.):
-        """Construct training operation using `scope_names` scopes with
+        """Construct training operation that is using `scope_names` scopes with
         - gradient clipping and
         - batch normalization fix.
 
@@ -145,13 +151,11 @@ class IntentModel(TFModel):
             loss: loss function, tf tensor of scalar
             learning_rate: scalar or placeholder
             scope_names: list of trainable scope names
-            optimizer: instance of tf.train.Optimizer, Adam, by default
+            optimizer: instance of tf.train.Optimizer
 
         Returns:
             train_op
         """
-
-        optimizer = optimizer or tf.train.AdamOptimizer
         vars = self._get_trainable_variables(scope_names) 
 
         extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
@@ -180,6 +184,21 @@ class IntentModel(TFModel):
         else:
             return all_vars
 
+    @check_attr_true('train_now')
+    def train_on_batch(self, batch):
+        batch_x, batch_y = batch
+        x, mask = self.texts2vec(self.tokenizer.infer(batch_x))
+        y = labels2onehot(batch_y, classes=self.classes)
+
+        feed_dict = self._get_feed_dict(x,
+                                        y=y,
+                                        learning_rate=self._get_learning_rate(),
+                                        dropout_rate=self.opt['dropout_rate'],
+                                        train_mode=True)
+        loss, _ = self.sess.run([self.loss_op, self.train_op],
+                                feed_dict=feed_dict)
+        return loss
+
     def texts2vec(self, utterances):
         """
         Convert texts to vector representations using embedder and
@@ -205,20 +224,6 @@ class IntentModel(TFModel):
 
         return x, mask
 
-    @check_attr_true('train_now')
-    def train_on_batch(self, batch):
-        batch_x, batch_y = batch
-        x, mask = self.texts2vec(self.tokenizer.infer(batch_x))
-        y = labels2onehot(batch_y, classes=self.classes)
-
-        feed_dict = self._get_feed_dict(x,
-                                        y=y,
-                                        learning_rate=self._get_learning_rate(),
-                                        dropout_rate=self.opt['dropout_rate'],
-                                        train_mode=True)
-        loss, _ = self.sess.run([self.loss_op, self.train_op],
-                                feed_dict=feed_dict)
-        return loss
 
     def _get_learning_rate(self):
         #TODO: decaying learning rate
@@ -252,88 +257,10 @@ class IntentModel(TFModel):
         preds = self.sess.run([self.probs_op], feed_dict=feed_dict) 
 
         if not prob:
-            return proba2labels(preds,
+            return probs2labels(preds,
                                 confident_threshold=self.opt['confident_threshold'],
                                 classes=self.classes)
         return preds
-
-    def cnn_model(self, params):
-        """
-        Build un-compiled model of shallow-and-wide CNN
-        Args:
-            params: dictionary of parameters for NN
-
-        Returns:
-            Un-compiled model
-        """
-
-        inp = Input(shape=(params['text_size'], params['embedding_size']))
-
-        outputs = []
-        for i in range(len(params['kernel_sizes_cnn'])):
-            output_i = Conv1D(params['filters_cnn'], kernel_size=params['kernel_sizes_cnn'][i],
-                              activation=None,
-                              kernel_regularizer=l2(params['coef_reg_cnn']),
-                              padding='same')(inp)
-            output_i = BatchNormalization()(output_i)
-            output_i = Activation('relu')(output_i)
-            output_i = GlobalMaxPooling1D()(output_i)
-            outputs.append(output_i)
-
-        output = concatenate(outputs, axis=1)
-
-        output = Dropout(rate=params['dropout_rate'])(output)
-        output = Dense(params['dense_size'], activation=None,
-                       kernel_regularizer=l2(params['coef_reg_den']))(output)
-        output = BatchNormalization()(output)
-        output = Activation('relu')(output)
-        output = Dropout(rate=params['dropout_rate'])(output)
-        output = Dense(self.n_classes, activation=None,
-                       kernel_regularizer=l2(params['coef_reg_den']))(output)
-        output = BatchNormalization()(output)
-        act_output = Activation('sigmoid')(output)
-        model = Model(inputs=inp, outputs=act_output)
-        return model
-
-    def dcnn_model(self, params):
-        """
-        Build un-compiled model of deep CNN
-        Args:
-            params: dictionary of parameters for NN
-
-        Returns:
-            Un-compiled model
-        """
-
-        if type(self.opt['filters_cnn']) is str:
-            self.opt['filters_cnn'] = list(map(int, self.opt['filters_cnn'].split()))
-
-        inp = Input(shape=(params['text_size'], params['embedding_size']))
-
-        output = inp
-
-        for i in range(len(params['kernel_sizes_cnn'])):
-            output = Conv1D(params['filters_cnn'][i], kernel_size=params['kernel_sizes_cnn'][i],
-                            activation=None,
-                            kernel_regularizer=l2(params['coef_reg_cnn']),
-                            padding='same')(output)
-            output = BatchNormalization()(output)
-            output = Activation('relu')(output)
-            output = MaxPooling1D()(output)
-
-        output = GlobalMaxPooling1D()(output)
-        output = Dropout(rate=params['dropout_rate'])(output)
-        output = Dense(params['dense_size'], activation=None,
-                       kernel_regularizer=l2(params['coef_reg_den']))(output)
-        output = BatchNormalization()(output)
-        output = Activation('relu')(output)
-        output = Dropout(rate=params['dropout_rate'])(output)
-        output = Dense(self.n_classes, activation=None,
-                       kernel_regularizer=l2(params['coef_reg_den']))(output)
-        output = BatchNormalization()(output)
-        act_output = Activation('sigmoid')(output)
-        model = Model(inputs=inp, outputs=act_output)
-        return model
 
     def shutdown(self):
         self.sess.close()
