@@ -14,27 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import sys
-import inspect
-
-from typing import Dict
 import numpy as np
-from keras.layers import Dense, Input, concatenate, Activation
-from keras.layers.convolutional import Conv1D
-from keras.layers.core import Dropout
-from keras.layers.normalization import BatchNormalization
-from keras.layers.pooling import GlobalMaxPooling1D, MaxPooling1D
-from keras.models import Model
-from keras.regularizers import l2
 
-from deeppavlov.core.common.errors import ConfigError
 from deeppavlov.core.common.attributes import check_attr_true
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
 from deeppavlov.models.classifiers.intents.utils import labels2onehot, log_metrics, proba2labels
 from deeppavlov.models.embedders.fasttext_embedder import FasttextEmbedder
-from deeppavlov.models.classifiers.intents.utils import md5_hashsum
 from deeppavlov.models.tokenizers.nltk_tokenizer import NLTKTokenizer
+
 from deeppavlov.core.common.log import get_logger
 
 
@@ -115,18 +103,18 @@ class IntentModel(TFModel):
             array of embedded texts
         """
         embeddings_batch = []
+        padd_emb = np.zeros(self.opt['embedding_size'])
         for sen in sentences:
             tokens = [el for el in sen.split() if el]
             if len(tokens) > self.opt['text_size']:
-                tokens = tokens[:self.opt['text_size']]
+                tokens = tokens[:self.opt['text_size']
 
             embeddings = self.fasttext_model.infer(' '.join(tokens))
-            if len(tokens) < self.opt['text_size']:
-                pads = [np.zeros(self.opt['embedding_size'])
-                        for _ in range(self.opt['text_size'] - len(tokens))]
-                embeddings = pads + embeddings
 
-            embeddings = np.asarray(embeddings)
+            padd_size = self.opt['text_size'] - len(tokens)
+            if padd_size > 0:
+                embeddings = [padd_emb] * padd_size + embeddings
+
             embeddings_batch.append(embeddings)
 
         embeddings_batch = np.asarray(embeddings_batch)
