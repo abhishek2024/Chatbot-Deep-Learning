@@ -117,17 +117,19 @@ class TFIntentModel(TFModel):
 
     def _build_body(self):
         units = []
+        l2 = tf.contrib.layers.l2_regularizer(self.opt['coef_reg_cnn'])
         for i, kern_size_i in enumerate(self.opt['kernel_sizes_cnn']):
             with tf.variable_scope('ConvNet_{}'.format(i)):
-                units_i = \
-                    dense_convolutional_network(self.X_ph,
-                                                n_filters=self.opt['filters_cnn'],
-                                                n_layers=1,
-                                                filter_width=kern_size_i,
-                                                use_batch_norm=True,
-                                                training_ph=self.train_mode_ph)
+                units_i = tf.layers.conv1d(self.X_ph,
+                                           filters=self.opt['filters_cnn'],
+                                           kernel_size=kern_size_i,
+                                           padding='same',
+                                           kernel_regularizer=l2,
+                                           kernel_initializer=xavier_initializer())
+                units_i = tf.layers.batch_normalization(units_i,
+                                                        training=self.train_mode_ph)
+                units_i = tf.nn.relu(units_i)
                 units_i = tf.reduce_max(units_i, axis=1)
-                # units_i = tf.keras.layers.GlobalMaxPool1D()(units_i)
                 units.append(units_i)
             
         units = tf.concat(units, 1) 
@@ -199,12 +201,8 @@ class TFIntentModel(TFModel):
     @check_attr_true('train_now')
     def train_on_batch(self, batch):
         batch_x, batch_y = batch
-        #print("batch_x =", batch_x)
-        #print("same batch_x =", batch_x)
-        #print("tokenized =", self.tokenizer.infer(batch_x))
         x, _ = self.texts2vec(self.tokenizer.infer(batch_x))
         y = labels2onehot(batch_y, classes=self.classes)
-        #print("X.shape = {}, y.shape = {}".format(x.shape, y.shape))
 
         feed_dict = self._get_feed_dict(x,
                                         y=y,
@@ -270,7 +268,6 @@ class TFIntentModel(TFModel):
         x, _ = self.texts2vec(self.tokenizer.infer(batch))
 
         feed_dict = self._get_feed_dict(x, train_mode=False)
-        #print("x.shape = {}".format(x.shape))
         preds = self.sess.run(self.probs_op, feed_dict=feed_dict) 
 
         if not prob:
