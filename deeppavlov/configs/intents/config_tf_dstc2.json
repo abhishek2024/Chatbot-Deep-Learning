@@ -39,18 +39,19 @@
     "save_path": "../download/intents_tf_small/intent_cnn",
     "train_now": true,
     "kernel_sizes_cnn": [
+	  2,
 	  3,
 	  4,
 	  5
     ],
-    "filters_cnn": 256,
-    "confident_threshold": 0.6,
+    "filters_cnn": 128,
+    "confident_threshold": 0.5,
     "optimizer": "Adam",
-    "lear_rate": 0.05,
-    "lear_rate_decay": 0.1,
-    "coef_reg_cnn": 1e-4,
-    "coef_reg_den": 1e-4,
-    "dropout_rate": 0.3,
+    "lear_rate": 0.1,
+    "lear_rate_decay": 0.05,
+    "coef_reg_cnn": 1e-3,
+    "coef_reg_den": 1e-2,
+    "dropout_rate": 0.6,
     "dense_size": 64,
     "embedder": {
       "name": "fasttext",
@@ -72,7 +73,7 @@
     ],
     "validation_patience": 10,
     "val_every_n_epochs": 3,
-	"log_every_n_epochs": 1,
+	"log_every_n_epochs": 3,
     "show_examples": false
   }
 }
