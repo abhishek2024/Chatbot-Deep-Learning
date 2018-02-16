@@ -108,8 +108,7 @@ class GoalOrientedBot(Inferable, Trainable):
         # Intent features
         intent_features = []
         if hasattr(self.intent_classifier, 'infer'):
-            intent_features = self.intent_classifier.infer(tokenized,
-                                                           predict_proba=True).ravel()
+            intent_features = self.intent_classifier.infer(tokenized, True).ravel()
             if self.debug:
                 log.debug("Predicted intent = `{}`".format(
                     self.intent_classifier.infer(tokenized)))

@@ -233,9 +233,10 @@ class TFIntentModel(TFModel):
                         dtype=np.int32)
         
         for i, utt in enumerate(utterances):
-            x_utt = self.fasttext_model.infer(utt)
-            x[i, :len(x_utt)] = x_utt
-            mask[i, :len(utt)] = 1
+            if utt:
+                x_utt = self.fasttext_model.infer(utt)
+                x[i, :len(x_utt)] = x_utt
+                mask[i, :len(utt)] = 1
 
         return x, mask
 

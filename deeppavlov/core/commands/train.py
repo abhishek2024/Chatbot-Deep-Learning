@@ -79,6 +79,7 @@ def train_model_from_config(config_path: str):
 
     if callable(getattr(model, 'train_on_batch', None)):
         _train_batches(model, dataset, train_config, metrics_functions)
+        #pass
     elif callable(getattr(model, 'fit', None)):
         _fit(model, dataset, train_config)
     else:
