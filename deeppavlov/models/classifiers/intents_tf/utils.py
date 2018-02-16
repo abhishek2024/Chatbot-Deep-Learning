@@ -71,8 +71,8 @@ def probs2labels(probs, threshold, classes):
     for sample in probs:
         greater_thr = sample > threshold
         if np.sum(greater_thr) > 0:
-            res.append(classes[greater_thr])
+            res.append(list(classes[greater_thr]))
         else:
-            res.append(classes[np.argmax(sample)])
+            res.append([classes[np.argmax(sample)]])
     return res
 
