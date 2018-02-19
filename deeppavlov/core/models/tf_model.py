@@ -116,6 +116,7 @@ class TFModel(Trainable, Inferable, metaclass=TfModelMeta):
 
     def get_saving_variables(self):
         def _name(name):
+            #print("Renaming `{}`".format(name))
             if self.scope_name is not None:
                 name = name.lstrip(self.scope_name + '/')
             return name.rstrip(':0')

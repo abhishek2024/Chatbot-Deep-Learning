@@ -40,22 +40,29 @@ class GoalOrientedBotNetwork(TFModel):
                          train_now=train_now,
                          mode=self.opt['mode'])
 
+        #log.debug("dir(GoBotNetwork) =", dir(self))
         # initialize parameters
         self._init_params()
         # build computational graph
         self._build_graph()
-        # initialize session
-        self.sess = tf.Session()
+        # reset state
+        self.reset_state()
 
+    def init_session(self, session=None):
+        self.sess = session or tf.Session()
         if self.get_checkpoint_state():
         #TODO: save/load params to json, here check compatability
-            log.info("[initializing `{}` from saved]".format(self.__class__.__name__))
+            log.info("[initializing `{}` from saved]"\
+                     .format(self.__class__.__name__))
             self.load()
         else:
-            log.info("[initializing `{}` from scratch]".format(self.__class__.__name__))
-            self.sess.run(tf.global_variables_initializer())
-
-        self.reset_state()
+            log.info("[initializing `{}` from scratch]"\
+                     .format(self.__class__.__name__))
+            log.debug("Scope `{}` global variables = {}"\
+                      .format(self.scope_name,
+                              tf.global_variables(self.scope_name)))
+            self.sess.run(tf.variables_initializer(
+                tf.global_variables(self.scope_name)))
 
     def run_sess(self):
         pass
@@ -142,7 +149,9 @@ class GoalOrientedBotNetwork(TFModel):
 
         optimizer = optimizer or tf.train.AdamOptimizer
         optimizer = optimizer(learning_rate)
-        grads_and_vars = optimizer.compute_gradients(loss, tf.trainable_variables())
+        grads_and_vars = \
+            optimizer.compute_gradients(loss, 
+                                        tf.trainable_variables(self.scope_name))
         grads_and_vars = [(tf.clip_by_norm(grad, clip_norm), var)\
                           for grad, var in grads_and_vars]
         return optimizer.apply_gradients(grads_and_vars, name='train_op')

@@ -17,6 +17,7 @@ limitations under the License.
 import re
 
 import numpy as np
+import tensorflow as tf
 from typing import Type
 
 from deeppavlov.core.commands.utils import expand_path
@@ -69,6 +70,15 @@ class GoalOrientedBot(Inferable, Trainable):
         self.tracker = tracker
         self.network = network
         self.word_vocab = vocabs['word_vocab']
+
+        # initalize session
+        self.sess = tf.Session()
+        #self.sess = None
+        if self.slot_filler is not None:
+            self.slot_filler.init_session(self.sess)
+        if self.intent_classifier is not None:
+            self.intent_classifier.init_session(self.sess)
+        self.network.init_session(self.sess)
 
         template_path = expand_path(template_path)
         log.info("[loading templates from {}]".format(template_path))
@@ -244,6 +254,7 @@ class GoalOrientedBot(Inferable, Trainable):
     def save(self):
         """Save the parameters of the model to a file."""
         self.network.save()
+        self.intent_classifier.save()
 
     def shutdown(self):
         self.network.shutdown()
