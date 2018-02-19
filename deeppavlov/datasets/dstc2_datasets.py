@@ -60,10 +60,10 @@ class DstcNerDataset(Dataset):
         processed_data_part = list()
         for sample in data_part:
             for utterance in sample:
-                if 'intents' not in utterance or len(utterance['text']) < 1:
+                if 'raw_intents' not in utterance or len(utterance['text']) < 1:
                     continue
                 text = utterance['text']
-                intents = utterance.get('intents', dict())
+                intents = utterance.get('raw_intents', dict())
                 slots = list()
                 for intent in intents:
 

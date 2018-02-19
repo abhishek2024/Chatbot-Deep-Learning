@@ -75,8 +75,19 @@ class DSTC2DatasetReader(DatasetReader):
 
     @staticmethod
     def _format_turn(turn):
+        def _format_intents(intents):
+            if not intents:
+                yield 'unknown'
+            for intent in intents:
+                if not intent['slots']:
+                    yield intent['act']
+                for slot in intent['slots']:
+                    slot_value = slot[0] if slot[0] != 'slot' else slot[1]
+                    yield intent['act'] + '_' + slot_value
+
         x = {'text': turn[0]['text'],
-             'intents': turn[0]['dialog_acts']}
+             'raw_intents': turn[0]['dialog_acts'],
+             'intents': list(_format_intents(turn[0]['dialog_acts']))}
         if turn[0].get('db_result') is not None:
             x['db_result'] = turn[0]['db_result']
         if turn[0].get('episode_done'):

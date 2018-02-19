@@ -61,24 +61,10 @@ class IntentDataset(Dataset):
         new_data['test'] = []
 
         for field in ['train', 'valid', 'test']:
-            for turn in self.data[field]:
-                reply = turn[0]
-                curr_intents = []
-                if reply['intents']:
-                    for intent in reply['intents']:
-                        for slot in intent['slots']:
-                            if slot[0] == 'slot':
-                                curr_intents.append(intent['act'] + '_' + slot[1])
-                            else:
-                                curr_intents.append(intent['act'] + '_' + slot[0])
-                        if len(intent['slots']) == 0:
-                            curr_intents.append(intent['act'])
-                else:
-                    if reply['text']:
-                        curr_intents.append('unknown')
-                    else:
-                        continue
-                new_data[field].append((reply['text'], curr_intents))
+            for context, response in self.data[field]:
+                if not context['text']:
+                    continue
+                new_data[field].append((context['text'], context['intents']))
 
         self.data = new_data
 
