@@ -34,10 +34,10 @@
     }
   },
   "model": {
+    "train_now": true,
     "name": "tf_intent_model",
     "load_path": "../download/intents_tf2/intent_cnn",
     "save_path": "../download/intents_tf2/intent_cnn",
-    "train_now": true,
     "kernel_sizes_cnn": [
 	  2,
 	  3,

@@ -95,7 +95,8 @@ class TFModel(Trainable, Inferable, metaclass=TfModelMeta):
 
     def save(self):
         save_path = str(self.save_path)
-        saver = tf.train.Saver()#name=self.graph)
+        var_list = self.get_saving_variables()
+        saver = tf.train.Saver(var_list)
         log.info('[saving model to {}]'.format(save_path))
         saver.save(self.sess, save_path)
         log.info('model saved')
@@ -113,6 +114,19 @@ class TFModel(Trainable, Inferable, metaclass=TfModelMeta):
         else:
             log.warning('No `load_path` is provided for {}'.format(self.__class__.__name__))
 
+    def get_saving_variables(self):
+        def _name(name):
+            if self.scope_name is not None:
+                name = name.lstrip(self.scope_name + '/')
+            return name.rstrip(':0')
+        var_list = {_name(var.name): var\
+                    for var in tf.global_variables(self.scope_name)}
+        print("Model variables =", tf.model_variables())
+        print("Restoring variables :")
+        for name in var_list:
+            print(name)
+        return var_list
+
     @overrides
     def load(self):
         """
@@ -123,18 +137,8 @@ class TFModel(Trainable, Inferable, metaclass=TfModelMeta):
             log.info('[restoring checkpoint from {}]'.format(ckpt.model_checkpoint_path))
             print("TFModel scope name =", self.scope_name)
             print("Session =", self.sess)
+            var_list = self.get_saving_variables()
             #self._saver()\
-            var_list = {var.name: var\
-                        for var in tf.global_variables(self.scope_name)}
-            if self.scope_name is not None:
-                var_list = {name.lstrip(self.scope_name + '/'): var\
-                            for name, var in var_list.items()}
-            var_list = {name.rstrip(':0'): var\
-                        for name, var in var_list.items()}
-            log.debug("Modified var names = {}".format(list(var_list.items())[0]))
-            print("Restoring variables :")
-            for name in var_list:
-                print(name)
             self._saver(var_list=var_list)\
                 .restore(sess=self.sess, save_path=ckpt.model_checkpoint_path)
             log.info('session restored')
