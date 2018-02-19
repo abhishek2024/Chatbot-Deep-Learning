@@ -61,16 +61,18 @@ class TFIntentModel(TFModel):
 
         # build computational graph
         self._build_graph()
-        # initialize session
-        self.sess = tf.Session()
-        
+        self.init_session()
+
+    def init_session(self, session=None):
+        self.sess = session or tf.Session()
         class_name = self.__class__.__name__
         if self.get_checkpoint_state():
             log.info("[initializing `{}` from saved]".format(class_name))
             self.load()
         else:
             log.info("[initializing `{}` from scratch]".format(class_name))
-            self.sess.run(tf.global_variables_initializer())
+            self.sess.run(tf.variables_initializer(
+                tf.global_variables(self.scope_name)))
 
     def _init_params(self, params={}):
         self.opt = {"confident_threshold": 0.5,
@@ -170,6 +172,7 @@ class TFIntentModel(TFModel):
         Returns:
             train_op
         """
+        scope_names = [self.scope_name]
         vars = self._get_trainable_variables(scope_names) 
 
         extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)

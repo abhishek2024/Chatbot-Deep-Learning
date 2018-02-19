@@ -1,5 +1,4 @@
 """
-Copyright 2017 Neural Networks and Deep Learning lab, MIPT
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -37,6 +36,8 @@ log = get_logger(__name__)
 
 
 class TFModel(Trainable, Inferable, metaclass=TfModelMeta):
+
+    meta_args = [False]
     def __init__(self, **kwargs):
         self._saver = tf.train.Saver
         super().__init__(**kwargs)
@@ -94,7 +95,7 @@ class TFModel(Trainable, Inferable, metaclass=TfModelMeta):
 
     def save(self):
         save_path = str(self.save_path)
-        saver = tf.train.Saver()
+        saver = tf.train.Saver()#name=self.graph)
         log.info('[saving model to {}]'.format(save_path))
         saver.save(self.sess, save_path)
         log.info('model saved')
@@ -120,7 +121,22 @@ class TFModel(Trainable, Inferable, metaclass=TfModelMeta):
         ckpt = self.get_checkpoint_state()
         if ckpt and ckpt.model_checkpoint_path:
             log.info('[restoring checkpoint from {}]'.format(ckpt.model_checkpoint_path))
-            self._saver().restore(self.sess, ckpt.model_checkpoint_path)
+            print("TFModel scope name =", self.scope_name)
+            print("Session =", self.sess)
+            #self._saver()\
+            var_list = {var.name: var\
+                        for var in tf.global_variables(self.scope_name)}
+            if self.scope_name is not None:
+                var_list = {name.lstrip(self.scope_name + '/'): var\
+                            for name, var in var_list.items()}
+            var_list = {name.rstrip(':0'): var\
+                        for name, var in var_list.items()}
+            log.debug("Modified var names = {}".format(list(var_list.items())[0]))
+            print("Restoring variables :")
+            for name in var_list:
+                print(name)
+            self._saver(var_list=var_list)\
+                .restore(sess=self.sess, save_path=ckpt.model_checkpoint_path)
             log.info('session restored')
         else:
             log.error('checkpoint not found!')
