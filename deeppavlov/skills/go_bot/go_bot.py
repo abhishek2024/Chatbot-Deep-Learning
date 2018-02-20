@@ -74,8 +74,6 @@ class GoalOrientedBot(Inferable, Trainable):
         # initalize session
         self.sess = tf.Session()
         #self.sess = None
-        if self.slot_filler is not None:
-            self.slot_filler.init_session(self.sess)
         if self.intent_classifier is not None:
             intents_op = self.intent_classifier._build_graph()
             self.network._build_graph(intents_op=intents_op)
@@ -287,7 +285,6 @@ class GoalOrientedBot(Inferable, Trainable):
 
     def shutdown(self):
         self.network.shutdown()
-        self.slot_filler.shutdown()
 
     def load(self):
         pass

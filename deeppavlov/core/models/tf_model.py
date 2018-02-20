@@ -138,10 +138,7 @@ class TFModel(Trainable, Inferable, metaclass=TfModelMeta):
         ckpt = self.get_checkpoint_state()
         if ckpt and ckpt.model_checkpoint_path:
             log.info('[restoring checkpoint from {}]'.format(ckpt.model_checkpoint_path))
-            print("TFModel scope name =", self.scope_name)
-            print("Session =", self.sess)
             var_list = self.get_saving_variables()
-            #self._saver()\
             self._saver(var_list=var_list)\
                 .restore(sess=self.sess, save_path=ckpt.model_checkpoint_path)
             log.info('session restored')

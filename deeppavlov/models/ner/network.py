@@ -19,6 +19,7 @@ from overrides import overrides
 from pathlib import Path
 
 import numpy as np
+import re
 import tensorflow as tf
 from tensorflow.contrib.layers import xavier_initializer
 
@@ -40,7 +41,7 @@ MODEL_FILE_NAME = 'ner_model'
 log = get_logger(__name__)
 
 
-class NerNetwork:
+class NerNetwork(SimpleTFModel):
     def __init__(self,
                  word_vocab,
                  char_vocab,
@@ -167,7 +168,7 @@ class NerNetwork:
         self._entity_of_interest = entity_of_interest
         self.verbouse = verbouse
         self._mask = mask_ph
-        sess.run(tf.global_variables_initializer())
+        sess.run(tf.variables_initializer(tf.global_variables(self.scope_name)))
 
     def tokens_batch_to_numpy_batch(self, batch_x, batch_y=None):
         # Determine dimensions
@@ -393,14 +394,25 @@ class NerNetwork:
         """
         Save model to model_file_path
         """
-        saver = tf.train.Saver()
+        var_list = self.get_saving_variables()
+        saver = tf.train.Saver(var_list)
         saver.save(self._sess, str(model_file_path))
+
+    def get_saving_variables(self):
+        def _name(name):
+            if self.scope_name is not None:
+                name = re.sub(self.scope_name + '(?:_\d+)?/', '', name)
+            return name.rstrip(':0')
+        var_list = {_name(var.name): var\
+                    for var in tf.global_variables(self.scope_name)}
+        return var_list
 
     def load(self, model_file_path):
         """
         Load model from the model_file_path
         """
-        saver = tf.train.Saver()
+        var_list = self.get_saving_variables()
+        saver = tf.train.Saver(var_list)
         saver.restore(self._sess, str(model_file_path))
 
     @staticmethod
@@ -438,7 +450,7 @@ class NerNetwork:
             optimizer = tf.train.AdamOptimizer
 
         # For batch norm it is necessary to update running averages
-        extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS, self.scope_name)
         with tf.control_dependencies(extra_update_ops):
             train_op = optimizer(learning_rate).minimize(loss, var_list=variables)
         return train_op

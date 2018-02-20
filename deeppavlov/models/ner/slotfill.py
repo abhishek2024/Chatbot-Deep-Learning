@@ -28,12 +28,14 @@ from deeppavlov.core.models.tf_model import SimpleTFModel
 from deeppavlov.models.ner.network import NerNetwork
 from deeppavlov.core.data.utils import tokenize_reg, download, download_decompress
 from deeppavlov.core.common.log import get_logger
+from deeppavlov.core.models.inferable import Inferable
+from deeppavlov.core.models.trainable import Trainable
 
 
 log = get_logger(__name__)
 
 @register('dstc_slotfilling')
-class DstcSlotFillingNetwork(SimpleTFModel):
+class DstcSlotFillingNetwork(Inferable, Trainable):
     def __init__(self, **kwargs):
 
         save_path = kwargs.get('save_path', None)
@@ -81,7 +83,6 @@ class DstcSlotFillingNetwork(SimpleTFModel):
         if self.load_path is not None:
             self.load()
 
-    @overrides
     def load(self):
         path = str(self.load_path.absolute())
         # Check presence of the model files
@@ -89,7 +90,6 @@ class DstcSlotFillingNetwork(SimpleTFModel):
             log.info('[restoring model from {}]'.format(path))
             self._ner_network.load(path)
 
-    @overrides
     def save(self):
         path = str(self.save_path.absolute())
         log.info('[saving model to {}]'.format(path))
@@ -99,7 +99,6 @@ class DstcSlotFillingNetwork(SimpleTFModel):
     def train_on_batch(self, batch):
         self._ner_network.train_on_batch(batch, **self.train_parameters)
 
-    @overrides
     def infer(self, instance, *args, **kwargs):
         if isinstance(instance, str):
             instance = instance.strip()

@@ -64,7 +64,7 @@
       "train_now": true,
 	  "gradient_flow": true,
       "name": "go_bot_rnn",
-      "load_path": "go_bot_df/model",
+      "load_path": "go_bot/model",
       "save_path": "go_bot_df/model",
       "learning_rate": 0.001,
       "hidden_dim": 128,
@@ -74,7 +74,21 @@
       "use_action_mask": false,
       "action_size": 45
     },
-    "slot_filler": null,
+    "slot_filler": {
+      "name": "dstc_slotfilling",
+      "save_path": "ner/dstc_ner_model",
+      "load_path": "ner/dstc_ner_model",
+      "filter_width": 7,
+      "embeddings_dropout": true,
+      "n_filters": [
+		64,
+		64
+	  ],
+	  "token_embeddings_dim": 64,
+	  "char_embeddings_dim": 32,
+	  "use_batch_norm": true,
+	  "use_crf": true
+	},
     "intent_classifier": {
       "train_now": true,
 	  "gradient_flow": true,

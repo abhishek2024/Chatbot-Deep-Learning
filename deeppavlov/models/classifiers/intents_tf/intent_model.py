@@ -182,7 +182,8 @@ class TFIntentModel(TFModel):
         scope_names = [self.scope_name]
         vars = self._get_trainable_variables(scope_names) 
 
-        extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS,
+                                             scope=self.scope_name)
         with tf.control_dependencies(extra_update_ops):
             with tf.variable_scope('Optimizer'):
 
