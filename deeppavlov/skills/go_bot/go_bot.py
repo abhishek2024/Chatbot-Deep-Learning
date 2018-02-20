@@ -77,7 +77,11 @@ class GoalOrientedBot(Inferable, Trainable):
         if self.slot_filler is not None:
             self.slot_filler.init_session(self.sess)
         if self.intent_classifier is not None:
+            intents_op = self.intent_classifier._build_graph()
+            self.network._build_graph(intents_op=intents_op)
             self.intent_classifier.init_session(self.sess)
+        else:
+            self.network._build_graph()
         self.network.init_session(self.sess)
 
         template_path = expand_path(template_path)
@@ -100,7 +104,7 @@ class GoalOrientedBot(Inferable, Trainable):
         # }
         # self.network = GoalOrientedBotNetwork(opt)
 
-    def _encode_context(self, context, db_result=None):
+    def _encode_context(self, context, db_result=None, intents=False):
         # tokenize input
         tokenized = ' '.join(self.tokenizer.infer(context)).strip()
         if self.debug:
@@ -117,7 +121,7 @@ class GoalOrientedBot(Inferable, Trainable):
 
         # Intent features
         intent_features = []
-        if hasattr(self.intent_classifier, 'infer'):
+        if intents and hasattr(self.intent_classifier, 'infer'):
             intent_features = self.intent_classifier.infer(tokenized, True).ravel()
             if self.debug:
                 log.debug("Predicted intent = `{}`".format(
@@ -151,8 +155,11 @@ class GoalOrientedBot(Inferable, Trainable):
 
             log.debug(debug_msg)
 
-        return np.hstack((bow_features, emb_features, intent_features,
-                          state_features, context_features, self.prev_action))
+        features = np.hstack((bow_features, emb_features, state_features,
+                              context_features, self.prev_action))
+        if intents:
+            return features, intent_features
+        return features
 
     def _encode_response(self, act):
         return self.templates.actions.index(act)
@@ -187,13 +194,15 @@ class GoalOrientedBot(Inferable, Trainable):
     def train_on_batch(self, batch):
         for dialog in zip(*batch):
             self.reset()
-            d_features, d_actions, d_masks = [], [], []
+            d_features, d_actions, d_masks, d_texts, d_intents = [], [], [], [], []
             for context, response in zip(*dialog):
                 features = self._encode_context(context['text'],
                                                 context.get('db_result'))
                 if context.get('db_result') is not None:
                     self.db_result = context['db_result']
                 d_features.append(features)
+                d_texts.append(context['text'])
+                d_intents.append(context['intents'])
 
                 action_id = self._encode_response(response['act'])
                 # previous action is teacher-forced here
@@ -203,17 +212,37 @@ class GoalOrientedBot(Inferable, Trainable):
 
                 d_masks.append(self._action_mask())
 
-            self.network.train(d_features, d_actions, d_masks)
+            #self.network._train_step(d_features, d_actions, d_masks)
+            fetches1, feeds1 = \
+                self.intent_classifier.build_batch(d_texts, d_intents)
+            fetches2, feeds2 = \
+                self.network.build_batch(d_features, d_masks, d_actions)
+            self.sess.run(fetches1+fetches2, feed_dict={**feeds1, **feeds2})
 
     def infer_on_batch(self, xs):
         return [self._infer_dialog(x) for x in xs]
 
     def _infer(self, context, db_result=None, prob=False):
-        probs = self.network.infer(
-            self._encode_context(context, db_result),
-            self._action_mask(),
-            prob=True
-        )
+        #features, intents = self._encode_context(context, db_result, intents=True)
+        #probs = self.network.infer(
+        #    features,
+        #    intents,
+        #    self._action_mask(),
+        #    prob=True
+        #)
+
+        features = self._encode_context(context, db_result)
+        fetches1, feeds1 = self.intent_classifier.build_batch([context])
+        #print("Feeds1 shapes=", [(v.name, v.get_shape())\
+        #                         for v in feeds1 if hasattr(v, 'get_shape')])
+        fetches2, feeds2 = \
+            self.network.build_batch([features], [self._action_mask()])
+        #print(feeds1, feeds2)
+        #print("Feeds2 shapes=", [(v.name, v.get_shape())\
+        #                         for v in feeds2 if hasattr(v, 'get_shape')])
+        #print(list(({**feeds1, **feeds2}).keys()), fetches1 + fetches2)
+        probs = self.sess.run(fetches1+fetches2, feed_dict={**feeds1, **feeds2})[0]
+
         pred_id = np.argmax(probs)
         if db_result is not None:
             self.db_result = db_result

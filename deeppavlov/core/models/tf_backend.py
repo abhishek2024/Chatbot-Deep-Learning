@@ -26,21 +26,22 @@ ROOT_VARIABLE_SCOPE = tf.get_variable_scope()
 def _scope_wrap(func, scope_name):
     @wraps(func)
     def _wrapped(*args, **kwargs):
-        print("Wrapping `{}` in `{}` variable scope"\
-              .format(func.__name__, scope_name))
+        #print("Wrapping `{}` in `{}` variable scope"\
+        #      .format(func.__name__, scope_name))
         #with tf.name_scope(graph):
         #if tf.contrib.framework.get_name_scope() == scope_name:
-        print("Current scope = `{}`".format(tf.get_variable_scope().name))
-        if func.__name__ in ('_get_train_op', 'load'):
-            print("Wrapping in global variable scope")
-            with tf.variable_scope(ROOT_VARIABLE_SCOPE):
-                return func(*args, **kwargs)
+        #print("Current scope = `{}`".format(tf.get_variable_scope().name))
+        #if func.__name__ in ('_get_train_op', 'load'):
+            #print("Wrapping in global variable scope")
+        #    with tf.variable_scope(ROOT_VARIABLE_SCOPE):
+        #        return func(*args, **kwargs)
+        #if tf.get_variable_scope().name.contains(scope_name):
         if tf.get_variable_scope().name == scope_name:
-            print("Not wrapping!")
+            #print("Not wrapping!")
         #if tf.get_variable_scope().name != "":
             return func(*args, **kwargs)
         else:
-            print("Wrapping!")
+            #print("Wrapping!")
             with tf.variable_scope(scope_name):
                 return func(*args, **kwargs)
     return _wrapped
@@ -49,7 +50,7 @@ def _scope_wrap(func, scope_name):
 def _graph_wrap(func, graph):
     @wraps(func)
     def _wrapped(*args, **kwargs):
-        print("Wrapping `{}` in `{}` graph".format(func.__name__, graph))
+        #print("Wrapping `{}` in `{}` graph".format(func.__name__, graph))
         with graph.as_default():
             return func(*args, **kwargs)
     return _wrapped

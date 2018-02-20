@@ -62,19 +62,22 @@
     "template_path": "dstc2/dstc2-templates.txt",
     "network": {
       "train_now": true,
+	  "gradient_flow": true,
       "name": "go_bot_rnn",
       "load_path": "go_bot_df/model",
       "save_path": "go_bot_df/model",
       "learning_rate": 0.001,
       "hidden_dim": 128,
 	  "dense_size": 64,
-      "obs_size": 530,
+      "obs_size": 502,
+	  "intents_size": 28,
       "use_action_mask": false,
       "action_size": 45
     },
     "slot_filler": null,
     "intent_classifier": {
       "train_now": true,
+	  "gradient_flow": true,
       "name": "tf_intent_model",
       "load_path": "../download/intents_tf2/intent_cnn",
       "save_path": "../download/intents_tf2_df/intent_cnn",

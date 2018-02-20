@@ -43,10 +43,12 @@ class GoalOrientedBotNetwork(TFModel):
         #log.debug("dir(GoBotNetwork) =", dir(self))
         # initialize parameters
         self._init_params()
-        # build computational graph
-        self._build_graph()
         # reset state
         self.reset_state()
+        # build computational graph
+        if not params.get('gradient_flow', False):
+            self._build_graph()
+            self.init_session()
 
     def init_session(self, session=None):
         self.sess = session or tf.Session()
@@ -72,13 +74,13 @@ class GoalOrientedBotNetwork(TFModel):
         self.learning_rate = params['learning_rate']
         self.n_hidden = params['hidden_dim']
         self.n_actions = params['action_size']
-        #TODO: try obs_size=None or as a placeholder
         self.obs_size = params['obs_size']
+        self.n_intents = params['intents_size']
         self.dense_size = params.get('dense_size', params['hidden_dim'])
 
-    def _build_graph(self):
+    def _build_graph(self, intents_op=None):
 
-        self._add_placeholders()
+        self._add_placeholders(intents_op=intents_op)
 
         # build body
         _logits, self._state = self._build_body()
@@ -98,7 +100,7 @@ class GoalOrientedBotNetwork(TFModel):
         self._loss = tf.reduce_mean(_loss_tensor, name='loss')
         self._train_op = self._get_train_op(self._loss, self.learning_rate)
 
-    def _add_placeholders(self):
+    def _add_placeholders(self, intents_op=None):
         # TODO: make batch_size != 1
         _initial_state_c = \
             tf.placeholder_with_default(np.zeros([1, self.n_hidden], np.float32),
@@ -110,15 +112,22 @@ class GoalOrientedBotNetwork(TFModel):
                                                             _initial_state_h)
         self._features = tf.placeholder(tf.float32, [1, None, self.obs_size],
                                         name='features')
+        if intents_op is not None:
+            self._intents = intents_op
+        else:
+            self._intents = tf.placeholder(tf.float32, [None, self.n_intents],
+                                           name='intent_features')
         self._action = tf.placeholder(tf.int32, [1, None],
                                       name='ground_truth_action')
         self._action_mask = tf.placeholder(tf.float32, [1, None, self.n_actions],
                                            name='action_mask')
 
     def _build_body(self):
+        all_features = tf.concat([self._features,
+                                  tf.expand_dims(self._intents, axis=0)], axis=2)
         # input projection
         _projected_features = \
-            tf.layers.dense(self._features,
+            tf.layers.dense(all_features,
                             self.dense_size,
                             kernel_initializer=xavier_initializer())
 
@@ -161,28 +170,43 @@ class GoalOrientedBotNetwork(TFModel):
         self.state_c = np.zeros([1, self.n_hidden], dtype=np.float32)
         self.state_h = np.zeros([1, self.n_hidden], dtype=np.float32)
 
-    def _train_step(self, features, action, action_mask):
-        _, loss_value, prediction = \
-            self.sess.run(
-                [ self._train_op, self._loss, self._prediction ],
-                feed_dict={
-                    self._features: [features],
-                    self._action: [action],
-                    self._action_mask: [action_mask]
-                }
-            )
-        return loss_value, prediction
+    def build_batch(self, features, action_mask, action=None):
+        if action is not None:
+            feed_dict = {
+                self._features: [features],
+                self._action: [action],
+                self._action_mask: [action_mask]
+            }
+            fetches = [self._loss, self._train_op]
+        else:
+            feed_dict = {
+                self._features: [features],
+                self._initial_state: (self.state_c, self.state_h),
+                self._action_mask: [action_mask]
+            }
+            fetches = [self._probs]
+        return fetches, feed_dict
 
-    def _forward(self, features, action_mask, prob=False):
+    def _train_step(self, features, action, action_mask):
+        feed_dict = {
+            self._features: [features],
+            self._action: [action],
+            self._action_mask: [action_mask]
+        }
+        loss, _ = self.sess.run([self._loss, self._train_op],
+                                feed_dict=feed_dict)
+        return loss
+
+    def _forward(self, features, intents, action_mask, prob=False):
+        feed_dict = {
+            self._features: [[features]],
+            self._intents: [[intents]],
+            self._initial_state: (self.state_c, self.state_h),
+            self._action_mask: [[action_mask]]
+        }
         probs, prediction, state = \
-            self.sess.run(
-                [ self._probs, self._prediction, self._state ],
-                feed_dict={
-                    self._features: [[features]],
-                    self._initial_state: (self.state_c, self.state_h),
-                    self._action_mask: [[action_mask]]
-                }
-            )
+            self.sess.run([self._probs, self._prediction, self._state],
+                          feed_dict=feed_dict)
         self.state_c, self._state_h = state
         if prob:
             return probs

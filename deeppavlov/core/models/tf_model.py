@@ -20,6 +20,7 @@ Trainable and Inferable interfaces and make a pull-request to deeppavlov.
 """
 
 import sys
+import re
 from abc import abstractmethod
 
 import tensorflow as tf
@@ -118,14 +119,15 @@ class TFModel(Trainable, Inferable, metaclass=TfModelMeta):
         def _name(name):
             #print("Renaming `{}`".format(name))
             if self.scope_name is not None:
-                name = name.lstrip(self.scope_name + '/')
+                #name = name.lstrip(self.scope_name + '/')
+                name = re.sub(self.scope_name + '(?:_\d+)?/', '', name)
             return name.rstrip(':0')
         var_list = {_name(var.name): var\
                     for var in tf.global_variables(self.scope_name)}
-        print("Model variables =", tf.model_variables())
-        print("Restoring variables :")
-        for name in var_list:
-            print(name)
+        #print("Model variables =", tf.model_variables())
+        #print("Restoring variables :")
+        #for name in var_list:
+        #    print(name)
         return var_list
 
     @overrides

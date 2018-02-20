@@ -42,6 +42,7 @@ class TFIntentModel(TFModel):
                  save_path,
                  load_path=None,
                  train_now=False,
+                 gradient_flow=False,
                  **params):
 
         super().__init__(save_path=save_path,
@@ -60,8 +61,9 @@ class TFIntentModel(TFModel):
         self.opt['embedding_size'] = self.fasttext_model.dim
 
         # build computational graph
-        self._build_graph()
-        self.init_session()
+        if not gradient_flow:
+            self._build_graph()
+            self.init_session()
 
     def init_session(self, session=None):
         self.sess = session or tf.Session()
@@ -91,12 +93,11 @@ class TFIntentModel(TFModel):
 
         self._add_placeholders()
 
-        units = self._build_body()
+        logits = self._build_body()
 
-        self.probs_op = tf.nn.sigmoid(units)
-        cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=units,
-                                                                labels=self.y_ph)
-        self.loss_op = tf.reduce_mean(cross_entropy, name='loss')
+        self.probs_op = tf.nn.sigmoid(logits)
+
+        self.loss_op = self._get_loss_op(logits)
 
         optimizer = None
         if self.opt['optimizer'] == 'Adam':
@@ -104,6 +105,12 @@ class TFIntentModel(TFModel):
         self.train_op = self._get_train_op(self.loss_op,
                                            learning_rate=self.learning_rate_ph,
                                            optimizer=optimizer)
+        return logits
+
+    def _get_loss_op(self, logits):
+        cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits,
+                                                                labels=self.y_ph)
+        return tf.reduce_mean(cross_entropy, name='loss')
 
     def _add_placeholders(self):
         self.X_ph = \
@@ -177,16 +184,18 @@ class TFIntentModel(TFModel):
 
         extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(extra_update_ops):
+            with tf.variable_scope('Optimizer'):
 
-            optimizer = optimizer(learning_rate)
+                optimizer = optimizer(learning_rate)
 
-            if clip_norm is not None:
-                grads_and_vars = optimizer.compute_gradients(loss, vars)
-                grads_and_vars = [(tf.clip_by_norm(grad, clip_norm), var)\
-                                  for grad, var in grads_and_vars]
-                return optimizer.apply_gradients(grads_and_vars, name='train_op')
+                if clip_norm is not None:
+                    grads_and_vars = optimizer.compute_gradients(loss, vars)
+                    grads_and_vars = [(tf.clip_by_norm(grad, clip_norm), var)\
+                                      for grad, var in grads_and_vars]
+                    return optimizer.apply_gradients(grads_and_vars,
+                                                     name='train_op')
 
-            return optimizer.minimize(loss, var_list=vars)
+                return optimizer.minimize(loss, var_list=vars)
 
     @staticmethod
     def _get_trainable_variables(scope_names=None):
@@ -200,6 +209,22 @@ class TFIntentModel(TFModel):
             return list(vars_to_train)
         else:
             return all_vars
+
+    def build_batch(self, x, y=None):
+        batch_x, _ = self.texts2vec(self.tokenizer.infer(x))
+        if y is not None:
+            batch_y = labels2onehot(y, classes=self.classes)
+
+            feed_dict = self._get_feed_dict(batch_x,
+                                            y=batch_y,
+                                            learning_rate=self._get_learning_rate(),
+                                            dropout_rate=self.opt['dropout_rate'],
+                                            train_mode=True)
+            fetches = [self.loss_op, self.train_op]
+        else:
+            feed_dict = self._get_feed_dict(batch_x, train_mode=False)
+            fetches = []
+        return fetches, feed_dict
 
     @check_attr_true('train_now')
     def train_on_batch(self, batch):
