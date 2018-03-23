@@ -44,6 +44,7 @@ import deeppavlov.models.ranking.metrics
 import deeppavlov.metrics.accuracy
 import deeppavlov.metrics.fmeasure
 import deeppavlov.metrics.squad_metrics
+import deeppavlov.models.personachat.personachat_model
 
 import deeppavlov.core.common.log
 
