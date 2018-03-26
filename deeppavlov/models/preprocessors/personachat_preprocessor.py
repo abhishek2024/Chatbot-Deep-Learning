@@ -13,6 +13,8 @@ from deeppavlov.core.data.utils import download
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.models.estimator import Estimator
 
+from deeppavlov.core.common.metrics_registry import register_metric
+
 logger = get_logger(__name__)
 
 @register('personachat_tokenizer')
@@ -34,7 +36,7 @@ class PersonaChatTokenizer(Component):
         """
         utt_tokenized = [word_tokenize(u) for u in utterances]
         if personas is not None:
-            personas_tokenized = list(map(lambda x: word_tokenize(' '.join(x)), personas))
+            personas_tokenized = list(map(lambda x: word_tokenize(' '.join(x) if isinstance(x, list) else x), personas))
             return utt_tokenized, personas_tokenized
         return utt_tokenized
 
@@ -171,4 +173,30 @@ class PersonaChatPostprocessor(Component):
     def __call__(self, idxs, **kwargs):
         """ Converts predicted tokens ids to tokens.
         """
-        return [' '.join(list(filter(lambda x: x != self.NULL, map(lambda x: self.idx2token[x], utt)))) for utt in idxs]
+        tokens = []
+        for utt in idxs:
+            tokens.append([])
+            for idx in utt:
+                token = self.idx2token[idx]
+                if token == self.NULL:
+                    break
+                tokens[-1].append(token)
+        tokens = [' '.join(utt) for utt in tokens]
+        
+        return tokens
+
+
+@register_metric('personachat_loss')
+def personachat_loss(y_true, y_predicted):
+    print('calculating loss...')
+    total_loss = 0
+    for ground_truth, (_, prediction) in zip(y_true, y_predicted):
+        loss = 0
+        ground_truth = word_tokenize(ground_truth)
+        for i in range(len(ground_truth)):
+            print(ground_truth[i])
+            print(prediction)
+            loss += np.log(prediction[i][ground_truth[i]])
+        total_loss += loss / len(ground_truth)
+
+    return total_loss / len(y_true) if len(y_true) > 0 else 0
