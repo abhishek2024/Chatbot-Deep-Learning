@@ -59,6 +59,7 @@ class PersonaChatModel(TFModel):
         self.sess.run(tf.global_variables_initializer())
 
         self.summary_writer = None
+        self.log_path = str(expand_path(Path(self.opt['save_path']).parent / '{}'.format(uuid.uuid4())))
 
         self.step = 0
 
@@ -255,9 +256,7 @@ class PersonaChatModel(TFModel):
             print('loss:', loss)
 
         if self.summary_writer is None:
-            self.summary_writer = tf.summary.FileWriter(
-                str(expand_path(Path(self.opt['save_path']).parent / '{}'.format(uuid.uuid4()))),
-                graph=self.sess.graph)
+            self.summary_writer = tf.summary.FileWriter(self.log_path, graph=self.sess.graph)
 
         self.summary_writer.add_summary(loss_summary, self.step)
         self.step += 1

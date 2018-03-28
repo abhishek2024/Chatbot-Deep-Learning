@@ -20,6 +20,8 @@ import time
 from collections import OrderedDict
 from typing import List, Callable, Tuple, Dict, Union
 
+import tensorflow as tf
+
 from deeppavlov.core.commands.utils import expand_path, set_deeppavlov_root
 from deeppavlov.core.commands.infer import build_model_from_config
 from deeppavlov.core.common.chainer import Chainer
@@ -33,7 +35,6 @@ from deeppavlov.core.models.component import Component
 from deeppavlov.core.models.estimator import Estimator
 from deeppavlov.core.models.nn_model import NNModel
 from deeppavlov.core.common.log import get_logger
-
 
 log = get_logger(__name__)
 
@@ -227,6 +228,7 @@ def _train_batches(model: NNModel, iterator: BasicDatasetIterator, train_config:
     train_y_predicted = []
     start_time = time.time()
     break_flag = False
+    writer = tf.summary.FileWriter(model.get_main_component().log_path + '_train_log')
     try:
         while True:
             for x, y_true in iterator.batch_generator(train_config['batch_size']):
@@ -256,6 +258,9 @@ def _train_batches(model: NNModel, iterator: BasicDatasetIterator, train_config:
                         'time_spent': str(datetime.timedelta(seconds=round(time.time() - start_time + 0.5)))
                     }
                     report = {'train': report}
+                    for name, score in metrics:
+                        metric_sum = tf.Summary(value=[tf.Summary.Value(tag='train/'+name, simple_value=score), ])
+                        writer.add_summary(metric_sum, i)
                     print(json.dumps(report, ensure_ascii=False))
                     train_y_true.clear()
                     train_y_true_idxs.clear()
@@ -312,6 +317,9 @@ def _train_batches(model: NNModel, iterator: BasicDatasetIterator, train_config:
 
                 report = {'valid': report}
                 print(json.dumps(report, ensure_ascii=False))
+                for name, score in metrics:
+                    metric_sum = tf.Summary(value=[tf.Summary.Value(tag='valid/' + name, simple_value=score), ])
+                    writer.add_summary(metric_sum, i)
 
                 if patience >= train_config['validation_patience'] > 0:
                     log.info('Ran out of patience')
