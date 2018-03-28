@@ -75,8 +75,8 @@
         "teacher_forcing_rate": 0.2,
         "save_path": "personachat_model/model",
         "load_path": "personachat_model/model",
-        "in": ["persona_tok_idxs", "persona_char_idxs", "x_tok_idxs", "x_char_idxs"],
-        "in_y": ["y_tok_idxs"],
+        "in": ["persona_tok_idxs", "persona_char_idxs", "x_tok_idxs", "x_char_idxs", "y_tok_idxs"],
+        "in_y": [],
         "out": ["y_pred_tok_idxs", "y_probs"]
       },
       {
