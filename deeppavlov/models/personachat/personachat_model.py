@@ -178,7 +178,7 @@ class PersonaChatModel(TFModel):
                     input_token_emb = tf.cond(
                                             tf.logical_and(
                                                 self.is_train_ph,
-                                                tf.random_uniform(shape=(), maxval=1) < self.teacher_forcing_rate
+                                                tf.random_uniform(shape=(), maxval=1) <= self.teacher_forcing_rate_ph
                                             ),
                                             lambda: tf.nn.embedding_lookup(self.word_emb, self.y[:, i-1]),
                                             lambda: tf.nn.embedding_lookup(self.word_emb, output_token))
@@ -225,8 +225,9 @@ class PersonaChatModel(TFModel):
         self.lr_ph = tf.placeholder(dtype=tf.float32, shape=[], name='lr_ph')
         self.keep_prob_ph = tf.placeholder_with_default(1.0, shape=[], name='keep_prob_ph')
         self.is_train_ph = tf.placeholder_with_default(False, shape=[], name='is_train_ph')
+        self.teacher_forcing_rate_ph = tf.placeholder_with_default(0.0, shape=[], name='teacher_forcing_rate_ph')
 
-    def _build_feed_dict(self, persona_tokens, persona_chars, utt_tokens, utt_chars, y=None):
+    def _build_feed_dict(self, persona_tokens, persona_chars, utt_tokens, utt_chars, y=None, mode='train'):
         if y is None:
             feed_dict = {
                 self.utt_ph: utt_tokens,
@@ -235,7 +236,7 @@ class PersonaChatModel(TFModel):
                 self.persona_c_ph: persona_chars,
                 self.y_ph: np.zeros(shape=(len(utt_tokens), self.seq_len_limit))
             }
-        else:
+        elif mode == 'train':
             feed_dict = {
                 self.utt_ph: utt_tokens,
                 self.utt_c_ph: utt_chars,
@@ -245,12 +246,23 @@ class PersonaChatModel(TFModel):
                 self.lr_ph: self.learning_rate,
                 self.keep_prob_ph: self.keep_prob,
                 self.is_train_ph: True,
+                self.teacher_forcing_rate_ph: self.teacher_forcing_rate,
+            }
+        else:
+            feed_dict = {
+                self.utt_ph: utt_tokens,
+                self.utt_c_ph: utt_chars,
+                self.persona_ph: persona_tokens,
+                self.persona_c_ph: persona_chars,
+                self.y_ph: y,
+                self.is_train_ph: True,
+                self.teacher_forcing_rate_ph: 1.0,
             }
 
         return feed_dict
 
     def train_on_batch(self, persona_tokens, persona_chars, utt_tokens, utt_chars, y):
-        feed_dict = self._build_feed_dict(persona_tokens, persona_chars, utt_tokens, utt_chars, y)
+        feed_dict = self._build_feed_dict(persona_tokens, persona_chars, utt_tokens, utt_chars, y, mode='train')
         loss, loss_summary, _ = self.sess.run([self.loss, self.loss_summary, self.train_op], feed_dict=feed_dict)
         if random.randint(0, 99) % 10 == 0:
             print('loss:', loss)
@@ -262,8 +274,8 @@ class PersonaChatModel(TFModel):
         self.step += 1
         return loss
 
-    def __call__(self, persona_tokens, persona_chars, utt_tokens, utt_chars, *args, **kwargs):
-        feed_dict = self._build_feed_dict(persona_tokens, persona_chars, utt_tokens, utt_chars)
+    def __call__(self, persona_tokens, persona_chars, utt_tokens, utt_chars, y=None, *args, **kwargs):
+        feed_dict = self._build_feed_dict(persona_tokens, persona_chars, utt_tokens, utt_chars, y, mode='predict')
         y_pred, y_probs = self.sess.run([self.y_pred, self.y_probs], feed_dict=feed_dict)
         return y_pred, y_probs
 
