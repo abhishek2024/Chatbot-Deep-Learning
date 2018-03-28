@@ -188,15 +188,20 @@ class PersonaChatPostprocessor(Component):
 
 @register_metric('personachat_loss')
 def personachat_loss(y_true, y_predicted):
-    print('calculating loss...')
-    total_loss = 0
-    for ground_truth, (_, prediction) in zip(y_true, y_predicted):
-        loss = 0
-        ground_truth = word_tokenize(ground_truth)
-        for i in range(len(ground_truth)):
-            print(ground_truth[i])
-            print(prediction)
-            loss += np.log(prediction[i][ground_truth[i]])
-        total_loss += loss / len(ground_truth)
+    voc_size = y_predicted[0].shape[-1]
+    y_predicted = np.array(y_predicted).reshape(-1, voc_size)
+    y_true = np.array(y_true).reshape((-1,))
+    #loss = np.sum(np.log(y_predicted[:, np.arange(y_true.shape[1]), y_true][0,:,:]) * (y_true > 0)) / np.sum(y_true>0)
+    from sklearn.metrics import log_loss
+    loss = -log_loss(y_true=y_true,
+                     y_pred=y_predicted,
+                     sample_weight=(y_true>0),
+                     labels=np.arange(voc_size),
+                     eps=1e-06)
+    loss = float(loss)
+    return loss if len(y_true) > 0 else 0.0
 
-    return total_loss / len(y_true) if len(y_true) > 0 else 0
+
+@register_metric('personachat_perplexity')
+def personachat_perplexity(y_true, y_predicted):
+    return np.exp(-personachat_loss(y_true, y_predicted))
