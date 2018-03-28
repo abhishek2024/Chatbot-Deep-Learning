@@ -24,7 +24,7 @@ import numpy as np
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.commands.utils import expand_path
 from deeppavlov.core.models.tf_model import TFModel
-from deeppavlov.models.personachat.utils import CudnnGRU, dot_attention, simple_attention, attention
+from deeppavlov.models.personachat.utils import CudnnGRU, dot_attention, simple_attention, attention, softmax_mask
 
 
 @register('personachat_model')
@@ -41,6 +41,8 @@ class PersonaChatModel(TFModel):
         self.keep_prob = self.opt['keep_prob']
         self.learning_rate = self.opt['learning_rate']
         self.grad_clip = self.opt['grad_clip']
+        self.teacher_forcing = self.opt['teacher_forcing']
+        self.teacher_forcing_rate = self.opt['teacher_forcing_rate']
         self.vocab_size, self.word_emb_dim = self.init_word_emb.shape
         self.char_emb_dim = self.init_char_emb.shape[1]
 
@@ -56,9 +58,7 @@ class PersonaChatModel(TFModel):
 
         self.sess.run(tf.global_variables_initializer())
 
-        self.summary_writer = tf.summary.FileWriter(
-            str(expand_path(Path(self.opt['save_path']).parent / '{}'.format(uuid.uuid4()))),
-            graph=self.sess.graph)
+        self.summary_writer = None
 
         self.step = 0
 
@@ -135,7 +135,7 @@ class PersonaChatModel(TFModel):
                            keep_prob=self.keep_prob_ph)
             persona = rnn(persona_emb, seq_len=self.persona_len)
             utt = rnn(utt_emb, seq_len=self.utt_len)
-        
+
         with tf.variable_scope("attention"):
             pu_att = dot_attention(persona, utt, mask=self.utt_mask, att_size=self.attention_hidden_size,
                                    keep_prob=self.keep_prob_ph)
@@ -149,11 +149,11 @@ class PersonaChatModel(TFModel):
             rnn = CudnnGRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
                            input_size=self_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
             match = rnn(self_att, seq_len=self.persona_len)
-        
+
         with tf.variable_scope('decoder'):
-            state = simple_attention(persona, self.hidden_size, mask=self.persona_mask, keep_prob=self.keep_prob_ph)
+            state = simple_attention(utt, self.hidden_size, mask=self.utt_mask, keep_prob=self.keep_prob_ph)
             decoder_cell_size = self.hidden_size * 2
-            state = tf.layers.dense(state, decoder_cell_size)
+            state = tf.layers.dense(state, decoder_cell_size, kernel_initializer=tf.contrib.layers.xavier_initializer(),)
             decoder_cell = tf.nn.rnn_cell.GRUCell(decoder_cell_size)
             match_do = tf.nn.dropout(match, keep_prob=self.keep_prob, noise_shape=[bs, 1, tf.shape(match)[-1]])
             utt_do = tf.nn.dropout(utt, keep_prob=self.keep_prob, noise_shape=[bs, 1, tf.shape(utt)[-1]])
@@ -167,11 +167,14 @@ class PersonaChatModel(TFModel):
                 inp_match, _ = attention(match_do, state * dropout_mask, self.hidden_size, self.persona_mask, scope='att_match')
                 inp_utt, _ = attention(utt_do, state * dropout_mask, self.hidden_size, self.utt_mask, scope='att_utt')
 
-                #input_token_emb = tf.nn.embedding_lookup(self.word_emb, output_token)
-                if i > 0:
-                    input_token_emb = tf.cond(self.is_train_ph,
-                                              lambda: tf.nn.embedding_lookup(self.word_emb, self.y[:, i-1]),
-                                              lambda: tf.nn.embedding_lookup(self.word_emb, output_token))
+                if i > 0 and self.teacher_forcing:
+                    input_token_emb = tf.cond(
+                                            tf.logical_and(
+                                                self.is_train_ph,
+                                                tf.random_uniform(shape=(), maxval=1) < self.teacher_forcing_rate
+                                            ),
+                                            lambda: tf.nn.embedding_lookup(self.word_emb, self.y[:, i-1]),
+                                            lambda: tf.nn.embedding_lookup(self.word_emb, output_token))
                 else:
                     input_token_emb = tf.nn.embedding_lookup(self.word_emb, output_token)
 
@@ -181,23 +184,26 @@ class PersonaChatModel(TFModel):
 
                 _, state = decoder_cell(input, state)
 
-                output_proj = tf.layers.dense(state, self.word_emb_dim, activation=tf.nn.tanh)
+                output_proj = tf.layers.dense(state, self.word_emb_dim, activation=tf.nn.tanh,
+                                              kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                              name='proj', reuse=tf.AUTO_REUSE)
                 output_logits = tf.matmul(output_proj, self.word_emb, transpose_b=True)
                 logits.append(output_logits)
-                output_probs = tf.nn.softmax(output_logits)
+                output_probs = tf.nn.softmax(logits[-1])
                 probs.append(output_probs)
                 output_token = tf.argmax(output_probs, axis=-1)
                 pred_tokens.append(output_token)
 
             self.y_pred = tf.transpose(tf.stack(pred_tokens, axis=0), [1, 0])
             print('y_pred:', self.y_pred)
-            logits = tf.transpose(tf.stack(logits, axis=0), [1, 0, 2])
-            print('logits:', logits)
+            self.logits = tf.transpose(tf.stack(logits, axis=0), [1, 0, 2])
+            print('logits:', self.logits)
+
             self.y_probs = tf.transpose(tf.stack(probs, axis=0), [1, 0, 2])
             print('probs:', self.y_probs)
 
         self.y_ohe = tf.one_hot(self.y, depth=self.vocab_size)
-        self.loss = tf.nn.softmax_cross_entropy_with_logits(labels=self.y_ohe, logits=logits) * self.y_mask
+        self.loss = tf.nn.softmax_cross_entropy_with_logits(labels=self.y_ohe, logits=self.logits) * self.y_mask
         self.loss = tf.reduce_sum(self.loss) / tf.reduce_sum(self.y_mask)
         self.loss_summary = tf.summary.scalar("loss", self.loss)
 
@@ -238,8 +244,14 @@ class PersonaChatModel(TFModel):
     def train_on_batch(self, persona_tokens, persona_chars, utt_tokens, utt_chars, y):
         feed_dict = self._build_feed_dict(persona_tokens, persona_chars, utt_tokens, utt_chars, y)
         loss, loss_summary, _ = self.sess.run([self.loss, self.loss_summary, self.train_op], feed_dict=feed_dict)
-        if random.randint(0, 99) % 4 == 0:
+        if random.randint(0, 99) % 10 == 0:
             print('loss:', loss)
+
+        if self.summary_writer is None:
+            self.summary_writer = tf.summary.FileWriter(
+                str(expand_path(Path(self.opt['save_path']).parent / '{}'.format(uuid.uuid4()))),
+                graph=self.sess.graph)
+
         self.summary_writer.add_summary(loss_summary, self.step)
         self.step += 1
         return loss
