@@ -164,10 +164,14 @@ def _test_model(model: Component, metrics_functions: List[Tuple[str, Callable]],
     val_y_true = []
     val_y_predicted = []
     for x, y_true in iterator.batch_generator(batch_size, data_type, shuffle=False):
-        y_predicted = list(model(list(x)))
+        y_predicted, y_true = zip(*model(list(x), list(y_true), to_return=['y_probs', 'y_tok_idxs']))
+        #y_predicted = list(model(list(x)))
         val_y_true += y_true
         val_y_predicted += y_predicted
+        val_y_true = val_y_true[:350]
+        val_y_predicted = val_y_predicted[:350]
 
+    # todo: validation metrics
     metrics = [(s, f(val_y_true, val_y_predicted)) for s, f in metrics_functions]
 
     report = {
@@ -219,6 +223,7 @@ def _train_batches(model: NNModel, iterator: BasicDatasetIterator, train_config:
     patience = 0
     log_on = train_config['log_every_n_batches'] > 0 or train_config['log_every_n_epochs'] > 0
     train_y_true = []
+    train_y_true_idxs = []
     train_y_predicted = []
     start_time = time.time()
     break_flag = False
@@ -226,15 +231,23 @@ def _train_batches(model: NNModel, iterator: BasicDatasetIterator, train_config:
         while True:
             for x, y_true in iterator.batch_generator(train_config['batch_size']):
                 if log_on:
-                    y_predicted = list(model(list(x)))
+                    y_predicted, y_true_idxs = zip(*model(list(x), list(y_true), to_return=['y_probs', 'y_tok_idxs']))
+                    # y_predicted = list(model(list(x)))
+                    train_y_true_idxs += y_true_idxs
                     train_y_true += y_true
                     train_y_predicted += y_predicted
+
+                # fix: OOM
+                train_y_true_idxs = train_y_true_idxs[:350]
+                train_y_predicted = train_y_predicted[:350]
+
                 model.train_on_batch(x, y_true)
                 i += 1
                 examples += len(x)
 
                 if train_config['log_every_n_batches'] > 0 and i % train_config['log_every_n_batches'] == 0:
-                    metrics = [(s, f(train_y_true, train_y_predicted)) for s, f in metrics_functions]
+                    # todo: batches metrics
+                    metrics = [(s, f(train_y_true_idxs, train_y_predicted)) for s, f in metrics_functions]
                     report = {
                         'epochs_done': epochs,
                         'batches_seen': i,
@@ -245,6 +258,7 @@ def _train_batches(model: NNModel, iterator: BasicDatasetIterator, train_config:
                     report = {'train': report}
                     print(json.dumps(report, ensure_ascii=False))
                     train_y_true.clear()
+                    train_y_true_idxs.clear()
                     train_y_predicted.clear()
 
                 if i >= train_config['max_batches'] > 0:
@@ -257,7 +271,8 @@ def _train_batches(model: NNModel, iterator: BasicDatasetIterator, train_config:
 
             if train_config['log_every_n_epochs'] > 0 and epochs % train_config['log_every_n_epochs'] == 0\
                     and train_y_true:
-                metrics = [(s, f(train_y_true, train_y_predicted)) for s, f in metrics_functions]
+                # todo: epochs metrics
+                metrics = [(s, f(train_y_true_idxs, train_y_predicted)) for s, f in metrics_functions]
                 report = {
                     'epochs_done': epochs,
                     'batches_seen': i,
@@ -268,6 +283,7 @@ def _train_batches(model: NNModel, iterator: BasicDatasetIterator, train_config:
                 report = {'train': report}
                 print(json.dumps(report, ensure_ascii=False))
                 train_y_true.clear()
+                train_y_true_idxs.clear()
                 train_y_predicted.clear()
 
             if train_config['val_every_n_epochs'] > 0 and epochs % train_config['val_every_n_epochs'] == 0:
@@ -277,7 +293,9 @@ def _train_batches(model: NNModel, iterator: BasicDatasetIterator, train_config:
                 metrics = list(report['metrics'].items())
 
                 m_name, score = metrics[0]
-                if improved(score, best):
+                # TODO: remove back
+                #if improved(score, best):
+                if True:
                     patience = 0
                     log.info('New best {} of {}'.format(m_name, score))
                     best = score
