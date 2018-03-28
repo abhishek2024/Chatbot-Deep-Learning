@@ -21,7 +21,7 @@ import json
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.utils import tokenize_reg
-from deeppavlov.models.ner.network import NerNetwork
+from deeppavlov.models.ner.network1 import NerNetwork
 from deeppavlov.core.models.tf_model import TFModel
 from deeppavlov.core.common.log import get_logger
 

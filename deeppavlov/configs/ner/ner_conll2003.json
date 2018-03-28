@@ -6,7 +6,7 @@
   "dataset_iterator": {
     "name": "basic_dataset_iterator"
   },
-  "chainer": {
+  "chainer": {    
     "in": ["x"],
     "in_y": ["y"],
     "pipe": [
@@ -14,7 +14,7 @@
         "id": "word_vocab",
         "name": "default_vocab",
         "fit_on": ["x"],
-		"level": "token",
+    "level": "token",
         "save_path": "ner_conll2003/word.dict",
         "load_path": "ner_conll2003/word.dict"
       },
@@ -22,7 +22,7 @@
         "id": "tag_vocab",
         "name": "default_vocab",
         "fit_on": ["y"],
-		"level": "token",
+    "level": "token",
         "save_path": "ner_conll2003/tag.dict",
         "load_path": "ner_conll2003/tag.dict"
       },
@@ -30,16 +30,10 @@
         "id": "char_vocab",
         "name": "default_vocab",
         "fit_on": ["x"],
-		"level": "char",
+    "level": "char",
         "save_path": "ner_conll2003/char.dict",
         "load_path": "ner_conll2003/char.dict"
-      },
-      {
-        "id": "glove_emb",
-        "name": "glove",
-        "load_path": "embeddings/glove.6B.100d.txt",
-        "save_path": "embeddings/glove.6B.100d.txt"
-      },
+      },      
       {
         "in": ["x"],
         "in_y": ["y"],
@@ -64,9 +58,18 @@
         "use_crf": true,
         "learning_rate": 1e-3,
         "dropout_rate": 0.5,
-        "embedder": "#glove_emb",
         "use_capitalization": true,
-        "two_dense_layers": true
+        "two_dense_layers": true,
+        "dicts_file": "download/conll2003/conll2003.train_val.l.pkl",
+        "pretrained_emb": "../../ner/pretrained_embeddings/glove.6B.100d.txt",
+        "word_dim": 100,
+        "word_hidden_size": 200,
+        "char_dim": 64,
+        "nb_filters_1": 128,
+        "nb_filters_2": 128,
+        "cap_dim": 10,
+        "cap_hidden_size": 15,
+        "drop_out": 0.5
       }
     ],
     "out": ["y_predicted"]

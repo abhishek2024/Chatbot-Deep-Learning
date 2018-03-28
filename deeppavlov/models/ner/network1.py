@@ -36,7 +36,7 @@ log = get_logger(__name__)
 
 class NerNetwork:
     def __init__(self,                
-                 dicts_file,
+                 dicts_file,                 
                  word_dim,
                  word_hidden_size,
                  char_dim,
@@ -45,7 +45,7 @@ class NerNetwork:
                  cap_dim,
                  cap_hidden_size,
                  drop_out,
-
+                 pretrained_emb=None,
                  sess=None):
         # load dictionaries
         dicts = pickle.load(open(dicts_file, mode="rb"))
@@ -86,10 +86,15 @@ class NerNetwork:
 
         # embedd word input
         with tf.variable_scope("word_input"):
-            tf_word_embeddings = tf.get_variable(name="word_embeddings",
-                                                    dtype=tf.float32,
-                                                    shape=[self.word_vocab_size, self.word_dim],
-                                                    trainable=True)
+            if pretrained_emb is not None:
+                self.pretrained_emb = self.read_glove_emb(pretrained_emb, self.word2id,
+                    self.word_vocab_size, self.word_dim, lower=True, zeros=False)
+            else:
+                self.pretrained_emb = np.zeros(shape=(len(self.word2id), self.params.word_dim))
+
+            tf_word_embeddings = tf.Variable(self.pretrained_emb, dtype=tf.float32,
+                trainable=True, name="word_embedding")
+            
             embedded_words = tf.nn.embedding_lookup(tf_word_embeddings, self.tf_word_ids, name="embedded_words")
             self.input = embedded_words
 
@@ -165,6 +170,37 @@ class NerNetwork:
 
         self._sess = sess
         sess.run(tf.global_variables_initializer())
+
+    def read_glove_emb(self, emb_path, word_to_id, vocab_size, word_dim, lower, zeros):
+        print ("Pre-trained word embedding is being loaded.")
+        word_vectors = dict()
+        loaded_words = 0
+        def l(x): return x.lower() if lower else x
+        def z(s): return re.sub('\d', '0', s) if zeros else s
+
+        counter = 0
+        with open (emb_path, encoding="utf8") as f:
+            next(f)
+            for line in f:          
+                items = line.split()
+                token = items[:-word_dim]
+
+                # skip the words containing more than one word
+                if len (token) != 1:
+                    continue
+                word = l(z(token[0]))
+                if word not in word_vectors:
+                    word_vectors[word] = np.array([float(num_str) for num_str in items[1:]])
+                        
+        pretrained_words = np.zeros(shape=(vocab_size, word_dim))
+        for word in word_to_id:
+            if word in word_vectors:
+                pretrained_words[word_to_id[word]] = word_vectors[word]
+                loaded_words += 1
+
+        print ("There are {:} words in the vocabulary and {:} words were loaded from pre-trained embedding".format (len (word_to_id),
+                                                                                                          loaded_words))
+        return pretrained_words    
 
     def tokens_batch_to_numpy_batch(self, batch_x, batch_y=None):
         def l(x): return x.lower() if self.lower == 1 else x
@@ -279,7 +315,9 @@ class NerNetwork:
             viterbi_sequence, viterbi_score = tf.contrib.crf.viterbi_decode (_logit, _transition_params)
             y_pred += [viterbi_sequence]
 
-        return y_pred
+        y_pred_tag = [[self.id2tag[t] for t in sent] for sent in y_pred]
+
+        return y_pred_tag
 
     def shutdown(self):
         self._sess.close()
