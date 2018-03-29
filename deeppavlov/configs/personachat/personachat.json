@@ -74,6 +74,7 @@
         "teacher_forcing": true,
         "teacher_forcing_rate": 1.0,
         "use_match_layer": false,
+        "cell_type": "LSTM",
         "save_path": "personachat_model/",
         "in": ["persona_tok_idxs", "persona_char_idxs", "x_tok_idxs", "x_char_idxs", "y_tok_idxs"],
         "in_y": [],

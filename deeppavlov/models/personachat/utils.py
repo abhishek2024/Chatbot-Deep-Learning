@@ -73,6 +73,67 @@ class CudnnGRU:
         return res
 
 
+class CudnnLSTM:
+    def __init__(self, num_layers, num_units, batch_size, input_size, keep_prob=1.0):
+        self.num_layers = num_layers
+        self.cells = []
+        self.params = []
+        self.inits = []
+        self.dropout_mask = []
+        for layer in range(num_layers):
+            input_size_ = input_size if layer == 0 else 2 * num_units
+            cell_fw = tf.contrib.cudnn_rnn.CudnnLSTM(
+                num_layers=1, num_units=num_units, input_size=input_size_)
+            cell_bw = tf.contrib.cudnn_rnn.CudnnLSTM(
+                num_layers=1, num_units=num_units, input_size=input_size_)
+            param_fw = tf.Variable(tf.random_uniform(
+                [cell_fw.params_size()], -0.1, 0.1), validate_shape=False)
+            param_bw = tf.Variable(tf.random_uniform(
+                [cell_bw.params_size()], -0.1, 0.1), validate_shape=False)
+            init_h_fw = tf.Variable(tf.zeros([num_units]))
+            init_h_fw = tf.expand_dims(tf.tile(tf.expand_dims(init_h_fw, axis=0), [batch_size, 1]), axis=0)
+            init_h_bw = tf.Variable(tf.zeros([num_units]))
+            init_h_bw = tf.expand_dims(tf.tile(tf.expand_dims(init_h_bw, axis=0), [batch_size, 1]), axis=0)
+
+            init_c_fw = tf.Variable(tf.zeros([num_units]))
+            init_c_fw = tf.expand_dims(tf.tile(tf.expand_dims(init_c_fw, axis=0), [batch_size, 1]), axis=0)
+            init_c_bw = tf.Variable(tf.zeros([num_units]))
+            init_c_bw = tf.expand_dims(tf.tile(tf.expand_dims(init_c_bw, axis=0), [batch_size, 1]), axis=0)
+
+            mask_fw = tf.nn.dropout(tf.ones([1, batch_size, input_size_], dtype=tf.float32),
+                                    keep_prob=keep_prob)
+            mask_bw = tf.nn.dropout(tf.ones([1, batch_size, input_size_], dtype=tf.float32),
+                                    keep_prob=keep_prob)
+
+            self.cells.append((cell_fw, cell_bw,))
+            self.params.append((param_fw, param_bw,))
+            self.inits.append(((init_h_fw, init_c_fw), (init_h_bw, init_c_bw)))
+            self.dropout_mask.append((mask_fw, mask_bw,))
+
+    def __call__(self, inputs, seq_len, keep_prob=1.0, is_train=None, concat_layers=True):
+        outputs = [tf.transpose(inputs, [1, 0, 2])]
+        for layer in range(self.num_layers):
+            cell_fw, cell_bw = self.cells[layer]
+            param_fw, param_bw = self.params[layer]
+            (init_h_fw, init_c_fw), (init_h_bw, init_c_bw) = self.inits[layer]
+            mask_fw, mask_bw = self.dropout_mask[layer]
+            with tf.variable_scope("fw"):
+                out_fw, _, _ = cell_fw(outputs[-1] * mask_fw, init_h_fw, init_c_fw, param_fw)
+            with tf.variable_scope("bw"):
+                inputs_bw = tf.reverse_sequence(
+                    outputs[-1] * mask_bw, seq_lengths=seq_len, seq_dim=0, batch_dim=1)
+                out_bw, _, _ = cell_bw(inputs_bw, init_h_bw, init_c_bw, param_bw)
+                out_bw = tf.reverse_sequence(
+                    out_bw, seq_lengths=seq_len, seq_dim=0, batch_dim=1)
+            outputs.append(tf.concat([out_fw, out_bw], axis=2))
+        if concat_layers:
+            res = tf.concat(outputs[1:], axis=2)
+        else:
+            res = outputs[-1]
+        res = tf.transpose(res, [1, 0, 2])
+        return res
+
+
 class PtrNet:
     def __init__(self, cell_size, keep_prob=1.0, scope="ptr_net"):
         self.gru = tf.nn.rnn_cell.GRUCell(cell_size)

@@ -24,7 +24,7 @@ import numpy as np
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.commands.utils import expand_path
 from deeppavlov.core.models.tf_model import TFModel
-from deeppavlov.models.personachat.utils import CudnnGRU, dot_attention, simple_attention, attention, softmax_mask
+from deeppavlov.models.personachat.utils import CudnnGRU, CudnnLSTM, dot_attention, simple_attention, attention
 
 
 @register('personachat_model')
@@ -44,12 +44,22 @@ class PersonaChatModel(TFModel):
         self.teacher_forcing = self.opt['teacher_forcing']
         self.teacher_forcing_rate = self.opt['teacher_forcing_rate']
         self.use_match_layer = self.opt['use_match_layer']
+        self.cell_type = self.opt['cell_type']
         self.vocab_size, self.word_emb_dim = self.init_word_emb.shape
         self.char_emb_dim = self.init_char_emb.shape[1]
 
         self.sess_config = tf.ConfigProto(allow_soft_placement=True)
         self.sess_config.gpu_options.allow_growth = True
         self.sess = tf.Session(config=self.sess_config)
+
+        if self.cell_type == "LSTM":
+            self.cudnn_cell = CudnnLSTM
+            self.tf_cell = tf.nn.rnn_cell.LSTMCell
+        elif self.cell_type == "GRU":
+            self.cudnn_cell = CudnnGRU
+            self.tf_cell = tf.nn.rnn_cell.GRUCell
+        else:
+            raise RuntimeError("Unknown cell type: {}".format(self.cell_type))
 
         self._init_graph()
 
@@ -64,7 +74,7 @@ class PersonaChatModel(TFModel):
         self.step = 0
 
         super().__init__(**kwargs)
-        
+
         self.run_id = str(uuid.uuid4())
         self.log_path = str(expand_path(Path(self.opt['save_path']) / '{}'.format(self.run_id)))
 
@@ -140,7 +150,7 @@ class PersonaChatModel(TFModel):
             #utt_emb = tf.concat([utt_emb, utt_c_emb], axis=2)
 
         with tf.variable_scope("encoding"):
-            rnn = CudnnGRU(num_layers=2, num_units=self.hidden_size, batch_size=bs,
+            rnn = self.cudnn_cell(num_layers=2, num_units=self.hidden_size, batch_size=bs,
                            input_size=persona_emb.get_shape().as_list()[-1],
                            keep_prob=self.keep_prob_ph)
             persona = rnn(persona_emb, seq_len=self.persona_len)
@@ -149,7 +159,7 @@ class PersonaChatModel(TFModel):
         with tf.variable_scope("attention"):
             pu_att = dot_attention(persona, utt, mask=self.utt_mask, att_size=self.attention_hidden_size,
                                    keep_prob=self.keep_prob_ph)
-            rnn = CudnnGRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
+            rnn = self.cudnn_cell(num_layers=1, num_units=self.hidden_size, batch_size=bs,
                            input_size=pu_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
             att = rnn(pu_att, seq_len=self.persona_len)
 
@@ -157,20 +167,26 @@ class PersonaChatModel(TFModel):
             with tf.variable_scope("match"):
                 self_att = dot_attention(att, att, mask=self.persona_mask, att_size=self.attention_hidden_size,
                                          keep_prob=self.keep_prob_ph)
-                rnn = CudnnGRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
+                rnn = self.cudnn_cell(num_layers=1, num_units=self.hidden_size, batch_size=bs,
                                input_size=self_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
                 match = rnn(self_att, seq_len=self.persona_len)
 
         with tf.variable_scope('decoder'):
-            state = simple_attention(utt, self.hidden_size, mask=self.utt_mask, keep_prob=self.keep_prob_ph)
+            cell_state = simple_attention(utt, self.hidden_size, mask=self.utt_mask, keep_prob=self.keep_prob_ph)
             decoder_cell_size = self.hidden_size
-            state = tf.layers.dense(state, decoder_cell_size, kernel_initializer=tf.contrib.layers.xavier_initializer(),)
-            state = (state, state)
-            #decoder_cell = tf.nn.rnn_cell.GRUCell(decoder_cell_size)
-
+            cell_state = tf.layers.dense(cell_state, decoder_cell_size, kernel_initializer=tf.contrib.layers.xavier_initializer(),)
+            if self.cell_type == 'GRU':
+                cell_state = (cell_state, cell_state)
+                cell_out = cell_state[0]
+            elif self.cell_type == 'LSTM':
+                cell_state = ((cell_state, cell_state), (cell_state, cell_state))
+                cell_out = cell_state[0][0]
+            else:
+                raise RuntimeError('Unknown cell type: {}'.format(self.cell_type))
+            
             decoder_cell = tf.contrib.rnn.MultiRNNCell([
-                tf.nn.rnn_cell.GRUCell(decoder_cell_size),
-                tf.nn.rnn_cell.GRUCell(decoder_cell_size)])
+                self.tf_cell(decoder_cell_size),
+                self.tf_cell(decoder_cell_size)])
 
             if self.use_match_layer:
                 persona_do = tf.nn.dropout(match, keep_prob=self.keep_prob, noise_shape=[bs, 1, tf.shape(match)[-1]])
@@ -178,15 +194,15 @@ class PersonaChatModel(TFModel):
                 persona_do = tf.nn.dropout(att, keep_prob=self.keep_prob, noise_shape=[bs, 1, tf.shape(att)[-1]])
 
             utt_do = tf.nn.dropout(utt, keep_prob=self.keep_prob, noise_shape=[bs, 1, tf.shape(utt)[-1]])
-            dropout_mask = tf.nn.dropout(tf.ones([bs, tf.shape(state[-1])[-1]], dtype=tf.float32), keep_prob=self.keep_prob)
+            dropout_mask = tf.nn.dropout(tf.ones([bs, tf.shape(cell_state[-1])[-1]], dtype=tf.float32), keep_prob=self.keep_prob)
             token_dropout_mask = tf.nn.dropout(tf.ones([bs, self.word_emb_dim], dtype=tf.float32), keep_prob=self.keep_prob)
             output_token = tf.zeros(shape=(bs,), dtype=tf.int32)
             pred_tokens = []
             logits = []
             probs = []
             for i in range(self.seq_len_limit):
-                inp_match, _ = attention(persona_do, state[-1] * dropout_mask, self.hidden_size, self.persona_mask, scope='att_match')
-                inp_utt, _ = attention(utt_do, state[-1] * dropout_mask, self.hidden_size, self.utt_mask, scope='att_utt')
+                inp_match, _ = attention(persona_do, cell_out * dropout_mask, self.hidden_size, self.persona_mask, scope='att_match')
+                inp_utt, _ = attention(utt_do, cell_out * dropout_mask, self.hidden_size, self.utt_mask, scope='att_utt')
 
                 if i > 0 and self.teacher_forcing:
                     input_token_emb = tf.cond(
@@ -204,11 +220,12 @@ class PersonaChatModel(TFModel):
                 input = tf.concat([input_token_emb, inp_match, inp_utt], axis=-1)
                 #input = tf.concat([input_token_emb, inp_match], axis=-1)
 
-                _, state = decoder_cell(input, state)
+                cell_out, cell_state = decoder_cell(input, cell_state)
 
-                output_proj = tf.layers.dense(state[-1], self.word_emb_dim, activation=tf.nn.tanh,
+                output_proj = tf.layers.dense(cell_out, self.word_emb_dim, activation=tf.nn.tanh,
                                               kernel_initializer=tf.contrib.layers.xavier_initializer(),
                                               name='proj', reuse=tf.AUTO_REUSE)
+
                 output_logits = tf.matmul(output_proj, self.word_emb, transpose_b=True)
                 logits.append(output_logits)
                 output_probs = tf.nn.softmax(logits[-1])
