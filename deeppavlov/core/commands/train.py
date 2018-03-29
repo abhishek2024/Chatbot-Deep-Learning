@@ -298,9 +298,8 @@ def _train_batches(model: NNModel, iterator: BasicDatasetIterator, train_config:
                 metrics = list(report['metrics'].items())
 
                 m_name, score = metrics[0]
-                # TODO: remove back
-                #if improved(score, best):
-                if True:
+
+                if improved(score, best):
                     patience = 0
                     log.info('New best {} of {}'.format(m_name, score))
                     best = score

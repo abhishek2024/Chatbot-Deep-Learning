@@ -147,7 +147,7 @@ def simple_attention(memory, att_size, mask, keep_prob=1.0, scope="simple_attent
         BS, ML, MH = tf.unstack(tf.shape(memory))
         memory_do = tf.nn.dropout(memory, keep_prob=keep_prob, noise_shape=[BS, 1, MH])
         logits = tf.layers.dense(
-            tf.layers.dense(memory_do, att_size, activation=tf.nn.sigmoid,
+            tf.layers.dense(memory_do, att_size, activation=tf.nn.tanh,
                             kernel_initializer=tf.contrib.layers.xavier_initializer(),),
             1, use_bias=False)
         logits = softmax_mask(tf.squeeze(logits, [2]), mask)
@@ -161,7 +161,7 @@ def attention(inputs, state, att_size, mask, scope="attention"):
     with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
         u = tf.concat([tf.tile(tf.expand_dims(state, axis=1), [1, tf.shape(inputs)[1], 1]), inputs], axis=2)
         logits = tf.layers.dense(
-            tf.layers.dense(u, att_size, activation=tf.nn.sigmoid,
+            tf.layers.dense(u, att_size, activation=tf.nn.tanh,
                             kernel_initializer=tf.contrib.layers.xavier_initializer(),),
             1, use_bias=False)
         logits = softmax_mask(tf.squeeze(logits, [2]), mask)

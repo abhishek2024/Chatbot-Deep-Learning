@@ -43,6 +43,7 @@ class PersonaChatModel(TFModel):
         self.grad_clip = self.opt['grad_clip']
         self.teacher_forcing = self.opt['teacher_forcing']
         self.teacher_forcing_rate = self.opt['teacher_forcing_rate']
+        self.use_match_layer = self.opt['use_match_layer']
         self.vocab_size, self.word_emb_dim = self.init_word_emb.shape
         self.char_emb_dim = self.init_char_emb.shape[1]
 
@@ -136,7 +137,7 @@ class PersonaChatModel(TFModel):
                            keep_prob=self.keep_prob_ph)
             persona = rnn(persona_emb, seq_len=self.persona_len)
             utt = rnn(utt_emb, seq_len=self.utt_len)
-        """
+        
         with tf.variable_scope("attention"):
             pu_att = dot_attention(persona, utt, mask=self.utt_mask, att_size=self.attention_hidden_size,
                                    keep_prob=self.keep_prob_ph)
@@ -144,13 +145,14 @@ class PersonaChatModel(TFModel):
                            input_size=pu_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
             att = rnn(pu_att, seq_len=self.persona_len)
 
-        with tf.variable_scope("match"):
-            self_att = dot_attention(att, att, mask=self.persona_mask, att_size=self.attention_hidden_size,
-                                     keep_prob=self.keep_prob_ph)
-            rnn = CudnnGRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
-                           input_size=self_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
-            match = rnn(self_att, seq_len=self.persona_len)
-        """
+        if self.use_match_layer:
+            with tf.variable_scope("match"):
+                self_att = dot_attention(att, att, mask=self.persona_mask, att_size=self.attention_hidden_size,
+                                         keep_prob=self.keep_prob_ph)
+                rnn = CudnnGRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
+                               input_size=self_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
+                match = rnn(self_att, seq_len=self.persona_len)
+
         with tf.variable_scope('decoder'):
             state = simple_attention(utt, self.hidden_size, mask=self.utt_mask, keep_prob=self.keep_prob_ph)
             decoder_cell_size = self.hidden_size
@@ -162,7 +164,11 @@ class PersonaChatModel(TFModel):
                 tf.nn.rnn_cell.GRUCell(decoder_cell_size),
                 tf.nn.rnn_cell.GRUCell(decoder_cell_size)])
 
-            match_do = tf.nn.dropout(persona, keep_prob=self.keep_prob, noise_shape=[bs, 1, tf.shape(persona)[-1]])
+            if self.use_match_layer:
+                persona_do = tf.nn.dropout(match, keep_prob=self.keep_prob, noise_shape=[bs, 1, tf.shape(match)[-1]])
+            else:
+                persona_do = tf.nn.dropout(att, keep_prob=self.keep_prob, noise_shape=[bs, 1, tf.shape(att)[-1]])
+
             utt_do = tf.nn.dropout(utt, keep_prob=self.keep_prob, noise_shape=[bs, 1, tf.shape(utt)[-1]])
             dropout_mask = tf.nn.dropout(tf.ones([bs, tf.shape(state[-1])[-1]], dtype=tf.float32), keep_prob=self.keep_prob)
             token_dropout_mask = tf.nn.dropout(tf.ones([bs, self.word_emb_dim], dtype=tf.float32), keep_prob=self.keep_prob)
@@ -171,8 +177,8 @@ class PersonaChatModel(TFModel):
             logits = []
             probs = []
             for i in range(self.seq_len_limit):
-                inp_match, _ = attention(match_do, state[-1] * dropout_mask, self.hidden_size, self.persona_mask, scope='att_match')
-                #inp_utt, _ = attention(utt_do, state[-1] * dropout_mask, self.hidden_size, self.utt_mask, scope='att_utt')
+                inp_match, _ = attention(persona_do, state[-1] * dropout_mask, self.hidden_size, self.persona_mask, scope='att_match')
+                inp_utt, _ = attention(utt_do, state[-1] * dropout_mask, self.hidden_size, self.utt_mask, scope='att_utt')
 
                 if i > 0 and self.teacher_forcing:
                     input_token_emb = tf.cond(
@@ -187,8 +193,8 @@ class PersonaChatModel(TFModel):
 
                 input_token_emb = token_dropout_mask * input_token_emb
 
-                #input = tf.concat([input_token_emb, inp_match, inp_utt], axis=-1)
-                input = tf.concat([input_token_emb, inp_match], axis=-1)
+                input = tf.concat([input_token_emb, inp_match, inp_utt], axis=-1)
+                #input = tf.concat([input_token_emb, inp_match], axis=-1)
 
                 _, state = decoder_cell(input, state)
 
