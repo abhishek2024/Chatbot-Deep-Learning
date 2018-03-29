@@ -80,7 +80,7 @@ class PersonaChatModel(TFModel):
 
         if kwargs['mode'] == 'train':
             if self.load_path is None:
-                self.save_path = expand_path(Path(self.opt['save_path']) / '{}_model'.format(self.run_id))
+                self.save_path = expand_path(Path(self.opt['save_path']) / '{}_model'.format(self.run_id) / 'model')
             else:
                 self.save_path = self.load_path
         # Try to load the model (if there are some model files the model will be loaded from them)
@@ -183,7 +183,7 @@ class PersonaChatModel(TFModel):
                 cell_out = cell_state[0][0]
             else:
                 raise RuntimeError('Unknown cell type: {}'.format(self.cell_type))
-            
+
             decoder_cell = tf.contrib.rnn.MultiRNNCell([
                 self.tf_cell(decoder_cell_size),
                 self.tf_cell(decoder_cell_size)])

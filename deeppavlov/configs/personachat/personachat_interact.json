@@ -74,6 +74,7 @@
         "teacher_forcing": true,
         "teacher_forcing_rate": 0.2,
         "use_match_layer": true,
+        "cell_type": "GRU",
         "save_path": "personachat_model/04_128hs_0.5do_1.0tf/model",
         "load_path": "personachat_model/04_128hs_0.5do_1.0tf/model",
         "in": ["persona_tok_idxs", "persona_char_idxs", "x_tok_idxs", "x_char_idxs"],
