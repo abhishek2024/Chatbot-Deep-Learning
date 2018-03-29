@@ -73,9 +73,8 @@
         "grad_clip": 5.0,
         "teacher_forcing": true,
         "teacher_forcing_rate": 1.0,
-        "use_match_layer": true,
-        "save_path": "personachat_model/model",
-        "load_path": "personachat_model/model",
+        "use_match_layer": false,
+        "save_path": "personachat_model/",
         "in": ["persona_tok_idxs", "persona_char_idxs", "x_tok_idxs", "x_char_idxs", "y_tok_idxs"],
         "in_y": [],
         "out": ["y_pred_tok_idxs", "y_probs"]
@@ -96,8 +95,9 @@
     "validate_best": false,
     "log_every_n_batches": 100,
     "val_every_n_epochs": 1,
+    "patience": 7,
     "batch_size": 64,
-    "metrics": ["personachat_loss", "personachat_perplexity"]
+    "metrics": ["personachat_perplexity", "personachat_loss"]
   }
 }
 

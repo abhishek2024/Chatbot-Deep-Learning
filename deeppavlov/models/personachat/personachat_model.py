@@ -60,11 +60,19 @@ class PersonaChatModel(TFModel):
         self.sess.run(tf.global_variables_initializer())
 
         self.summary_writer = None
-        self.log_path = str(expand_path(Path(self.opt['save_path']).parent / '{}'.format(uuid.uuid4())))
 
         self.step = 0
 
         super().__init__(**kwargs)
+        
+        self.run_id = str(uuid.uuid4())
+        self.log_path = str(expand_path(Path(self.opt['save_path']) / '{}'.format(self.run_id)))
+
+        if kwargs['mode'] == 'train':
+            if self.load_path is None:
+                self.save_path = expand_path(Path(self.opt['save_path']) / '{}_model'.format(self.run_id))
+            else:
+                self.save_path = self.load_path
         # Try to load the model (if there are some model files the model will be loaded from them)
         if self.load_path is not None:
             self.load()
