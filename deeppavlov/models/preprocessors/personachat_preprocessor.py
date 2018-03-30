@@ -22,7 +22,7 @@ class PersonaChatTokenizer(Component):
     def __init__(self, *args, **kwargs):
         pass
 
-    def __call__(self, utterances, personas=None, **kwargs):
+    def __call__(self, utterances, dialog_histories=None, personas=None, **kwargs):
         """ Tokenizes utterances and agent personality sentences.
             Merges personality sentences into one text.
 
@@ -35,6 +35,11 @@ class PersonaChatTokenizer(Component):
             tokenized utterances and
         """
         utt_tokenized = [word_tokenize(u) for u in utterances]
+        if dialog_histories is not None:
+            dialog_histories_tok = list(map(lambda x: word_tokenize(' '.join(x) if isinstance(x, list) else x), dialog_histories))
+            # prepend dialog_history to utt
+            # TODO: add special token between them
+            utt_tokenized = [d + u for u, d in zip(utt_tokenized, dialog_histories_tok)]
         if personas is not None:
             personas_tokenized = list(map(lambda x: word_tokenize(' '.join(x) if isinstance(x, list) else x), personas))
             return utt_tokenized, personas_tokenized
@@ -45,14 +50,16 @@ class PersonaChatTokenizer(Component):
 class PersonachatEmbedder(Estimator):
     # TODO: refactor to merge this code with SQuAD embedder
     def __init__(self, emb_folder, emb_url, save_path, load_path,
-                 seq_len_limit, char_limit, level='token', *args, **kwargs):
+                 x_len_limit, persona_len_limit, y_len_limit, char_limit, level='token', *args, **kwargs):
         self.emb_folder = expand_path(emb_folder)
         self.level = level
         self.emb_url = emb_url
         self.emb_file_name = Path(emb_url).name
         self.save_path = expand_path(save_path)
         self.load_path = expand_path(load_path)
-        self.seq_len_limit = seq_len_limit
+        self.x_len_limit = x_len_limit
+        self.persona_len_limit = persona_len_limit
+        self.y_len_limit = y_len_limit
         self.char_limit = char_limit
         self.loaded = False
 
@@ -68,33 +75,34 @@ class PersonachatEmbedder(Estimator):
             self.load()
 
     def __call__(self, utterances, personas=None):
+        seq_len_limit = self.x_len_limit if personas is not None else self.y_len_limit
         if self.level == 'token':
-            utt_idxs = np.zeros([len(utterances), self.seq_len_limit], dtype=np.int32)
+            utt_idxs = np.zeros([len(utterances), seq_len_limit], dtype=np.int32)
             for i, utt in enumerate(utterances):
-                for j, token in enumerate(utt[:self.seq_len_limit]):
+                for j, token in enumerate(utt[-seq_len_limit:]):
                     utt_idxs[i, j] = self._get_idx(token)
 
             if personas is None:
                 return utt_idxs
 
-            per_idxs = np.zeros([len(personas), self.seq_len_limit], dtype=np.int32)
+            per_idxs = np.zeros([len(personas), self.persona_len_limit], dtype=np.int32)
             for i, persona in enumerate(personas):
-                for j, token in enumerate(persona[:self.seq_len_limit]):
+                for j, token in enumerate(persona[:self.persona_len_limit]):
                     per_idxs[i, j] = self._get_idx(token)
 
         elif self.level == 'char':
-            utt_idxs = np.zeros([len(utterances), self.seq_len_limit, self.char_limit], dtype=np.int32)
+            utt_idxs = np.zeros([len(utterances), seq_len_limit, self.char_limit], dtype=np.int32)
             for i, utt in enumerate(utterances):
-                for j, token in enumerate(utt[:self.seq_len_limit]):
+                for j, token in enumerate(utt[-seq_len_limit:]):
                     for k, char in enumerate(token[:self.char_limit]):
                         utt_idxs[i, j, k] = self._get_idx(char)
 
             if personas is None:
                 return utt_idxs
 
-            per_idxs = np.zeros([len(personas), self.seq_len_limit, self.char_limit], dtype=np.int32)
+            per_idxs = np.zeros([len(personas), self.persona_len_limit, self.char_limit], dtype=np.int32)
             for i, persona in enumerate(personas):
-                for j, token in enumerate(persona[:self.seq_len_limit]):
+                for j, token in enumerate(persona[:self.persona_len_limit]):
                     for k, char in enumerate(token[:self.char_limit]):
                         per_idxs[i, j, k] = self._get_idx(char)
 

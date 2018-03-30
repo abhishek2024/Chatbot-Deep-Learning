@@ -33,7 +33,9 @@ class PersonaChatModel(TFModel):
         self.opt = deepcopy(kwargs)
         self.init_word_emb = self.opt['word_emb']
         self.init_char_emb = self.opt['char_emb']
-        self.seq_len_limit = self.opt['seq_len_limit']
+        self.x_len_limit = self.opt['x_len_limit']
+        self.persona_len_limit = self.opt['persona_len_limit']
+        self.y_len_limit = self.opt['y_len_limit']
         self.char_limit = self.opt['char_limit']
         self.char_hidden_size = self.opt['char_hidden_size']
         self.hidden_size = self.opt['encoder_hidden_size']
@@ -116,8 +118,8 @@ class PersonaChatModel(TFModel):
         self.y_mask = tf.cast(tf.cast(self.y_ph, tf.bool), tf.float32)
         self.y_len = tf.reduce_sum(tf.cast(self.y_mask, tf.int32), axis=1)
         # to add loss on last <PAD> symbol, to predict eos
-        self.y_mask += tf.one_hot(self.y_len, depth=self.seq_len_limit, dtype=tf.float32)
-        self.y = tf.slice(self.y_ph, [0, 0], [bs, self.seq_len_limit])
+        self.y_mask += tf.one_hot(self.y_len, depth=self.y_len_limit, dtype=tf.float32)
+        self.y = tf.slice(self.y_ph, [0, 0], [bs, self.y_len_limit])
 
         with tf.variable_scope("emb"):
             """
@@ -200,7 +202,7 @@ class PersonaChatModel(TFModel):
             pred_tokens = []
             logits = []
             probs = []
-            for i in range(self.seq_len_limit):
+            for i in range(self.y_len_limit):
                 inp_match, _ = attention(persona_do, cell_out * dropout_mask, self.hidden_size, self.persona_mask, scope='att_match')
                 inp_utt, _ = attention(utt_do, cell_out * dropout_mask, self.hidden_size, self.utt_mask, scope='att_utt')
 

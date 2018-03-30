@@ -48,6 +48,7 @@ class PersonaChatDatasetReader(DatasetReader):
         examples = []
         print(filename)
         curr_persona = []
+        curr_dialog_history = []
         persona_done = False
         with filename.open('r') as fin:
             for line in fin:
@@ -55,6 +56,7 @@ class PersonaChatDatasetReader(DatasetReader):
                 your_persona_pref = 'your persona: '
                 if line[:len(your_persona_pref)] == your_persona_pref and persona_done:
                     curr_persona = [line[len(your_persona_pref):]]
+                    curr_dialog_history = []
                     persona_done = False
                 elif line[:len(your_persona_pref)] == your_persona_pref:
                     curr_persona.append(line[len(your_persona_pref):])
@@ -65,8 +67,10 @@ class PersonaChatDatasetReader(DatasetReader):
                         'persona': curr_persona,
                         'x': x,
                         'y': y,
+                        'dialog_history': curr_dialog_history[:],
                         'candidates': candidates.split('|'),
                     }
+                    curr_dialog_history.extend([x, y])
                     examples.append(example)
 
         return examples
