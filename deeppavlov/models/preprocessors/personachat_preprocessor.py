@@ -17,33 +17,45 @@ from deeppavlov.core.common.metrics_registry import register_metric
 
 logger = get_logger(__name__)
 
+
 @register('personachat_tokenizer')
 class PersonaChatTokenizer(Component):
     def __init__(self, *args, **kwargs):
         pass
 
-    def __call__(self, utterances, dialog_histories=None, personas=None, **kwargs):
-        """ Tokenizes utterances and agent personality sentences.
-            Merges personality sentences into one text.
+    def __call__(self, utterances, **kwargs):
+        """ Tokenizes list of str  or list of list of str
+
 
         Args:
-            utterances:
-            personas: list of sentences, which characterize personality
-            **kwargs:
+            utterances: list of str or list of list of str
 
         Returns:
-            tokenized utterances and
+            list of tokens for list of str
+            list of merged tokens for list of list of str
         """
-        utt_tokenized = [word_tokenize(u) for u in utterances]
-        if dialog_histories is not None:
-            dialog_histories_tok = list(map(lambda x: word_tokenize(' '.join(x) if isinstance(x, list) else x), dialog_histories))
-            # prepend dialog_history to utt
-            # TODO: add special token between them
-            utt_tokenized = [d + u for u, d in zip(utt_tokenized, dialog_histories_tok)]
-        if personas is not None:
-            personas_tokenized = list(map(lambda x: word_tokenize(' '.join(x) if isinstance(x, list) else x), personas))
-            return utt_tokenized, personas_tokenized
-        return utt_tokenized
+        return list(map(lambda x: word_tokenize(' '.join(x) if isinstance(x, list) else x), utterances))
+
+
+@register('personachat_preprocessor')
+class PersonaChatPreprocessor(Component):
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def __call__(self, utterances, dialog_histories):
+        """ Merges utterances and dialog histories
+
+        Args:
+            utterances: list of tokens
+            dialog_histories: list of tokens
+
+        Returns:
+            dialog_history + utterance
+        """
+        # prepend dialog_history to utt
+        # TODO: add special token between dialog_history and utt
+        full_context = [d + u for u, d in zip(utterances, dialog_histories)]
+        return full_context
 
 
 @register('personachat_vocab')

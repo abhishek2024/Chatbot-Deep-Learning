@@ -267,7 +267,7 @@ class PersonaChatModel(TFModel):
                 self.utt_c_ph: utt_chars,
                 self.persona_ph: persona_tokens,
                 self.persona_c_ph: persona_chars,
-                self.y_ph: np.zeros(shape=(len(utt_tokens), self.seq_len_limit))
+                self.y_ph: np.zeros(shape=(len(utt_tokens), self.y_len_limit))
             }
         elif mode == 'train':
             feed_dict = {
