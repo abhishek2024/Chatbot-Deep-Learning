@@ -9,15 +9,25 @@
     "shuffle": true
   },
   "chainer": {
-    "in": ["persona", "x_utterance"],
+    "in": ["persona", "dialog_history", "x_utterance"],
     "in_y": ["y_utterance"],
     "pipe":
     [
       {
         "name": "personachat_tokenizer",
         "id": "tokenizer",
-        "in": ["x_utterance", "persona"],
-        "out": ["x_utterance_tok", "persona_tok"]
+        "in": ["x_utterance"],
+        "out": ["x_utterance_tok"]
+      },
+      {
+        "ref": "tokenizer",
+        "in": ["dialog_history"],
+        "out": ["dialog_history_tok"]
+      },
+      {
+        "ref": "tokenizer",
+        "in": ["persona"],
+        "out": ["persona_tok"]
       },
       {
         "ref": "tokenizer",
@@ -32,7 +42,9 @@
         "emb_url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M.vec",
         "save_path": "personachat_model/emb/vocab_embedder.pckl",
         "load_path": "personachat_model/emb/vocab_embedder.pckl",
-        "seq_len_limit": 50,
+        "x_len_limit": 50,
+        "persona_len_limit": 50,
+        "y_len_limit": 50,
         "char_limit": 16,
         "fit_lol": ["x_utterance_tok", "y_utterance_tok", "persona_tok"],
         "in": ["x_utterance_tok", "persona_tok"],
@@ -46,7 +58,9 @@
         "emb_url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M-char.vec",
         "save_path": "personachat_model/emb/char_vocab_embedder.pckl",
         "load_path": "personachat_model/emb/char_vocab_embedder.pckl",
-        "seq_len_limit": "#vocab_token.seq_len_limit",
+        "x_len_limit": "#vocab_token.x_len_limit",
+        "persona_len_limit": "#vocab_token.persona_len_limit",
+        "y_len_limit": "#vocab_token.y_len_limit",
         "char_limit": 16,
         "fit_lol": ["x_utterance_tok", "y_utterance_tok", "persona_tok"],
         "in": ["x_utterance_tok", "persona_tok"],
@@ -62,7 +76,9 @@
         "id": "personachat",
         "word_emb": "#vocab_token.emb_mat",
         "char_emb": "#vocab_char.emb_mat",
-        "seq_len_limit": "#vocab_token.seq_len_limit",
+        "x_len_limit": "#vocab_token.x_len_limit",
+        "persona_len_limit": "#vocab_token.persona_len_limit",
+        "y_len_limit": "#vocab_token.y_len_limit",
         "char_limit": "#vocab_token.char_limit",
         "train_char_emb": false,
         "char_hidden_size": 100,

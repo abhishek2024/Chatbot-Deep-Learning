@@ -16,13 +16,28 @@
       {
         "name": "personachat_tokenizer",
         "id": "tokenizer",
-        "in": ["x_utterance", "dialog_history", "persona"],
-        "out": ["x_utterance_tok", "persona_tok"]
+        "in": ["x_utterance"],
+        "out": ["x_utterance_tok"]
+      },
+      {
+        "ref": "tokenizer",
+        "in": ["dialog_history"],
+        "out": ["dialog_history_tok"]
+      },
+      {
+        "ref": "tokenizer",
+        "in": ["persona"],
+        "out": ["persona_tok"]
       },
       {
         "ref": "tokenizer",
         "in": ["y_utterance"],
         "out": ["y_utterance_tok"]
+      },
+      {
+        "name": "personachat_preprocessor",
+        "in": ["x_utterance_tok", "dialog_history_tok"],
+        "out": ["x_utterance_tok"]
       },
       {
         "name": "personachat_vocab",
