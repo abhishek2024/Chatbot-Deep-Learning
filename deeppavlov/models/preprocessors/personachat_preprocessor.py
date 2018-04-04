@@ -225,3 +225,13 @@ def personachat_loss(y_true, y_predicted):
 @register_metric('personachat_perplexity')
 def personachat_perplexity(y_true, y_predicted):
     return np.exp(-personachat_loss(y_true, y_predicted))
+
+
+@register_metric('personachat_loss_tf')
+def personachat_loss_tf(y_true, loss):
+    return float(-np.mean(loss))
+
+
+@register_metric('personachat_perplexity_tf')
+def personachat_perplexity_tf(y_true, loss):
+    return np.exp(-personachat_loss_tf(y_true, loss))

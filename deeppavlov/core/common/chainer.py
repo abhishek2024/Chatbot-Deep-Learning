@@ -44,7 +44,13 @@ class Chainer(Component):
                 preprocessed = zip(*preprocessor(*args, **kwargs))
                 return component.train_on_batch(*preprocessed)
 
+            def evaluate_on_batch(*args, **kwargs):
+                preprocessed = zip(*preprocessor(*args, **kwargs))
+                return component.evaluate_on_batch(*preprocessed)
+
             self.train_on_batch = train_on_batch
+            self.evaluate_on_batch = evaluate_on_batch
+
         if main:
             self.main = component
         if self.forward_map.issuperset(in_x):

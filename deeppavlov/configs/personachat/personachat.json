@@ -85,16 +85,17 @@
         "persona_len_limit": "#vocab_token.persona_len_limit",
         "y_len_limit": "#vocab_token.y_len_limit",
         "char_limit": "#vocab_token.char_limit",
+        "use_char_emb": false,
         "train_char_emb": false,
         "char_hidden_size": 100,
         "encoder_hidden_size": 128,
-        "attention_hidden_size": 75,
+        "attention_hidden_size": 128,
         "learning_rate": 0.0003,
         "keep_prob": 0.5,
         "grad_clip": 5.0,
         "teacher_forcing": true,
         "teacher_forcing_rate": 1.0,
-        "use_match_layer": true,
+        "use_match_layer": false,
         "cell_type": "GRU",
         "save_path": "personachat_model/",
         "in": ["persona_tok_idxs", "persona_char_idxs", "x_tok_idxs", "x_char_idxs", "y_tok_idxs"],
@@ -115,12 +116,12 @@
     "show_examples": false,
     "test_best": false,
     "validate_best": false,
-    "log_every_n_batches": 100,
+    "log_every_n_batches": 250,
     "val_every_n_epochs": 1,
     "metric_optimization": "minimize",
     "patience": 7,
     "batch_size": 64,
-    "metrics": ["personachat_perplexity", "personachat_loss"]
+    "metrics": ["personachat_perplexity_tf", "personachat_loss_tf"]
   }
 }
 

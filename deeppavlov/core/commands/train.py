@@ -163,17 +163,13 @@ def _test_model(model: Component, metrics_functions: List[Tuple[str, Callable]],
         start_time = time.time()
 
     val_y_true = []
-    val_y_predicted = []
+    val_metrics = []
     for x, y_true in iterator.batch_generator(batch_size, data_type, shuffle=False):
-        y_predicted, y_true = zip(*model(list(x), list(y_true), to_return=['y_probs', 'y_tok_idxs']))
-        #y_predicted = list(model(list(x)))
         val_y_true += y_true
-        val_y_predicted += y_predicted
-        val_y_true = val_y_true[:350]
-        val_y_predicted = val_y_predicted[:350]
+        val_metrics += [model.evaluate_on_batch(list(x), list(y_true))]
 
     # todo: validation metrics
-    metrics = [(s, f(val_y_true, val_y_predicted)) for s, f in metrics_functions]
+    metrics = [(s, f(val_y_true, val_metrics)) for s, f in metrics_functions]
 
     report = {
         'examples_seen': len(val_y_true),
@@ -224,8 +220,7 @@ def _train_batches(model: NNModel, iterator: BasicDatasetIterator, train_config:
     patience = 0
     log_on = train_config['log_every_n_batches'] > 0 or train_config['log_every_n_epochs'] > 0
     train_y_true = []
-    train_y_true_idxs = []
-    train_y_predicted = []
+    train_metrics = []
     start_time = time.time()
     break_flag = False
     writer = tf.summary.FileWriter(model.get_main_component().log_path + '_train_log')
@@ -233,15 +228,8 @@ def _train_batches(model: NNModel, iterator: BasicDatasetIterator, train_config:
         while True:
             for x, y_true in iterator.batch_generator(train_config['batch_size']):
                 if log_on:
-                    y_predicted, y_true_idxs = zip(*model(list(x), list(y_true), to_return=['y_probs', 'y_tok_idxs']))
-                    # y_predicted = list(model(list(x)))
-                    train_y_true_idxs += y_true_idxs
                     train_y_true += y_true
-                    train_y_predicted += y_predicted
-
-                # fix: OOM
-                train_y_true_idxs = train_y_true_idxs[:350]
-                train_y_predicted = train_y_predicted[:350]
+                    train_metrics += [model.evaluate_on_batch(list(x), list(y_true))]
 
                 model.train_on_batch(x, y_true)
                 i += 1
@@ -249,7 +237,7 @@ def _train_batches(model: NNModel, iterator: BasicDatasetIterator, train_config:
 
                 if train_config['log_every_n_batches'] > 0 and i % train_config['log_every_n_batches'] == 0:
                     # todo: batches metrics
-                    metrics = [(s, f(train_y_true_idxs, train_y_predicted)) for s, f in metrics_functions]
+                    metrics = [(s, f(train_y_true, train_metrics)) for s, f in metrics_functions]
                     report = {
                         'epochs_done': epochs,
                         'batches_seen': i,
@@ -263,8 +251,8 @@ def _train_batches(model: NNModel, iterator: BasicDatasetIterator, train_config:
                         writer.add_summary(metric_sum, i)
                     print(json.dumps(report, ensure_ascii=False))
                     train_y_true.clear()
-                    train_y_true_idxs.clear()
-                    train_y_predicted.clear()
+                    train_metrics.clear()
+                    # TODO: call valid on validation
 
                 if i >= train_config['max_batches'] > 0:
                     break_flag = True
@@ -277,7 +265,7 @@ def _train_batches(model: NNModel, iterator: BasicDatasetIterator, train_config:
             if train_config['log_every_n_epochs'] > 0 and epochs % train_config['log_every_n_epochs'] == 0\
                     and train_y_true:
                 # todo: epochs metrics
-                metrics = [(s, f(train_y_true_idxs, train_y_predicted)) for s, f in metrics_functions]
+                metrics = [(s, f(train_y_true, train_metrics)) for s, f in metrics_functions]
                 report = {
                     'epochs_done': epochs,
                     'batches_seen': i,
@@ -288,8 +276,7 @@ def _train_batches(model: NNModel, iterator: BasicDatasetIterator, train_config:
                 report = {'train': report}
                 print(json.dumps(report, ensure_ascii=False))
                 train_y_true.clear()
-                train_y_true_idxs.clear()
-                train_y_predicted.clear()
+                train_metrics.clear()
 
             if train_config['val_every_n_epochs'] > 0 and epochs % train_config['val_every_n_epochs'] == 0:
                 report = _test_model(model, metrics_functions, iterator,

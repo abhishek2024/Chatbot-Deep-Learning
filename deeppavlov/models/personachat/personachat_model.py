@@ -47,6 +47,7 @@ class PersonaChatModel(TFModel):
         self.teacher_forcing_rate = self.opt['teacher_forcing_rate']
         self.use_match_layer = self.opt['use_match_layer']
         self.cell_type = self.opt['cell_type']
+        self.use_char_emb = self.opt['use_char_emb']
         self.vocab_size, self.word_emb_dim = self.init_word_emb.shape
         self.char_emb_dim = self.init_char_emb.shape[1]
 
@@ -94,8 +95,9 @@ class PersonaChatModel(TFModel):
 
         self.word_emb = tf.get_variable("word_emb", initializer=tf.constant(self.init_word_emb, dtype=tf.float32),
                                         trainable=False)
-        #self.char_emb = tf.get_variable("char_emb", initializer=tf.constant(self.init_char_emb, dtype=tf.float32),
-        #                                trainable=self.opt['train_char_emb'])
+        if self.use_char_emb:
+            self.char_emb = tf.get_variable("char_emb", initializer=tf.constant(self.init_char_emb, dtype=tf.float32),
+                                            trainable=self.opt['train_char_emb'])
 
         self.utt_mask = tf.cast(self.utt_ph, tf.bool)
         self.persona_mask = tf.cast(self.persona_ph, tf.bool)
@@ -122,34 +124,35 @@ class PersonaChatModel(TFModel):
         self.y = tf.slice(self.y_ph, [0, 0], [bs, self.y_len_limit])
 
         with tf.variable_scope("emb"):
-            """
-            with tf.variable_scope("char"):
-                persona_c_emb = tf.reshape(tf.nn.embedding_lookup(self.char_emb, self.persona_c),
-                                    [bs * self.persona_maxlen, self.char_limit, self.char_emb_dim])
-                utt_c_emb = tf.reshape(tf.nn.embedding_lookup(self.char_emb, self.utt_c),
-                                    [bs * self.utt_maxlen, self.char_limit, self.char_emb_dim])
-                persona_c_emb = tf.nn.dropout(persona_c_emb, keep_prob=self.keep_prob_ph,
-                                       noise_shape=[bs * self.persona_maxlen, 1, self.char_emb_dim])
-                utt_c_emb = tf.nn.dropout(utt_c_emb, keep_prob=self.keep_prob_ph,
-                                       noise_shape=[bs * self.utt_maxlen, 1, self.char_emb_dim])
+            if self.use_char_emb:
+                with tf.variable_scope("char"):
+                    persona_c_emb = tf.reshape(tf.nn.embedding_lookup(self.char_emb, self.persona_c),
+                                        [bs * self.persona_maxlen, self.char_limit, self.char_emb_dim])
+                    utt_c_emb = tf.reshape(tf.nn.embedding_lookup(self.char_emb, self.utt_c),
+                                        [bs * self.utt_maxlen, self.char_limit, self.char_emb_dim])
+                    persona_c_emb = tf.nn.dropout(persona_c_emb, keep_prob=self.keep_prob_ph,
+                                           noise_shape=[bs * self.persona_maxlen, 1, self.char_emb_dim])
+                    utt_c_emb = tf.nn.dropout(utt_c_emb, keep_prob=self.keep_prob_ph,
+                                           noise_shape=[bs * self.utt_maxlen, 1, self.char_emb_dim])
 
-                cell_fw = tf.contrib.rnn.GRUCell(self.char_hidden_size)
-                cell_bw = tf.contrib.rnn.GRUCell(self.char_hidden_size)
-                _, (state_fw, state_bw) = tf.nn.bidirectional_dynamic_rnn(
-                    cell_fw, cell_bw, persona_c_emb, self.persona_c_len, dtype=tf.float32)
-                persona_c_emb = tf.concat([state_fw, state_bw], axis=1)
-                _, (state_fw, state_bw) = tf.nn.bidirectional_dynamic_rnn(
-                    cell_fw, cell_bw, utt_c_emb, self.utt_c_len, dtype=tf.float32)
-                utt_c_emb = tf.concat([state_fw, state_bw], axis=1)
-                persona_c_emb = tf.reshape(persona_c_emb, [bs, self.persona_maxlen, 2 * self.char_hidden_size])
-                utt_c_emb = tf.reshape(utt_c_emb, [bs, self.utt_maxlen, 2 * self.char_hidden_size])
-            """
+                    cell_fw = tf.contrib.rnn.GRUCell(self.char_hidden_size)
+                    cell_bw = tf.contrib.rnn.GRUCell(self.char_hidden_size)
+                    _, (state_fw, state_bw) = tf.nn.bidirectional_dynamic_rnn(
+                        cell_fw, cell_bw, persona_c_emb, self.persona_c_len, dtype=tf.float32)
+                    persona_c_emb = tf.concat([state_fw, state_bw], axis=1)
+                    _, (state_fw, state_bw) = tf.nn.bidirectional_dynamic_rnn(
+                        cell_fw, cell_bw, utt_c_emb, self.utt_c_len, dtype=tf.float32)
+                    utt_c_emb = tf.concat([state_fw, state_bw], axis=1)
+                    persona_c_emb = tf.reshape(persona_c_emb, [bs, self.persona_maxlen, 2 * self.char_hidden_size])
+                    utt_c_emb = tf.reshape(utt_c_emb, [bs, self.utt_maxlen, 2 * self.char_hidden_size])
+
             with tf.name_scope("word"):
                 persona_emb = tf.nn.embedding_lookup(self.word_emb, self.persona)
                 utt_emb = tf.nn.embedding_lookup(self.word_emb, self.utt)
 
-            #persona_emb = tf.concat([persona_emb, persona_c_emb], axis=2)
-            #utt_emb = tf.concat([utt_emb, utt_c_emb], axis=2)
+            if self.use_char_emb:
+                persona_emb = tf.concat([persona_emb, persona_c_emb], axis=2)
+                utt_emb = tf.concat([utt_emb, utt_c_emb], axis=2)
 
         with tf.variable_scope("encoding"):
             rnn = self.cudnn_cell(num_layers=2, num_units=self.hidden_size, batch_size=bs,
@@ -174,7 +177,7 @@ class PersonaChatModel(TFModel):
                 match = rnn(self_att, seq_len=self.persona_len)
 
         with tf.variable_scope('decoder'):
-            cell_state = simple_attention(utt, self.hidden_size, mask=self.utt_mask, keep_prob=self.keep_prob_ph)
+            cell_state = simple_attention(utt, self.attention_hidden_size, mask=self.utt_mask, keep_prob=self.keep_prob_ph)
             decoder_cell_size = self.hidden_size
             cell_state = tf.layers.dense(cell_state, decoder_cell_size, kernel_initializer=tf.contrib.layers.xavier_initializer(),)
             if self.cell_type == 'GRU':
@@ -203,8 +206,8 @@ class PersonaChatModel(TFModel):
             logits = []
             probs = []
             for i in range(self.y_len_limit):
-                inp_match, _ = attention(persona_do, cell_out * dropout_mask, self.hidden_size, self.persona_mask, scope='att_match')
-                inp_utt, _ = attention(utt_do, cell_out * dropout_mask, self.hidden_size, self.utt_mask, scope='att_utt')
+                inp_match, _ = attention(persona_do, cell_out * dropout_mask, self.attention_hidden_size, self.persona_mask, scope='att_match')
+                inp_utt, _ = attention(utt_do, cell_out * dropout_mask, self.attention_hidden_size, self.utt_mask, scope='att_utt')
 
                 if i > 0 and self.teacher_forcing:
                     input_token_emb = tf.cond(
@@ -305,6 +308,11 @@ class PersonaChatModel(TFModel):
 
         self.summary_writer.add_summary(loss_summary, self.step)
         self.step += 1
+        return loss
+
+    def evaluate_on_batch(self, persona_tokens, persona_chars, utt_tokens, utt_chars, y):
+        feed_dict = self._build_feed_dict(persona_tokens, persona_chars, utt_tokens, utt_chars, y, mode='valid')
+        loss = self.sess.run(self.loss, feed_dict=feed_dict)
         return loss
 
     def __call__(self, persona_tokens, persona_chars, utt_tokens, utt_chars, y=None, *args, **kwargs):
