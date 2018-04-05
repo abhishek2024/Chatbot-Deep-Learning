@@ -14,4 +14,4 @@ class PersonaChatIterator(BasicDatasetIterator):
         Returns:
             list of (persona, x, candidates), y
         """
-        return list(map(lambda x: ((x['persona'], x['dialog_history'], x['x'], x['candidates']), x['y']), data))
+        return list(map(lambda x: ((x['persona'], x['dialog_history'], x['x']), (x['y'], x['candidates'], x['y_idx'])), data))

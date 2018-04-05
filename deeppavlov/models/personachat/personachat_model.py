@@ -248,6 +248,7 @@ class PersonaChatModel(TFModel):
 
         self.y_ohe = tf.one_hot(self.y, depth=self.vocab_size)
         self.loss = tf.nn.softmax_cross_entropy_with_logits(labels=self.y_ohe, logits=self.logits) * self.y_mask
+        self.per_item_loss = tf.reduce_sum(self.loss, axis=-1) / tf.reduce_sum(self.y_mask, axis=-1)
         self.loss = tf.reduce_sum(self.loss) / tf.reduce_sum(self.y_mask)
         self.loss_summary = tf.summary.scalar("loss", self.loss)
 
@@ -297,7 +298,7 @@ class PersonaChatModel(TFModel):
 
         return feed_dict
 
-    def train_on_batch(self, persona_tokens, persona_chars, utt_tokens, utt_chars, y):
+    def train_on_batch(self, persona_tokens, persona_chars, utt_tokens, utt_chars, y, y_candidates=None, y_idx=None):
         feed_dict = self._build_feed_dict(persona_tokens, persona_chars, utt_tokens, utt_chars, y, mode='train')
         loss, loss_summary, _ = self.sess.run([self.loss, self.loss_summary, self.train_op], feed_dict=feed_dict)
         if random.randint(0, 99) % 10 == 0:
@@ -310,15 +311,22 @@ class PersonaChatModel(TFModel):
         self.step += 1
         return loss
 
-    def evaluate_on_batch(self, persona_tokens, persona_chars, utt_tokens, utt_chars, y):
+    def evaluate_on_batch(self, persona_tokens, persona_chars, utt_tokens, utt_chars, y, y_candidates, y_idx):
         feed_dict = self._build_feed_dict(persona_tokens, persona_chars, utt_tokens, utt_chars, y, mode='valid')
         loss = self.sess.run(self.loss, feed_dict=feed_dict)
-        return loss
+        y_candidates_loss = []
+        for y_batch in np.array(y_candidates).transpose([1, 0, 2]):
+            feed_dict = self._build_feed_dict(persona_tokens, persona_chars, utt_tokens, utt_chars, y_batch, mode='valid')
+            y_candidates_loss.append(self.sess.run(self.per_item_loss, feed_dict=feed_dict))
+        y_candidates_loss = np.array(y_candidates_loss).transpose([1, 0])
+        y_candidates_predicted = np.argmin(y_candidates_loss, axis=-1)
+        hits = np.sum(y_idx == y_candidates_predicted) / len(y_idx)
+        return {'loss': loss, 'hits@1': hits}
 
-    def __call__(self, persona_tokens, persona_chars, utt_tokens, utt_chars, y=None, *args, **kwargs):
+    def __call__(self, persona_tokens, persona_chars, utt_tokens, utt_chars, y=None, y_candidates=None, y_idx=None):
         feed_dict = self._build_feed_dict(persona_tokens, persona_chars, utt_tokens, utt_chars, y, mode='predict')
-        y_pred, y_probs = self.sess.run([self.y_pred, self.y_probs], feed_dict=feed_dict)
-        return y_pred, y_probs
+        y_pred = self.sess.run([self.y_pred], feed_dict=feed_dict)
+        return y_pred
 
     def shutdown(self):
         pass

@@ -63,12 +63,14 @@ class PersonaChatDatasetReader(DatasetReader):
                 else:
                     persona_done = True
                     x, y, _, candidates = line.split('\t')
+                    candidates = candidates.split('|')
                     example = {
                         'persona': curr_persona,
                         'x': x,
                         'y': y,
                         'dialog_history': curr_dialog_history[:],
-                        'candidates': candidates.split('|'),
+                        'candidates': candidates,
+                        'y_idx': candidates.index(y)
                     }
                     curr_dialog_history.extend([x, y])
                     examples.append(example)

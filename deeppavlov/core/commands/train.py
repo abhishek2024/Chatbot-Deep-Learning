@@ -219,25 +219,23 @@ def _train_batches(model: NNModel, iterator: BasicDatasetIterator, train_config:
     saved = False
     patience = 0
     log_on = train_config['log_every_n_batches'] > 0 or train_config['log_every_n_epochs'] > 0
-    train_y_true = []
-    train_metrics = []
     start_time = time.time()
     break_flag = False
     writer = tf.summary.FileWriter(model.get_main_component().log_path + '_train_log')
+    train_y_true = []
+    train_x = []
     try:
         while True:
             for x, y_true in iterator.batch_generator(train_config['batch_size']):
-                if log_on:
-                    train_y_true += y_true
-                    train_metrics += [model.evaluate_on_batch(list(x), list(y_true))]
-
-                model.train_on_batch(x, y_true)
+                train_y_true = y_true
+                train_x = x
                 i += 1
                 examples += len(x)
 
                 if train_config['log_every_n_batches'] > 0 and i % train_config['log_every_n_batches'] == 0:
                     # todo: batches metrics
-                    metrics = [(s, f(train_y_true, train_metrics)) for s, f in metrics_functions]
+                    train_metrics = [model.evaluate_on_batch(list(x), list(y_true))]
+                    metrics = [(s, f(y_true, train_metrics)) for s, f in metrics_functions]
                     report = {
                         'epochs_done': epochs,
                         'batches_seen': i,
@@ -250,9 +248,8 @@ def _train_batches(model: NNModel, iterator: BasicDatasetIterator, train_config:
                         metric_sum = tf.Summary(value=[tf.Summary.Value(tag='train/'+name, simple_value=score), ])
                         writer.add_summary(metric_sum, i)
                     print(json.dumps(report, ensure_ascii=False))
-                    train_y_true.clear()
-                    train_metrics.clear()
-                    # TODO: call valid on validation
+
+                model.train_on_batch(x, y_true)
 
                 if i >= train_config['max_batches'] > 0:
                     break_flag = True
@@ -262,9 +259,9 @@ def _train_batches(model: NNModel, iterator: BasicDatasetIterator, train_config:
 
             epochs += 1
 
-            if train_config['log_every_n_epochs'] > 0 and epochs % train_config['log_every_n_epochs'] == 0\
-                    and train_y_true:
+            if train_config['log_every_n_epochs'] > 0 and epochs % train_config['log_every_n_epochs'] == 0:
                 # todo: epochs metrics
+                train_metrics = [model.evaluate_on_batch(list(train_x), list(train_y_true))]
                 metrics = [(s, f(train_y_true, train_metrics)) for s, f in metrics_functions]
                 report = {
                     'epochs_done': epochs,
