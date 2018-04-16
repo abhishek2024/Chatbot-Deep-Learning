@@ -4,8 +4,6 @@ import csv
 from deeppavlov.core.commands.infer import build_model_from_config
 from deeppavlov.core.common.file import read_json
 
-EVAL_DATA_PATH = "/media/olga/Data/Downloads/Sber KPI 2018  - Sheet1.csv"
-
 parser = argparse.ArgumentParser()
 
 parser.add_argument('-config_path', help='Path to a JSON config', type=str,
