@@ -36,7 +36,7 @@ def evaluate():
 
     with open(args.output_path, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(['Question', 'Answer'])  # write header
+        writer.writerow(['Question', 'True Answer', 'Predicted Answer'])  # add header
         for triple in zip(questions, answers_true, predictions):
             writer.writerow([triple[0], triple[1], triple[2][0]])
 
