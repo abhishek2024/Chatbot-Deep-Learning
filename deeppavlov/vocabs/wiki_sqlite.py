@@ -34,10 +34,12 @@ class WikiSQLiteVocab(Component):
         :param n: a number of documents to return
         :return: document contents (as a single string)
         """
-        # TODO fix later
-        doc_ids = doc_ids[0]
-        contents = [self.get_doc_content(doc_id) for doc_id in doc_ids]
-        return [' '.join(contents)]
+        all_contents = []
+        for ids in doc_ids:
+            contents = [self.get_doc_content(doc_id) for doc_id in ids]
+            contents = ' '.join(contents)
+            all_contents.append(contents)
+        return all_contents
 
     def get_db_name(self) -> str:
         cursor = self.connect.cursor()
