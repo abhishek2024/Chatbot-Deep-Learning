@@ -65,7 +65,7 @@ class KGRanker(Component):
             s = np.dot(self.data_tfidf, self.tfidf.transform([self._preprocess_str(utt)]).T).todense()
             top_events = np.argsort(s, axis=0)[::-1]
             events.append(np.squeeze(top_events.tolist())[:self.n_top].tolist())
-            scores.append(np.sort(s, axis=0)[::-1][:self.n_top].tolist())
+            scores.append(np.squeeze(np.sort(s.tolist(), axis=0)[::-1][:self.n_top]).tolist())
         return events, scores
 
     def _prepare_tfidf(self):
