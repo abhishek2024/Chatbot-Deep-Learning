@@ -43,10 +43,10 @@ class KGRanker(Component):
         if not all((dir_path / f).exists() for f in required_files):
             download_decompress(url, dir_path)
 
-        data = []
+        self.data = []
         with open(dir_path / '{}.jsonl'.format(data_type), 'r') as fin:
             for line in fin:
-                data.append(json.loads(line))
+                self.data.append(json.loads(line))
 
         if data_type == 'events':
             self.text_features = ['title', 'description', 'body_text', 'short_title', 'tags', 'tagline']
@@ -62,10 +62,10 @@ class KGRanker(Component):
     def __call__(self, batch, *args, **kwargs):
         events, scores = [], []
         for utt in batch:
-            scores = np.dot(self.data_tfidf, self.tfidf.transform([self._preprocess_str(utt)]).T).todense()
-            top_events = np.argsort(scores, axis=0)[::-1]
+            s = np.dot(self.data_tfidf, self.tfidf.transform([self._preprocess_str(utt)]).T).todense()
+            top_events = np.argsort(s, axis=0)[::-1]
             events.append(np.squeeze(top_events.tolist())[:self.n_top].tolist())
-            scores.append(np.sort(scores, axis=0)[::-1][:self.n_top].tolist())
+            scores.append(np.sort(s, axis=0)[::-1][:self.n_top].tolist())
         return events, scores
 
     def _prepare_tfidf(self):
@@ -92,7 +92,7 @@ class KGRanker(Component):
             if isinstance(f, list):
                 f = ' <LIST_SEP> '.join(self._preprocess_str(x) for x in f)
             else:
-                f = self.preprocess_str(f)
+                f = self._preprocess_str(f)
             s += f + ' <SEP> '
         s = s.strip()
         return s

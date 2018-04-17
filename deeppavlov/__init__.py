@@ -52,6 +52,7 @@ import deeppavlov.dataset_iterators.ranking_iterator
 import deeppavlov.models.ranking.ranking_model
 import deeppavlov.models.ranking.metrics
 import deeppavlov.models.odqa.ranker
+import deeppavlov.models.kg_ranker.kg_ranker
 
 import deeppavlov.metrics.accuracy
 import deeppavlov.metrics.fmeasure
