@@ -20,4 +20,4 @@ flask==0.12.2
 flasgger==0.6.6
 flask_cors==3.0.3
 scipy==1.0.0
-pymorphy2
+pymorphy2[fast]
