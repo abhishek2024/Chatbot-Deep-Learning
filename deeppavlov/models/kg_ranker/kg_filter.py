@@ -30,6 +30,7 @@ class KudaGoFilter(Component):
     def __call__(self, ids, scores, tag_scores, *args, **kwargs):
         res = []
         for ids, scores, tag_scores in zip(ids, scores, tag_scores):
-            res.append([self.data[item_id]['title'] for item_id in ids
-                        if set(self.data[item_id]['tags']) & set(tag_scores.keys())][:self.n_top])
+            ids = [item_id for item_id in ids if set(self.data[item_id]['tags']) & set(tag_scores.keys())][:self.n_top]
+            data = [self.data[item_id] for item_id in ids]
+            res.append([{'title': item['title'], 'id': item['id'], 'url': item['site_url']} for item in data])
         return res

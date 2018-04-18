@@ -44,4 +44,3 @@
     "metrics": ["squad_f1", "exact_match"]
   }
 }
-
