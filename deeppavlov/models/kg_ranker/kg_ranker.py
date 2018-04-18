@@ -41,7 +41,7 @@ class KGRanker(Component):
 
     def __init__(self, url, data_path, data_type='events', n_top=5, *args, **kwargs):
         dir_path = Path(data_path)
-        required_files = ['{}.jsonl'.format(data_type)]
+        required_files = [x.format(data_type) for x in ['{}.jsonl', '{}_variations.json']]
         if not dir_path.exists():
             dir_path.mkdir()
 
@@ -52,6 +52,8 @@ class KGRanker(Component):
         with open(dir_path / '{}.jsonl'.format(data_type), 'r') as fin:
             for line in fin:
                 self.data.append(json.loads(line))
+
+        self.tags_variations = json.load(open(dir_path / '{}_variations.json'.format(data_type), 'r'))
 
         if data_type == 'events':
             self.text_features = ['title', 'description', 'body_text', 'short_title', 'tags', 'tagline']
@@ -99,7 +101,16 @@ class KGRanker(Component):
         s = ''
         for feature_name in text_features:
             f = event[feature_name]
-            if isinstance(f, list):
+            if feature_name == 'tags':
+                tag_to_str = []
+                for tag in f:
+                    tag_variations = self.tags_variations.get(tag, [])
+                    tag_str = ' <TAG_VAR_SEP> '.join([self._preprocess_str(x) for x in tag_variations])
+                    if len(tag_variations) == 0:
+                        tag_str = self._preprocess_str(tag)
+                    tag_to_str.append(tag_str)
+                f = ' <TAG_SEP> '.join(tag_to_str)
+            elif isinstance(f, list):
                 f = ' <LIST_SEP> '.join(self._preprocess_str(x) for x in f)
             else:
                 f = self._preprocess_str(f)

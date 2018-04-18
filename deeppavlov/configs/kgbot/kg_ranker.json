@@ -4,7 +4,7 @@
     "pipe": [
       {
         "name": "kg_ranker",
-        "url": "http://lnsigo.mipt.ru/export/datasets/kudago_dump.tar.gz",
+        "url": "http://lnsigo.mipt.ru/export/kudago/kudago_pack.tar.gz",
         "data_path": "kudago/",
         "data_type": "events",
         "n_top": 5,
