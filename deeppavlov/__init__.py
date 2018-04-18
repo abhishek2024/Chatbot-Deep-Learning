@@ -54,6 +54,7 @@ import deeppavlov.models.odqa.ranker
 import deeppavlov.models.kg_ranker.kg_ranker
 import deeppavlov.models.kg_ranker.kg_tagger
 import deeppavlov.models.kg_ranker.kg_data
+import deeppavlov.models.kg_ranker.kg_filter
 
 import deeppavlov.metrics.accuracy
 import deeppavlov.metrics.fmeasure
