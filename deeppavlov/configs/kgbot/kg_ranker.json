@@ -9,23 +9,12 @@
       {
         "name": "kg_ranker",
         "data": "#kg_data.data",
-        "data_type": "events",
         "n_top": 5,
         "in": ["utterance"],
         "out": ["id", "score"]
       }
     ],
     "out": ["id", "score"]
-  },
-  "train": {
-    "show_examples": false,
-    "test_best": false,
-    "validate_best": true,
-    "log_every_n_batches": 250,
-    "val_every_n_epochs": 1,
-    "batch_size": 50,
-    "pytest_max_batches": 2,
-    "metrics": ["squad_f1", "exact_match"]
   }
 }
 

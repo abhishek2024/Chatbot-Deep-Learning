@@ -9,7 +9,6 @@
       {
         "name": "kg_ranker",
         "data": "#kg_data.data",
-        "data_type": "events",
         "n_top": -1,
         "in": ["utterance"],
         "out": ["id", "score"]
@@ -17,7 +16,6 @@
       {
         "name": "kg_tagger",
         "data": "#kg_data.data",
-        "data_type": "events",
         "threshold": 75,
         "in": ["utterance"],
         "out": ["tag_scores"]
@@ -25,22 +23,11 @@
       {
         "name": "kg_filter",
         "data": "#kg_data.data",
-        "data_type": "events",
         "n_top": 3,
         "in": ["id", "score", "tag_scores"],
         "out": ["message"]
       }
     ],
     "out": ["message"]
-  },
-  "train": {
-    "show_examples": false,
-    "test_best": false,
-    "validate_best": true,
-    "log_every_n_batches": 250,
-    "val_every_n_epochs": 1,
-    "batch_size": 50,
-    "pytest_max_batches": 2,
-    "metrics": ["squad_f1", "exact_match"]
   }
 }
