@@ -110,4 +110,4 @@ class LeveTagger(Component):
         tags_scores = {}
         for tag, score in retrieved_tags:
             tags_scores[tag] = max(score, tags_scores.get(tag, 0))
-        return tags_scores
+        return [tags_scores]
