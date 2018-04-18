@@ -9,7 +9,6 @@
       {
         "name": "kg_ranker",
         "data": "#kg_data.data",
-        "data_type": "events",
         "n_top": 5,
         "in": ["utterance"],
         "out": ["id", "score"]

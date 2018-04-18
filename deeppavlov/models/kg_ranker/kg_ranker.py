@@ -14,10 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import json
 import re
 from functools import lru_cache
-from pathlib import Path
 
 import nltk
 from nltk import word_tokenize
@@ -29,8 +27,6 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.registry import register
-from deeppavlov.core.data.utils import download_decompress
-
 
 nltk.download('stopwords')
 nltk.download('punkt')
@@ -39,20 +35,17 @@ nltk.download('punkt')
 @register("kg_ranker")
 class KGRanker(Component):
 
-    def __init__(self, data, data_type='events', n_top=5, *args, **kwargs):
+    def __init__(self, data, data_type='places_events', n_top=5, *args, **kwargs):
         self.data = data[data_type]
 
-        self.tags_variations = data[f'{data_type}_variations']
+        self.tags_variations = {x: data['{}_variations'.format(x)] for x in data_type.split('_')}
 
-        if data_type == 'events':
-            self.text_features = ['title', 'description', 'body_text', 'short_title', 'tags', 'tagline']
-        elif data_type == 'places':
-            self.text_features = ['title', 'address', 'body_text', 'description', 'subway', 'tags']
+        self.text_features = ['title', 'description', 'body_text', 'short_title', 'tags', 'tagline', 'address', 'subway']
 
         self.n_top = n_top
         self.stop_words = set(stopwords.words('russian'))
         self.morph = pymorphy2.MorphAnalyzer()
-
+        self.id_key = 'local_id' if data_type == 'places_events' else 'id'
         self._prepare_tfidf()
 
     def __call__(self, batch, *args, **kwargs):
@@ -65,7 +58,7 @@ class KGRanker(Component):
             if self.n_top != -1:
                 events = events[:self.n_top]
                 scores = scores[:self.n_top]
-            batch_events.append(list(map(lambda x: self.data[x]['id'], events)))
+            batch_events.append(list(map(lambda x: self.data[x][self.id_key], events)))
             batch_scores.append(scores)
         return batch_events, batch_scores
 
@@ -89,20 +82,21 @@ class KGRanker(Component):
     def _get_text(self, event, text_features):
         s = ''
         for feature_name in text_features:
-            f = event[feature_name]
-            if feature_name == 'tags':
-                tag_to_str = []
-                for tag in f:
-                    tag_variations = self.tags_variations.get(tag, [])
-                    tag_str = ' <TAG_VAR_SEP> '.join([self._preprocess_str(x) for x in tag_variations])
-                    if len(tag_variations) == 0:
-                        tag_str = self._preprocess_str(tag)
-                    tag_to_str.append(tag_str)
-                f = ' <TAG_SEP> '.join(tag_to_str)
-            elif isinstance(f, list):
-                f = ' <LIST_SEP> '.join(self._preprocess_str(x) for x in f)
-            else:
-                f = self._preprocess_str(f)
-            s += f + ' <SEP> '
+            if feature_name in event:
+                f = event[feature_name]
+                if feature_name == 'tags':
+                    tag_to_str = []
+                    for tag in f:
+                        tag_variations = self.tags_variations.get(tag, [])
+                        tag_str = ' <TAG_VAR_SEP> '.join([self._preprocess_str(x) for x in tag_variations])
+                        if len(tag_variations) == 0:
+                            tag_str = self._preprocess_str(tag)
+                        tag_to_str.append(tag_str)
+                    f = ' <TAG_SEP> '.join(tag_to_str)
+                elif isinstance(f, list):
+                    f = ' <LIST_SEP> '.join(self._preprocess_str(x) for x in f)
+                else:
+                    f = self._preprocess_str(f)
+                s += f + ' <SEP> '
         s = s.strip()
         return s
