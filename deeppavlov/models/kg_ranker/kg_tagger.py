@@ -96,18 +96,20 @@ class LeveTagger(Component):
             ratios.append(fuzz.token_sort_ratio(phrase_short, phrase_long))
         return ratios
 
-    def __call__(self, utt):
-        utt = utt[0]
-        utt_tokens = self.preprocess(utt)
-        retrieved_tags = []
-        for l in self.tags_by_len:
-            for tag, tag_tokens in self.tags_by_len[l]:
+    def __call__(self, utt_batch):
+        responses = []
+        for utt in utt_batch:
+            utt_tokens = self.preprocess(utt)
+            retrieved_tags = []
+            for l in self.tags_by_len:
+                for tag, tag_tokens in self.tags_by_len[l]:
 
-                scores = self.match(utt_tokens, tag_tokens)
-                score = max(scores)
-                if score > self.threshold:
-                    retrieved_tags.append([tag, score])
-        tags_scores = {}
-        for tag, score in retrieved_tags:
-            tags_scores[tag] = max(score, tags_scores.get(tag, 0))
-        return [tags_scores]
+                    scores = self.match(utt_tokens, tag_tokens)
+                    score = max(scores)
+                    if score > self.threshold:
+                        retrieved_tags.append([tag, score])
+            tags_scores = {}
+            for tag, score in retrieved_tags:
+                tags_scores[tag] = max(score, tags_scores.get(tag, 0))
+            responses.append(tags_scores)
+        return responses
