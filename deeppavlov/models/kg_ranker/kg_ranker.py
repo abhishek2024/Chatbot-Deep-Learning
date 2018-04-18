@@ -38,7 +38,7 @@ class KGRanker(Component):
     def __init__(self, data, data_type='places_events', n_top=5, *args, **kwargs):
         self.data = data[data_type]
 
-        self.tags_variations = {x: data['{}_variations'.format(x)] for x in data_type.split('_')}
+        self.tags_variations = data['places_events_variations']
 
         self.text_features = ['title', 'description', 'body_text', 'short_title', 'tags', 'tagline', 'address', 'subway']
 
