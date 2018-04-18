@@ -46,7 +46,7 @@ class KudaGoFilter(Component):
 
     @staticmethod
     def _normalize_scores(scores):
-        w = max(sum(scores.values()), 1e-06)
+        w = max(max(scores.values()), 1e-06)
         for k in scores:
             scores[k] /= w
         return scores
