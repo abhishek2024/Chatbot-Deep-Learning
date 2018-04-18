@@ -65,13 +65,18 @@ class KGRanker(Component):
         self._prepare_tfidf()
 
     def __call__(self, batch, *args, **kwargs):
-        events, scores = [], []
+        batch_events, batch_scores = [], []
         for utt in batch:
             s = np.dot(self.data_tfidf, self.tfidf.transform([self._preprocess_str(utt)]).T).todense()
             top_events = np.argsort(s, axis=0)[::-1]
-            events.append(np.squeeze(top_events.tolist())[:self.n_top].tolist())
-            scores.append(np.squeeze(np.sort(s.tolist(), axis=0)[::-1][:self.n_top]).tolist())
-        return events, scores
+            events = np.squeeze(top_events.tolist()).tolist()
+            scores = np.squeeze(np.sort(s.tolist(), axis=0)[::-1]).tolist()
+            if self.n_top != -1:
+                events = events[:self.n_top]
+                scores = scores[:self.n_top]
+            batch_events.append(list(map(lambda x: self.data[x]['id'], events)))
+            batch_scores.append(scores)
+        return batch_events, batch_scores
 
     def _prepare_tfidf(self):
         self.data_texts = [self._get_text(event, self.text_features) for event in tqdm(self.data)]
