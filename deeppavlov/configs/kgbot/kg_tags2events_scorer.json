@@ -1,0 +1,25 @@
+{
+  "chainer": {
+    "in": ["utterance"],
+    "pipe": [
+      {
+        "name": "kg_data",
+        "id": "kg_data"
+      },
+      {
+        "name": "kg_tagger",
+        "data": "#kg_data.data",
+        "threshold": 75,
+        "in": ["utterance"],
+        "out": ["tag_scores"]
+      },
+      {
+        "name": "kg_tags2events_scorer",
+        "data": "#kg_data.data",
+        "in": ["tag_scores"],
+        "out": ["events_scores"]
+      }
+    ],
+    "out": ["events_scores"]
+  }
+}
