@@ -35,6 +35,18 @@
       "port": "",
       "model_endpoint": "/ner",
       "model_args_names": ""
+    },
+    "LeveTagger": {
+      "host": "",
+      "port": 7071,
+      "model_endpoint": "/kg_tagger",
+      "model_args_names": ""
+    },
+    "KGRanker": {
+      "host": "",
+      "port": 7072,
+      "model_endpoint": "/kg_ranker",
+      "model_args_names": ""
     }
   }
 }
