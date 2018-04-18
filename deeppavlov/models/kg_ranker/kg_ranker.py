@@ -32,35 +32,31 @@ nltk.download('stopwords')
 nltk.download('punkt')
 
 
-@register("kg_ranker")
-class KGRanker(Component):
+@register("kg_tfidf_scorer")
+class KGTFIDFScorer(Component):
 
-    def __init__(self, data, data_type='places_events', n_top=5, *args, **kwargs):
+    def __init__(self, data, data_type='places_events', *args, **kwargs):
         self.data = data[data_type]
 
         self.tags_variations = data['places_events_variations']
 
         self.text_features = ['title', 'description', 'body_text', 'short_title', 'tags', 'tagline', 'address', 'subway']
 
-        self.n_top = n_top
         self.stop_words = set(stopwords.words('russian'))
         self.morph = pymorphy2.MorphAnalyzer()
         self.id_key = 'local_id' if data_type == 'places_events' else 'id'
         self._prepare_tfidf()
 
     def __call__(self, batch, *args, **kwargs):
-        batch_events, batch_scores = [], []
+        batch_scores = []
         for utt in batch:
             s = np.dot(self.data_tfidf, self.tfidf.transform([self._preprocess_str(utt)]).T).todense()
             top_events = np.argsort(s, axis=0)[::-1]
             events = np.squeeze(top_events.tolist()).tolist()
             scores = np.squeeze(np.sort(s.tolist(), axis=0)[::-1]).tolist()
-            if self.n_top != -1:
-                events = events[:self.n_top]
-                scores = scores[:self.n_top]
-            batch_events.append(list(map(lambda x: self.data[x][self.id_key], events)))
-            batch_scores.append(scores)
-        return batch_events, batch_scores
+            local_ids = list(map(lambda x: self.data[x][self.id_key], events))
+            batch_scores.append({local_id:score for local_id, score in zip(local_ids, scores)})
+        return batch_scores
 
     def _prepare_tfidf(self):
         self.data_texts = [self._get_text(event, self.text_features) for event in tqdm(self.data)]

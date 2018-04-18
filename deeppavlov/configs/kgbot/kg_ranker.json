@@ -7,14 +7,13 @@
         "id": "kg_data"
       },
       {
-        "name": "kg_ranker",
+        "name": "kg_tfidf_scorer",
         "data": "#kg_data.data",
-        "n_top": 5,
         "in": ["utterance"],
-        "out": ["id", "score"]
+        "out": ["events_scores"]
       }
     ],
-    "out": ["id", "score"]
+    "out": ["events_scores"]
   }
 }
 

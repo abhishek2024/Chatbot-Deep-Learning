@@ -7,11 +7,10 @@
         "id": "kg_data"
       },
       {
-        "name": "kg_ranker",
+        "name": "kg_tfidf_scorer",
         "data": "#kg_data.data",
-        "n_top": -1,
         "in": ["utterance"],
-        "out": ["id", "score"]
+        "out": ["tfidf_scores"]
       },
       {
         "name": "kg_tagger",
@@ -21,10 +20,16 @@
         "out": ["tag_scores"]
       },
       {
+        "name": "kg_tags2events_scorer",
+        "data": "#kg_data.data",
+        "in": ["tag_scores"],
+        "out": ["tag_events_scores"]
+      },
+      {
         "name": "kg_filter",
         "data": "#kg_data.data",
         "n_top": 3,
-        "in": ["id", "score", "tag_scores"],
+        "in": ["tfidf_scores", "tag_events_scores"],
         "out": ["message"]
       }
     ],
