@@ -51,7 +51,7 @@
     "KudaGoFilter": {
       "host": "",
       "port": 6063,
-      "model_endpoint": "/kg_ranker",
+      "model_endpoint": "/kudago",
       "model_args_names": ""
     }
   }
