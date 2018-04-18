@@ -30,26 +30,17 @@ from deeppavlov.core.data.utils import download_decompress
 
 @register('kg_tagger')
 class LeveTagger(Component):
-    def __init__(self, url, data_path, data_type='events', threshold=75, **kwargs):
+    def __init__(self, data, data_type='events', threshold=75, **kwargs):
         """ Fuzzy Levenshtein tagger for finding
 
         Args:
-            url: url to download variations dictionary
-            data_path: path to save the dictionaries
+            data: KudaGo data dump
             data_type: either 'events' or 'places'
             threshold: relative threshold from 0 to 100, reasonable values 70-90
         """
-        dir_path = Path(data_path)
-        required_files = ['{}_variations.json'.format(data_type)]
-        if not dir_path.exists():
-            dir_path.mkdir()
-
-        if not all((dir_path / f).exists() for f in required_files):
-            download_decompress(url, dir_path)
 
         self.data = []
-        with open(dir_path / '{}_variations.json'.format(data_type), 'r') as f:
-            variations = json.load(f).items()
+        variations = data[f'{data_type}_variations'].items()
 
         self.lemmatizer = pymorphy2.MorphAnalyzer()
         self.stopwords = stopwords.words('russian')

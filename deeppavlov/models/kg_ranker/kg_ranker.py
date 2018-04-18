@@ -39,21 +39,10 @@ nltk.download('punkt')
 @register("kg_ranker")
 class KGRanker(Component):
 
-    def __init__(self, url, data_path, data_type='events', n_top=5, *args, **kwargs):
-        dir_path = Path(data_path)
-        required_files = [x.format(data_type) for x in ['{}.jsonl', '{}_variations.json']]
-        if not dir_path.exists():
-            dir_path.mkdir()
+    def __init__(self, data, data_type='events', n_top=5, *args, **kwargs):
+        self.data = data[data_type]
 
-        if not all((dir_path / f).exists() for f in required_files):
-            download_decompress(url, dir_path)
-
-        self.data = []
-        with open(dir_path / '{}.jsonl'.format(data_type), 'r') as fin:
-            for line in fin:
-                self.data.append(json.loads(line))
-
-        self.tags_variations = json.load(open(dir_path / '{}_variations.json'.format(data_type), 'r'))
+        self.tags_variations = data[f'{data_type}_variations']
 
         if data_type == 'events':
             self.text_features = ['title', 'description', 'body_text', 'short_title', 'tags', 'tagline']

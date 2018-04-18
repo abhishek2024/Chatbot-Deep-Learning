@@ -3,9 +3,12 @@
     "in": ["utterance"],
     "pipe": [
       {
+        "name": "kg_data",
+        "id": "kg_data"
+      },
+      {
         "name": "kg_tagger",
-        "url": "http://lnsigo.mipt.ru/export/kudago/kudago_pack.tar.gz",
-        "data_path": "kudago/",
+        "data": "#kg_data.data",
         "data_type": "events",
         "threshold": 75,
         "in": ["utterance"],
