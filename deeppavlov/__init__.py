@@ -36,7 +36,6 @@ import deeppavlov.models.trackers.hcn_at
 import deeppavlov.models.trackers.hcn_et
 import deeppavlov.models.preprocessors.str_lower
 import deeppavlov.models.preprocessors.squad_preprocessor
-import deeppavlov.models.ner.ner
 import deeppavlov.models.tokenizers.spacy_tokenizer
 import deeppavlov.models.tokenizers.split_tokenizer
 import deeppavlov.models.squad.squad
@@ -53,6 +52,7 @@ import deeppavlov.models.ranking.ranking_model
 import deeppavlov.models.ranking.metrics
 import deeppavlov.models.odqa.ranker
 import deeppavlov.models.kg_ranker.kg_ranker
+import deeppavlov.models.kg_ranker.kg_tagger
 
 import deeppavlov.metrics.accuracy
 import deeppavlov.metrics.fmeasure
