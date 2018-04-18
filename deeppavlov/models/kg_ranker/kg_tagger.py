@@ -14,32 +14,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import json
 from collections import defaultdict
 from fuzzywuzzy import fuzz
 from nltk import word_tokenize
 import pymorphy2
 from nltk.corpus import stopwords
 from functools import lru_cache
-from pathlib import Path
 
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.registry import register
-from deeppavlov.core.data.utils import download_decompress
 
 
 @register('kg_tagger')
 class LeveTagger(Component):
-    def __init__(self, data, data_type='events', threshold=75, **kwargs):
+    def __init__(self, data, data_type='places_events', threshold=75, **kwargs):
         """ Fuzzy Levenshtein tagger for finding
 
         Args:
             data: KudaGo data dump
-            data_type: either 'events' or 'places'
+            data_type: 'events' or 'places' or 'places_events'
             threshold: relative threshold from 0 to 100, reasonable values 70-90
         """
 
-        self.data = []
         variations = data[f'{data_type}_variations'].items()
 
         self.lemmatizer = pymorphy2.MorphAnalyzer()

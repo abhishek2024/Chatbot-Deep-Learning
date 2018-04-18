@@ -9,7 +9,6 @@
       {
         "name": "kg_tagger",
         "data": "#kg_data.data",
-        "data_type": "events",
         "threshold": 75,
         "in": ["utterance"],
         "out": ["tag_scores"]
