@@ -52,7 +52,7 @@ def cooccurance_matrix(label_data):
 
 def cluster_cmatrix(cooc, tags_l):
     dist = 1 - cooc / cooc.max()
-    model = cluster.AgglomerativeClustering(n_clusters=19, affinity="precomputed",
+    model = cluster.AgglomerativeClustering(n_clusters=30, affinity="precomputed",
                                             linkage='average').fit(dist)
     new_order = np.argsort(model.labels_)
     ordered_cooc = cooc[new_order][:, new_order]
@@ -111,30 +111,45 @@ def filter_sample(s):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-f", "--fpath", help="Data path")
+    parser.add_argument("-s", "--samples", help="Path to file with samples")
+    parser.add_argument("-c", "--clusters", default=None,
+                        help="Path to file with clusters of tags.")
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
 
-    data = list(jl_load(args.fpath))
-    tags_d = dict(get_tags_d(data).most_common(50))
-    tags_l = list(tags_d.keys())
+    data = list(jl_load(args.samples))
+    if args.clusters is not None:
+        cl_q_l = list(jl_load(args.clusters))
+        questions = [cl_q[1] for cl_q in cl_q_l]
+        clusters = [cl_q[0] for cl_q in cl_q_l]
+        tags_l = list(set([t for cl in clusters for t in cl]))
+    else:
+        questions = None
+        clusters = None
+        tags_d = dict(get_tags_d(data).most_common(100))
+        tags_l = list(tags_d.keys())
 
     data_tags_l = [s['tags'] for s in data]
     data_onehots = onehot_encode(data_tags_l, tags_l)
 
-    cooc1, cooc2 = cooccurance_matrix(data_onehots)
-    clusters = cluster_cmatrix(cooc2, tags_l)
-    print("Current clusters:")
-    pprint(clusters)
-    clusters += [[tag] for tag in tags_l]
+    if clusters is None:
+        cooc1, cooc2 = cooccurance_matrix(data_onehots)
+        clusters = cluster_cmatrix(cooc2, tags_l)
+        print("Found clusters:")
+        pprint(clusters)
+        clusters += [[tag] for tag in tags_l]
     
     ans = ''
     while ans != 'end':
         bst_cluster, bst_rate = best_divide(data_onehots, tags_l, clusters)
-        print("\nDo you want something from cluster {} (rate={:.3f})?".format(bst_cluster, bst_rate))
+        if questions is not None:
+            print("\n{}".format(questions[clusters.index(bst_cluster)]))
+        else:
+            print("\nDo you want something from cluster {} (rate={:.3f})?"
+                  .format(bst_cluster, bst_rate))
         ans = input(">")
         while ans not in ("yes", "no", "end"):
             print("Please answer 'yes', 'no' or 'end'.")
@@ -148,7 +163,8 @@ def main():
         else:
             break
         nonnull_tag_ids = np.where(np.sum(data_onehots, axis=0) > 0)[0]
-        print("{} remained tags to choose from = {}"              .format(len(nonnull_tag_ids), [tags_l[i] for i in nonnull_tag_ids]))
+        print("{} remained tags to choose from = {}"
+              .format(len(nonnull_tag_ids), [tags_l[i] for i in nonnull_tag_ids]))
         nonnull_sample_ids = np.where(np.sum(data_onehots, axis=1) > 0)[0]
         print("{} remaining samples to choose from.".format(len(nonnull_sample_ids)))
     nonnull_sample_ids = np.where(np.sum(data_onehots, axis=1) > 0)[0]
