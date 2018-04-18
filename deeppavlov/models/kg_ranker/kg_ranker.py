@@ -19,6 +19,7 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
+import nltk
 from nltk import word_tokenize
 from nltk.corpus import stopwords
 import numpy as np
@@ -29,6 +30,10 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.utils import download_decompress
+
+
+nltk.download('stopwords')
+nltk.download('punkt')
 
 
 @register("kg_ranker")
