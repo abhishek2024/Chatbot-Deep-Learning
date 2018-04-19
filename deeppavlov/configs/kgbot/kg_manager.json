@@ -16,6 +16,7 @@
       {
         "name": "kg_tfidf_scorer",
         "data": "#kg_data.data",
+        "n_last_utts": 3,
         "in": ["utterance"],
         "out": ["tfidf_scores"]
       },
@@ -43,17 +44,17 @@
         "name": "kg_manager",
         "min_num_events": 20,
         "cluster_policy": {
-          "name": "kb_cluster_policy",
-          "slots": "#kb_data.data['slots']",
+          "name": "kg_cluster_policy",
+          "data": "#kg_data.data",
           "min_rate": 0.01,
           "max_rate": 0.99
         },
-        "in": ["filtered_events", "slot_history", "utter_history"],
-        "out": ["message", "cluster_id"]
+        "in": ["filtered_events", "slot_history", "utterance"],
+        "out": ["message", "slot_history", "cluster_id"]
       },
       {
         "name": "kg_state_saver",
-        "states": "#kg_state.state",
+        "states": "#kg_state.states",
         "in": ["user_id", "slot_history", "cluster_id"],
         "out": ["user_id"]
       }
