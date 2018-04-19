@@ -24,25 +24,28 @@ class KudaGoFilter(Component):
         self.data = {item['local_id']: item for item in data[data_type]}
         self.n_top = n_top
 
-    def __call__(self, tfidf_scores, tag_events_scores, *args, **kwargs):
+    def __call__(self, tfidf_scores, tag_events_scores, cluster_events_scores, *args, **kwargs):
         res = []
-        for tfidf_scores, tag_events_scores in zip(tfidf_scores, tag_events_scores):
+        for tfidf_scores, tag_events_scores, cluster_events_scores in zip(tfidf_scores, tag_events_scores,
+                                                                          cluster_events_scores):
             tfidf_scores = self._normalize_scores(tfidf_scores)
             tag_events_scores = self._normalize_scores(tag_events_scores)
+            cluster_events_scores = self._normalize_scores(cluster_events_scores)
             scores = []
 
             for k in tfidf_scores:
-                scores.append((k, tfidf_scores[k], tag_events_scores[k],))
+                scores.append((k, tfidf_scores[k], tag_events_scores[k], cluster_events_scores[k]))
 
-            scores = sorted(scores, key=lambda x: x[1] + x[2], reverse=True)
+            scores = sorted(scores, key=lambda x: sum(x[1:]), reverse=True)
 
             res.append([{'title': self.data[id]['title'],
                          'local_id': self.data[id]['local_id'],
                          'url': self.data[id]['site_url'],
                          'tags': self.data[id]['tags'],
                          'tfidf_score': tfidf_score,
-                         'tag_score': tag_score
-                         } for id, tfidf_score, tag_score in scores[:self.n_top]])
+                         'tag_score': tag_score,
+                         'cluster_score': cluster_score
+                         } for id, tfidf_score, tag_score, cluster_score in scores[:self.n_top]])
         return res
 
     @staticmethod

@@ -34,10 +34,16 @@
         "out": ["tag_events_scores"]
       },
       {
+        "name": "kg_clusters2events_scorer",
+        "data": "#kg_data.data",
+        "in": ["slot_history"],
+        "out": ["cluster_events_scores"]
+      },
+      {
         "name": "kg_filter",
         "data": "#kg_data.data",
         "n_top": 30,
-        "in": ["tfidf_scores", "tag_events_scores"],
+        "in": ["tfidf_scores", "tag_events_scores", "cluster_events_scores"],
         "out": ["filtered_events"]
       },
       {
