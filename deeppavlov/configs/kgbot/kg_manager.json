@@ -50,7 +50,7 @@
           "max_rate": 0.99
         },
         "in": ["filtered_events", "slot_history", "utterance"],
-        "out": ["message", "cluster_id"]
+        "out": ["message", "slot_history", "cluster_id"]
       },
       {
         "name": "kg_state_saver",

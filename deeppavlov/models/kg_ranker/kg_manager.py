@@ -33,25 +33,30 @@ class KudaGoDialogueManager(Component):
         self.min_num_events = min_num_events
 
     def __call__(self, events, slots, utter_history):
-        messages, cluster_ids = [], []
+        messages, new_slots, cluster_ids = [], [], []
         for events, slots, utter_history in zip(events, slots, utter_history):
+            m, sl, cl_id = "", slots, None
+            if not events:
+                m = "Извини, нет событий, удовлетворяющих текущим"\
+                    " условиям. Попробуем cначала?"
+                sl, cl_id = {}, None
             if len(events) < self.min_num_events:
                 log.debug("Number of events = {} < {}"
                           .format(len(events), self.min_num_events))
-                messages.append(events)
-                cluster_ids.append(None)
+                m, sl, cl_id = events, slots, None
             else:
                 message, cluster_id = self.cluster_policy([events], [slots])
                 message, cluster_id = message[0], cluster_id[0]
                 if cluster_id is None:
                     log.debug("Cluster policy didn't work: cluster_id = None")
-                    messages.append(events)
-                    cluster_ids.append(None)
+                    m, sl, cl_id = events, slots, None
                 else:
                     log.debug("Requiring cluster_id = {}".format(cluster_id))
-                    messages.append(message)
-                    cluster_ids.append(cluster_id)
-        return messages, cluster_ids
+                    m, sl, cl_id = message, slots, cluster_id
+            messages.append(m)
+            new_slots.append(sl)
+            cluster_ids.append(cl_id)
+        return messages, new_slots, cluster_ids
 
 
 @register('kg_cluster_policy')
