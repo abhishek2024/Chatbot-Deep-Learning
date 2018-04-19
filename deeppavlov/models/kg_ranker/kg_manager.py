@@ -22,7 +22,7 @@ from deeppavlov.core.common.registry import register
 
 
 @register('kg_manager')
-def KudaGoDialogueManager(Component):
+class KudaGoDialogueManager(Component):
     def __init__(self, cluster_policy, min_num_events, *args, **kwargs):
         self.cluster_policy = cluster_policy
         self.min_num_events = min_num_events
@@ -37,9 +37,9 @@ def KudaGoDialogueManager(Component):
 
 
 @register('kg_cluster_policy')
-def KudaGoClusterPolicyManager(Component):
-    def __init__(self, slots, tags=None, min_rate=0.01, max_rate=0.99, *args, **kwargs):
-        clusters = {cl_id: val[1:] for cl_id, val in slots.items()
+class KudaGoClusterPolicyManager(Component):
+    def __init__(self, data, tags=None, min_rate=0.01, max_rate=0.99, *args, **kwargs):
+        clusters = {cl_id: val[1:] for cl_id, val in data['slots'].items()
                     if val[0] == 'ClusterSlot'}
         self.questions_d = {cl_id: q for cl_id, (q, tags) in clusters.items()}
         self.min_rate = min_rate

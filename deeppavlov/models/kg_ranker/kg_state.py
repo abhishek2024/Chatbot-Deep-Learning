@@ -42,7 +42,7 @@ class KudaGoState(Component):
 
 @register('kg_state_saver')
 class KudaGoStateSaver(Component):
-    def __init__(self, states):
+    def __init__(self, states, *args, **kwargs):
         self.states = states
 
     def __call__(self, user_ids, slots, expected_slot):

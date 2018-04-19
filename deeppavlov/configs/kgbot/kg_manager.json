@@ -44,16 +44,16 @@
         "min_num_events": 20,
         "cluster_policy": {
           "name": "kg_cluster_policy",
-          "slots": "#kg_data.data['slots']",
+          "data": "#kg_data.data",
           "min_rate": 0.01,
           "max_rate": 0.99
         },
-        "in": ["filtered_events"],
+        "in": ["filtered_events", "slot_history", "utterance"],
         "out": ["message", "cluster_id"]
       },
       {
         "name": "kg_state_saver",
-        "states": "#kg_state.state",
+        "states": "#kg_state.states",
         "in": ["user_id", "slot_history", "cluster_id"],
         "out": ["user_id"]
       }
