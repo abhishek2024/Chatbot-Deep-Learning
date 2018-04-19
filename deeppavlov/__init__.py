@@ -60,6 +60,7 @@ import deeppavlov.models.kg_ranker.kg_clusters2events_scorer
 import deeppavlov.models.kg_ranker.kg_manager
 import deeppavlov.models.kg_ranker.kg_cluster_fill
 import deeppavlov.models.kg_ranker.kg_state
+import deeppavlov.models.kg_ranker.kg_time_parser
 
 import deeppavlov.metrics.accuracy
 import deeppavlov.metrics.fmeasure
