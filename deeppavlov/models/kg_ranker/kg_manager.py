@@ -19,6 +19,10 @@ import numpy as np
 
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.registry import register
+from deeppavlov.core.common.log import get_logger
+
+
+log = get_logger(__name__)
 
 
 @register('kg_manager')
@@ -27,13 +31,26 @@ class KudaGoDialogueManager(Component):
         self.cluster_policy = cluster_policy
         self.min_num_events = min_num_events
 
-    def __call__(self, events, slots=None, utter_history=None):
-        if len(events) < self.min_num_events:
-            return events, None
-        message, cluster_id = self.cluster_policy(events)
-        if cluster_id is None:
-            return events, None
-        return message, cluster_id
+    def __call__(self, events, slots, utter_history):
+        messages, cluster_ids = [], []
+        for events, slots, utter_history in zip(events, slots, utter_history):
+            if len(events) < self.min_num_events:
+                log.debug("Number of events = {} < {}"
+                          .format(len(events), self.min_num_events))
+                messages.append(events)
+                cluster_ids.append(None)
+            else:
+                message, cluster_id = self.cluster_policy([events])
+                message, cluster_id = message[0], cluster_id[0]
+                if cluster_id is None:
+                    log.debug("Cluster policy didn't work: cluster_id = None")
+                    messages.append(events)
+                    cluster_ids.append(None)
+                else:
+                    log.debug("Requiring cluster_id = {}".format(cluster_id))
+                    messages.append(message)
+                    cluster_ids.append(cluster_id)
+        return messages, cluster_ids
 
 
 @register('kg_cluster_policy')
@@ -69,13 +86,20 @@ class KudaGoClusterPolicyManager(Component):
         return onehoted
 
     def __call__(self, events):
-        event_tags_l = [e['tags'] for e in events if e['tags']]
-        event_tags_oh = self._onehot(event_tags_l, self.tags_l)
+#TODO: support slot_history
+        questions, cluster_ids = [], []
+        for events_l in events:
+            event_tags_l = [e['tags'] for e in events_l if e['tags']]
+            event_tags_oh = self._onehot(event_tags_l, self.tags_l)
 
-        bst_cluster_id, bst_rate = self._best_divide(event_tags_oh)
-        if (bst_rate < self.min_rate) or (bst_rate > self.max_rate):
-            return "", None
-        return self.questions[bst_cluster_id], bst_cluster_id
+            bst_cluster_id, bst_rate = self._best_divide(event_tags_oh)
+            if (bst_rate < self.min_rate) or (bst_rate > self.max_rate):
+                questions.append("")
+                cluster_ids.append(None)
+            else:
+                questions.append(self.questions_d[bst_cluster_id])
+                cluster_ids.append(bst_cluster_id)
+        return questions, cluster_ids
 
     def _best_divide(self, event_tags_oh):
         """
@@ -106,7 +130,7 @@ class KudaGoClusterPolicyManager(Component):
         return np.multiply(event_tags_oh, tags_oh)
 
     @staticmethod
-    def _num_nonnull_events(event_tags_oh):
+    def _num_events_with_tags(event_tags_oh):
         """
         event_tags_oh: np.array (num_samples x num_tags)
         Returns:

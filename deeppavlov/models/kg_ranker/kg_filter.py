@@ -39,8 +39,9 @@ class KudaGoFilter(Component):
             res.append([{'title': self.data[id]['title'],
                          'local_id': self.data[id]['local_id'],
                          'url': self.data[id]['site_url'],
+                         'tags': self.data[id]['tags'],
                          'tfidf_score': tfidf_score,
-                         'tag_score': tag_score,
+                         'tag_score': tag_score
                          } for id, tfidf_score, tag_score in scores[:self.n_top]])
         return res
 
