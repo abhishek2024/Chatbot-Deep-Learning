@@ -57,6 +57,7 @@ import deeppavlov.models.kg_ranker.kg_data
 import deeppavlov.models.kg_ranker.kg_filter
 import deeppavlov.models.kg_ranker.kg_tags2events_scorer
 import deeppavlov.models.kg_ranker.kg_manager
+import deeppavlov.models.kg_ranker.kg_cluster_fill
 import deeppavlov.models.kg_ranker.kg_state
 
 import deeppavlov.metrics.accuracy
