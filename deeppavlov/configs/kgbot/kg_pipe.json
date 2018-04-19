@@ -9,6 +9,7 @@
       {
         "name": "kg_tfidf_scorer",
         "data": "#kg_data.data",
+        "n_last_utts": 3,
         "in": ["utterance"],
         "out": ["tfidf_scores"]
       },

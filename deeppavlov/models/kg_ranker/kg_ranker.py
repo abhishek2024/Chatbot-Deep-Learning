@@ -35,8 +35,9 @@ nltk.download('punkt')
 @register("kg_tfidf_scorer")
 class KGTFIDFScorer(Component):
 
-    def __init__(self, data, data_type='places_events', *args, **kwargs):
+    def __init__(self, data, data_type='places_events', n_last_utts=3, *args, **kwargs):
         self.data = data[data_type]
+        self.n_last_utts = n_last_utts
 
         self.tags_variations = data['places_events_variations']
 
@@ -49,7 +50,8 @@ class KGTFIDFScorer(Component):
 
     def __call__(self, batch, *args, **kwargs):
         batch_scores = []
-        for utt in batch:
+        for utts in batch:
+            utt = self._prepare_utt_history(utts) if isinstance(utts, list) else utts
             s = np.dot(self.data_tfidf, self.tfidf.transform([self._preprocess_str(utt)]).T).todense()
             top_events = np.argsort(s, axis=0)[::-1]
             events = np.squeeze(top_events.tolist()).tolist()
@@ -96,3 +98,6 @@ class KGTFIDFScorer(Component):
                 s += f + ' <SEP> '
         s = s.strip()
         return s
+
+    def _prepare_utt_history(self, utt_history):
+        return ' <UTT_SEP> '.join([self._preprocess_str(utt) for utt in utt_history[-self.n_last_utts:]])
