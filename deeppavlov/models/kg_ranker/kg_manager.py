@@ -40,7 +40,7 @@ class KudaGoDialogueManager(Component):
                 messages.append(events)
                 cluster_ids.append(None)
             else:
-                message, cluster_id = self.cluster_policy([events])
+                message, cluster_id = self.cluster_policy([events], [slots])
                 message, cluster_id = message[0], cluster_id[0]
                 if cluster_id is None:
                     log.debug("Cluster policy didn't work: cluster_id = None")
@@ -85,14 +85,19 @@ class KudaGoClusterPolicyManager(Component):
                 onehoted[i, all_tags.index(t)] = 1
         return onehoted
 
-    def __call__(self, events):
-#TODO: support slot_history
+    def __call__(self, events, slots):
         questions, cluster_ids = [], []
-        for events_l in events:
+        for events_l, slots_d in zip(events, slots):
             event_tags_l = [e['tags'] for e in events_l if e['tags']]
             event_tags_oh = self._onehot(event_tags_l, self.tags_l)
+            log.debug("Excluding cluster ids: {}"
+                      .format([cl_id for cl_id, val in slots_d.items() if val]))
+            clusters_oh = {cl_id: cl_oh
+                           for cl_id, cl_oh in self.clusters_oh.items()
+                           if slots_d.get(cl_id) is None}
 
-            bst_cluster_id, bst_rate = self._best_divide(event_tags_oh)
+            bst_cluster_id, bst_rate = \
+                self._best_split(event_tags_oh, clusters_oh)
             log.debug("best tag split with cluster_id = {} and rate = {}"
                       .format(bst_cluster_id, bst_rate))
             if (bst_rate < self.min_rate) or (bst_rate > self.max_rate):
@@ -103,20 +108,23 @@ class KudaGoClusterPolicyManager(Component):
                 cluster_ids.append(bst_cluster_id)
         return questions, cluster_ids
 
-    def _best_divide(self, event_tags_oh):
+    @classmethod
+    def _best_split(cls, event_tags_oh, clusters_oh):
         """
         event_tags_oh: np.array (num_samples, num_tags)
-        Returns: 
+        clusters_oh: dict with cluster ids as keys and
+                     np.arrays of size (1, num_tags) as values
+        Returns:
             cluster_id: str,
             divide_rate: float
         """
         cluster_ids = []
         split_rates = []
-        num_events = self._num_events_with_tags(event_tags_oh)
-        for cl_id, cl_oh in self.clusters_oh.items():
+        num_events = cls._num_events_with_tags(event_tags_oh)
+        for cl_id, cl_oh in clusters_oh.items():
             cluster_ids.append(cl_id)
-            split_event_tags_oh = self._split_by_tags(event_tags_oh, cl_oh)
-            num_split_events = self._num_events_with_tags(split_event_tags_oh)
+            split_event_tags_oh = cls._split_by_tags(event_tags_oh, cl_oh)
+            num_split_events = cls._num_events_with_tags(split_event_tags_oh)
             split_rates.append(num_split_events / num_events)
         best_idx = np.argmin(np.fabs(0.5 - np.array(split_rates)))
         return cluster_ids[best_idx], split_rates[best_idx]
