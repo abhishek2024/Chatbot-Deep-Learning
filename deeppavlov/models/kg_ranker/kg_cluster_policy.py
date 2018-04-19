@@ -23,8 +23,10 @@ from deeppavlov.core.common.registry import register
 
 @register('kg_cluster_policy')
 def KudaGoClusterPolicyManager(Component):
-    def __init__(self, clusters, tags=None, min_rate=0.01, max_rate=0.99, 
+    def __init__(self, slots, tags=None, min_rate=0.01, max_rate=0.99,
                  *args, **kwargs):
+        clusters = {cl_id: val[1:] for cl_id, val in slots.items()
+                    if val[0] == 'ClusterSlot'}
         self.questions_d = {cl_id: q for cl_id, (q, tags) in clusters.items()}
         self.min_rate = min_rate
         self.max_rate = max_rate
@@ -57,8 +59,8 @@ def KudaGoClusterPolicyManager(Component):
 
         bst_cluster_id, bst_rate = self._best_divide(event_tags_oh)
         if (bst_rate < self.min_rate) or (bst_rate > self.max_rate):
-            return None, ""
-        return bst_cluster_id, self.questions[bst_cluster_id]
+            return "", None
+        return self.questions[bst_cluster_id], bst_cluster_id
 
     def _best_divide(self, event_tags_oh):
         """
@@ -94,5 +96,3 @@ def KudaGoClusterPolicyManager(Component):
             int
         """
         return np.sum(np.sum(event_tags_oh, axis=1) > 0)
-
-
