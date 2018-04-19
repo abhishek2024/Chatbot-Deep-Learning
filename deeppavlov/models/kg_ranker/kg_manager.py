@@ -56,18 +56,18 @@ class KudaGoDialogueManager(Component):
 @register('kg_cluster_policy')
 class KudaGoClusterPolicyManager(Component):
     def __init__(self, data, tags=None, min_rate=0.01, max_rate=0.99, *args, **kwargs):
-        clusters = {cl_id: val[1:] for cl_id, val in data['slots'].items()
-                    if val[0] == 'ClusterSlot'}
-        self.questions_d = {cl_id: q for cl_id, (q, tags) in clusters.items()}
+        clusters = {cl_id: cl for cl_id, cl in data['slots'].items()
+                    if cl['type'] == 'ClusterSlot'}
+        self.questions_d = {cl_id: cl['questions'] for cl_id, cl in clusters.items()}
         self.min_rate = min_rate
         self.max_rate = max_rate
         self.tags_l = tags
 
         if self.tags_l is None:
-            self.tags_l = list(set(t for q, tags in clusters.values() for t in tags))
+            self.tags_l = list(set(t for cl in clusters.values() for t in cl['tags']))
         # clusters: (num_clusters, num_tags)
-        self.clusters_oh = {cl_id: self._onehot([tags], self.tags_l)
-                            for cl_id, (q, tags) in clusters.items()}
+        self.clusters_oh = {cl_id: self._onehot([cl['tags']], self.tags_l)
+                            for cl_id, cl in clusters.items()}
 
     @staticmethod
     def _onehot(tags, all_tags):
@@ -93,6 +93,8 @@ class KudaGoClusterPolicyManager(Component):
             event_tags_oh = self._onehot(event_tags_l, self.tags_l)
 
             bst_cluster_id, bst_rate = self._best_divide(event_tags_oh)
+            log.debug("best tag split with cluster_id = {} and rate = {}"
+                      .format(bst_cluster_id, bst_rate))
             if (bst_rate < self.min_rate) or (bst_rate > self.max_rate):
                 questions.append("")
                 cluster_ids.append(None)
