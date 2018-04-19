@@ -17,7 +17,7 @@ limitations under the License.
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.registry import register
 from fuzzywuzzy import fuzz
-from typing import Union, Any, List, Dict
+from typing import Union, List, Dict
 from collections import defaultdict
 
 
@@ -33,13 +33,17 @@ class KudaGoClusterFiller(Component):
                     self.ngrams[id][ans][len(item)].append(item)
         self.threshold = threshold
 
-    def __call__(self, last_cluster_id: str, slot_history: Dict[str, str], utterance: str) -> Dict[str, str]:
-        splitted_utt = utterance.split()
-        result = self._infer(splitted_utt, last_cluster_id)
-        if result:
-            slot_history[last_cluster_id] = result
-        else:
-            slot_history[last_cluster_id] = 'unknown'
+    def __call__(self, last_cluster_id: List[str], slot_history: List[Dict[str, str]], utterance: List[str]) -> List[Dict[str, str]]:
+        for i, (utt, clust_id) in enumerate(zip(utterance, last_cluster_id)):
+            if clust_id is None:
+                continue
+            clust_id = clust_id[0]
+            splitted_utt = utt.split()
+            result = self._infer(splitted_utt, clust_id)
+            if result:
+                slot_history[i][clust_id] = result
+            else:
+                slot_history[i][clust_id] = 'unknown'
         return slot_history
 
     def _infer(self, text: List[str], last_cluster_id: str) -> Union[str, None]:
