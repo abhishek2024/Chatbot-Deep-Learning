@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import random
 import collections
 import numpy as np
 
@@ -104,7 +105,7 @@ class KudaGoClusterPolicyManager(Component):
                 questions.append("")
                 cluster_ids.append(None)
             else:
-                questions.append(self.questions_d[bst_cluster_id])
+                questions.append(random.choice(self.questions_d[bst_cluster_id]))
                 cluster_ids.append(bst_cluster_id)
         return questions, cluster_ids
 
