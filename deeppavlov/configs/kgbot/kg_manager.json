@@ -43,12 +43,12 @@
         "name": "kg_manager",
         "min_num_events": 20,
         "cluster_policy": {
-          "name": "kb_cluster_policy",
-          "slots": "#kb_data.data['slots']",
+          "name": "kg_cluster_policy",
+          "slots": "#kg_data.data['slots']",
           "min_rate": 0.01,
           "max_rate": 0.99
         },
-        "in": ["filtered_events", "slot_history", "utter_history"],
+        "in": ["filtered_events"],
         "out": ["message", "cluster_id"]
       },
       {
