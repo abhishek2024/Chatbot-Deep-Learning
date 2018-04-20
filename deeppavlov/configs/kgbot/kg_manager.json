@@ -14,6 +14,13 @@
         "out": ["utter_history", "slot_history", "last_cluster_id", "user_id"]
       },
       {
+        "name": "kg_cluster_filler",
+        "slots": "#kg_data.data['slots']",
+        "threshold": 0.6,
+        "in": ["last_cluster_id", "slot_history", "utterance"],
+        "out": ["slot_history"]
+      },
+      {
         "name": "kg_tfidf_scorer",
         "data": "#kg_data.data",
         "n_last_utts": 3,

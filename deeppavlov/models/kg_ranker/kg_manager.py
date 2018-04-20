@@ -36,11 +36,13 @@ class KudaGoDialogueManager(Component):
         messages, new_slots, cluster_ids = [], [], []
         for events, slots, utter_history in zip(events, slots, utter_history):
             m, sl, cl_id = "", slots, None
+            log.debug("Received {} events :".format(len(events)))
             if not events:
-                m = "Извини, нет событий, удовлетворяющих текущим"\
-                    " условиям. Попробуем cначала?"
+                m = "Извини, нет событий, удовлетворяющих текущим условиям."\
+                    " Начнем c чистого листа? Куда бы хотел сходить?"
                 sl, cl_id = {}, None
-            if len(events) < self.min_num_events:
+# TODO: maybe do wiser and request change of one of the slots
+            elif len(events) < self.min_num_events:
                 log.debug("Number of events = {} < {}"
                           .format(len(events), self.min_num_events))
                 m, sl, cl_id = events, slots, None
