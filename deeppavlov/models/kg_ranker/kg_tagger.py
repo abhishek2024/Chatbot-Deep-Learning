@@ -53,6 +53,7 @@ class LeveTagger(Component):
             for v in v_list:
                 self.tags.append([tag, self.preprocess(v)])
         self.threshold = threshold
+        self._negation_words = ['без', 'не']
 
     @lru_cache(maxsize=1024)
     def _get_lemma(self, word):
@@ -98,13 +99,25 @@ class LeveTagger(Component):
             utt_tokens = self.preprocess(utt)
             retrieved_tags = []
             for tag, tag_tokens in self.tags:
+                # Positive
                 scores = self.match(utt_tokens, tag_tokens)
-                score = max(scores)
-                if score > self.threshold:
-                    retrieved_tags.append([tag, score])
+                positive_score = max(scores)
+
+                # Negative
+                negative_score = 0
+                for negation_word in self._negation_words:
+                    scores = self.match(utt_tokens, [negation_word] + tag_tokens)
+                    negative_score = max(scores + [negative_score])
+
+                if positive_score > self.threshold:
+                    if negative_score >= positive_score:
+                        retrieved_tags.append([tag, -negative_score])
+                    else:
+                        retrieved_tags.append([tag, positive_score])
+
             tags_scores = {}
             for tag, score in retrieved_tags:
-                tags_scores[tag] = max(score, tags_scores.get(tag, 0))
+                tags_scores[tag] = max(score, tags_scores.get(tag, -100))
             responses.append(tags_scores)
         return responses
 
