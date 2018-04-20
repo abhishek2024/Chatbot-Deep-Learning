@@ -28,12 +28,12 @@ log = get_logger(__name__)
 
 @register('kg_manager')
 class KudaGoDialogueManager(Component):
-    def __init__(self, cluster_policy, n_top, min_num_events, max_filled_slots,
+    def __init__(self, cluster_policy, n_top, min_num_events, max_num_filled_slots,
                  *args, **kwargs):
         self.cluster_policy = cluster_policy
         self.num_top = n_top
         self.min_num_events = min_num_events
-        self.max_filled_slots = max_filled_slots
+        self.max_num_filled_slots = max_num_filled_slots
 
     def __call__(self, events, slots, utter_history):
         messages, new_slots, cluster_ids = [], [], []
@@ -53,7 +53,7 @@ class KudaGoDialogueManager(Component):
                 sl, cl_id = {}, None
 # TODO: maybe do wiser and request change of one of the slots
             elif (len(events) < self.min_num_events) or\
-                    (len(filled_slots) > self.max_filled_slots):
+                    (len(filled_slots) > self.max_num_filled_slots):
                 m, sl, cl_id = events[:self.num_top], slots, None
             else:
                 message, cluster_id = self.cluster_policy([events], [slots])

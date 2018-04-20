@@ -31,7 +31,7 @@
         "name": "kg_tagger",
         "data": "#kg_data.data",
         "threshold": 75,
-        "n_last_utts": 3,
+        "n_last_utts": 10,
         "in": ["utter_history"],
         "out": ["tag_scores"]
       },
@@ -72,7 +72,7 @@
         "name": "kg_manager",
         "n_top": 3,
         "min_num_events": 20,
-        "max_filled_slots": 3,
+        "max_num_filled_slots": 3,
         "cluster_policy": {
           "name": "kg_cluster_policy",
           "data": "#kg_data.data",
