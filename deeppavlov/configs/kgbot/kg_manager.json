@@ -24,7 +24,7 @@
         "name": "kg_tfidf_scorer",
         "data": "#kg_data.data",
         "n_last_utts": 3,
-        "in": ["utterance"],
+        "in": ["utter_history"],
         "out": ["tfidf_scores"]
       },
       {
