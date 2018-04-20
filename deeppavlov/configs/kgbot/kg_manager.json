@@ -70,6 +70,7 @@
       },
       {
         "name": "kg_manager",
+        "n_top": 3,
         "min_num_events": 20,
         "max_filled_slots": 3,
         "cluster_policy": {
