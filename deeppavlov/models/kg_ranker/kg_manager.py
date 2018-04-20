@@ -36,6 +36,7 @@ class KudaGoDialogueManager(Component):
         messages, new_slots, cluster_ids = [], [], []
         for events, slots, utter_history in zip(events, slots, utter_history):
             m, sl, cl_id = "", slots, None
+            print("Slots = {}".format({s:val for s, val in slots.items() if val is not None}))
             log.debug("Received {} events :".format(len(events)))
             for e in events[:5]:
                 log.debug("score = {1:.2f}, tf_idf_score = {2:.2f}"

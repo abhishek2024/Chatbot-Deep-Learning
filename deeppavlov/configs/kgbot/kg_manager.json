@@ -16,7 +16,7 @@
       {
         "name": "kg_cluster_filler",
         "slots": "#kg_data.data['slots']",
-        "threshold": 0.6,
+        "threshold": 90,
         "in": ["last_cluster_id", "slot_history", "utterance"],
         "out": ["slot_history"]
       },

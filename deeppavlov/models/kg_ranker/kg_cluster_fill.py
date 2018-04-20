@@ -30,10 +30,11 @@ class KudaGoClusterFiller(Component):
             for ans in ['yes', 'no']:
                 self.ngrams[id][ans] = defaultdict(list)
                 for item in vals[ans]:
-                    self.ngrams[id][ans][len(item)].append(item)
+                    self.ngrams[id][ans][len(item.split())].append(item)
         self.threshold = threshold
 
-    def __call__(self, last_cluster_id: List[str], slot_history: List[Dict[str, str]], utterance: List[str]) -> List[Dict[str, str]]:
+    def __call__(self, last_cluster_id: List[str], slot_history: List[Dict[str, str]],
+                 utterance: List[str]) -> List[Dict[str, str]]:
         for i, (utt, clust_id) in enumerate(zip(utterance, last_cluster_id)):
             if clust_id is None:
                 continue
