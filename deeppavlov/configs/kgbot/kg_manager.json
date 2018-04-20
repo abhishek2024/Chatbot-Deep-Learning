@@ -13,9 +13,11 @@
         "out": ["utter_history", "slot_history", "last_cluster_id", "user_id"]
       },
       {
-        "name": "kg_cluster_filler",
+        "name": "kg_knn_cluster_filler",
         "slots": "#kg_data.data['slots']",
-        "threshold": 70,
+        "emb_folder": "embeddings/",
+        "emb_url": "http://lnsigo.mipt.ru/export/kudago/model_2.bin",
+        "threshold": 0.65,
         "in": ["last_cluster_id", "slot_history", "utterance"],
         "out": ["slot_history"]
       },
