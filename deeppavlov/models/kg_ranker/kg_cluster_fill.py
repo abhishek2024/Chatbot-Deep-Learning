@@ -16,9 +16,13 @@ limitations under the License.
 
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.registry import register
+from deeppavlov.core.common.log import get_logger
 from fuzzywuzzy import fuzz
 from typing import Union, List, Dict
 from collections import defaultdict
+
+
+log = get_logger(__name__)
 
 
 @register('kg_cluster_filler')
@@ -61,5 +65,6 @@ class KudaGoClusterFiller(Component):
                                 best_score = score
                                 best_candidate = ans
 
+        log.debug("best candidate = {}, best score = {}".format(best_candidate, best_score))
         if best_score >= self.threshold:
             return best_candidate

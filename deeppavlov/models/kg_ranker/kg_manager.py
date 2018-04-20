@@ -28,15 +28,18 @@ log = get_logger(__name__)
 
 @register('kg_manager')
 class KudaGoDialogueManager(Component):
-    def __init__(self, cluster_policy, min_num_events, *args, **kwargs):
+    def __init__(self, cluster_policy, min_num_events, max_filled_slots,
+                 *args, **kwargs):
         self.cluster_policy = cluster_policy
         self.min_num_events = min_num_events
+        self.max_filled_slots = max_filled_slots
 
     def __call__(self, events, slots, utter_history):
         messages, new_slots, cluster_ids = [], [], []
         for events, slots, utter_history in zip(events, slots, utter_history):
             m, sl, cl_id = "", slots, None
-            print("Slots = {}".format({s:val for s, val in slots.items() if val is not None}))
+            filled_slots = {s: val for s, val in slots.items() if val is not None}
+            log.debug("Slots = {}".format(filled_slots))
             log.debug("Received {} events :".format(len(events)))
             for e in events[:5]:
                 log.debug("score = {1:.2f}, tf_idf_score = {2:.2f}"
@@ -48,9 +51,8 @@ class KudaGoDialogueManager(Component):
                     " Начнем c чистого листа? Куда бы хотел сходить?"
                 sl, cl_id = {}, None
 # TODO: maybe do wiser and request change of one of the slots
-            elif len(events) < self.min_num_events:
-                log.debug("Number of events = {} < {}"
-                          .format(len(events), self.min_num_events))
+            elif (len(events) < self.min_num_events) or\
+                    (len(filled_slots) > self.max_filled_slots):
                 m, sl, cl_id = events, slots, None
             else:
                 message, cluster_id = self.cluster_policy([events], [slots])
@@ -70,15 +72,15 @@ class KudaGoDialogueManager(Component):
 @register('kg_cluster_policy')
 class KudaGoClusterPolicyManager(Component):
     def __init__(self, data, tags=None, min_rate=0.01, max_rate=0.99, *args, **kwargs):
-        clusters = {cl_id: cl for cl_id, cl in data['slots'].items()
-                    if cl['type'] == 'ClusterSlot'}
-        self.questions_d = {cl_id: cl['questions'] for cl_id, cl in clusters.items()}
         self.min_rate = min_rate
         self.max_rate = max_rate
         self.tags_l = tags
 
+        clusters = {cl_id: cl for cl_id, cl in data['slots'].items()
+                    if cl['type'] == 'ClusterSlot'}
         if self.tags_l is None:
             self.tags_l = list(set(t for cl in clusters.values() for t in cl['tags']))
+        self.questions_d = {cl_id: cl['questions'] for cl_id, cl in clusters.items()}
         # clusters: (num_clusters, num_tags)
         self.clusters_oh = {cl_id: self._onehot([cl['tags']], self.tags_l)
                             for cl_id, cl in clusters.items()}

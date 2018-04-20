@@ -16,10 +16,14 @@ limitations under the License.
 
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.registry import register
+from deeppavlov.core.common.log import get_logger
 import datetime
 from datetime import timedelta as dt
 
 DAYS = {'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3, 'friday': 4, 'saturday': 5, 'sunday': 6}
+
+
+log = get_logger(__name__)
 
 
 @register('time_parser')
@@ -30,7 +34,7 @@ class TimeParser(Component):
     def _parse_time(self, time_tags_batch):
         today = datetime.date.today()
         times = []
-        print(time_tags_batch)
+        log.debug("time_tags_batch = {}".format(time_tags_batch))
         for time_tag_list in time_tags_batch:
             if len(time_tag_list) > 0:
                 tag, score = max(time_tag_list.items(), key=lambda x: x[1])

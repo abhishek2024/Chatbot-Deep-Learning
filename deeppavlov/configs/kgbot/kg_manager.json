@@ -16,14 +16,14 @@
       {
         "name": "kg_cluster_filler",
         "slots": "#kg_data.data['slots']",
-        "threshold": 90,
+        "threshold": 70,
         "in": ["last_cluster_id", "slot_history", "utterance"],
         "out": ["slot_history"]
       },
       {
         "name": "kg_tfidf_scorer",
         "data": "#kg_data.data",
-        "n_last_utts": 3,
+        "n_last_utts": 10,
         "in": ["utterance"],
         "out": ["tfidf_scores"]
       },
@@ -71,6 +71,7 @@
       {
         "name": "kg_manager",
         "min_num_events": 20,
+        "max_filled_slots": 3,
         "cluster_policy": {
           "name": "kg_cluster_policy",
           "data": "#kg_data.data",
