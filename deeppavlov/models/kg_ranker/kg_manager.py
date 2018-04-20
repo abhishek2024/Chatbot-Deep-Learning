@@ -28,10 +28,10 @@ log = get_logger(__name__)
 
 @register('kg_manager')
 class KudaGoDialogueManager(Component):
-    def __init__(self, cluster_policy, num_top, min_num_events, max_filled_slots,
+    def __init__(self, cluster_policy, n_top, min_num_events, max_filled_slots,
                  *args, **kwargs):
         self.cluster_policy = cluster_policy
-        self.num_top = num_top
+        self.num_top = n_top
         self.min_num_events = min_num_events
         self.max_filled_slots = max_filled_slots
 
