@@ -31,7 +31,7 @@ class LeveTagger(Component):
                  data,
                  data_type='places_events_variations',
                  threshold=75,
-                 filter_stop=True,
+                 filter_stop=False,
                  n_last_utts=None,
                  **kwargs):
         """ Fuzzy Levenshtein tagger for finding
@@ -78,17 +78,26 @@ class LeveTagger(Component):
         if len(t_toks) < len(u_toks):
             seq_short = t_toks
             seq_long = u_toks
+            u_long = True
         else:
             seq_short = u_toks
             seq_long = t_toks
+            u_long = False
         ls = len(seq_short)
         ll = len(seq_long)
 
         phrase_short = ' '.join(seq_short)
         ratios = []
         for shift in range(ll - ls + 1):
+            if shift > 0:
+                if u_long:
+                    negation = -1 if seq_long[shift - 1] in self._negation_words else 1
+                else:
+                    negation = -1 if any(tok in self._negation_words for tok in seq_short) else 1
+            else:
+                negation = 1
             phrase_long = ' '.join(seq_long[shift: shift + ls])
-            ratios.append(fuzz.token_sort_ratio(phrase_short, phrase_long))
+            ratios.append((fuzz.token_sort_ratio(phrase_short, phrase_long), negation))
         return ratios
 
     def __call__(self, utt_batch):
@@ -101,23 +110,14 @@ class LeveTagger(Component):
             for tag, tag_tokens in self.tags:
                 # Positive
                 scores = self.match(utt_tokens, tag_tokens)
-                positive_score = max(scores)
-
-                # Negative
-                negative_score = 0
-                for negation_word in self._negation_words:
-                    scores = self.match(utt_tokens, [negation_word] + tag_tokens)
-                    negative_score = max(scores + [negative_score])
-
-                if positive_score > self.threshold:
-                    if negative_score >= positive_score:
-                        retrieved_tags.append([tag, -negative_score])
-                    else:
-                        retrieved_tags.append([tag, positive_score])
+                score, negation = max(scores, key=lambda x: x[0])
+                if score > self.threshold:
+                    retrieved_tags.append([tag, score, negation])
 
             tags_scores = {}
-            for tag, score in retrieved_tags:
-                tags_scores[tag] = max(score, tags_scores.get(tag, -100))
+            # Merge simmilar tags
+            for tag, score, negation in retrieved_tags:
+                tags_scores[tag] = max(score, tags_scores.get(tag, 0)) * negation
             responses.append(tags_scores)
         return responses
 
