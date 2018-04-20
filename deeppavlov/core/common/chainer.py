@@ -13,10 +13,15 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+from time import time
 
 from deeppavlov.core.common.errors import ConfigError
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.models.nn_model import NNModel
+from deeppavlov.core.common.log import get_logger
+
+
+log = get_logger(__name__)
 
 
 class Chainer(Component):
@@ -90,12 +95,16 @@ class Chainer(Component):
         mem = dict(zip(in_params, args))
         del args, x, y
 
+        times = []
         for in_params, out_params, component in pipe:
+            start = time()
             res = component(*[mem[k] for k in in_params])
             if len(out_params) == 1:
                 mem[out_params[0]] = res
             else:
                 mem.update(zip(out_params, res))
+            times.append(time() - start)
+        log.debug(f'times for chainer: {times}')
 
         res = [mem[k] for k in to_return]
         if len(res) == 1:

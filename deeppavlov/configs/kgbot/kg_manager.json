@@ -85,7 +85,7 @@
       {
         "name": "kg_state_saver",
         "states": "#kg_state.states",
-        "in": ["user_id", "slot_history", "cluster_id"],
+        "in": ["user_id", "events", "slot_history", "cluster_id"],
         "out": ["user_id"]
       }
     ],

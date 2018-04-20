@@ -37,6 +37,7 @@
       {
         "name": "kg_clusters2events_scorer",
         "data": "#kg_data.data",
+        "penalize_weight": 2.0,
         "in": ["slot_history"],
         "out": ["cluster_events_scores"]
       },
@@ -64,7 +65,7 @@
       {
         "name": "kg_manager",
         "main": "true",
-        "n_top": 3,
+        "n_top": 1,
         "min_num_events": 20,
         "max_num_filled_slots": 3,
         "cluster_policy": {
@@ -74,9 +75,9 @@
           "max_rate": 0.99
         },
         "in": ["filtered_events", "slot_history", "utterance"],
-        "out": ["message", "slot_history", "cluster_id"]
+        "out": ["message", "events", "slot_history", "cluster_id"]
       }
     ],
-    "out": ["message", "slot_history", "cluster_id"]
+    "out": ["message", "events", "slot_history", "cluster_id"]
   }
 }
