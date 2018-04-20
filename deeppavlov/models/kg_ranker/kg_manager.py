@@ -61,9 +61,9 @@ class KudaGoDialogueManager(Component):
                     " Начнем c чистого листа? Куда бы хотел сходить?"
                 sl = {}
 # TODO: maybe do wiser and request change of one of the slots
-            elif (len(events) < self.min_num_events) or\
-                    (len(filled_slots) > self.max_num_filled_slots):
-                pass
+#             elif (len(events) < self.min_num_events) or\
+#                     (len(filled_slots) > self.max_num_filled_slots):
+#                 pass
                 #m += "Хотите что-то изменить?"
             else:
                 message, cluster_id = self.cluster_policy([events], [slots])
