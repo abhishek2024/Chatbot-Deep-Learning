@@ -70,7 +70,7 @@
       },
       {
         "name": "kg_manager",
-        "n_top": 3,
+        "n_top": 1,
         "min_num_events": 20,
         "max_num_filled_slots": 3,
         "cluster_policy": {
@@ -80,7 +80,7 @@
           "max_rate": 0.99
         },
         "in": ["filtered_events", "slot_history", "utterance"],
-        "out": ["message", "slot_history", "cluster_id"]
+        "out": ["message", "events", "slot_history", "cluster_id"]
       },
       {
         "name": "kg_state_saver",

@@ -36,9 +36,9 @@ class KudaGoDialogueManager(Component):
         self.max_num_filled_slots = max_num_filled_slots
 
     def __call__(self, events, slots, utter_history):
-        messages, new_slots, cluster_ids = [], [], []
+        messages, out_events, new_slots, cluster_ids = [], [], [], []
         for events, slots, utter_history in zip(events, slots, utter_history):
-            m, sl, cl_id = "", slots, None
+            m, ev, sl, cl_id = "", [], slots, None
             filled_slots = {s: val for s, val in slots.items() if val is not None}
             log.debug("Slots = {}".format(filled_slots))
             log.debug("Received {} events :".format(len(events)))
@@ -50,24 +50,28 @@ class KudaGoDialogueManager(Component):
             if not events:
                 m = "Извини, нет событий, удовлетворяющих текущим условиям."\
                     " Начнем c чистого листа? Куда бы хотел сходить?"
-                sl, cl_id = {}, None
+                ev, sl, cl_id = [], {}, None
 # TODO: maybe do wiser and request change of one of the slots
             elif (len(events) < self.min_num_events) or\
                     (len(filled_slots) > self.max_num_filled_slots):
-                m, sl, cl_id = events[:self.num_top], slots, None
+                m = "Вот наиболее подходящее событие! Хотите что-то изменить?"
+                ev, sl, cl_id = events[:self.num_top], slots, None
             else:
                 message, cluster_id = self.cluster_policy([events], [slots])
                 message, cluster_id = message[0], cluster_id[0]
                 if cluster_id is None:
                     log.debug("Cluster policy didn't work: cluster_id = None")
-                    m, sl, cl_id = events[:self.num_top], slots, None
+                    m = "Вот наиболее подходящее событие! Хотите что-то изменить?"
+                    ev, sl, cl_id = events[:self.num_top], slots, None
                 else:
                     log.debug("Requiring cluster_id = {}".format(cluster_id))
-                    m, sl, cl_id = message, slots, cluster_id
+                    m = "Вот наиболее подходящее событие. Или " + message.lower() 
+                    ev, sl, cl_id = events[:self.num_top], slots, cluster_id
             messages.append(m)
+            out_events.append(ev)
             new_slots.append(sl)
             cluster_ids.append(cl_id)
-        return messages, new_slots, cluster_ids
+        return messages, out_events, new_slots, cluster_ids
 
 
 @register('kg_cluster_policy')
