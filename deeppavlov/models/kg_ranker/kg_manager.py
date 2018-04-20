@@ -65,10 +65,12 @@ class KudaGoDialogueManager(Component):
                     ev, sl, cl_id = events[:self.num_top], slots, None
                 else:
                     log.debug("Requiring cluster_id = {}".format(cluster_id))
-                    m = "Вот наиболее подходящее событие. Или " + message.lower() 
+                    m = "Вот наиболее подходящее событие. " + message 
                     ev, sl, cl_id = events[:self.num_top], slots, cluster_id
             messages.append(m)
             out_events.append(ev)
+            sl['shown_events'] = list(set(slots.get('shown_events', []))\
+                                      .union(e['local_id'] for e in ev))
             new_slots.append(sl)
             cluster_ids.append(cl_id)
         return messages, out_events, new_slots, cluster_ids
