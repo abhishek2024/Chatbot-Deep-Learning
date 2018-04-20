@@ -28,17 +28,29 @@ class KudaGoFilter(Component):
         self.tag_weight = tag_weight
         self.cluster_weight = cluster_weight
 
-    def __call__(self, tfidf_scores, tag_events_scores, cluster_events_scores, *args, **kwargs):
+    def _filter_time_span(self, event_id, time_span):
+        ev = self.data[event_id]
+        if time_span is None or ev['data_type'] == 'places':
+            return True
+        start, stop = [int(t.strftime('%s')) for t in time_span]
+        if ev['data_type'] == 'events':
+            for ev_date in ev['dates']:
+                if ev_date['start'] <= stop and ev_date['end'] >= start:
+                    return True
+        else:
+            raise RuntimeError(f'Unknown data_type for event {ev}')
+        return False
+
+    def __call__(self, tfidf_scores, tag_events_scores, cluster_events_scores, slots, *args, **kwargs):
         res = []
-        for tfidf_scores, tag_events_scores, cluster_events_scores in zip(tfidf_scores, tag_events_scores,
-                                                                          cluster_events_scores):
+        for tfidf_scores, tag_events_scores, cluster_events_scores, slots in zip(tfidf_scores, tag_events_scores,
+                                                                                 cluster_events_scores, slots):
             tfidf_scores = self._normalize_scores(tfidf_scores)
             tag_events_scores = self._normalize_scores(tag_events_scores)
             cluster_events_scores = self._normalize_scores(cluster_events_scores)
-
-            scores = []
-            for k in tfidf_scores:
-                scores.append((k, tfidf_scores[k], tag_events_scores[k], cluster_events_scores[k]))
+            scores = [(k, tfidf_scores[k], tag_events_scores[k], cluster_events_scores[k])
+                      for k in tfidf_scores
+                      if self._filter_time_span(k, slots['time_span'])]
 
             scores = sorted(scores, key=lambda x: self._compute_score(x[1:]), reverse=True)
 

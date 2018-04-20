@@ -70,7 +70,8 @@ class TimeParser(Component):
     def __call__(self, time_tags_batch, slot_history):
         times = self._parse_time(time_tags_batch)
         for time, slot_h in zip(times, slot_history):
-            slot_h['time_span'] = time
+            if time is not None:
+                slot_h['time_span'] = time
         return slot_history
 
     @staticmethod
