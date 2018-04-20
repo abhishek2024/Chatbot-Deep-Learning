@@ -27,7 +27,13 @@ from deeppavlov.core.common.registry import register
 
 @register('kg_tagger')
 class LeveTagger(Component):
-    def __init__(self, data, data_type='places_events_variations', threshold=75, filter_stop=True, **kwargs):
+    def __init__(self,
+                 data,
+                 data_type='places_events_variations',
+                 threshold=75,
+                 filter_stop=True,
+                 n_last_utts=None,
+                 **kwargs):
         """ Fuzzy Levenshtein tagger for finding
 
         Args:
@@ -35,7 +41,7 @@ class LeveTagger(Component):
             data_type: 'events' or 'places' or 'places_events'
             threshold: relative threshold from 0 to 100, reasonable values 70-90
         """
-
+        self._n_last_utts = n_last_utts
         variations = data[data_type].items()
 
         self.lemmatizer = pymorphy2.MorphAnalyzer()
@@ -87,6 +93,8 @@ class LeveTagger(Component):
     def __call__(self, utt_batch):
         responses = []
         for utt in utt_batch:
+            if self._n_last_utts is not None:
+                utt = self._prepare_utt_history(utt)
             utt_tokens = self.preprocess(utt)
             retrieved_tags = []
             for tag, tag_tokens in self.tags:
@@ -99,3 +107,6 @@ class LeveTagger(Component):
                 tags_scores[tag] = max(score, tags_scores.get(tag, 0))
             responses.append(tags_scores)
         return responses
+
+    def _prepare_utt_history(self, utt_history):
+        return ' <UTT_SEP> '.join([utt for utt in utt_history[-self._n_last_utts:]])

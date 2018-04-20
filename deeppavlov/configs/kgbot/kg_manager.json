@@ -24,7 +24,8 @@
         "name": "kg_tagger",
         "data": "#kg_data.data",
         "threshold": 75,
-        "in": ["utterance"],
+        "n_last_utts": 3,
+        "in": ["utter_history"],
         "out": ["tag_scores"]
       },
       {
