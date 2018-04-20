@@ -9,7 +9,6 @@
       {
         "name": "kg_state",
         "id": "kg_state",
-        "data": "#kg_data.data",
         "in": ["utterance"],
         "out": ["utter_history", "slot_history", "last_cluster_id", "user_id"]
       },

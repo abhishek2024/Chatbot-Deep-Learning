@@ -32,7 +32,7 @@ class KGClusters2EventsScorer(Component):
                 scores[event['local_id']] = 0
                 event_tags = set(event['tags'])
                 for slot in self.slots:
-                    if self.slots[slot]['type'] == 'ClusterSlot':
+                    if self.slots[slot]['type'] == 'ClusterSlot' and slot_history.get(slot):
                         slot_tags = set(self.slots[slot]['tags'])
                         if slot_history[slot] == 'yes':
                             scores[event['local_id']] += len(slot_tags & event_tags)

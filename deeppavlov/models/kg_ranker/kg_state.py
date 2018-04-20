@@ -20,8 +20,7 @@ from deeppavlov.core.models.component import Component
 
 @register('kg_state')
 class KudaGoState(Component):
-    def __init__(self, data, *args, **kwargs):
-        self.slots = data['slots']
+    def __init__(self, *args, **kwargs):
         self.states = {}
 
     def __call__(self, utterances, user_ids=None, *args, **kwargs):
@@ -30,7 +29,7 @@ class KudaGoState(Component):
         for user_id, utterance in zip(user_ids, utterances):
             if user_id not in self.states:
                 self.states[user_id] = {
-                    "slots": {k: None for k in self.slots.keys()},
+                    "slots": {},
                     "utterances_history": [],
                     "expected_slot": None
                 }
