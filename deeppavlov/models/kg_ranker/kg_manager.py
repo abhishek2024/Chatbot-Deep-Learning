@@ -34,11 +34,16 @@ class KudaGoDialogueManager(Component):
         self.num_top = n_top
         self.min_num_events = min_num_events
         self.max_num_filled_slots = max_num_filled_slots
+        self.thanks = ['спасибо', 'спс', 'пока', 'до свидания']
 
     def __call__(self, events, slots, utter_history):
         messages, out_events, new_slots, cluster_ids = [], [], [], []
         for events, slots, utter_history in zip(events, slots, utter_history):
-            m, ev, sl, cl_id = "", [], slots, None
+            m = ""
+            ev = events[:self.num_top]
+            sl = slots
+            cl_id = None
+
             filled_slots = {s: val for s, val in slots.items() if val is not None}
             log.debug("Slots = {}".format(filled_slots))
             log.debug("Received {} events :".format(len(events)))
@@ -47,29 +52,36 @@ class KudaGoDialogueManager(Component):
                           ", tag_score = {3:.2f}, cluster_score = {4:.2f}: {0}"
                           .format(e['title'], e['score'], e['tfidf_score'],
                                   e['tag_score'], e['cluster_score']))
-            if not events:
+
+            print("len utter_history = {}".format(len(utter_history)))
+            if len(utter_history) == 1:
+                m = "Добрый день, я KudaGoBot. "
+            if (len(utter_history) > 1) and not events:
                 m = "Извини, нет событий, удовлетворяющих текущим условиям."\
                     " Начнем c чистого листа? Куда бы хотел сходить?"
-                ev, sl, cl_id = [], {}, None
+                sl = {}
 # TODO: maybe do wiser and request change of one of the slots
             elif (len(events) < self.min_num_events) or\
                     (len(filled_slots) > self.max_num_filled_slots):
-                m = "Вот наиболее подходящее событие! Хотите что-то изменить?"
-                ev, sl, cl_id = events[:self.num_top], slots, None
+                pass
+                #m += "Хотите что-то изменить?"
             else:
                 message, cluster_id = self.cluster_policy([events], [slots])
                 message, cluster_id = message[0], cluster_id[0]
                 if cluster_id is None:
                     log.debug("Cluster policy didn't work: cluster_id = None")
-                    m = "Вот наиболее подходящее событие! Хотите что-то изменить?"
-                    ev, sl, cl_id = events[:self.num_top], slots, None
+                    #m += "Хотите что-то изменить?"
                 else:
                     log.debug("Requiring cluster_id = {}".format(cluster_id))
-                    m = "Вот наиболее подходящее событие. " + message 
-                    ev, sl, cl_id = events[:self.num_top], slots, cluster_id
+                    m += message
+                    cl_id = cluster_id
+            if any(t in utter_history[-1].lower() for t in self.thanks):
+                m = "Все доброго, приятно провести время!"
+                ev = []
+                cl_id = None
             messages.append(m)
             out_events.append(ev)
-            sl['shown_events'] = list(set(slots.get('shown_events', []))\
+            sl['shown_events'] = list(set(slots.get('shown_events', []))
                                       .union(e['local_id'] for e in ev))
             new_slots.append(sl)
             cluster_ids.append(cl_id)
