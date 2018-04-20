@@ -37,6 +37,11 @@ class KudaGoDialogueManager(Component):
         for events, slots, utter_history in zip(events, slots, utter_history):
             m, sl, cl_id = "", slots, None
             log.debug("Received {} events :".format(len(events)))
+            for e in events[:5]:
+                log.debug("score = {1:.2f}, tf_idf_score = {2:.2f}"
+                          ", tag_score = {3:.2f}, cluster_score = {4:.2f}: {0}"
+                          .format(e['title'], e['score'], e['tfidf_score'],
+                                  e['tag_score'], e['cluster_score']))
             if not events:
                 m = "Извини, нет событий, удовлетворяющих текущим условиям."\
                     " Начнем c чистого листа? Куда бы хотел сходить?"
