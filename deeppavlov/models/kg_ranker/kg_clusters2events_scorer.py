@@ -20,9 +20,10 @@ from deeppavlov.core.common.registry import register
 
 @register("kg_clusters2events_scorer")
 class KGClusters2EventsScorer(Component):
-    def __init__(self, data, *args, **kwargs):
+    def __init__(self, data, penalize_weight=2., *args, **kwargs):
         self.data = data['places_events']
         self.slots = data['slots']
+        self.penalize_weight = penalize_weight
 
     def __call__(self, batch, *args, **kwargs):
         batch_scores = []
@@ -32,11 +33,12 @@ class KGClusters2EventsScorer(Component):
                 scores[event['local_id']] = 0
                 event_tags = set(event['tags'])
                 for slot in self.slots:
-                    if self.slots[slot]['type'] == 'ClusterSlot' and slot_history.get(slot):
+                    if (self.slots[slot]['type'] == 'ClusterSlot') and slot_history.get(slot):
                         slot_tags = set(self.slots[slot]['tags'])
                         if slot_history[slot] == 'yes':
-                            scores[event['local_id']] += len(slot_tags & event_tags)
+                            scores[event['local_id']] += min(2, len(slot_tags & event_tags))
                         elif slot_history[slot] == 'no':
-                            scores[event['local_id']] -= len(slot_tags & event_tags)
+                            scores[event['local_id']] -= \
+                                self.penalize_weight * min(2, len(slot_tags & event_tags))
             batch_scores.append(scores)
         return batch_scores

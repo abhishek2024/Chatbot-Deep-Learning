@@ -43,6 +43,7 @@
       {
         "name": "kg_clusters2events_scorer",
         "data": "#kg_data.data",
+        "penalize_weight": 2.0,
         "in": ["slot_history"],
         "out": ["cluster_events_scores"]
       },

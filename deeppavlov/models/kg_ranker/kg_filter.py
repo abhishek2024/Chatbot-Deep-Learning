@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+import math
 
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.registry import register
@@ -74,8 +75,11 @@ class KudaGoFilter(Component):
 
     @staticmethod
     def _normalize_scores(scores):
-        a = max(max(scores.values()), 1e-06)
+        a = max(scores.values())
         b = min(scores.values())
         for k in scores:
-            scores[k] = (scores[k] - b) / (a - b)
+            denominator = a - b
+            if math.fabs(denominator) < 1e-06:
+                denominator = 1e-06 if denominator > 0 else - 1e-06
+            scores[k] = (scores[k] - b) / denominator
         return scores
