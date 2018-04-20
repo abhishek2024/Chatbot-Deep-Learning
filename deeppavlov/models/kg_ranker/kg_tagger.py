@@ -27,7 +27,7 @@ from deeppavlov.core.common.registry import register
 
 @register('kg_tagger')
 class LeveTagger(Component):
-    def __init__(self, data, data_type='places_events', threshold=75, **kwargs):
+    def __init__(self, data, data_type='places_events_variations', threshold=75, filter_stop=True, **kwargs):
         """ Fuzzy Levenshtein tagger for finding
 
         Args:
@@ -36,16 +36,16 @@ class LeveTagger(Component):
             threshold: relative threshold from 0 to 100, reasonable values 70-90
         """
 
-        variations = data[f'{data_type}_variations'].items()
+        variations = data[data_type].items()
 
         self.lemmatizer = pymorphy2.MorphAnalyzer()
         self.stopwords = stopwords.words('russian')
         self.tokenizer = word_tokenize
+        self._filter_stop = filter_stop
         self.tags = []
         for tag, v_list in variations:
             for v in v_list:
-                self.tags.append([tag, v])
-        self.tags_by_len = self._get_tags_by_len(self.tags)
+                self.tags.append([tag, self.preprocess(v)])
         self.threshold = threshold
 
     @lru_cache(maxsize=1024)
@@ -55,7 +55,8 @@ class LeveTagger(Component):
     def preprocess(self, line):
         line = line.lower()
         tokens = self.tokenizer(line)
-        tokens = [token for token in tokens if token not in self.stopwords]
+        if self._filter_stop:
+            tokens = [token for token in tokens if token not in self.stopwords]
         tokens_lemmas = [self._get_lemma(token) for token in tokens]
         return tokens_lemmas
 
@@ -88,13 +89,11 @@ class LeveTagger(Component):
         for utt in utt_batch:
             utt_tokens = self.preprocess(utt)
             retrieved_tags = []
-            for l in self.tags_by_len:
-                for tag, tag_tokens in self.tags_by_len[l]:
-
-                    scores = self.match(utt_tokens, tag_tokens)
-                    score = max(scores)
-                    if score > self.threshold:
-                        retrieved_tags.append([tag, score])
+            for tag, tag_tokens in self.tags:
+                scores = self.match(utt_tokens, tag_tokens)
+                score = max(scores)
+                if score > self.threshold:
+                    retrieved_tags.append([tag, score])
             tags_scores = {}
             for tag, score in retrieved_tags:
                 tags_scores[tag] = max(score, tags_scores.get(tag, 0))
