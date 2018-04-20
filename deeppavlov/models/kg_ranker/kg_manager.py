@@ -81,8 +81,6 @@ class KudaGoDialogueManager(Component):
                 cl_id = None
             messages.append(m)
             out_events.append(ev)
-            sl['shown_events'] = list(set(slots.get('shown_events', []))
-                                      .union(e['local_id'] for e in ev))
             new_slots.append(sl)
             cluster_ids.append(cl_id)
         return messages, out_events, new_slots, cluster_ids
