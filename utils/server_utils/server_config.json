@@ -48,11 +48,11 @@
       "model_endpoint": "/kg_ranker",
       "model_args_names": ""
     },
-    "KudaGoFilter": {
+    "KudaGoDialogueManager": {
       "host": "",
       "port": 6063,
       "model_endpoint": "/kudago",
-      "model_args_names": ""
+      "model_args_names": ["utterance", "utter_history", "slot_history", "last_cluster_id"]
     }
   }
 }

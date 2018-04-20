@@ -1,0 +1,82 @@
+{
+  "chainer": {
+    "in": ["utterance", "utter_history", "slot_history", "last_cluster_id"],
+    "pipe": [
+      {
+        "name": "kg_data",
+        "id": "kg_data"
+      },
+      {
+        "name": "kg_cluster_filler",
+        "slots": "#kg_data.data['slots']",
+        "threshold": 70,
+        "in": ["last_cluster_id", "slot_history", "utterance"],
+        "out": ["slot_history"]
+      },
+      {
+        "name": "kg_tfidf_scorer",
+        "data": "#kg_data.data",
+        "n_last_utts": 10,
+        "in": ["utter_history"],
+        "out": ["tfidf_scores"]
+      },
+      {
+        "name": "kg_tagger",
+        "data": "#kg_data.data",
+        "threshold": 75,
+        "n_last_utts": 10,
+        "in": ["utter_history"],
+        "out": ["tag_scores"]
+      },
+      {
+        "name": "kg_tags2events_scorer",
+        "data": "#kg_data.data",
+        "in": ["tag_scores"],
+        "out": ["tag_events_scores"]
+      },
+      {
+        "name": "kg_clusters2events_scorer",
+        "data": "#kg_data.data",
+        "in": ["slot_history"],
+        "out": ["cluster_events_scores"]
+      },
+      {
+        "name": "kg_tagger",
+        "data": "#kg_data.data",
+        "data_type": "time",
+        "threshold": 90,
+        "filter_stop": false,
+        "in": ["utterance"],
+        "out": ["time_scores"]
+      },
+      {
+        "name": "time_parser",
+        "in": ["time_scores", "slot_history"],
+        "out": ["slot_history"]
+      },
+      {
+        "name": "kg_filter",
+        "data": "#kg_data.data",
+        "n_top": 30,
+        "in": ["tfidf_scores", "tag_events_scores", "cluster_events_scores", "slot_history"],
+        "out": ["filtered_events"]
+      },
+      {
+        "name": "kg_manager",
+        "main": "true",
+        "n_top": 3,
+        "min_num_events": 20,
+        "max_num_filled_slots": 3,
+        "cluster_policy": {
+          "name": "kg_cluster_policy",
+          "data": "#kg_data.data",
+          "min_rate": 0.01,
+          "max_rate": 0.99
+        },
+        "in": ["filtered_events", "slot_history", "utterance"],
+        "out": ["message", "slot_history", "cluster_id"]
+      }
+    ],
+    "out": ["message", "slot_history", "cluster_id"]
+  }
+}
