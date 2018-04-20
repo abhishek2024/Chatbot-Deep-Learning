@@ -24,8 +24,8 @@ class KudaGoState(Component):
         self.slots = data['slots']
         self.states = {}
 
-    def __call__(self, utterances, *args, **kwargs):
-        user_ids = range(len(utterances))
+    def __call__(self, utterances, user_ids=None, *args, **kwargs):
+        user_ids = user_ids or range(len(utterances))
         res = []
         for user_id, utterance in zip(user_ids, utterances):
             if user_id not in self.states:
