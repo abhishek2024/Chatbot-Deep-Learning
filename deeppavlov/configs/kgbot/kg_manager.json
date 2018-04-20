@@ -47,6 +47,20 @@
         "out": ["filtered_events"]
       },
       {
+        "name": "kg_tagger",
+        "data": "#kg_data.data",
+        "data_type": "time",
+        "threshold": 90,
+        "filter_stop": false,
+        "in": ["utterance"],
+        "out": ["time_scores"]
+      },
+      {
+        "name": "time_parser",
+        "in": ["time_scores", "slot_history"],
+        "out": ["slot_history"]
+      },
+      {
         "name": "kg_manager",
         "min_num_events": 20,
         "cluster_policy": {

@@ -27,14 +27,13 @@ class TimeParser(Component):
     def __init__(self, **kwargs):
         pass
 
-    def __call__(self, time_tags_batch):
+    def _parse_time(self, time_tags_batch):
         today = datetime.date.today()
         times = []
         print(time_tags_batch)
         for time_tag_list in time_tags_batch:
             if len(time_tag_list) > 0:
                 tag, score = max(time_tag_list.items(), key=lambda x: x[1])
-
                 if tag == 'today':
                     start = stop = today
                 elif tag == 'tomorrow':
@@ -47,13 +46,13 @@ class TimeParser(Component):
                     stop = start + dt(days=6)
                 elif tag == 'this_month':
                     start = today
-                    stop = last_day_of_month(today)
+                    stop = self.last_day_of_month(today)
                 elif tag == 'following_month':
                     start = today
                     stop = today + dt(days=30)
                 elif tag == 'next_month':
-                    start = today.replace(month=today.month+1, day=1)
-                    stop = last_day_of_month(start)
+                    start = today.replace(month=today.month + 1, day=1)
+                    stop = self.last_day_of_month(start)
                 elif tag == 'the_day_after_tomorrow':
                     start = stop = today + dt(days=2)
                 else:
@@ -64,11 +63,16 @@ class TimeParser(Component):
                         start = stop = today + dt(days=7 - today.weekday() + weekday)
                 times.append([start, stop])
             else:
-                times.append([])
-
+                times.append(None)
         return times
 
+    def __call__(self, time_tags_batch, slot_history):
+        times = self._parse_time(time_tags_batch)
+        for time, slot_h in zip(times, slot_history):
+            slot_h['time_span'] = time
+        return slot_history
 
-def last_day_of_month(any_day):
-    next_month = any_day.replace(day=28) + datetime.timedelta(days=4)
-    return next_month - datetime.timedelta(days=next_month.day)
+    @staticmethod
+    def last_day_of_month(any_day):
+        next_month = any_day.replace(day=28) + datetime.timedelta(days=4)
+        return next_month - datetime.timedelta(days=next_month.day)
