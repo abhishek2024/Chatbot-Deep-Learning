@@ -107,11 +107,16 @@ class KudaGoClusterPolicyManager(Component):
         for events_l, slots_d in zip(events, slots):
             event_tags_l = [e['tags'] for e in events_l if e['tags']]
             event_tags_oh = self._onehot(event_tags_l, self.tags_l)
-            log.debug("Excluding cluster ids: {}"
-                      .format([cl_id for cl_id, val in slots_d.items() if val]))
+
+            exclude_clusters = [cl_id for cl_id, val in slots_d.items()
+                                if (cl_id not in ('time_span')) and (val is not None)]
+            #if len(exclude_clusters) < 1:
+            #    exclude_clusters.extend((cl_id for cl_id in slots_d.keys()
+            #                             if cl_id.startswith("tag_")))
+            log.debug("Excluding cluster ids: {}".format(exclude_clusters))
             clusters_oh = {cl_id: cl_oh
                            for cl_id, cl_oh in self.clusters_oh.items()
-                           if slots_d.get(cl_id) is None}
+                           if cl_id not in exclude_clusters}
 
             bst_cluster_id, bst_rate = \
                 self._best_split(event_tags_oh, clusters_oh)
