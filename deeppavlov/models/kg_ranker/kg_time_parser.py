@@ -61,6 +61,7 @@ class TimeParser(Component):
                         start = stop = today + dt(days=weekday - today.weekday())
                     else:
                         start = stop = today + dt(days=7 - today.weekday() + weekday)
+                stop = stop + dt(days=1)
                 times.append([start, stop])
             else:
                 times.append(None)
