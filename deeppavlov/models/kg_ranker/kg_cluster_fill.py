@@ -20,15 +20,15 @@ from deeppavlov.core.common.log import get_logger
 from fuzzywuzzy import fuzz
 from typing import Union, List, Dict
 from collections import defaultdict
-
+from nltk.tokenize import RegexpTokenizer
 
 log = get_logger(__name__)
-
 
 @register('kg_cluster_filler')
 class KudaGoClusterFiller(Component):
     def __init__(self, slots, threshold, *args, **kwargs):
         self.slots = slots
+        self.tokenizer = RegexpTokenizer(r'\w+')
         self.ngrams = defaultdict(dict)
         for id, vals in slots.items():
             for ans in ['yes', 'no']:
@@ -42,13 +42,18 @@ class KudaGoClusterFiller(Component):
         for i, (utt, clust_id) in enumerate(zip(utterance, last_cluster_id)):
             if clust_id is None:
                 continue
-            splitted_utt = utt.split()
+            splitted_utt = self._preprocess_text(utt)
             result = self._infer(splitted_utt, clust_id)
             if result:
                 slot_history[i][clust_id] = result
             else:
                 slot_history[i][clust_id] = 'unknown'
         return slot_history
+
+    def _preprocess_text(self, s):
+        s = s.lower()
+        s_tok = self.tokenizer.tokenize(s)
+        return s_tok
 
     def _infer(self, tokens: List[str], last_cluster_id: str) -> Union[str, None]:
         num_tokens = len(tokens)
