@@ -38,7 +38,6 @@ class KudaGoClusterFiller(Component):
         for i, (utt, clust_id) in enumerate(zip(utterance, last_cluster_id)):
             if clust_id is None:
                 continue
-            clust_id = clust_id[0]
             splitted_utt = utt.split()
             result = self._infer(splitted_utt, clust_id)
             if result:
@@ -47,14 +46,14 @@ class KudaGoClusterFiller(Component):
                 slot_history[i][clust_id] = 'unknown'
         return slot_history
 
-    def _infer(self, text: List[str], last_cluster_id: str) -> Union[str, None]:
-        n = len(text)
+    def _infer(self, tokens: List[str], last_cluster_id: str) -> Union[str, None]:
+        num_tokens = len(tokens)
         best_score = 0
         best_candidate = None
         for ans, ngrams in self.ngrams[last_cluster_id].items():
-            for window, candidates in ngrams.items():
-                for w in range(0, n - window + 1):
-                    query = ' '.join(text[w:w + window])
+            for num_cand_tokens, candidates in ngrams.items():
+                for w in range(0, num_tokens - num_cand_tokens + 1):
+                    query = ' '.join(tokens[w: w + num_cand_tokens])
                     if query:
                         for c in candidates:
                             score = fuzz.ratio(c, query)

@@ -46,7 +46,7 @@ class KudaGoStateSaver(Component):
         self.states = states
 
     def __call__(self, user_ids, slots, expected_slot):
-        for user_id, slots in zip(user_ids, slots):
+        for user_id, slots, expected_slot in zip(user_ids, slots, expected_slot):
             self.states[user_id]['slots'] = slots
             self.states[user_id]['expected_slot'] = expected_slot
         return user_ids
