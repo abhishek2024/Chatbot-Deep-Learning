@@ -51,7 +51,8 @@ class KudaGoFilter(Component):
             cluster_events_scores = self._normalize_scores(cluster_events_scores)
             scores = [(k, tfidf_scores[k], tag_events_scores[k], cluster_events_scores[k])
                       for k in tfidf_scores
-                      if self._filter_time_span(k, slots.get('time_span'))]
+                      if k not in slots.get('shown_events', set())
+                      and self._filter_time_span(k, slots.get('time_span'))]
 
             scores = sorted(scores, key=lambda x: self._compute_score(x[1:]), reverse=True)
 
