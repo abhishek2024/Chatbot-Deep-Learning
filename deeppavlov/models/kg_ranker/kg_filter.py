@@ -21,12 +21,13 @@ from deeppavlov.core.common.registry import register
 @register('kg_filter')
 class KudaGoFilter(Component):
     def __init__(self, data, n_top, data_type='places_events',
-                 tfidf_weight=1.0, tag_weight=1.0, cluster_weight=1.0, *args, **kwargs):
+                 tfidf_weight=1.0, tag_weight=1.0, cluster_weight=1.0, threshold=0.1, *args, **kwargs):
         self.data = {item['local_id']: item for item in data[data_type]}
         self.n_top = n_top
         self.tfidf_weight = tfidf_weight
         self.tag_weight = tag_weight
         self.cluster_weight = cluster_weight
+        self.threshold = threshold
 
     def _filter_time_span(self, event_id, time_span):
         ev = self.data[event_id]
@@ -63,6 +64,7 @@ class KudaGoFilter(Component):
                          'tag_score': tag_score,
                          'cluster_score': cluster_score
                          } for id, tfidf_score, tag_score, cluster_score in scores[:self.n_top]])
+            res[-1] = [event for event in res[-1] if event['score'] >= self.threshold]
         return res
 
     def _compute_score(self, scores):
