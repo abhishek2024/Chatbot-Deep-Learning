@@ -61,6 +61,7 @@ class KudaGoFilter(Component):
                          'local_id': id,
                          'url': self.data[id]['site_url'],
                          'tags': self.data[id]['tags'],
+                         'images': [i['image'] for i in self.data[id].get('images', [])],
                          'score': self._compute_score([tfidf_score, tag_score, cluster_score]),
                          'tfidf_score': tfidf_score,
                          'tag_score': tag_score,
