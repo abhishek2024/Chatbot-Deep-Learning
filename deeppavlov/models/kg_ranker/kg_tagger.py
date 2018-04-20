@@ -110,9 +110,10 @@ class LeveTagger(Component):
             for tag, tag_tokens in self.tags:
                 # Positive
                 scores = self.match(utt_tokens, tag_tokens)
-                score, negation = max(scores, key=lambda x: x[0])
-                if score > self.threshold:
-                    retrieved_tags.append([tag, score, negation])
+                negation = -1 if any(n < 0 for s, n in scores if s >= self.threshold) else 1
+                for score, _ in scores:
+                    if score >= self.threshold:
+                        retrieved_tags.append([tag, score, negation])
 
             tags_scores = {}
             # Merge simmilar tags
