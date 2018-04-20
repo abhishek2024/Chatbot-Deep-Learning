@@ -19,9 +19,12 @@ from deeppavlov.core.commands.utils import expand_path
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.utils import download_decompress
+from deeppavlov.core.common.log import get_logger
+
+log = get_logger(__name__)
 
 
-_DEFAULT_URL = 'http://lnsigo.mipt.ru/export/kudago/kudago_pack.tar.gz'
+_DEFAULT_URL = 'https://github.com/deepmipt/kgbot_data/archive/master.zip'
 
 
 @register('kg_data')
@@ -30,7 +33,9 @@ class KudaGoData(Component):
         data_path = expand_path(data_path)
         download_decompress(url, data_path)
         self.data = {}
-        for p in data_path.iterdir():
+        for p in data_path.glob('**/*'):
+            if p.is_dir():
+                continue
             name = p.with_suffix('').name
             with p.open() as f:
                 if p.suffix.lower() == '.json':
@@ -38,7 +43,7 @@ class KudaGoData(Component):
                 elif p.suffix.lower() == '.jsonl':
                     self.data[name] = [json.loads(line) for line in f]
                 else:
-                    raise RuntimeError(f'unknown file suffix for {p.name}')
+                    log.warn(f'unknown file suffix for {p.name}')
 
     def __call__(self, *args, **kwargs):
         raise NotImplementedError
