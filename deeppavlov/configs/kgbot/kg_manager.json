@@ -89,6 +89,6 @@
         "out": ["user_id"]
       }
     ],
-    "out": ["message"]
+    "out": ["message", "events"]
   }
 }
