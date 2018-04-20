@@ -74,7 +74,7 @@
           "min_rate": 0.01,
           "max_rate": 0.99
         },
-        "in": ["filtered_events", "slot_history", "utterance"],
+        "in": ["filtered_events", "slot_history", "utter_history"],
         "out": ["message", "events", "slot_history", "cluster_id"]
       }
     ],
