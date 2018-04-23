@@ -1,0 +1,21 @@
+{
+  "chainer": {
+    "in": ["utterance"],
+    "pipe": [
+      {
+        "name": "kg_data",
+        "id": "kg_data"
+      },
+      {
+        "name": "kg_wmd",
+        "data": "#kg_data.data",
+        "emb_folder": "embeddings/",
+        "emb_url": "http://lnsigo.mipt.ru/export/kudago/kudago.vec",
+        "threshold": 75,
+        "in": ["utterance"],
+        "out": ["wmd_scores"]
+      }
+    ],
+    "out": ["wmd_scores"]
+  }
+}

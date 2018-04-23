@@ -61,6 +61,7 @@ import deeppavlov.models.kg_ranker.kg_manager
 import deeppavlov.models.kg_ranker.kg_cluster_fill
 import deeppavlov.models.kg_ranker.kg_state
 import deeppavlov.models.kg_ranker.kg_time_parser
+import deeppavlov.models.kg_ranker.kg_wmd
 
 import deeppavlov.metrics.accuracy
 import deeppavlov.metrics.fmeasure
