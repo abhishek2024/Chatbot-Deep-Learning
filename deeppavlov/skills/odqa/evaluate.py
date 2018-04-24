@@ -1,3 +1,7 @@
+"""
+Evaluate ODQA on "Sber KPI 2018".
+"""
+
 import argparse
 import csv
 
