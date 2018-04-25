@@ -28,7 +28,7 @@ from deeppavlov.core.data.data_fitting_iterator import DataFittingIterator
 
 logger = get_logger(__name__)
 
-DB_URL = 'http://lnsigo.mipt.ru/export/datasets/wikipedia/wiki_full.db'
+DB_URL = 'http://lnsigo.mipt.ru/export/datasets/wikipedia/enwiki.db'
 
 
 @register('sqlite_iterator')
@@ -46,7 +46,7 @@ class SQLiteDataIterator(DataFittingIterator):
         """
         download_dir = expand_path(data_dir)
         download_path = download_dir.joinpath(data_url.split("/")[-1])
-        download(download_path, data_url, file_exists=False)
+        download(download_path, data_url, force_download=False)
 
         # if not download_dir.exists() or is_empty(download_dir):
         #     logger.info('[downloading wiki.db from {} to {}]'.format(data_url, download_path))

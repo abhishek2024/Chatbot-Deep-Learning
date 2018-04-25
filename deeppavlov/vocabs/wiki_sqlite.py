@@ -6,7 +6,7 @@ from deeppavlov.core.common.registry import register
 from deeppavlov.core.commands.utils import expand_path
 from deeppavlov.core.data.utils import download
 
-DB_URL = 'http://lnsigo.mipt.ru/export/datasets/wikipedia/wiki_full.db'
+DB_URL = 'http://lnsigo.mipt.ru/export/datasets/wikipedia/enwiki.db'
 
 
 @register('wiki_sqlite_vocab')
@@ -22,12 +22,12 @@ class WikiSQLiteVocab(Component):
         """
         download_dir = expand_path(data_dir)
         download_path = download_dir.joinpath(data_url.split("/")[-1])
-        download(download_path, data_url, file_exists=False)
+        download(download_path, data_url, force_download=False)
 
         self.connect = sqlite3.connect(str(download_path), check_same_thread=False)
         self.db_name = self.get_db_name()
 
-    def __call__(self, doc_ids: List[Any], *args, **kwargs):
+    def __call__(self, doc_ids: List[List[Any]], *args, **kwargs) -> List[str]:
         """
         Get the contents of files, stacked by space.
         :param questions: queries to search an answer for
