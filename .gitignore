@@ -115,3 +115,9 @@ download/
 
 # project data
 /data/
+
+#logs
+.log
+
+#database
+.db
