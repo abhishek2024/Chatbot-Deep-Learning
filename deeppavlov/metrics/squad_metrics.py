@@ -16,6 +16,7 @@ limitations under the License.
 import re
 import string
 from collections import Counter
+from typing import List, Tuple
 
 from deeppavlov.core.common.metrics_registry import register_metric
 
@@ -41,7 +42,7 @@ def exact_match(y_true, y_predicted):
 
 
 @register_metric('squad_f1')
-def squad_f1(y_true, y_predicted):
+def squad_f1(y_true: List[Tuple[List[str], List[int]]], y_predicted: List[Tuple[str, int]]) -> float:
     """ Calculates F-1 score between y_true and y_predicted
         F-1 score uses the best matching y_true answer
 
