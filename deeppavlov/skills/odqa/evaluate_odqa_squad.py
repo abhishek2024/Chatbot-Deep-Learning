@@ -19,7 +19,7 @@ from deeppavlov.metrics.squad_metrics import squad_f1
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 fmt = logging.Formatter('%(asctime)s: [ %(message)s ]', '%m/%d/%Y %I:%M:%S %p')
-file = logging.FileHandler('eval_logs/odqa_squad_dev_en_ranker_top5.log')
+file = logging.FileHandler('eval_logs/odqa_squad_dev_en_top5.log')
 file.setFormatter(fmt)
 logger.addHandler(file)
 
@@ -47,17 +47,36 @@ def main():
     try:
         y_true_text = [instance['answers'] for instance in dataset]
         y_true_start = [instance['answers_start'] for instance in dataset]
+
         y_true = list(zip(y_true_text, y_true_start))
-
-        logger.info('Making ODQA predictions...')
         questions = [instance['question'] for instance in dataset]
-        y_pred = odqa(questions)
 
-        logger.info('Counting ODQA f1 score on SQuAD...')
-        f1 = squad_f1(y_true, y_pred)
+        CHUNK = 1000
 
-        logger.info(
-            'ODQA f1 score on SQuAD is: {}'.format(f1))
+        y_true_chunks = [y_true[x:x + CHUNK] for x in range(0, len(y_true), CHUNK)]
+        questions_chunks = [questions[x:x + CHUNK] for x in range(0, len(questions), CHUNK)]
+        len_chunks = len(y_true_chunks)
+
+        i = 0
+        total_f1 = 0.0
+
+        for y_true, questions in zip(y_true_chunks, questions_chunks):
+
+            logger.info('Processing chunk {} from {}'.format(i, len_chunks))
+
+            logger.info('Making ODQA predictions...')
+            y_pred = odqa(questions)
+
+            logger.info('Counting ODQA f1 score on SQuAD...')
+            f1 = squad_f1(y_true, y_pred)
+
+            logger.info(
+                'ODQA f1 score on chunk {} is: {}'.format(i, f1))
+
+            total_f1 += f1
+            i += 1
+
+        logger.info('ODQA total f1 score on SQuAD is {}'.format(total_f1 / len_chunks))
         logger.info("Completed successfully in {} seconds.".format(time.time() - start_time))
     except Exception as e:
         logger.exception(e)
