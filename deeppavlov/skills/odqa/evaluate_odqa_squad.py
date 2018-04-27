@@ -19,7 +19,7 @@ from deeppavlov.metrics.squad_metrics import squad_f1
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 fmt = logging.Formatter('%(asctime)s: [ %(message)s ]', '%m/%d/%Y %I:%M:%S %p')
-file = logging.FileHandler('eval_logs/odqa_squad_dev_en_top5.log')
+file = logging.FileHandler('eval_logs/odqa_squad_train_ru_top51.log')
 file.setFormatter(fmt)
 logger.addHandler(file)
 
@@ -28,7 +28,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-config_path", help="path to a JSON ranker config", type=str,
                     default='../../../deeppavlov/configs/odqa/en_odqa_infer_eval.json')
 parser.add_argument("-dataset_path", help="path to a JSON formatted dataset", type=str,
-                    default='/media/olga/Data/projects/ODQA/data/squad/preproc/dev-v1.1_prep_4odqa.json')
+                    default='/media/olga/Data/projects/ODQA/data/ru_squad/preproc/train-v1.1_prep_4odqa.json')
 
 
 def encode_utf8(s: str):
@@ -51,7 +51,7 @@ def main():
         y_true = list(zip(y_true_text, y_true_start))
         questions = [instance['question'] for instance in dataset]
 
-        CHUNK = 1000
+        CHUNK = 10
 
         y_true_chunks = [y_true[x:x + CHUNK] for x in range(0, len(y_true), CHUNK)]
         questions_chunks = [questions[x:x + CHUNK] for x in range(0, len(questions), CHUNK)]
