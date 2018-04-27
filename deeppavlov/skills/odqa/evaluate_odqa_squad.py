@@ -26,9 +26,9 @@ logger.addHandler(file)
 parser = argparse.ArgumentParser()
 
 parser.add_argument("-config_path", help="path to a JSON ranker config", type=str,
-                    default='../../../deeppavlov/configs/odqa/en_odqa_infer_eval.json')
+                    default='../../../deeppavlov/configs/odqa/ru_odqa_infer_eval.json')
 parser.add_argument("-dataset_path", help="path to a JSON formatted dataset", type=str,
-                    default='/media/olga/Data/projects/ODQA/data/ru_squad/preproc/train-v1.1_prep_4odqa.json')
+                    default='/media/olga/Data/projects/ODQA/data/ru_squad/preproc/dev-v1.1_prep_4odqa.json')
 
 
 def encode_utf8(s: str):
@@ -49,34 +49,23 @@ def main():
         y_true_start = [instance['answers_start'] for instance in dataset]
 
         y_true = list(zip(y_true_text, y_true_start))
-        questions = [instance['question'] for instance in dataset]
+        questions_total = [instance['question'] for instance in dataset]
 
         CHUNK = 10
 
-        y_true_chunks = [y_true[x:x + CHUNK] for x in range(0, len(y_true), CHUNK)]
-        questions_chunks = [questions[x:x + CHUNK] for x in range(0, len(questions), CHUNK)]
-        len_chunks = len(y_true_chunks)
+        question_chunks = [questions_total[x:x + CHUNK] for x in range(0, len(questions_total), CHUNK)]
+        len_chunks = len(question_chunks)
 
-        i = 0
-        total_f1 = 0.0
+        y_pred = []
 
-        for y_true, questions in zip(y_true_chunks, questions_chunks):
+        for i, questions in enumerate(question_chunks):
+            logger.info('Making ODQA predictions on chunk {} of {}'.format(i, len_chunks))
+            y_pred_chunk = odqa(questions)
+            y_pred += y_pred_chunk
 
-            logger.info('Processing chunk {} from {}'.format(i, len_chunks))
-
-            logger.info('Making ODQA predictions...')
-            y_pred = odqa(questions)
-
-            logger.info('Counting ODQA f1 score on SQuAD...')
-            f1 = squad_f1(y_true, y_pred)
-
-            logger.info(
-                'ODQA f1 score on chunk {} is: {}'.format(i, f1))
-
-            total_f1 += f1
-            i += 1
-
-        logger.info('ODQA total f1 score on SQuAD is {}'.format(total_f1 / len_chunks))
+        logger.info('Counting ODQA f1 score on SQuAD...')
+        f1 = squad_f1(y_true, y_pred)
+        logger.info('ODQA total f1 score on SQuAD is {}'.format(f1))
         logger.info("Completed successfully in {} seconds.".format(time.time() - start_time))
     except Exception as e:
         logger.exception(e)
