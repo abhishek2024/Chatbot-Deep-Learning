@@ -63,9 +63,9 @@ class ParagraphRanker:
 def main():
 
     set_deeppavlov_root({"deeppavlov_root": "/home/leonid/github/DeepPavlov/download"})
-    # download_decompress("http://lnsigo.mipt.ru/export/deeppavlov_data/sber_squad_ranking_arci_40.tar.gz",
-    #                     get_deeppavlov_root())
-    fname = expand_path('test_data1.txt')
+    download_decompress("http://lnsigo.mipt.ru/export/deeppavlov_data/sber_squad_ranking_arci_40.tar.gz",
+                        get_deeppavlov_root())
+    fname = expand_path('test_data.txt')
     with open(fname, 'r') as f:
         test_data = f.readlines()
     test_data = [el.strip('\n').split('\t')[1:3] for el in test_data]
@@ -76,7 +76,6 @@ def main():
         q_c_dict[el[0]].append(el[1])
     pr = ParagraphRanker("sber_squad_ranking_arci_40")
     predictions = pr(list(q_c_dict.items()), top_k=2)
-    # print(np.argmax(np.reshape(predictions, (13, 10)), axis=1))
     print(predictions)
 
 if __name__ == "__main__":
