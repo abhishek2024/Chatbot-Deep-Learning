@@ -64,6 +64,7 @@ import deeppavlov.skills.seq2seq_go_bot.network
 import deeppavlov.skills.seq2seq_go_bot.kb
 import deeppavlov.skills.odqa.tfidf_ranker
 import deeppavlov.skills.odqa.confidence_ranker
+import deeppavlov.skills.odqa.paragraph_ranker
 import deeppavlov.vocabs.typos
 import deeppavlov.vocabs.wiki_sqlite
 import deeppavlov.dataset_readers.insurance_reader

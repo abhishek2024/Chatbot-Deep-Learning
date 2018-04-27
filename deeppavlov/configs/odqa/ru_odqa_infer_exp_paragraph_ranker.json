@@ -70,12 +70,14 @@
         ],
         "out": [
           "context_raw"
-        ]
+        ],
+        "load_path": "sber_squad_ranking_arci_40/model.hdf5",
+        "dict_path": "sber_squad_ranking_arci_40/word_dict.txt"
       },
       {
         "name": "squad_preprocessor",
         "id": "squad_prepr",
-        "context_limit": 10000,
+        "context_limit": 400,
         "question_limit": 50,
         "char_limit": 16,
         "in": [

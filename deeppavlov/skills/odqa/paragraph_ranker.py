@@ -1,50 +1,59 @@
+from typing import List
+
 import numpy as np
 from keras.layers import Lambda
 import keras.backend as K
 from keras.models import load_model
-from deeppavlov.core.data.utils import download_decompress
-from deeppavlov.core.commands.utils import expand_path, get_deeppavlov_root, set_deeppavlov_root
 from nltk import word_tokenize
 
-class ParagraphRanker:
-    def __init__(self, load_path):
+from deeppavlov.core.models.component import Component
+from deeppavlov.core.common.registry import register
+from deeppavlov.core.data.utils import download_decompress
+from deeppavlov.core.commands.utils import expand_path, get_deeppavlov_root, set_deeppavlov_root
 
-        self.model = load_model(str(expand_path(load_path) / "model.hdf5"),
+
+@register('paragraph_ranker')
+class ParagraphRanker(Component):
+    def __init__(self, load_path, dict_path, **kwargs):
+        self.model = load_model(str(expand_path(load_path)),
                                 custom_objects={"_margin_loss": self._margin_loss})
-        self.word_dict = self._build_dict(str(expand_path(load_path) / "word_dict.txt"))
+        self.word_dict = self._build_dict(str(expand_path(dict_path)))
 
-    def __call__(self, query_cont, top_k=1):
-        num_cont = [len(el[1]) for el in query_cont]
-        num_cont_cum =  np.cumsum([0] + num_cont)
-        bs = sum(num_cont)
-        x1 = 99999 * np.ones((bs, 336), dtype=int)
-        x1_len = np.zeros(bs)
-        x2 = 99999 * np.ones((bs, 3566), dtype=int)
-        x2_len = np.zeros(bs)
-        for i in range(len(query_cont)):
-            query = word_tokenize(query_cont[i][0].lower())
+    def __call__(self, batch_queries: List[str], batch_paragraphs: List[List[str]], top_k=1):
+        predicted_paragraphs = []
+        for query, paragraphs in zip(batch_queries, batch_paragraphs):
+            num_cont = [len(p) for p in paragraphs]
+            num_cont_cum = np.cumsum([0] + num_cont)
+            bs = sum(num_cont)
+            x1 = 99999 * np.ones((bs, 336), dtype=int)
+            x1_len = np.zeros(bs)
+            x2 = 99999 * np.ones((bs, 3566), dtype=int)
+            x2_len = np.zeros(bs)
+            query = word_tokenize(query.lower())
             query = [self.word_dict.get(el) for el in query if self.word_dict.get(el) is not None]
             len_q = min(336, len(query))
-            for j in range(num_cont[i]):
-                x1_len[num_cont_cum[i]+j] = len_q
-                x1[num_cont_cum[i]+j, :len_q] = query[:len_q]
+            for i in range(len(paragraphs)):
+                for j in range(num_cont[i]):
+                    x1_len[num_cont_cum[i]+j] = len_q
+                    x1[num_cont_cum[i]+j, :len_q] = query[:len_q]
 
-            for j in range(num_cont[i]):
-                cont = word_tokenize(query_cont[i][1][j].lower())
-                cont = [self.word_dict.get(el) for el in cont if self.word_dict.get(el) is not None]
-                len_c = min(3566, len(cont))
-                x2_len[num_cont_cum[i]+j] = len_c
-                x2[num_cont_cum[i]+j, :len_c] = cont[:len_c]
-        batch = {'query': x1, 'query_len': x1_len, 'doc': x2, 'doc_len': x2_len}
-        predictions = self.model.predict(batch)
-        pred_g = []
-        for i in range(len(num_cont_cum)-1):
-                pred_g.append(np.argmax((predictions[num_cont_cum[i]: num_cont_cum[i+1]])))
-        ans = []
-        for i in range(len(query_cont)):
-            num_top = min(top_k, num_cont[i])
-            ans.append([query_cont[i][1][el] for el in pred_g[:num_top]])
-        return ans
+                for j in range(num_cont[i]):
+                    cont = word_tokenize(paragraphs[i].lower())
+                    cont = [self.word_dict.get(el) for el in cont if self.word_dict.get(el) is not None]
+                    len_c = min(3566, len(cont))
+                    x2_len[num_cont_cum[i]+j] = len_c
+                    x2[num_cont_cum[i]+j, :len_c] = cont[:len_c]
+            batch = {'query': x1, 'query_len': x1_len, 'doc': x2, 'doc_len': x2_len}
+            predictions = self.model.predict(batch)
+            pred_g = []
+            for i in range(len(num_cont_cum)-1):
+                    pred_g.append(np.argmax((predictions[num_cont_cum[i]: num_cont_cum[i+1]])))
+            ans = []
+            for i in range(len(batch_queries)):
+                num_top = min(top_k, num_cont[i])
+                ans.append([paragraphs[i][el] for el in pred_g[:num_top]])
+            predicted_paragraphs.append(ans)
+        return predicted_paragraphs
 
     def _build_dict(self, fname):
         with open(fname, 'r') as f:
