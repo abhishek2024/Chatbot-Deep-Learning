@@ -15,7 +15,6 @@ limitations under the License.
 """
 
 from typing import List
-from operator import itemgetter
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.log import get_logger
@@ -42,7 +41,6 @@ class ConfidenceRanker(Component):
             for instance in instances:
                 answer = self.reader([instance])
                 answers += answer
-                # answers_ids = range(len(answers))
-            top_answer = max(answers, key=lambda item: item[2])
-            batch_answers.append(top_answer)
+            top_answer = max(answers, key=lambda item: item[2])[0]
+            batch_answers.append([top_answer])
         return batch_answers

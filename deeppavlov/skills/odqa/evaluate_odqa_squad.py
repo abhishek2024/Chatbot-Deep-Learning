@@ -19,14 +19,14 @@ from deeppavlov.metrics.squad_metrics import squad_f1
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 fmt = logging.Formatter('%(asctime)s: [ %(message)s ]', '%m/%d/%Y %I:%M:%S %p')
-file = logging.FileHandler('eval_logs/odqa_squad_dev_ru_top5_correctf1.log')
+file = logging.FileHandler('eval_logs/odqa_squad_dev_ru_top5_context10000.log')
 file.setFormatter(fmt)
 logger.addHandler(file)
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument("-config_path", help="path to a JSON ranker config", type=str,
-                    default='../../../deeppavlov/configs/odqa/ru_odqa_infer_eval.json')
+                    default='../../../deeppavlov/configs/odqa/ru_odqa_infer_exp_conf.json')
 parser.add_argument("-dataset_path", help="path to a JSON formatted dataset", type=str,
                     default='/media/olga/Data/projects/ODQA/data/ru_squad/preproc/dev-v1.1_prep_4odqa.json')
 

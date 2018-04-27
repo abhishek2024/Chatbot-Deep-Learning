@@ -46,11 +46,31 @@
           "doc_ids"
         ],
         "out": [
-          "context_raw"
+          "contexts_as_docs"
         ],
         "data_dir": "odqa",
         "shuffle": false,
+        "join_docs": false,
         "data_url": "http://lnsigo.mipt.ru/export/datasets/wikipedia/ruwiki.db"
+      },
+      {
+        "name": "paragraph_splitter",
+        "in": [
+          "contexts_as_docs"
+        ],
+        "out": [
+          "contexts_as_paragraphs"
+        ]
+      },
+      {
+        "name": "paragraph_ranker",
+        "in": [
+          "question_raw",
+          "contexts_as_paragraphs"
+        ],
+        "out": [
+          "context_raw"
+        ]
       },
       {
         "name": "squad_preprocessor",
