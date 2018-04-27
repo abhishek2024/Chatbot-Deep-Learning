@@ -47,7 +47,7 @@ def from_params(params: Dict, **kwargs) -> Component:
     # what is passed in json:
     config_params = {k: _resolve(v) for k, v in params.items()}
 
-    # get component by reference (if any)
+    # get reader by reference (if any)
     if 'ref' in config_params:
         try:
             return _refs[config_params['ref']]
@@ -82,7 +82,7 @@ def from_params(params: Dict, **kwargs) -> Component:
         if isinstance(subcls_params, dict):
             if 'name' not in subcls_params and 'ref' not in subcls_params and 'config_path' not in subcls_params:
                 "This parameter is passed as dict to the class constructor."
-                " The user didn't intent it to be a component."
+                " The user didn't intent it to be a reader."
                 for k, v in subcls_params.items():
                     subcls_params[k] = _resolve(v)
                 continue

@@ -1,0 +1,74 @@
+{
+  "chainer": {
+    "in": [
+      "question_raw"
+    ],
+    "in_y": [
+      "ans_raw",
+      "ans_raw_start"
+    ],
+    "out": [
+      "ans_predicted"
+    ],
+    "pipe": [
+      {
+        "name": "tfidf_ranker",
+        "in": [
+          "question_raw"
+        ],
+        "out": [
+          "doc_ids",
+          "doc_scores"
+        ],
+        "fit_on_batch": [
+          "questions_raw"
+        ],
+        "vectorizer": {
+          "name": "hashing_tfidf_vectorizer",
+          "fit_on_batch": [
+            "questions_raw"
+          ],
+          "save_path": "odqa/ruwiki_tfidf_matrix.npz",
+          "load_path": "odqa/ruwiki_tfidf_matrix.npz",
+          "tokenizer": {
+            "name": "ru_tokenizer",
+            "lemmas": true,
+            "ngram_range": [
+              1,
+              2
+            ]
+          }
+        }
+      },
+      {
+        "name": "wiki_sqlite_vocab",
+        "in": [
+          "doc_ids"
+        ],
+        "out": [
+          "contexts_as_docs"
+        ],
+        "data_dir": "odqa",
+        "shuffle": false,
+        "join_docs": false,
+        "data_url": "http://lnsigo.mipt.ru/export/datasets/wikipedia/ruwiki.db"
+      },
+      {
+        "name": "paragraph_splitter",
+        "in": ["contexts_as_docs"],
+        "out": ["contexts_as_paragraphs"]
+      },
+      {
+        "name": "confidence_ranker",
+        "in": ["question_raw", "contexts_as_paragraphs"],
+        "out": [
+          "ans_predicted",
+          "ans_start_predicted",
+          "score"],
+        "reader": {
+          "config_path": "../deeppavlov/configs/squad/squad_ru_noans.json"
+        }
+      }
+    ]
+  }
+}

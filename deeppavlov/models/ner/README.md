@@ -3,9 +3,9 @@
 
 # Neural Named Entity Recognition and Slot Filling
 
-This component solves Named Entity Recognition (NER) and Slot-Filling task with different neural network architectures.
+This reader solves Named Entity Recognition (NER) and Slot-Filling task with different neural network architectures.
  To read about NER without slot filling please address [**README_NER.md**](README_NER.md). 
- This component serves for solving DSTC 2 Slot-Filling task.
+ This reader serves for solving DSTC 2 Slot-Filling task.
 In most of the cases, NER task can be formulated as:
 
 _Given a sequence of tokens (words, and maybe punctuation symbols) provide a tag from a predefined set of tags for each token in the sequence._
@@ -18,7 +18,7 @@ For NER task there are some common types of entities used as tags:
 - quantities
 - monetary values
 
-In this component
+In this reader
 
 Furthermore, to distinguish adjacent entities with the same tag many applications use BIO tagging scheme. Here "B" denotes beginning of an entity, "I" stands for "inside" and is used for all words comprising the entity except the first one, and "O" means the absence of entity. Example with dropped punctuation:
 
@@ -40,7 +40,7 @@ Slot Filling can be formulated as:
 
 _Given an entity of a certain type and a set of all possible values of this entity type provide a normalized form of the entity._
 
-In this component, the Slot Filling task is solved by Levenshtein Distance search across all known entities of a given type. Example:
+In this reader, the Slot Filling task is solved by Levenshtein Distance search across all known entities of a given type. Example:
 
 There is an entity of "food" type:
 

@@ -73,7 +73,7 @@ The library is designed according to the following principles:
  * hybrid ML/DL/Rule-based architecture as a current approach
  * support of modular dialog system design
  * end-to-end deep learning architecture as a long-term goal
- * component-based software engineering, maximization of reusability
+ * reader-based software engineering, maximization of reusability
  * multiple alternative solutions for the same NLP task to enable flexible data-driven configuration
  * easy extension and benchmarking
  
@@ -92,7 +92,7 @@ DeepPavlov is built on top of machine learning frameworks [TensorFlow](https://w
    * `Machine Learning Components` - can be trained only separately
    * `Deep Learning Components` - can be trained separately and in end-to-end mode being joined in chain
  * `Switcher` - mechanism which is used by agent to rank and select the final response shown to user
- * `Components Chainer` - tool for building an agent/component pipeline from heterogeneous components (rule-based/ml/dl). Allows to train and infer from pipeline as a whole.
+ * `Components Chainer` - tool for building an agent/reader pipeline from heterogeneous components (rule-based/ml/dl). Allows to train and infer from pipeline as a whole.
 
 
 ### Contents
@@ -160,7 +160,7 @@ For the 'interactbot' mode you should specify Telegram bot token in `-t` paramet
 * Add section to `utils/telegram_utils/model_info.json` with your custom Telegram messages
 * In model config file specify `metadata.labels.telegram_utils` parameter with name which refers to the added section of `utils/telegram_utils/model_info.json`
 
-For 'riseapi' mode you should specify api settings (host, port, etc.) in [*utils/server_utils/server_config.json*](utils/server_utils/server_config.json) configuration file. If provided, values from *model_defaults* section override values for the same parameters from *common_defaults* section. Model names in *model_defaults* section should be similar to the class names of the models main component.
+For 'riseapi' mode you should specify api settings (host, port, etc.) in [*utils/server_utils/server_config.json*](utils/server_utils/server_config.json) configuration file. If provided, values from *model_defaults* section override values for the same parameters from *common_defaults* section. Model names in *model_defaults* section should be similar to the class names of the models main reader.
 
 Available model configs are:
 
@@ -249,7 +249,7 @@ An NLP pipeline config is a JSON file that contains one required element `chaine
 ```
 
 Chainer is a core concept of DeepPavlov library: chainer builds a pipeline from heterogeneous components
-(rule-based/ml/dl) and allows to train or infer from pipeline as a whole. Each component in the pipeline specifies
+(rule-based/ml/dl) and allows to train or infer from pipeline as a whole. Each reader in the pipeline specifies
 its inputs and outputs as arrays of names, for example: `"in": ["tokens", "features"]` and `"out": ["token_embeddings", "features_embeddings"]` and you can chain outputs of one components with inputs of other components:
 ```json
 {
@@ -379,7 +379,7 @@ is not an abstract class and can be used as a `DatasetIterator` as well.
 
 ### Inference
 
-All components inherited from `deeppavlov.core.models.component.Component` abstract class can be used for inference. The `__call__()` method should return standard output of a component. For example, a *tokenizer* should return
+All components inherited from `deeppavlov.core.models.reader.Component` abstract class can be used for inference. The `__call__()` method should return standard output of a reader. For example, a *tokenizer* should return
 *tokens*, a *NER recognizer* should return *recognized entities*, a *bot* should return an *utterance*.
 A particular format of returned data should be defined in `__call__()`.
 

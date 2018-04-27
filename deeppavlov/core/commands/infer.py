@@ -38,7 +38,7 @@ def build_model_from_config(config, mode='infer', load_trained=False, as_compone
                 try:
                     component_config['load_path'] = component_config['save_path']
                 except KeyError:
-                    log.warning('No "save_path" parameter for the {} component, so "load_path" will not be renewed'
+                    log.warning('No "save_path" parameter for the {} reader, so "load_path" will not be renewed'
                                 .format(component_config.get('name', component_config.get('ref', 'UNKNOWN'))))
             component = from_params(component_config, vocabs=[], mode=mode)
 

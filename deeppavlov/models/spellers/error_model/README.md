@@ -3,7 +3,7 @@
 
 # Automatic spelling correction component
 
-Automatic spelling correction component is based on
+Automatic spelling correction reader is based on
 [An Improved Error Model for Noisy Channel Spelling Correction](http://www.aclweb.org/anthology/P00-1037)
 by Eric Brill and Robert C. Moore and uses statistics based error model,
 a static dictionary and an ARPA language model to correct spelling errors.  
@@ -13,8 +13,8 @@ and some hints on how to collect appropriate datasets for other languages.
 ## Usage
 
 #### Component config parameters:  
-* `in` — list with one element: name of this component's input in chainer's shared memory
-* `out` — list with one element: name for this component's output in chainer's shared memory
+* `in` — list with one element: name of this reader's input in chainer's shared memory
+* `out` — list with one element: name for this reader's output in chainer's shared memory
 * `name` always equals to `"spelling_error_model"`
 * `save_path` — path where the model will be saved at after a training session
 * `load_path` — path to the pretrained model
@@ -110,7 +110,7 @@ For the training phase config file needs to also include these parameters:
     * `data_path` — required for typos_custom_reader as a path to a dataset file,
      where each line contains a misspelling and a correct spelling of a word separated by a tab symbol
 
-Component's configuration also has to have as `fit_on` parameter — list of two elements: names of component's input
+Component's configuration also has to have as `fit_on` parameter — list of two elements: names of reader's input
 and true output in chainer's shared memory
 
 A working training config could look something like:

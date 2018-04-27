@@ -424,7 +424,7 @@ Scores by entity type are presented in the table below:
 
 ## Results
 
-The NER network component reproduces the architecture from the paper "_Application of a Hybrid Bi-LSTM-CRF model to the task of Russian Named Entity Recognition_" https://arxiv.org/pdf/1709.09686.pdf, which is inspired by LSTM+CRF architecture from https://arxiv.org/pdf/1603.01360.pdf.
+The NER network reader reproduces the architecture from the paper "_Application of a Hybrid Bi-LSTM-CRF model to the task of Russian Named Entity Recognition_" https://arxiv.org/pdf/1709.09686.pdf, which is inspired by LSTM+CRF architecture from https://arxiv.org/pdf/1603.01360.pdf.
 
 Bi-LSTM architecture of NER network was tested on three datasets:
 - Gareev corpus [5] (obtainable by request to authors)

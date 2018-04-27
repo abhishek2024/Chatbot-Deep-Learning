@@ -15,10 +15,13 @@ class WikiSQLiteVocab(Component):
     Get SQlite documents by ids.
     """
 
-    def __init__(self, data_dir: str = '', data_url: str = DB_URL, **kwargs):
+    def __init__(self, data_dir: str = '', data_url: str = DB_URL,
+                 join_docs=True, **kwargs):
         """
         :param data_dir: a directory name where DB is located
         :param data_url: an URL to SQLite DB
+        :param join_docs: join documents returned for a single instance by space or not to join
+         (return list)
         """
         download_dir = expand_path(data_dir)
         download_path = download_dir.joinpath(data_url.split("/")[-1])
@@ -26,6 +29,7 @@ class WikiSQLiteVocab(Component):
 
         self.connect = sqlite3.connect(str(download_path), check_same_thread=False)
         self.db_name = self.get_db_name()
+        self.join_docs = join_docs
 
     def __call__(self, doc_ids: List[List[Any]], *args, **kwargs) -> List[str]:
         """
@@ -37,7 +41,8 @@ class WikiSQLiteVocab(Component):
         all_contents = []
         for ids in doc_ids:
             contents = [self.get_doc_content(doc_id) for doc_id in ids]
-            contents = ' '.join(contents)
+            if self.join_docs:
+                contents = ' '.join(contents)
             all_contents.append(contents)
         return all_contents
 

@@ -19,7 +19,7 @@ from deeppavlov.metrics.squad_metrics import squad_f1
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 fmt = logging.Formatter('%(asctime)s: [ %(message)s ]', '%m/%d/%Y %I:%M:%S %p')
-file = logging.FileHandler('eval_logs/odqa_squad_train_ru_top51.log')
+file = logging.FileHandler('eval_logs/odqa_squad_dev_ru_top5_correctf1.log')
 file.setFormatter(fmt)
 logger.addHandler(file)
 
@@ -51,17 +51,17 @@ def main():
         y_true = list(zip(y_true_text, y_true_start))
         questions_total = [instance['question'] for instance in dataset]
 
-        CHUNK = 10
+        BATCH_SIZE = 10
 
-        question_chunks = [questions_total[x:x + CHUNK] for x in range(0, len(questions_total), CHUNK)]
-        len_chunks = len(question_chunks)
+        question_batches = [questions_total[x:x + BATCH_SIZE] for x in range(0, len(questions_total), BATCH_SIZE)]
+        len_batches = len(question_batches)
 
         y_pred = []
 
-        for i, questions in enumerate(question_chunks):
-            logger.info('Making ODQA predictions on chunk {} of {}'.format(i, len_chunks))
-            y_pred_chunk = odqa(questions)
-            y_pred += y_pred_chunk
+        for i, questions in enumerate(question_batches):
+            logger.info('Making ODQA predictions on batch {} of {}'.format(i, len_batches))
+            y_pred_batch = odqa(questions)
+            y_pred += y_pred_batch
 
         logger.info('Counting ODQA f1 score on SQuAD...')
         f1 = squad_f1(y_true, y_pred)
