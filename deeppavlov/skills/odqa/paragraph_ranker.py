@@ -39,11 +39,11 @@ class ParagraphRanker:
         predictions = self.model.predict(batch)
         pred_g = []
         for i in range(len(num_cont_cum)-1):
-                pred_g.append(np.argmax((predictions[num_cont_cum[i]: num_cont_cum[i+1]])))
+                pred_g.append(predictions[num_cont_cum[i]: num_cont_cum[i+1]].squeeze().argsort()[::-1])
         ans = []
         for i in range(len(query_cont)):
             num_top = min(top_k, num_cont[i])
-            ans.append([query_cont[i][1][el] for el in pred_g[:num_top]])
+            ans.append([query_cont[i][1][el] for el in pred_g[i][:num_top]])
         return ans
 
     def _build_dict(self, fname):
@@ -54,8 +54,8 @@ class ParagraphRanker:
         return word_dict
 
     def _margin_loss(self, y_true, y_pred):
-        y_pos = Lambda(lambda a: a[::2, :], output_shape= (1,))(y_pred)
-        y_neg = Lambda(lambda a: a[1::2, :], output_shape= (1,))(y_pred)
+        y_pos = Lambda(lambda a: a[::2, :], output_shape=(1,))(y_pred)
+        y_neg = Lambda(lambda a: a[1::2, :], output_shape=(1,))(y_pred)
         loss = K.maximum(0., 0.1 + y_neg - y_pos)
         return K.mean(loss)
 
@@ -63,9 +63,9 @@ class ParagraphRanker:
 def main():
 
     set_deeppavlov_root({"deeppavlov_root": "/home/leonid/github/DeepPavlov/download"})
-    download_decompress("http://lnsigo.mipt.ru/export/deeppavlov_data/sber_squad_ranking_arci_40.tar.gz",
-                        get_deeppavlov_root())
-    fname = expand_path('test_data.txt')
+    # download_decompress("http://lnsigo.mipt.ru/export/deeppavlov_data/sber_squad_ranking_arci_40.tar.gz",
+    #                     get_deeppavlov_root())
+    fname = expand_path('test_data1.txt')
     with open(fname, 'r') as f:
         test_data = f.readlines()
     test_data = [el.strip('\n').split('\t')[1:3] for el in test_data]
@@ -76,6 +76,7 @@ def main():
         q_c_dict[el[0]].append(el[1])
     pr = ParagraphRanker("sber_squad_ranking_arci_40")
     predictions = pr(list(q_c_dict.items()), top_k=2)
+    # print(np.argmax(np.reshape(predictions, (13, 10)), axis=1))
     print(predictions)
 
 if __name__ == "__main__":
