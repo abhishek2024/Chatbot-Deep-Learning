@@ -19,8 +19,8 @@ from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.registry import register
 
 
-@register("paragraph_splitter")
-class ParagraphSplitter(Component):
+@register("query_paragraph_tuplifier")
+class QueryParagraphTuplifier(Component):
     """
     Split a list of documents to a list of paragraphs.
     """
@@ -28,11 +28,8 @@ class ParagraphSplitter(Component):
     def __init__(self, *args, **kwargs):
         pass
 
-    def __call__(self, batch: List[List[str]], *args, **kwargs):
-        batch_paragraphs = []
-        for docs in batch:
-            instance_paragraphs = []
-            for doc in docs:
-                instance_paragraphs += [p for p in doc.split('\n') if len(p.split()) > 3]
-            batch_paragraphs.append(instance_paragraphs)
-        return batch_paragraphs
+    def __call__(self, batch_queries: List[str], batch_contexts: List[List[str]], *args, **kwargs):
+        tuples = []
+        for query, contexts in zip(batch_queries, batch_contexts):
+            tuples.append((query, contexts))
+        return tuples

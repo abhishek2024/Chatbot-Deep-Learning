@@ -56,6 +56,7 @@ import deeppavlov.models.tokenizers.ru_tokenizer
 import deeppavlov.models.squad.squad
 import deeppavlov.models.squad.squad_conf
 import deeppavlov.models.supplementary.paragraph_splitter
+import deeppavlov.models.supplementary.query_paragraph_tuplifier
 import deeppavlov.skills.go_bot.bot
 import deeppavlov.skills.go_bot.network
 import deeppavlov.skills.go_bot.tracker

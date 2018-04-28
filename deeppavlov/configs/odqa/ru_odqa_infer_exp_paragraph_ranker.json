@@ -63,10 +63,19 @@
         ]
       },
       {
-        "name": "paragraph_ranker",
+        "name": "query_paragraph_tuplifier",
         "in": [
           "question_raw",
           "contexts_as_paragraphs"
+        ],
+        "out": [
+          "question_contexts_pairs"
+        ]
+      },
+      {
+        "name": "paragraph_ranker",
+        "in": [
+          "question_contexts_pairs"
         ],
         "out": [
           "context_raw"
