@@ -8,7 +8,7 @@
       "ans_raw_start"
     ],
     "out": [
-      "ans_predicted", "score", "prob"
+      "ans_predicted", "prob"
     ],
     "pipe": [
       {
