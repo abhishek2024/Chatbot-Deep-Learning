@@ -33,7 +33,7 @@
           "save_path": "pmef/pmef_bas_matrix.npz",
           "load_path": "pmef/pmef_bas_matrix.npz",
           "tokenizer": {
-            "name": "stream_spacy_tokenizer",
+            "name": "ru_tokenizer",
             "lemmas": true,
             "ngram_range": [
               1,
