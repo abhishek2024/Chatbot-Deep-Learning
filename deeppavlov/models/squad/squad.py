@@ -265,8 +265,13 @@ class SquadModel(TFModel):
 
     def __call__(self, c_tokens, c_chars, q_tokens, q_chars, *args, **kwargs):
         feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars)
-        yp1, yp2, score, prob = self.sess.run([self.yp1, self.yp2, self.yp, self.yp_prob], feed_dict=feed_dict)
-        return yp1, yp2, [float(score) for score in score], [float(prob) for prob in prob]
+
+        if self.noans:
+            yp1, yp2, score, prob = self.sess.run([self.yp1, self.yp2, self.yp, self.yp_prob], feed_dict=feed_dict)
+            return yp1, yp2, [float(score) for score in score], [float(prob) for prob in prob]
+
+        yp1, yp2, prob = self.sess.run([self.yp1, self.yp2, self.yp_prob], feed_dict=feed_dict)
+        return yp1, yp2, [float(prob) for prob in prob]
 
     def process_event(self, event_name, data):
         if event_name == "after_validation":
