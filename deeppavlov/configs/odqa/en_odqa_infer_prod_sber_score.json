@@ -1,33 +1,95 @@
 {
-  "dataset_reader": {
-    "name": "squad_dataset_reader",
-    "data_path": "squad/"
-  },
-  "dataset_iterator": {
-    "name": "squad_iterator",
-    "seed": 1337,
-    "shuffle": true
-  },
   "chainer": {
-    "in": ["context_raw", "question_raw"],
-    "in_y": ["ans_raw", "ans_raw_start"],
+    "in": [
+      "question_raw"
+    ],
+    "in_y": [
+      "ans_raw",
+      "ans_raw_start"
+    ],
+    "out": [
+      "ans_predicted",
+      "prob"
+    ],
     "pipe": [
+      {
+        "name": "tfidf_ranker",
+        "top_n": 1,
+        "in": [
+          "question_raw"
+        ],
+        "out": [
+          "doc_ids",
+          "doc_scores"
+        ],
+        "fit_on_batch": [
+          "questions_raw"
+        ],
+        "vectorizer": {
+          "name": "hashing_tfidf_vectorizer",
+          "fit_on_batch": [
+            "questions_raw"
+          ],
+          "save_path": "pmef/en_sber.npz",
+          "load_path": "pmef/en_sber.npz",
+          "tokenizer": {
+            "name": "stream_spacy_tokenizer",
+            "lemmas": true,
+            "ngram_range": [
+              1,
+              2
+            ]
+          }
+        }
+      },
+      {
+        "name": "wiki_sqlite_vocab",
+        "in": [
+          "doc_ids"
+        ],
+        "out": [
+          "context_raw"
+        ],
+        "data_dir": "pmef",
+        "shuffle": false,
+        "data_url": "http://lnsigo.mipt.ru/export/pmef/en_sber.db"
+      },
       {
         "name": "squad_preprocessor",
         "id": "squad_prepr",
-        "context_limit": 400,
-        "question_limit": 150,
+        "context_limit": 2000,
+        "question_limit": 50,
         "char_limit": 16,
-        "in": ["context_raw", "question_raw"],
-        "out": ["context", "context_tokens", "context_chars",
-                "c_r2p", "c_p2r", "question",
-                "question_tokens", "question_chars", "spans"]
+        "in": [
+          "context_raw",
+          "question_raw"
+        ],
+        "out": [
+          "context",
+          "context_tokens",
+          "context_chars",
+          "c_r2p",
+          "c_p2r",
+          "question",
+          "question_tokens",
+          "question_chars",
+          "spans"
+        ]
       },
       {
         "name": "squad_ans_preprocessor",
         "id": "squad_ans_prepr",
-        "in": ["ans_raw", "ans_raw_start", "c_r2p", "spans"],
-        "out": ["ans", "ans_start", "ans_end"]
+        "in": [
+          "ans_raw",
+          "ans_raw_start",
+          "c_r2p",
+          "spans"
+        ],
+        "out": [
+          "ans",
+          "ans_start",
+          "ans_end"
+        ]
       },
       {
         "name": "squad_vocab_embedder",
@@ -86,30 +148,25 @@
       {
         "name": "squad_ans_postprocessor",
         "id": "squad_ans_postprepr",
-        "in": ["ans_start_predicted", "ans_end_predicted", "context_raw", "c_p2r", "spans"],
-        "out": ["ans_predicted", "ans_start_predicted", "ans_end_predicted"]
+        "in": [
+          "ans_start_predicted",
+          "ans_end_predicted",
+          "context_raw",
+          "c_p2r",
+          "spans"
+        ],
+        "out": [
+          "ans_predicted",
+          "ans_start_predicted",
+          "ans_end_predicted"
+        ]
       }
-    ],
-    "out": ["ans_predicted", "ans_start_predicted", "prob"]
-  },
-  "train": {
-    "show_examples": false,
-    "test_best": false,
-    "validate_best": true,
-    "log_every_n_batches": 250,
-    "val_every_n_epochs": 1,
-    "batch_size": 50,
-    "pytest_max_batches": 2,
-    "validation_patience": 10,
-    "metrics": ["squad_f1", "exact_match"]
+    ]
   },
   "metadata": {
-    "labels": {
-      "telegram_utils": "SquadModel"
-    },
     "download": [
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/pmef.tar.gz",
       "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_model_1.1.tar.gz"
-      ]
+    ]
   }
 }
-
