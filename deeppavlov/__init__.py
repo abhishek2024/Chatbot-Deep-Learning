@@ -36,6 +36,7 @@ import deeppavlov.dataset_iterators.basic_classification_iterator
 import deeppavlov.dataset_iterators.squad_iterator
 import deeppavlov.dataset_iterators.sqlite_iterator
 import deeppavlov.models.classifiers.intents.intent_model
+import deeppavlov.models.supplementary.sentence_splitter
 import deeppavlov.models.commutators.random_commutator
 import deeppavlov.models.embedders.fasttext_embedder
 import deeppavlov.models.embedders.dict_embedder
@@ -61,6 +62,7 @@ import deeppavlov.skills.seq2seq_go_bot.bot
 import deeppavlov.skills.seq2seq_go_bot.network
 import deeppavlov.skills.seq2seq_go_bot.kb
 import deeppavlov.skills.odqa.ranker
+import deeppavlov.skills.odqa.tfhub_sentence_ranker
 import deeppavlov.vocabs.typos
 import deeppavlov.vocabs.wiki_sqlite
 import deeppavlov.dataset_readers.insurance_reader
