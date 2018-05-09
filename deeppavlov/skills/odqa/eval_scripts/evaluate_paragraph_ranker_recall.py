@@ -54,8 +54,8 @@ def main():
 
     dataset_size = len(dataset)
     logger.info('Dataset size: {}'.format(dataset_size))
-    correct_answers = 0
-    n_queries = 0
+    n_correct_answers = 0
+    n_queries = 1
     start_time = time.time()
 
     try:
@@ -68,14 +68,14 @@ def main():
             formatted_answers = [encode_utf8(a) for a in answers]
             top_n_texts = [encode_utf8(text) for text in paragraphs]
 
-            correct_answers += instance_score(formatted_answers, top_n_texts)
-            logger.info('Processed {} queries from {}'.format(n_queries, dataset_size))
+            n_correct_answers += instance_score(formatted_answers, top_n_texts)
             logger.info('Correct answers: {}'.format(answers))
             logger.info('Correct answers bytes: {}'.format(formatted_answers))
+            logger.info('Current score: {}'.format(n_correct_answers / n_queries))
+            logger.info('Processed {} queries from {}'.format(n_queries, dataset_size))
             n_queries += 1
-            logger.info('Current score: {}'.format(correct_answers / n_queries))
 
-        total_correct = correct_answers / dataset_size
+        total_correct = n_correct_answers / dataset_size
         logger.info(
             'Percentage of the instances for which the correct document was'
             ' retrieved in retrieved documents: {}'.format(total_correct))
