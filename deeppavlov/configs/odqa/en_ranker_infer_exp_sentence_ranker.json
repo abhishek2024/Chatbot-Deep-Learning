@@ -4,7 +4,7 @@
       "question_raw"
     ],
     "out": [
-      "sentences"
+      "context_raw"
     ],
     "pipe": [
       {
@@ -76,7 +76,7 @@
           "question_contexts_pairs"
         ],
         "out": [
-          "sentences"
+          "context_raw"
         ]
       }
     ]
