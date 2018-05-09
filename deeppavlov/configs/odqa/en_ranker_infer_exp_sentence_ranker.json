@@ -71,7 +71,7 @@
       },
       {
         "name": "sentence_ranker",
-        "top_k": 10,
+        "top_k": 15,
         "in": [
           "question_contexts_pairs"
         ],

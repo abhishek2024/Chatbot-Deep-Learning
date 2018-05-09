@@ -26,7 +26,8 @@ class TFHUBSentenceRanker(Component):
             scores = (query_emb @ cont_embs.T).squeeze()
             top_ids = np.argsort(scores)[::-1][:self.top_k]
             predictions.append([el[1][x] for x in top_ids])
-        return predictions
+        res = [' '.join(sentences) for sentences in predictions]
+        return res
 
 
 def main():

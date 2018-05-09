@@ -19,19 +19,19 @@ from deeppavlov.core.commands.infer import build_model_from_config
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 fmt = logging.Formatter('%(asctime)s: [ %(message)s ]', '%m/%d/%Y %I:%M:%S %p')
-file = logging.FileHandler('../eval_logs/ranker2_squad_dev_ru.log')
+file = logging.FileHandler('../eval_logs/ranker1(docs_top5)_ranker2(sentences_top15)_squad_dev_en.log')
 file.setFormatter(fmt)
 logger.addHandler(file)
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument("-config_path", help="path to a JSON ranker config", type=str,
-                    default='../../../../deeppavlov/configs/odqa/ru_ranker_infer_exp_paragraph_ranker.json')
+                    default='../../../../deeppavlov/configs/odqa/en_ranker_infer_exp_sentence_ranker.json')
 parser.add_argument("-dataset_path", help="path to a JSON formatted dataset", type=str,
-                    default='/media/olga/Data/projects/ODQA/data/ru_squad/preproc/dev-v1.1_prep_4ranker.json')
+                    default='/media/olga/Data/projects/ODQA/data/squad/preproc/dev-v1.1_prep_4ranker.json')
 parser.add_argument("-database_url", help="path to a SQLite database with wikipedia articles",
                     type=str,
-                    default='http://lnsigo.mipt.ru/export/datasets/wikipedia/ruwiki.db')
+                    default='http://lnsigo.mipt.ru/export/datasets/wikipedia/enwiki.db')
 
 
 def encode_utf8(s: str):
