@@ -63,8 +63,8 @@ class ParagraphRanker(Component):
         return word_dict
 
     def _margin_loss(self, y_true, y_pred):
-        y_pos = Lambda(lambda a: a[::2, :], output_shape= (1,))(y_pred)
-        y_neg = Lambda(lambda a: a[1::2, :], output_shape= (1,))(y_pred)
+        y_pos = Lambda(lambda a: a[::2, :], output_shape=(1,))(y_pred)
+        y_neg = Lambda(lambda a: a[1::2, :], output_shape=(1,))(y_pred)
         loss = K.maximum(0., 0.1 + y_neg - y_pos)
         return K.mean(loss)
 
@@ -72,9 +72,9 @@ class ParagraphRanker(Component):
 def main():
 
     set_deeppavlov_root({"deeppavlov_root": "/home/leonid/github/DeepPavlov/download"})
-    download_decompress("http://lnsigo.mipt.ru/export/deeppavlov_data/sber_squad_ranking_arci_40.tar.gz",
-                        get_deeppavlov_root())
-    fname = expand_path('test_data.txt')
+    # download_decompress("http://lnsigo.mipt.ru/export/deeppavlov_data/sber_squad_ranking_arci_40.tar.gz",
+    #                     get_deeppavlov_root())
+    fname = expand_path('test_data1.txt')
     with open(fname, 'r') as f:
         test_data = f.readlines()
     test_data = [el.strip('\n').split('\t')[1:3] for el in test_data]
