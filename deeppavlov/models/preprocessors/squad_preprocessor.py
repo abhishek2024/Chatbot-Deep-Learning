@@ -22,6 +22,8 @@ from pathlib import Path
 import numpy as np
 from nltk import word_tokenize
 from tqdm import tqdm
+import lightgbm as lgbm
+import pandas as pd
 
 from deeppavlov.core.commands.utils import expand_path
 from deeppavlov.core.common.log import get_logger
@@ -300,3 +302,55 @@ class SquadAnsPostprocessor(Component):
             end.append(p2r[span[a_end][1]])
             answers.append(c[start[-1]:end[-1]])
         return answers, start, end
+
+
+@register('squad_lgbm_scorer')
+class SquadLGBMScorer(Estimator):
+    def __init__(self, save_path, load_path, *args, **kwargs):
+        self.save_path = expand_path(save_path)
+        self.load_path = expand_path(load_path)
+        self.model = None
+
+        if self.load_path.exists():
+            self.load()
+        else:
+            raise RuntimeError('SquadLGBMScorer: there is no pretrained model')
+
+    def fit(self, *args, **kwargs):
+        pass
+
+    def __call__(self, prob, prob_unnorm, yp1_prob, yp2_prob, yp1_softmax, yp2_softmax):
+        df = pd.DataFrame()
+        data = list(zip(prob, prob_unnorm, yp1_prob, yp2_prob, yp1_softmax, yp2_softmax))
+        df['prob'] = [s for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['prob_unnorm'] = [su for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['log prob_unnorm'] = [np.log(su) for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['yp1'] = [yp1 for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['yp2'] = [yp2 for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['cov yp1s'] = [np.cov(yp1s) for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['cov yp2s'] = [np.cov(yp2s) for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['cov yp1s * prob'] = [s * np.cov(yp1s) for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['cov yp2s * prob'] = [s * np.cov(yp2s) for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['mean yp1s'] = [np.mean(yp1s) for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['mean yp2s'] = [np.mean(yp2s) for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['q75 yp1s'] = [np.percentile(yp1s, q=75) for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['q75 yp2s'] = [np.percentile(yp2s, q=75) for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['q95 yp1s'] = [np.percentile(yp1s, q=95) for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['q95 yp2s'] = [np.percentile(yp2s, q=95) for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['max/mean yp1s'] = [np.max(yp1s) / np.mean(yp1s) for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['max/mean yp2s'] = [np.max(yp2s) / np.mean(yp2s) for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['mean/min yp1s'] = [np.mean(yp1s) / np.min(yp1s) for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['mean/min yp2s'] = [np.mean(yp2s) / np.min(yp2s) for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['prob * prob_unnorm'] = [s * su for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['prob_unnorm / prob'] = [su / s for s, su, yp1, yp2, yp1s, yp2s in data]
+        df['cov yp1s'] = df['cov yp1s'].apply(float)
+        df['cov yp2s'] = df['cov yp2s'].apply(float)
+        scores = self.model.predict(df)
+        return scores
+
+    def load(self, *args, **kwargs):
+        logger.info('SquadLGBMScorer: loading saved model vocab from {}'.format(self.load_path))
+        self.model = lgbm.Booster(model_file=str(self.load_path))
+
+    def save(self, *args, **kwargs):
+        pass

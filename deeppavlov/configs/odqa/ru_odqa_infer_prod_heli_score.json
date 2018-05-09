@@ -8,7 +8,7 @@
       "ans_raw_start"
     ],
     "out": [
-      "ans_predicted", "prob"
+      "ans_predicted", "lgbm_score"
     ],
     "pipe": [
       {
@@ -120,44 +120,30 @@
         "weight_decay": 0.999,
         "save_path": "squad_model_ru/model",
         "load_path": "squad_model_ru/model",
-        "in": [
-          "context_tokens_idxs",
-          "context_chars_idxs",
-          "question_tokens_idxs",
-          "question_chars_idxs"
-        ],
-        "in_y": [
-          "ans_start",
-          "ans_end"
-        ],
-        "out": [
-          "ans_start_predicted",
-          "ans_end_predicted",
-          "prob"
-        ]
+        "in": ["context_tokens_idxs", "context_chars_idxs", "question_tokens_idxs", "question_chars_idxs"],
+        "in_y": ["ans_start", "ans_end"],
+        "out": ["ans_start_predicted", "ans_end_predicted", "prob", "prob_unnorm", "yp1_prob", "yp2_prob", "yp1_softmax", "yp2_softmax"]
+      },
+      {
+        "name": "squad_lgbm_scorer",
+        "save_path": "squad_scorer_ru/lgbm_model.txt",
+        "load_path": "squad_scorer_ru/lgbm_model.txt",
+        "in": ["prob", "prob_unnorm", "yp1_prob", "yp2_prob", "yp1_softmax", "yp2_softmax"],
+        "out": ["lgbm_score"]
       },
       {
         "name": "squad_ans_postprocessor",
         "id": "squad_ans_postprepr",
-        "in": [
-          "ans_start_predicted",
-          "ans_end_predicted",
-          "context_raw",
-          "c_p2r",
-          "spans"
-        ],
-        "out": [
-          "ans_predicted",
-          "ans_start_predicted",
-          "ans_end_predicted"
-        ]
+        "in": ["ans_start_predicted", "ans_end_predicted", "context_raw", "c_p2r", "spans"],
+        "out": ["ans_predicted", "ans_start_predicted", "ans_end_predicted"]
       }
     ]
   },
   "metadata": {
     "download": [
       "http://lnsigo.mipt.ru/export/deeppavlov_data/ru_heli_par.tar.gz",
-      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_model_ru.tar.gz"
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_model_ru.tar.gz",
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_scorer_ru.tar.gz"
     ]
   }
 }

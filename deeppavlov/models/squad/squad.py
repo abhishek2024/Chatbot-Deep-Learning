@@ -162,7 +162,15 @@ class SquadModel(TFModel):
             outer = tf.matrix_band_part(outer, 0, tf.cast(tf.minimum(15, self.c_maxlen), tf.int64))
             self.yp1 = tf.argmax(tf.reduce_max(outer, axis=2), axis=1)
             self.yp2 = tf.argmax(tf.reduce_max(outer, axis=1), axis=1)
+            outer_prob_unnorm = tf.matmul(tf.expand_dims(tf.exp(logits1), axis=2),
+                              tf.expand_dims(tf.exp(logits2), axis=1))
+            outer_prob_unnorm = tf.matrix_band_part(outer_prob_unnorm, 0, tf.cast(tf.minimum(15, self.c_maxlen), tf.int64))
+            self.yp1_softmax = tf.nn.softmax(logits1)
+            self.yp2_softmax = tf.nn.softmax(logits2)
             self.yp_prob = tf.reduce_max(tf.reduce_max(outer, axis=2), axis=1)
+            self.yp_prob_unnorm = tf.reduce_max(tf.reduce_max(outer_prob_unnorm, axis=2), axis=1)
+            self.yp1_prob = tf.gather_nd(tf.nn.softmax(logits1), tf.stack([tf.range(tf.shape(self.yp1)[-1]), tf.cast(self.yp1, tf.int32)], axis=-1))
+            self.yp2_prob = tf.gather_nd(tf.nn.softmax(logits2), tf.stack([tf.range(tf.shape(self.yp1)[-1]), tf.cast(self.yp2, tf.int32)], axis=-1))
             loss_p1 = tf.nn.softmax_cross_entropy_with_logits(logits=logits1, labels=self.y1)
             loss_p2 = tf.nn.softmax_cross_entropy_with_logits(logits=logits2, labels=self.y2)
             squad_loss = loss_p1 + loss_p2
@@ -267,11 +275,13 @@ class SquadModel(TFModel):
         feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars)
 
         if self.noans:
-            yp1, yp2, score, prob = self.sess.run([self.yp1, self.yp2, self.yp, self.yp_prob], feed_dict=feed_dict)
-            return yp1, yp2, [float(score) for score in score], [float(prob) for prob in prob]
+            yp1, yp2, score, prob, prob_unnorm, yp1_prob, yp2_prob = self.sess.run([
+                self.yp1, self.yp2, self.yp, self.yp_prob, self.yp_prob_unnorm, self.yp1_prob, self.yp2_prob], feed_dict=feed_dict)
+            return yp1, yp2, [float(score) for score in score], [float(prob) for prob in prob], prob_unnorm, yp1_prob, yp2_prob
 
-        yp1, yp2, prob = self.sess.run([self.yp1, self.yp2, self.yp_prob], feed_dict=feed_dict)
-        return yp1, yp2, [float(prob) for prob in prob]
+        yp1, yp2, prob, prob_unnorm, yp1_prob, yp2_prob, yp1_softmax, yp2_softmax = self.sess.run([
+            self.yp1, self.yp2, self.yp_prob, self.yp_prob_unnorm, self.yp1_prob, self.yp2_prob, self.yp1_softmax, self.yp2_softmax], feed_dict=feed_dict)
+        return yp1, yp2, [float(prob) for prob in prob], prob_unnorm, yp1_prob, yp2_prob, yp1_softmax, yp2_softmax
 
     def process_event(self, event_name, data):
         if event_name == "after_validation":
