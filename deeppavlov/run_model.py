@@ -36,7 +36,8 @@ from deeppavlov.core.commands.utils import set_deeppavlov_root
 # PIPELINE_CONFIG_PATH = 'configs/odqa/ru_odqa_infer_prod.json'
 # PIPELINE_CONFIG_PATH = 'configs/odqa/ranker_test.json'
 # PIPELINE_CONFIG_PATH = 'configs/odqa/ru_odqa_infer_exp_conf.json'
-PIPELINE_CONFIG_PATH = "configs/odqa/ru_odqa_infer_exp_paragraph_ranker.json"
+# PIPELINE_CONFIG_PATH = "configs/odqa/ru_odqa_infer_exp_paragraph_ranker.json"
+PIPELINE_CONFIG_PATH = "configs/odqa/en_odqa_infer_exp_sentence_ranker.json"
 
 # train_model_from_config(PIPELINE_CONFIG_PATH)
 interact_model(PIPELINE_CONFIG_PATH)

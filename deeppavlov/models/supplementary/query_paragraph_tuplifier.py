@@ -21,9 +21,6 @@ from deeppavlov.core.common.registry import register
 
 @register("query_paragraph_tuplifier")
 class QueryParagraphTuplifier(Component):
-    """
-    Split a list of documents to a list of paragraphs.
-    """
 
     def __init__(self, *args, **kwargs):
         pass

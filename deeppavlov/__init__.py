@@ -56,6 +56,7 @@ import deeppavlov.models.tokenizers.ru_tokenizer
 import deeppavlov.models.squad.squad
 import deeppavlov.models.squad.squad_conf
 import deeppavlov.models.supplementary.paragraph_splitter
+import deeppavlov.models.supplementary.sentence_splitter
 import deeppavlov.models.supplementary.query_paragraph_tuplifier
 import deeppavlov.skills.go_bot.bot
 import deeppavlov.skills.go_bot.network
@@ -66,6 +67,7 @@ import deeppavlov.skills.seq2seq_go_bot.kb
 import deeppavlov.skills.odqa.tfidf_ranker
 import deeppavlov.skills.odqa.confidence_ranker
 import deeppavlov.skills.odqa.paragraph_ranker
+import deeppavlov.skills.odqa.tfhub_sentence_ranker
 import deeppavlov.vocabs.typos
 import deeppavlov.vocabs.wiki_sqlite
 import deeppavlov.dataset_readers.insurance_reader

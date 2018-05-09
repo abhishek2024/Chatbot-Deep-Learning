@@ -15,24 +15,26 @@ limitations under the License.
 """
 from typing import List
 
+from nltk.tokenize import sent_tokenize
+
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.registry import register
 
 
-@register("paragraph_splitter")
-class ParagraphSplitter(Component):
+@register("sentence_splitter")
+class SentenceSplitter(Component):
     """
-    Split a list of documents to a batches of list of paragraphs.
+    Split a list of documents to a batches of list of sentences.
     """
 
     def __init__(self, *args, **kwargs):
         pass
 
     def __call__(self, batch: List[List[str]], *args, **kwargs) -> List[List[str]]:
-        batch_paragraphs = []
+        batch_sentences = []
         for docs in batch:
-            instance_paragraphs = []
+            instance_sentences = []
             for doc in docs:
-                instance_paragraphs += [p for p in doc.split('\n') if len(p.split()) > 3]
-            batch_paragraphs.append(instance_paragraphs)
-        return batch_paragraphs
+                instance_sentences += sent_tokenize(doc)
+            batch_sentences.append(instance_sentences)
+        return batch_sentences
