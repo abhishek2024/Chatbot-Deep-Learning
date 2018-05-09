@@ -9,7 +9,7 @@ import logging
 import sys
 from pathlib import Path
 
-root_path = (Path(__file__) / ".." / ".." / ".." / "..").resolve()
+root_path = (Path(__file__) / ".." / ".." / ".." / ".." / "..").resolve()
 sys.path.append(str(root_path))
 
 from deeppavlov.core.common.file import read_json
@@ -19,14 +19,14 @@ from deeppavlov.metrics.squad_metrics import squad_f1
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 fmt = logging.Formatter('%(asctime)s: [ %(message)s ]', '%m/%d/%Y %I:%M:%S %p')
-file = logging.FileHandler('eval_logs/odqa_squad_dev_ru_top5_context10000.log')
+file = logging.FileHandler('eval_logs/odqa_squad_dev_ru_top5_paragraph_ranker_top_50.log')
 file.setFormatter(fmt)
 logger.addHandler(file)
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument("-config_path", help="path to a JSON ranker config", type=str,
-                    default='../../../deeppavlov/configs/odqa/ru_odqa_infer_exp_conf.json')
+                    default='../../../../deeppavlov/configs/odqa/ru_odqa_infer_exp_paragraph_ranker.json')
 parser.add_argument("-dataset_path", help="path to a JSON formatted dataset", type=str,
                     default='/media/olga/Data/projects/ODQA/data/ru_squad/preproc/dev-v1.1_prep_4odqa.json')
 

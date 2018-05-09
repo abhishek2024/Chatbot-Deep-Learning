@@ -14,12 +14,13 @@ from deeppavlov.core.commands.utils import expand_path, get_deeppavlov_root, set
 
 @register('paragraph_ranker')
 class ParagraphRanker(Component):
-    def __init__(self, load_path, dict_path, **kwargs):
+    def __init__(self, load_path, dict_path, top_k=10, **kwargs):
         self.model = load_model(str(expand_path(load_path)),
                                 custom_objects={"_margin_loss": self._margin_loss})
         self.word_dict = self._build_dict(str(expand_path(dict_path)))
+        self.top_k = top_k
 
-    def __call__(self, query_cont, top_k=2):
+    def __call__(self, query_cont):
         num_cont = [len(el[1]) for el in query_cont]
         num_cont_cum = np.cumsum([0] + num_cont)
         bs = sum(num_cont)
@@ -45,13 +46,14 @@ class ParagraphRanker(Component):
         predictions = self.model.predict(batch)
         pred_g = []
         for i in range(len(num_cont_cum) - 1):
-            # pred_g.append(np.argmax((predictions[num_cont_cum[i]: num_cont_cum[i + 1]])))
-            pred_g.append(np.argmax(predictions[num_cont_cum[i]: num_cont_cum[i + 1]], axis=0))
-            # pred_g.append(np.argmax(predictions, axis=0))
+            pred_g.append(
+                predictions[num_cont_cum[i]: num_cont_cum[i + 1]].squeeze().argsort()[::-1])
         ans = []
-        for pair in query_cont:
-            ans.append([pair[1][el] for el in pred_g[:top_k]])
-        return ans
+        for i in range(len(query_cont)):
+            num_top = min(self.top_k, num_cont[i])
+            ans.append([query_cont[i][1][el] for el in pred_g[i][:num_top]])
+        res = [' '.join(contexts) for contexts in ans]
+        return res
 
     def _build_dict(self, fname):
         with open(fname, 'r') as f:
@@ -81,8 +83,8 @@ def main():
     q_c_dict = {el: [] for el in set(queries)}
     for el in zip(queries, conts):
         q_c_dict[el[0]].append(el[1])
-    pr = ParagraphRanker("sber_squad_ranking_arci_40")
-    predictions = pr(list(q_c_dict.items()), top_k=2)
+    pr = ParagraphRanker("sber_squad_ranking_arci_40", top_k=2)
+    predictions = pr(list(q_c_dict.items()))
     print(predictions)
 
 if __name__ == "__main__":
