@@ -13,7 +13,7 @@
     "pipe": [
       {
         "name": "tfidf_ranker",
-        "top_n": 1,
+        "top_n": 30,
         "in": [
           "question_raw"
         ],
@@ -29,8 +29,8 @@
           "fit_on_batch": [
             "questions_raw"
           ],
-          "save_path": "pmef/en_sber.npz",
-          "load_path": "pmef/en_sber.npz",
+          "save_path": "pmef/sber_en_tfidf_matrix.npz",
+          "load_path": "pmef/sber_en_tfidf_matrix.npz",
           "tokenizer": {
             "name": "stream_spacy_tokenizer",
             "lemmas": true,
@@ -51,7 +51,7 @@
         ],
         "data_dir": "pmef",
         "shuffle": false,
-        "data_url": "http://lnsigo.mipt.ru/export/pmef/en_sber.db"
+        "data_url": "http://lnsigo.mipt.ru/export/datasets/sber_en.db"
       },
       {
         "name": "squad_preprocessor",
