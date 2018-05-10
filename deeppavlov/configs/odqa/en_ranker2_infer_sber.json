@@ -26,7 +26,7 @@
             "questions_raw"
           ],
           "save_path": "pmef/sber_en_tfidf_matrix.npz",
-          "load_path": "odqa/sber_en_tfidf_matrix.npz",
+          "load_path": "pmef/sber_en_tfidf_matrix.npz",
           "tokenizer": {
             "name": "stream_spacy_tokenizer",
             "lemmas": true,
