@@ -33,8 +33,12 @@ class SentenceSplitter(Component):
     def __call__(self, batch: List[List[str]], *args, **kwargs) -> List[List[str]]:
         batch_sentences = []
         for docs in batch:
-            instance_sentences = []
-            for doc in docs:
-                instance_sentences += sent_tokenize(doc)
-            batch_sentences.append(instance_sentences)
+            if isinstance(docs, list):
+                instance_sentences = []
+                for doc in docs:
+                    instance_sentences += sent_tokenize(doc)
+                batch_sentences.append(instance_sentences)
+            else:
+                instance_sentences = sent_tokenize(docs)
+                batch_sentences.append(instance_sentences)
         return batch_sentences
