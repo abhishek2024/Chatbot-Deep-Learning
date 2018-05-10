@@ -13,7 +13,7 @@
     "pipe": [
       {
         "name": "tfidf_ranker",
-        "top_n": 1,
+        "top_n": 3,
         "in": [
           "question_raw"
         ],

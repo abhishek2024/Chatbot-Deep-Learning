@@ -13,7 +13,7 @@
     "pipe": [
       {
         "name": "tfidf_ranker",
-        "top_n": 1,
+        "top_n": 10,
         "in": [
           "question_raw"
         ],
@@ -29,10 +29,10 @@
           "fit_on_batch": [
             "questions_raw"
           ],
-          "save_path": "odqa_heli/heli.npz",
-          "load_path": "odqa_heli/heli.npz",
+          "save_path": "pmef/drones_tfidf_matrix.npz",
+          "load_path": "pmef/drones_tfidf_matrix.npz",
           "tokenizer": {
-            "name": "ru_tokenizer",
+            "name": "stream_spacy_tokenizer",
             "lemmas": true,
             "ngram_range": [
               1,
@@ -49,9 +49,9 @@
         "out": [
           "context_raw"
         ],
-        "data_dir": "heli",
+        "data_dir": "pmef",
         "shuffle": false,
-        "data_url": "http://lnsigo.mipt.ru/export/datasets/heli.db"
+        "data_url": "http://lnsigo.mipt.ru/export/datasets/drones.db"
       },
       {
         "name": "squad_preprocessor",
@@ -164,7 +164,7 @@
   },
   "metadata": {
     "download": [
-      "http://lnsigo.mipt.ru/export/deeppavlov_data/odqa_heli.tar.gz",
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/pmef.tar.gz",
       "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_model_1.1.tar.gz"
     ]
   }
