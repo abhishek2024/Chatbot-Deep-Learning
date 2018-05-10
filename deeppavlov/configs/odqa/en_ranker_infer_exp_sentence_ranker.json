@@ -80,5 +80,10 @@
         ]
       }
     ]
+  },
+  "metadata": {
+    "download": [
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/odqa.tar.gz"
+    ]
   }
 }
