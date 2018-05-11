@@ -50,11 +50,14 @@ def main():
 
     with open(output_path, 'w') as fout:
         result = []
+        i = 0
         for instance in dataset:
+            print('Processing {} query'.format(i))
             q = instance['question']
             a = instance['answer']
             pred = ranker([q])
             result.append({'question': q, 'answer': a, 'context': pred})
+            i += 1
         json.dump(result, fout)
 
 
