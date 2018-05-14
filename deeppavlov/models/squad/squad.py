@@ -161,8 +161,8 @@ class SquadModel(TFModel):
             init = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph)
             pointer = PtrNet(cell_size=init.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
             if self.noans:
-                # TODO: add dropout to noans_token
                 noans_token = tf.Variable(tf.random_uniform((match.get_shape().as_list()[-1],), -0.1, 0.1), tf.float32)
+                noans_token = tf.nn.dropout(noans_token, keep_prob=self.keep_prob_ph)
                 noans_token = tf.expand_dims(tf.tile(tf.expand_dims(noans_token, axis=0), [bs, 1]), axis=1)
                 match = tf.concat([noans_token, match], axis=1)
                 #self.c_mask = tf.cast(self.c_ph, tf.bool)
