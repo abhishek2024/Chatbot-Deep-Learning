@@ -7,7 +7,7 @@
   "dataset_iterator": {
     "name": "squad_noans_iterator",
     "seed": 1337,
-    "noans_rate": 0.8,
+    "noans_rate": 1.0,
     "shuffle": true
   },
   "chainer": {

@@ -16,6 +16,8 @@ limitations under the License.
 
 import random
 
+import nltk
+
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.data_learning_iterator import DataLearningIterator
 
@@ -70,7 +72,7 @@ class SquadNoAnsIterator(SquadIterator):
             setattr(self, dt, squad_qas[dt] + squad_qas_noans[dt])
 
     @staticmethod
-    def _extract_cqas_noans(data, rate=1.0):
+    def _extract_cqas_noans(data, rate=1.0, qc_rate=0.3):
         """
         Adds random questions with no answer to SQuAD.
         """
@@ -87,9 +89,21 @@ class SquadNoAnsIterator(SquadIterator):
                     context = par['context']
                     for qa in par['qas']:
                         if random.random() < rate:
-                            q = random.sample(questions, k=1)[0]
-                            ans_text = ['']
-                            ans_start = [-1]
-                            cqas.append(((context, q), (ans_text, ans_start)))
-
+                            if random.random() < qc_rate:
+                                # add random question
+                                q = random.sample(questions, k=1)[0]
+                                ans_text = ['']
+                                ans_start = [-1]
+                                cqas.append(((context, q), (ans_text, ans_start)))
+                            else:
+                                # add context without answers
+                                q = qa['question']
+                                ans_text = ['']
+                                ans_start = [-1]
+                                new_context = ''
+                                for sent in nltk.sent_tokenize(context):
+                                    if not any(ans['text'] in sent for ans in qa['answers']):
+                                        new_context += sent
+                                if new_context != '':
+                                    cqas.append(((context, q), (ans_text, ans_start)))
         return cqas
