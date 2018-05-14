@@ -150,7 +150,8 @@ class SquadAnsPreprocessor(Component):
                     y1, y2 = answer_span[0], answer_span[-1]
                 else:
                     # answer not found in context
-                    y1, y2 = 0, 0
+                    # TODO: not noans version of squad wont work with -1, -1
+                    y1, y2 = -1, -1
                 start[-1].append(y1)
                 end[-1].append(y2)
                 answers[-1].append(ans)
@@ -296,7 +297,12 @@ class SquadAnsPostprocessor(Component):
         start = []
         end = []
         for a_st, a_end, c, p2r, span in zip(ans_start, ans_end, contexts, p2rs, spans):
-            start.append(p2r[span[a_st][0]])
-            end.append(p2r[span[a_end][1]])
-            answers.append(c[start[-1]:end[-1]])
+            if a_st == -1 or a_end == -1:
+                start.append(-1)
+                end.append(-1)
+                answers.append('')
+            else:
+                start.append(p2r[span[a_st][0]])
+                end.append(p2r[span[a_end][1]])
+                answers.append(c[start[-1]:end[-1]])
         return answers, start, end

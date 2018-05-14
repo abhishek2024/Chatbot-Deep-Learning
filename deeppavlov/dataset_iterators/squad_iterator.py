@@ -70,7 +70,7 @@ class SquadNoAnsIterator(SquadIterator):
             setattr(self, dt, squad_qas[dt] + squad_qas_noans[dt])
 
     @staticmethod
-    def _extract_cqas_noans(data, rate=0.3):
+    def _extract_cqas_noans(data, rate=1.0):
         """
         Adds random questions with no answer to SQuAD.
         """
@@ -89,7 +89,7 @@ class SquadNoAnsIterator(SquadIterator):
                         if random.random() < rate:
                             q = random.sample(questions, k=1)[0]
                             ans_text = ['']
-                            ans_start = [0]
+                            ans_start = [-1]
                             cqas.append(((context, q), (ans_text, ans_start)))
 
         return cqas
