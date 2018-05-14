@@ -101,7 +101,7 @@
         "out": ["ans_predicted", "ans_start_predicted", "ans_end_predicted"]
       }
     ],
-    "out": ["ans_predicted", "ans_start_predicted", "prob", "score", "lgbm_score"]
+    "out": ["ans_predicted", "ans_start_predicted", "lgbm_score"]
   },
   "train": {
     "show_examples": false,
