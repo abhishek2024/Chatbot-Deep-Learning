@@ -165,7 +165,6 @@ class SquadModel(TFModel):
                 noans_token = tf.nn.dropout(noans_token, keep_prob=self.keep_prob_ph)
                 noans_token = tf.expand_dims(tf.tile(tf.expand_dims(noans_token, axis=0), [bs, 1]), axis=1)
                 match = tf.concat([noans_token, match], axis=1)
-                #self.c_mask = tf.cast(self.c_ph, tf.bool)
                 self.c_mask = tf.concat([tf.ones(shape=(bs, 1), dtype=tf.bool), self.c_mask], axis=1)
             logits1, logits2 = pointer(init, match, self.hidden_size, self.c_mask)
 

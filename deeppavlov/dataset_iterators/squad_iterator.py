@@ -105,5 +105,5 @@ class SquadNoAnsIterator(SquadIterator):
                                     if not any(ans['text'] in sent for ans in qa['answers']):
                                         new_context += sent
                                 if new_context != '':
-                                    cqas.append(((context, q), (ans_text, ans_start)))
+                                    cqas.append(((new_context, q), (ans_text, ans_start)))
         return cqas
