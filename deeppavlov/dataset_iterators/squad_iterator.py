@@ -103,7 +103,7 @@ class SquadNoAnsIterator(SquadIterator):
                                 new_context = ''
                                 for sent in nltk.sent_tokenize(context):
                                     if not any(ans['text'] in sent for ans in qa['answers']):
-                                        new_context += sent
+                                        new_context += sent + ' '
                                 if new_context != '':
-                                    cqas.append(((new_context, q), (ans_text, ans_start)))
+                                    cqas.append(((new_context.strip(), q), (ans_text, ans_start)))
         return cqas
