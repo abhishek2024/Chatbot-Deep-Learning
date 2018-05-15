@@ -8,7 +8,7 @@
       "ans_raw_start"
     ],
     "out": [
-      "ans_predicted", "prob"
+      "ans_predicted", "lgbm_score"
     ],
     "pipe": [
       {
@@ -76,8 +76,8 @@
         "level": "token",
         "emb_folder": "embeddings/",
         "emb_url": "http://lnsigo.mipt.ru/export/embeddings/ft_native_300_ru_wiki_lenta_nltk_word_tokenize/ft_native_300_ru_wiki_lenta_nltk_word_tokenize.vec",
-        "save_path": "squad_model_ru_noans/emb/vocab_embedder.pckl",
-        "load_path": "squad_model_ru_noans/emb/vocab_embedder.pckl",
+        "save_path": "squad_model_ru/emb/vocab_embedder.pckl",
+        "load_path": "squad_model_ru/emb/vocab_embedder.pckl",
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.context_limit",
@@ -91,8 +91,8 @@
         "level": "char",
         "emb_folder": "embeddings/",
         "emb_url": "http://lnsigo.mipt.ru/export/embeddings/ft_native_300_ru_wiki_lenta_nltk_word_tokenize-char.vec",
-        "save_path": "squad_model_ru_noans/emb/char_vocab_embedder.pckl",
-        "load_path": "squad_model_ru_noans/emb/char_vocab_embedder.pckl",
+        "save_path": "squad_model_ru/emb/char_vocab_embedder.pckl",
+        "load_path": "squad_model_ru/emb/char_vocab_embedder.pckl",
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.char_limit",
@@ -130,11 +130,14 @@
           "ans_start",
           "ans_end"
         ],
-        "out": [
-          "ans_start_predicted",
-          "ans_end_predicted",
-          "prob"
-        ]
+        "out": ["ans_start_predicted", "ans_end_predicted", "prob", "prob_unnorm", "yp1_prob", "yp2_prob", "yp1_softmax", "yp2_softmax"]
+      },
+      {
+        "name": "squad_lgbm_scorer",
+        "save_path": "squad_scorer_ru/lgbm_model.txt",
+        "load_path": "squad_scorer_ru/lgbm_model.txt",
+        "in": ["prob", "prob_unnorm", "yp1_prob", "yp2_prob", "yp1_softmax", "yp2_softmax"],
+        "out": ["lgbm_score"]
       },
       {
         "name": "squad_ans_postprocessor",
@@ -157,7 +160,8 @@
   "metadata": {
     "download": [
       "http://lnsigo.mipt.ru/export/deeppavlov_data/pmef.tar.gz",
-      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_model_ru.tar.gz"
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_model_ru.tar.gz",
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_scorer_ru.tar.gz"
     ]
   }
 }
