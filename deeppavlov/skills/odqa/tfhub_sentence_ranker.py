@@ -16,7 +16,7 @@ class TFHUBSentenceRanker(Component):
         self.session = tf.Session()
         self.session.run([tf.global_variables_initializer(), tf.tables_initializer()])
         self.q_ph = tf.placeholder(shape=(None,), dtype=tf.string)
-        self.c_ph = tf.placeholder(shape=(None, None), dtype=tf.string)
+        self.c_ph = tf.placeholder(shape=(None,), dtype=tf.string)
         self.q_emb = self.embed(self.q_ph)
         self.c_emb = self.embed(self.c_ph)
         self.top_k = top_k
