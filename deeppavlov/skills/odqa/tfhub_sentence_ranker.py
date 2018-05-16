@@ -25,21 +25,13 @@ class TFHUBSentenceRanker(Component):
         predictions = []
         for el in query_cont:
             # DEBUG
-            # print('counting embedding for query')
-            start_time = time.time()
-            #query_emb = self.embed([el[0]])
-            # print("Time spent for query emb counting: {} s".format(time.time() - start_time))
             # start_time = time.time()
-            # print('counting embedding for contexts')
-            #cont_embs = self.embed(el[1])
-            # print("Time spent for context emb counting: {} s".format(time.time() - start_time))
-            # print('counting scores')
             qe, ce = self.session.run([self.q_emb, self.c_emb],
                                       feed_dict={
                                           self.q_ph: [el[0]],
                                           self.c_ph: el[1],
                                       })
-            print("Time spent: {}".format(time.time() - start_time))
+            # print("Time spent: {}".format(time.time() - start_time))
             scores = (qe @ ce.T).squeeze()
             top_ids = np.argsort(scores)[::-1][:self.top_k]
             predictions.append([el[1][x] for x in top_ids])
