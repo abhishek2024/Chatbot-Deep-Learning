@@ -26,8 +26,8 @@ class TFHUBSentenceRanker(Component):
             print("Time spent for query emb counting: {} s".format(time.time() - start_time))
             start_time = time.time()
             print('counting embedding for contexts')
-            print("Time spent for context emb counting: {} s".format(time.time() - start_time))
             cont_embs = self.session.run(self.embed(el[1]))
+            print("Time spent for context emb counting: {} s".format(time.time() - start_time))
             print('counting scores')
             scores = (query_emb @ cont_embs.T).squeeze()
             top_ids = np.argsort(scores)[::-1][:self.top_k]
