@@ -1,4 +1,5 @@
 from typing import List, Tuple
+import time
 
 import numpy as np
 import tensorflow_hub as hub
@@ -20,8 +21,12 @@ class TFHUBSentenceRanker(Component):
         predictions = []
         for el in query_cont:
             print('counting embedding for query')
+            start_time = time.time()
             query_emb = self.session.run(self.embed([el[0]]))
+            print("Time spent for query emb counting: {} s".format(time.time() - start_time))
+            start_time = time.time()
             print('counting embedding for contexts')
+            print("Time spent for context emb counting: {} s".format(time.time() - start_time))
             cont_embs = self.session.run(self.embed(el[1]))
             print('counting scores')
             scores = (query_emb @ cont_embs.T).squeeze()
