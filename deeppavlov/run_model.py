@@ -19,7 +19,7 @@ from deeppavlov.core.commands.infer import interact_model
 from deeppavlov.core.commands.utils import set_deeppavlov_root
 
 
-PIPELINE_CONFIG_PATH = 'configs/odqa/en_ranker2_infer_drones.json'
+PIPELINE_CONFIG_PATH = 'configs/odqa/en_ranker12_infer_drones.json'
 # PIPELINE_CONFIG_PATH = 'configs/odqa/ru_odqa_infer_prod_pmef.json'
 # PIPELINE_CONFIG_PATH = 'configs/odqa/ru_heli_train.json'
 # PIPELINE_CONFIG_PATH = 'configs/odqa/en_sber_train.json'
