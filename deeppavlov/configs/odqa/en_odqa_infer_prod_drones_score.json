@@ -29,8 +29,8 @@
           "fit_on_batch": [
             "questions_raw"
           ],
-          "save_path": "pmef/drones_tfidf_matrix.npz",
-          "load_path": "pmef/drones_tfidf_matrix.npz",
+          "save_path": "pmef/en_drones_tfidf.npz",
+          "load_path": "pmef/en_drones_tfidf.npz",
           "tokenizer": {
             "name": "stream_spacy_tokenizer",
             "lemmas": true,
@@ -51,7 +51,7 @@
         ],
         "data_dir": "pmef",
         "shuffle": false,
-        "data_url": "http://lnsigo.mipt.ru/export/datasets/drones.db"
+        "data_url": "http://lnsigo.mipt.ru/export/datasets/pmef/en_drones.db"
       },
       {
         "name": "squad_preprocessor",

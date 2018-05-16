@@ -29,8 +29,8 @@
           "fit_on_batch": [
             "questions_raw"
           ],
-          "save_path": "pmef/pmef_bas_matrix.npz",
-          "load_path": "pmef/pmef_bas_matrix.npz",
+          "save_path": "pmef/ru_drones_tfidf.npz",
+          "load_path": "pmef/ru_drones_tfidf.npz",
           "tokenizer": {
             "name": "ru_tokenizer",
             "lemmas": true,
@@ -51,7 +51,7 @@
         ],
         "data_dir": "pmef",
         "shuffle": false,
-        "data_url": "http://lnsigo.mipt.ru/export/datasets/ru_drones.db"
+        "data_url": "http://lnsigo.mipt.ru/export/datasets/pmef/ru_drones.db"
       },
       {
         "config_path": "../deeppavlov/configs/squad/squad_ru_noans_lgbm.json",
