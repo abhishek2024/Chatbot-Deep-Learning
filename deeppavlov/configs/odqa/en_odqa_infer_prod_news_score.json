@@ -51,7 +51,7 @@
         ],
         "data_dir": "pmef",
         "shuffle": false,
-        "data_url": "http://lnsigo.mipt.ru/export/datasets/pmef_ai-2634736723902537328.db"
+        "data_url": "http://lnsigo.mipt.ru/export/datasets/en_news.db"
       },
       {
         "name": "squad_preprocessor",

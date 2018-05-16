@@ -52,7 +52,7 @@
         ],
         "data_dir": "pmef",
         "shuffle": false,
-        "data_url": "http://lnsigo.mipt.ru/export/datasets/sber_en.db"
+        "data_url": "http://lnsigo.mipt.ru/export/datasets/en_sber.db"
       },
       {
         "name": "squad_preprocessor",

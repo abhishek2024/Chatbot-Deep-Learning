@@ -51,7 +51,7 @@
         ],
         "data_dir": "pmef",
         "shuffle": false,
-        "data_url": "http://lnsigo.mipt.ru/export/datasets/pmef_bas.db"
+        "data_url": "http://lnsigo.mipt.ru/export/datasets/ru_drones.db"
       },
       {
         "name": "squad_preprocessor",

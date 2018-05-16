@@ -51,7 +51,7 @@
         ],
         "data_dir": "pmef",
         "shuffle": false,
-        "data_url": "http://lnsigo.mipt.ru/export/datasets/pmef_bas.db"
+        "data_url": "http://lnsigo.mipt.ru/export/datasets/ru_drones.db"
       },
       {
         "config_path": "../deeppavlov/configs/squad/squad_ru_noans_lgbm.json",
