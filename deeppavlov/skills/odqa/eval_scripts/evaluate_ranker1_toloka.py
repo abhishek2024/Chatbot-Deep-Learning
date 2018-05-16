@@ -21,7 +21,7 @@ from deeppavlov.dataset_iterators.sqlite_iterator import SQLiteDataIterator
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 fmt = logging.Formatter('%(asctime)s: [ %(message)s ]', '%m/%d/%Y %I:%M:%S %p')
-file = logging.FileHandler('../eval_logs/ranker1_toloka.log')
+file = logging.FileHandler('../eval_logs/ranker1_toloka_v2.log')
 file.setFormatter(fmt)
 logger.addHandler(file)
 
@@ -30,7 +30,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-config_path", help="path to a JSON ranker config", type=str,
                     default='/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ranker1_infer_drones.json')
 parser.add_argument("-dataset_path", help="path to a JSON formatted dataset", type=str,
-                    default='/media/olga/Data/projects/ODQA/data/PMEF/qa_to_photo_toloka_revised.csv')
+                    default='/media/olga/Data/projects/ODQA/data/PMEF/QA_heli - v2.csv')
 parser.add_argument("-database_url", help="path to a SQLite database with wikipedia articles",
                     type=str,
                     default='http://lnsigo.mipt.ru/export/datasets/drones.db')

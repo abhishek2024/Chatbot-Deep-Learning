@@ -30,7 +30,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-config_path", help="path to a JSON ranker config", type=str,
                     default='/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ranker1_infer_drones.json')
 parser.add_argument("-dataset_path", help="path to a JSON formatted dataset", type=str,
-                    default='/media/olga/Data/projects/ODQA/data/PMEF/qa_to_photo_toloka_revised.csv')
+                    default='/media/olga/Data/projects/ODQA/data/PMEF/QA_heli - v2.csv')
 parser.add_argument("-database_url", help="path to a SQLite database with wikipedia articles",
                     type=str,
                     default='http://lnsigo.mipt.ru/export/datasets/drones.db')
@@ -97,9 +97,8 @@ def main():
                             'contexts': top_n_texts})
 
         import json
-        with open('ranker1_drones_output.json', 'w') as fout:
+        with open('ranker1_drones_output2.json', 'w') as fout:
             json.dump(mapping, fout)
-
 
     except Exception as e:
         logger.exception(e)
