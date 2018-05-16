@@ -1,10 +1,9 @@
 {
   "dataset_reader": {
     "name": "squad_dataset_reader",
-    "dataset": "SberSQuAD",
-    "data_path": "squad_ru/"
+    "data_path": "squad/"
   },
-  "dataset_iterator": {
+   "dataset_iterator": {
     "name": "squad_noans_iterator",
     "seed": 1337,
     "noans_rate": 1.0,
@@ -18,7 +17,7 @@
         "name": "squad_preprocessor",
         "id": "squad_prepr",
         "context_limit": 400,
-        "question_limit": 50,
+        "question_limit": 150,
         "char_limit": 16,
         "in": ["context_raw", "question_raw"],
         "out": ["context", "context_tokens", "context_chars",
@@ -36,9 +35,9 @@
         "id": "vocab_embedder",
         "level": "token",
         "emb_folder": "embeddings/",
-        "emb_url": "http://lnsigo.mipt.ru/export/embeddings/ft_native_300_ru_wiki_lenta_nltk_word_tokenize/ft_native_300_ru_wiki_lenta_nltk_word_tokenize.vec",
-        "save_path": "squad_model_ru_noans/emb/vocab_embedder.pckl",
-        "load_path": "squad_model_ru_noans/emb/vocab_embedder.pckl",
+        "emb_url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M.vec",
+        "save_path": "squad_model_noans/emb/vocab_embedder.pckl",
+        "load_path": "squad_model_noans/emb/vocab_embedder.pckl",
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.context_limit",
@@ -51,9 +50,9 @@
         "id": "char_vocab_embedder",
         "level": "char",
         "emb_folder": "embeddings/",
-        "emb_url": "http://lnsigo.mipt.ru/export/embeddings/ft_native_300_ru_wiki_lenta_nltk_word_tokenize-char.vec",
-        "save_path": "squad_model_ru_noans/emb/char_vocab_embedder.pckl",
-        "load_path": "squad_model_ru_noans/emb/char_vocab_embedder.pckl",
+        "emb_url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M-char.vec",
+        "save_path": "squad_model_noans/emb/char_vocab_embedder.pckl",
+        "load_path": "squad_model_noans/emb/char_vocab_embedder.pckl",
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.char_limit",
@@ -81,8 +80,8 @@
         "weight_decay": 0.999,
         "noans": true,
         "squad_loss_weight": 0.8,
-        "save_path": "squad_model_ru_noans/model",
-        "load_path": "squad_model_ru_noans/model",
+        "save_path": "squad_model_noans/model",
+        "load_path": "squad_model_noans/model",
         "in": ["context_tokens_idxs", "context_chars_idxs", "question_tokens_idxs", "question_chars_idxs"],
         "in_y": ["ans_start", "ans_end"],
         "out": ["ans_start_predicted", "ans_end_predicted", "prob", "score"]
@@ -112,8 +111,8 @@
       "telegram_utils": "SquadModel"
     },
     "download": [
-      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_model_ru_noans.tar.gz"
-    ]
+      "http://TODO"
+      ]
   }
 }
 

@@ -37,8 +37,8 @@
         "level": "token",
         "emb_folder": "embeddings/",
         "emb_url": "http://lnsigo.mipt.ru/export/embeddings/ft_native_300_ru_wiki_lenta_nltk_word_tokenize/ft_native_300_ru_wiki_lenta_nltk_word_tokenize.vec",
-        "save_path": "squad_model_ru_noans/emb/vocab_embedder.pckl",
-        "load_path": "squad_model_ru_noans/emb/vocab_embedder.pckl",
+        "save_path": "squad_model_ru_noans_lgbm/emb/vocab_embedder.pckl",
+        "load_path": "squad_model_ru_noans_lgbm/emb/vocab_embedder.pckl",
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.context_limit",
@@ -52,8 +52,8 @@
         "level": "char",
         "emb_folder": "embeddings/",
         "emb_url": "http://lnsigo.mipt.ru/export/embeddings/ft_native_300_ru_wiki_lenta_nltk_word_tokenize-char.vec",
-        "save_path": "squad_model_ru_noans/emb/char_vocab_embedder.pckl",
-        "load_path": "squad_model_ru_noans/emb/char_vocab_embedder.pckl",
+        "save_path": "squad_model_ru_noans_lgbm/emb/char_vocab_embedder.pckl",
+        "load_path": "squad_model_ru_noans_lgbm/emb/char_vocab_embedder.pckl",
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.char_limit",
@@ -81,12 +81,19 @@
         "weight_decay": 0.999,
         "noans": true,
         "squad_loss_weight": 0.8,
-        "save_path": "squad_model_ru_noans/model",
-        "load_path": "squad_model_ru_noans/model",
+        "save_path": "squad_model_ru_noans_lgbm/model",
+        "load_path": "squad_model_ru_noans_lgbm/model",
         "in": ["context_tokens_idxs", "context_chars_idxs", "question_tokens_idxs", "question_chars_idxs"],
         "in_y": ["ans_start", "ans_end"],
         "out": ["ans_start_predicted", "ans_end_predicted", "prob", "score"]
       },
+      {
+        "name": "squad_lgbm_scorer",
+         "save_path": "squad_model_ru_noans_lgbm/lgbm_model.txt",
+         "load_path": "squad_model_ru_noans_lgbm/lgbm_model.txt",
+         "in": ["prob", "score"],
+         "out": ["lgbm_score"]
+       },
       {
         "name": "squad_ans_postprocessor",
         "id": "squad_ans_postprepr",
@@ -94,7 +101,7 @@
         "out": ["ans_predicted", "ans_start_predicted", "ans_end_predicted"]
       }
     ],
-    "out": ["ans_predicted", "ans_start_predicted", "score"]
+    "out": ["ans_predicted", "ans_start_predicted", "lgbm_score"]
   },
   "train": {
     "show_examples": false,
@@ -112,7 +119,7 @@
       "telegram_utils": "SquadModel"
     },
     "download": [
-      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_model_ru_noans.tar.gz"
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_model_ru_noans_lgbm.tar.gz"
     ]
   }
 }

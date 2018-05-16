@@ -111,7 +111,7 @@ def squad_roc_auc(y_true, y_predicted):
 
 
 @register_metric('squad_pr')
-def squad_roc_auc(y_true, y_predicted):
+def squad_pr(y_true, y_predicted):
     y_true = list(map(lambda x: int(len(x[0][0]) != 0), y_true))
     y_predicted = list(map(lambda x: x[2], y_predicted))
     precision, recall, thresholds = precision_recall_curve(y_true, y_predicted)
