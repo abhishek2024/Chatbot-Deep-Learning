@@ -1,0 +1,57 @@
+{
+  "dataset_iterator": {
+    "name": "sqlite_iterator",
+    "data_dir": "pmef",
+    "shuffle": false,
+    "data_url": "http://lnsigo.mipt.ru/export/datasets/ru_heli_par.db"
+  },
+  "chainer": {
+    "in": [
+      "x"
+    ],
+    "out": [
+      "y"
+    ],
+    "pipe": [
+      {
+        "name": "tfidf_ranker",
+        "in": [
+          "x"
+        ],
+        "out": [
+          "y",
+          "score"
+        ],
+        "fit_on_batch": [
+          "x"
+        ],
+        "vectorizer": {
+          "name": "hashing_tfidf_vectorizer",
+          "fit_on_batch": [
+            "x"
+          ],
+          "save_path": "ru_heli_par/matrix.npz",
+          "load_path": "ru_heli_par/matrix.npz",
+          "tokenizer": {
+            "name": "ru_tokenizer",
+            "lemmas": true,
+            "ngram_range": [
+              1,
+              2
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "train": {
+    "validate_best": false,
+    "test_best": false,
+    "batch_size": 2
+  },
+  "metadata": {
+    "download": [
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/ru_heli_par.tar.gz"
+    ]
+  }
+}

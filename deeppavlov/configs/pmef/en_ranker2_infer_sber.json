@@ -1,0 +1,89 @@
+{
+  "chainer": {
+    "in": [
+      "question_raw"
+    ],
+    "out": [
+      "context_raw"
+    ],
+    "pipe": [
+      {
+        "name": "tfidf_ranker",
+        "top_n": 30,
+        "in": [
+          "question_raw"
+        ],
+        "out": [
+          "doc_ids",
+          "doc_scores"
+        ],
+        "fit_on_batch": [
+          "questions_raw"
+        ],
+        "vectorizer": {
+          "name": "hashing_tfidf_vectorizer",
+          "fit_on_batch": [
+            "questions_raw"
+          ],
+          "save_path": "pmef/sber_en_tfidf_matrix.npz",
+          "load_path": "pmef/sber_en_tfidf_matrix.npz",
+          "tokenizer": {
+            "name": "stream_spacy_tokenizer",
+            "lemmas": true,
+            "ngram_range": [
+              1,
+              2
+            ]
+          }
+        }
+      },
+      {
+        "name": "wiki_sqlite_vocab",
+        "in": [
+          "doc_ids"
+        ],
+        "out": [
+          "contexts_as_docs"
+        ],
+        "data_dir": "pmef",
+        "shuffle": false,
+        "join_docs": false,
+        "data_url": "http://lnsigo.mipt.ru/export/datasets/sber_en.db"
+      },
+      {
+        "name": "sentence_splitter",
+        "in": [
+          "contexts_as_docs"
+        ],
+        "out": [
+          "contexts_as_sentences"
+        ]
+      },
+      {
+        "name": "query_paragraph_tuplifier",
+        "in": [
+          "question_raw",
+          "contexts_as_sentences"
+        ],
+        "out": [
+          "question_contexts_pairs"
+        ]
+      },
+      {
+        "name": "sentence_ranker",
+        "top_k": 20,
+        "in": [
+          "question_contexts_pairs"
+        ],
+        "out": [
+          "context_raw"
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "download": [
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/pmef.tar.gz"
+    ]
+  }
+}
