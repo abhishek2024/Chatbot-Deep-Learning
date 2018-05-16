@@ -15,6 +15,10 @@ class TFHUBSentenceRanker(Component):
         self.embed = hub.Module("https://tfhub.dev/google/universal-sentence-encoder/1")
         self.session = tf.Session()
         self.session.run([tf.global_variables_initializer(), tf.tables_initializer()])
+        self.q_ph = tf.placeholder(shape=(None,), dtype=tf.string)
+        self.c_ph = tf.placeholder(shape=(None, None), dtype=tf.string)
+        self.q_emb = self.embed(self.q_ph)
+        self.c_emb = self.embed(self.c_ph)
         self.top_k = top_k
 
     def __call__(self, query_cont: List[Tuple[str, List[str]]]):
@@ -22,15 +26,19 @@ class TFHUBSentenceRanker(Component):
         for el in query_cont:
             # DEBUG
             # print('counting embedding for query')
-            query_emb = self.embed([el[0]])
+            start_time = time.time()
+            #query_emb = self.embed([el[0]])
             # print("Time spent for query emb counting: {} s".format(time.time() - start_time))
             # start_time = time.time()
             # print('counting embedding for contexts')
-            cont_embs = self.embed(el[1])
+            #cont_embs = self.embed(el[1])
             # print("Time spent for context emb counting: {} s".format(time.time() - start_time))
             # print('counting scores')
-            start_time = time.time()
-            qe, ce = self.session.run([query_emb, cont_embs])
+            qe, ce = self.session.run([self.q_emb, self.c_emb],
+                                      feed_dict={
+                                          self.q_ph: [el[0]],
+                                          self.c_ph: el[1],
+                                      })
             print("Time spent: {}".format(time.time() - start_time))
             scores = (qe @ ce.T).squeeze()
             top_ids = np.argsort(scores)[::-1][:self.top_k]
