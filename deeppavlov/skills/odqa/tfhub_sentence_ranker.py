@@ -30,7 +30,7 @@ class TFHUBSentenceRanker(Component):
             cont_embs = self.embed(el[1])
             print("Time spent for context emb counting: {} s".format(time.time() - start_time))
             print('counting scores')
-            scores = (query_emb @ cont_embs.T).squeeze()
+            scores = (query_emb @ np.array(cont_embs).T).squeeze()
             top_ids = np.argsort(scores)[::-1][:self.top_k]
             predictions.append([el[1][x] for x in top_ids])
         res = [' '.join(sentences) for sentences in predictions]
