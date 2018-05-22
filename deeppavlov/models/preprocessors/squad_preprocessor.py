@@ -152,7 +152,6 @@ class SquadAnsPreprocessor(Component):
                     y1, y2 = answer_span[0], answer_span[-1]
                 else:
                     # answer not found in context
-                    # TODO: not noans version of squad wont work with -1, -1
                     y1, y2 = -1, -1
                 start[-1].append(y1)
                 end[-1].append(y2)

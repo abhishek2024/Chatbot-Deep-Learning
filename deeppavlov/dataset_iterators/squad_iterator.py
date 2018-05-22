@@ -108,3 +108,10 @@ class SquadNoAnsIterator(SquadIterator):
                                 if new_context != '':
                                     cqas.append(((new_context, q), (ans_text, ans_start)))
         return cqas
+
+
+@register('squad_scorer_iterator')
+class SquadIterator(DataLearningIterator):
+    def split(self, *args, **kwargs):
+        for dt in ['train', 'valid', 'test']:
+            setattr(self, dt, getattr(self, dt))
