@@ -93,7 +93,7 @@
         "out": ["ans_predicted", "ans_start_predicted", "ans_end_predicted"]
       }
     ],
-    "out": ["ans_predicted", "ans_start_predicted", "score"]
+    "out": ["ans_predicted", "ans_start_predicted", "prob", "score"]
   },
   "train": {
     "show_examples": false,
