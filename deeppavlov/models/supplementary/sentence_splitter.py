@@ -41,4 +41,8 @@ class SentenceSplitter(Component):
             else:
                 instance_sentences = sent_tokenize(docs)
                 batch_sentences.append(instance_sentences)
+
+        to_save = batch_sentences[0]
+        # with open('en_drones_sentences.txt', 'w') as fout:
+        #     fout.write("\n".join(to_save))
         return batch_sentences
