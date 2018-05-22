@@ -11,7 +11,7 @@ from deeppavlov.core.models.component import Component
 
 @register('sentence_ranker')
 class TFHUBSentenceRanker(Component):
-    def __init__(self, top_k=20, **kwargs):
+    def __init__(self, top_k=20, return_vectors=False, **kwargs):
         self.embed = hub.Module("https://tfhub.dev/google/universal-sentence-encoder/1")
         self.session = tf.Session()
         self.session.run([tf.global_variables_initializer(), tf.tables_initializer()])
@@ -20,6 +20,7 @@ class TFHUBSentenceRanker(Component):
         self.q_emb = self.embed(self.q_ph)
         self.c_emb = self.embed(self.c_ph)
         self.top_k = top_k
+        self.return_vectors = return_vectors
 
     def __call__(self, query_cont: List[Tuple[str, List[str]]]):
         predictions = []
@@ -32,9 +33,14 @@ class TFHUBSentenceRanker(Component):
                                           self.c_ph: el[1],
                                       })
             # print("Time spent: {}".format(time.time() - start_time))
-            scores = (qe @ ce.T).squeeze()
-            top_ids = np.argsort(scores)[::-1][:self.top_k]
-            predictions.append([el[1][x] for x in top_ids])
-        res = [' '.join(sentences) for sentences in predictions]
-        return res
+            if self.return_vectors:
+                predictions.append((qe, ce))
+            else:
+                scores = (qe @ ce.T).squeeze()
+                top_ids = np.argsort(scores)[::-1][:self.top_k]
+                predictions.append([el[1][x] for x in top_ids])
+        if self.return_vectors:
+            return predictions
+        else:
+            return [' '.join(sentences) for sentences in predictions]
 

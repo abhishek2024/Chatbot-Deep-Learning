@@ -27,6 +27,9 @@ class QueryParagraphTuplifier(Component):
 
     def __call__(self, batch_queries: List[str], batch_contexts: List[List[str]], *args, **kwargs):
         tuples = []
+
+        if len(batch_contexts) == 1:
+            batch_contexts = [batch_contexts[0]] * len(batch_queries)
         for query, contexts in zip(batch_queries, batch_contexts):
             tuples.append((query, contexts))
         return tuples
