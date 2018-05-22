@@ -25,8 +25,8 @@
           "fit_on_batch": [
             "questions_raw"
           ],
-          "save_path": "pmef/sber_en_tfidf_matrix.npz",
-          "load_path": "pmef/sber_en_tfidf_matrix.npz",
+          "save_path": "pmef/en_sber_tfidf.npz",
+          "load_path": "pmef/en_sber_tfidf.npz",
           "tokenizer": {
             "name": "stream_spacy_tokenizer",
             "lemmas": true,
@@ -48,7 +48,7 @@
         "data_dir": "pmef",
         "shuffle": false,
         "join_docs": false,
-        "data_url": "http://lnsigo.mipt.ru/export/datasets/sber_en.db"
+        "data_url": "http://lnsigo.mipt.ru/export/datasets/en_sber.db"
       },
       {
         "name": "sentence_splitter",
