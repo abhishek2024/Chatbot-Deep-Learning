@@ -78,6 +78,8 @@ import deeppavlov.models.slotfill.slotfill_raw
 import deeppavlov.models.slotfill.slotfill
 import deeppavlov.models.preprocessors.one_hotter
 import deeppavlov.dataset_readers.ontonotes_reader
+import deeppavlov.models.ner.nerdict
+import deeppavlov.models.preprocessors.russian_lemmatizer
 
 
 import deeppavlov.metrics.accuracy

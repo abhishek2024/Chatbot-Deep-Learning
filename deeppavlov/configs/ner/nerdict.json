@@ -1,0 +1,37 @@
+{
+  "chainer": {
+    "in": ["x"],
+    "pipe": [
+      {
+        "in": ["x"],
+        "name": "lazy_tokenizer",
+        "out": ["x_toks"]
+      },
+      {
+        "in": ["x_toks"],
+        "name": "pymorphy_russian_lemmatizer",
+        "out":["x_lemma"]
+      },
+      {
+        "in": ["x_lemma"],
+        "name": "nerdict",
+        "out": ["tags"]
+      }
+    ],
+    "out": ["tags"]
+  },
+  "metadata": {
+    "labels": {
+      "telegram_utils": "NERCoNLL2003Model",
+      "server_utils": "NER"
+    },
+    "download": [
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/ner_rus.tar.gz",
+      {
+        "url": "http://lnsigo.mipt.ru/export/embeddings/lenta_lower_100.bin",
+        "subdir": "embeddings"
+      }
+    ]
+  }
+}
+
