@@ -108,7 +108,7 @@ class SquadModel(TFModel):
             self.y2 = tf.one_hot(self.y2_ph, depth=self.context_limit + 1)
             self.y1 = tf.slice(self.y1, [0, 0], [bs, self.c_maxlen + 1])
             self.y2 = tf.slice(self.y2, [0, 0], [bs, self.c_maxlen + 1])
-        if self.scorer:
+        elif self.scorer:
             self.y = self.y_ph
         else:
             self.y1 = tf.one_hot(self.y1_ph, depth=self.context_limit)
