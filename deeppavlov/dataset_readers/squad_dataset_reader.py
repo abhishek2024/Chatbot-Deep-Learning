@@ -67,7 +67,7 @@ class SquadDatasetReader(DatasetReader):
 class SquadScorerDatasetReader(DatasetReader):
     url = 'http://lnsigo.mipt.ru/export/datasets/selqa_squad_scorer.zip'
 
-    def read(self, dir_path: str, dataset='SQuAD'):
+    def read(self, dir_path: str):
         dir_path = Path(dir_path)
         required_files = ['selqa_squad_{}.pckl'.format(dt) for dt in ['train', 'dev']]
         if not dir_path.exists():
@@ -80,6 +80,30 @@ class SquadScorerDatasetReader(DatasetReader):
         for f in required_files:
             data = pickle.load((dir_path / f).open('rb'))
             if f == 'selqa_squad_dev.pckl':
+                dataset['valid'] = data
+            else:
+                dataset['train'] = data
+
+        return dataset
+
+
+@register('selqa_squad_noans_dataset_reader')
+class SquadScorerDatasetReader(DatasetReader):
+    url = 'http://lnsigo.mipt.ru/export/datasets/selqa_squad_noans.zip'
+
+    def read(self, dir_path: str):
+        dir_path = Path(dir_path)
+        required_files = ['selqa_squad_noans_{}.pckl'.format(dt) for dt in ['train', 'dev']]
+        if not dir_path.exists():
+            dir_path.mkdir()
+
+        if not all((dir_path / f).exists() for f in required_files):
+            download_decompress(self.url, dir_path)
+
+        dataset = {}
+        for f in required_files:
+            data = pickle.load((dir_path / f).open('rb'))
+            if f == 'selqa_squad_noans_dev.pckl':
                 dataset['valid'] = data
             else:
                 dataset['train'] = data

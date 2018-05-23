@@ -189,6 +189,7 @@ class SquadModel(TFModel):
                 loss_p2 = tf.nn.softmax_cross_entropy_with_logits(logits=logits2, labels=self.y2)
                 loss = loss_p1 + loss_p2
             else:
+                # try pooling instead of attention
                 q_att = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph, scope='q_att')
                 c_att = simple_attention(att, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph, scope='c_att')
                 q_att = tf.layers.dense(q_att, units=c_att.get_shape().as_list()[-1],
