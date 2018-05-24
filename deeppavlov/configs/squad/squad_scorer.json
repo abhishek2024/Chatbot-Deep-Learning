@@ -76,7 +76,7 @@
         "learning_rate_patience": 4,
         "keep_prob": 0.7,
         "grad_clip": 5.0,
-        "weight_decay": 0.99999,
+        "weight_decay": 1.0,
         "focal_loss_exp": 2.0,
         "noans": false,
         "scorer": true,
