@@ -15,6 +15,8 @@
       {
         "in": ["x_lemma"],
         "name": "nerdict",
+        "save_path": "world_cities_on_rus.csv",
+        "load_path": "world_cities_on_rus.csv",
         "out": ["tags"]
       }
     ],
@@ -26,7 +28,6 @@
       "server_utils": "NER"
     },
     "download": [
-      "http://lnsigo.mipt.ru/export/deeppavlov_data/ner_rus.tar.gz",
       {
         "url": "http://lnsigo.mipt.ru/export/embeddings/lenta_lower_100.bin",
         "subdir": "embeddings"

@@ -18,6 +18,11 @@
       },
       {
         "in": ["x"],
+        "name": "pymorphy_russian_lemmatizer",
+        "out":["x_lemma"]
+      },
+      {
+        "in": ["x"],
         "name": "str_lower",
         "out": ["x_lower"]
       },
@@ -123,6 +128,13 @@
       {
         "ref": "tag_vocab",
         "in": ["y_predicted"],
+        "out": ["tags"]
+      },
+      {
+        "in": ["x_lemma", "tags"],
+        "name": "nerdict",
+        "save_path": "world_cities_on_rus.csv",
+        "load_path": "world_cities_on_rus.csv",
         "out": ["tags"]
       }
     ],
