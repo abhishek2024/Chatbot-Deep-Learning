@@ -33,7 +33,6 @@ logger.addHandler(file)
 
 parser = argparse.ArgumentParser()
 
-
 parser.add_argument("-dataset_path", help="path to a JSON formatted dataset", type=str,
                     default='/media/olga/Data/projects/ODQA/data/PMEF/QA_heli - v2.csv')
 parser.add_argument("-sentences_path", help="path to sentences from the database",
@@ -121,7 +120,6 @@ def main():
 
                 with open(args.sentences_path, 'r') as fin:
                     contents = fin.read().split('\n')
-
 
                 top_n = []
                 for i in range(len(contents)):
