@@ -37,5 +37,5 @@ class NERDict(Component, Serializable):
             locs = [tok in self.cities for tok in utt]
             for k, loc in enumerate(locs):
                 if loc:
-                    tags_batch[n, k] = 'B-LOC'
+                    tags_batch[n][k] = 'B-LOC'
         return tags_batch
