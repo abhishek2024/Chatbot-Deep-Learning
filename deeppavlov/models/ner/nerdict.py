@@ -23,14 +23,19 @@ class NERDict(Component, Serializable):
     def __init__(self, **kwargs):
         super(NERDict, self).__init__(**kwargs)
         self.cities = None
+        self.load()
 
     def load(self):
         with open(self.load_path) as f:
-            self.cities = {line.strip() for line in f}
+            self.cities = {line.strip().lower() for line in f}
 
-    def __call__(self, tokens_batch, **kwargs):
-        lines_batch = [' '.join(utt) for utt in tokens_batch]
-        tags_batch = []
-        for utt in tokens_batch:
-            tags_batch.append([tok in self.cities for tok in utt])
+    def save(self):
+        pass
+
+    def __call__(self, tokens_batch, tags_batch, **kwargs):
+        for n, utt in enumerate(tokens_batch):
+            locs = [tok in self.cities for tok in utt]
+            for k, loc in enumerate(locs):
+                if loc:
+                    tags_batch[n, k] = 'B-LOC'
         return tags_batch
