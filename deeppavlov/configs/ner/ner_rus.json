@@ -133,8 +133,8 @@
       {
         "in": ["x_lemma", "tags"],
         "name": "nerdict",
-        "save_path": "world_cities_on_rus.csv",
-        "load_path": "world_cities_on_rus.csv",
+        "save_path": "ner_rus/world_cities_on_rus.csv",
+        "load_path": "ner_rus/world_cities_on_rus.csv",
         "out": ["tags"]
       }
     ],
@@ -162,6 +162,10 @@
       {
         "url": "http://lnsigo.mipt.ru/export/embeddings/lenta_lower_100.bin",
         "subdir": "embeddings"
+      },
+      {
+	"url": "http://lnsigo.mipt.ru/export/deeppavlov_data/world_cities_on_rus.csv",
+	"subdir": "ner_rus"
       }
     ]
   }
