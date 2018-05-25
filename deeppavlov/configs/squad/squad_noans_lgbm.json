@@ -78,7 +78,7 @@
         "keep_prob": 0.6,
         "grad_clip": 5.0,
         "weight_decay": 0.999,
-        "noans": true,
+        "noans_token": true,
         "squad_loss_weight": 0.8,
         "save_path": "squad_model_noans/model",
         "load_path": "squad_model_noans/model",

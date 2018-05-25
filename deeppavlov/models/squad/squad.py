@@ -50,11 +50,11 @@ class SquadModel(TFModel):
         self.learning_rate_patience = self.opt['learning_rate_patience']
         self.grad_clip = self.opt['grad_clip']
         self.weight_decay = self.opt['weight_decay']
+        self.squad_loss_weight = self.opt.get('squad_loss_weight', 1.0)
         self.focal_loss_exp = self.opt.get('focal_loss_exp', 0.0)
-        self.noans = self.opt.get('noans', False)
+        self.predict_ans = self.opt.get('predict_answer', True)
+        self.noans_token = self.opt.get('noans_token', False)
         self.scorer = self.opt.get('scorer', False)
-
-        assert not (self.noans is True and self.scorer is True)
 
         self.word_emb_dim = self.init_word_emb.shape[1]
         self.char_emb_dim = self.init_char_emb.shape[1]
@@ -103,7 +103,7 @@ class SquadModel(TFModel):
         self.qc = tf.slice(self.qc_ph, [0, 0, 0], [bs, self.q_maxlen, self.char_limit])
         self.cc_len = tf.reshape(tf.reduce_sum(tf.cast(tf.cast(self.cc, tf.bool), tf.int32), axis=2), [-1])
         self.qc_len = tf.reshape(tf.reduce_sum(tf.cast(tf.cast(self.qc, tf.bool), tf.int32), axis=2), [-1])
-        if self.noans:
+        if self.noans_token:
             self.y1 = tf.one_hot(self.y1_ph, depth=self.context_limit + 1)
             self.y2 = tf.one_hot(self.y2_ph, depth=self.context_limit + 1)
             self.y1 = tf.slice(self.y1, [0, 0], [bs, self.c_maxlen + 1])
@@ -156,7 +156,7 @@ class SquadModel(TFModel):
                            input_size=qc_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
             att = rnn(qc_att, seq_len=self.c_len)
 
-        if not self.scorer:
+        if self.predict_ans:
             with tf.variable_scope("match"):
                 self_att = dot_attention(att, att, mask=self.c_mask, att_size=self.attention_hidden_size,
                                          keep_prob=self.keep_prob_ph)
@@ -167,7 +167,7 @@ class SquadModel(TFModel):
             with tf.variable_scope("pointer"):
                 init = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph)
                 pointer = PtrNet(cell_size=init.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
-                if self.noans:
+                if self.noans_token:
                     noans_token = tf.Variable(tf.random_uniform((match.get_shape().as_list()[-1],), -0.1, 0.1), tf.float32)
                     noans_token = tf.nn.dropout(noans_token, keep_prob=self.keep_prob_ph)
                     noans_token = tf.expand_dims(tf.tile(tf.expand_dims(noans_token, axis=0), [bs, 1]), axis=1)
@@ -176,20 +176,20 @@ class SquadModel(TFModel):
                 logits1, logits2 = pointer(init, match, self.hidden_size, self.c_mask)
 
         with tf.variable_scope("predict"):
-            if not self.scorer:
+            if self.predict_ans:
                 outer = tf.matmul(tf.expand_dims(tf.nn.softmax(logits1), axis=2),
                                   tf.expand_dims(tf.nn.softmax(logits2), axis=1))
                 outer = tf.matrix_band_part(outer, 0, tf.cast(tf.minimum(15, self.c_maxlen), tf.int64))
                 self.yp1 = tf.argmax(tf.reduce_max(outer, axis=2), axis=1)
                 self.yp2 = tf.argmax(tf.reduce_max(outer, axis=1), axis=1)
                 self.yp_prob = tf.reduce_max(tf.reduce_max(outer, axis=2), axis=1)
-                if self.noans:
+                if self.noans_token:
                     self.yp_score = 1 - tf.nn.softmax(logits1)[:,0] * tf.nn.softmax(logits2)[:,0]
                 loss_p1 = tf.nn.softmax_cross_entropy_with_logits(logits=logits1, labels=self.y1)
                 loss_p2 = tf.nn.softmax_cross_entropy_with_logits(logits=logits2, labels=self.y2)
-                loss = loss_p1 + loss_p2
-            else:
-                # try pooling instead of attention
+                squad_loss = loss_p1 + loss_p2
+
+            if self.scorer:
                 q_att = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph, scope='q_att')
                 c_att = simple_attention(att, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph, scope='c_att')
                 q_att = tf.layers.dense(q_att, units=c_att.get_shape().as_list()[-1],
@@ -209,14 +209,23 @@ class SquadModel(TFModel):
                                                  activation=tf.nn.tanh,
                                                  units=2,
                                                  name='noans_dense_2')
-                self.y = tf.one_hot(self.y, depth=2)
+                self.y_ohe = tf.one_hot(self.y, depth=2)
                 predict_probas = tf.nn.softmax(layer_2_logits)
                 self.yp = predict_probas[:,1]
-                yt_prob = tf.reduce_sum(predict_probas * self.y, axis=-1)
-                loss = tf.pow(1 - yt_prob, self.focal_loss_exp) * \
-                    tf.nn.softmax_cross_entropy_with_logits(logits=layer_2_logits, labels=self.y)
-                #loss = tf.nn.softmax_cross_entropy_with_logits(logits=layer_2_logits, labels=self.y)
-            self.loss = tf.reduce_mean(loss)
+                yt_prob = tf.reduce_sum(predict_probas * self.y_ohe, axis=-1)
+                scorer_loss = tf.pow(1 - yt_prob, self.focal_loss_exp) * \
+                    tf.nn.softmax_cross_entropy_with_logits(logits=layer_2_logits, labels=self.y_ohe)
+
+                if self.predict_ans and not self.noans_token:
+                    # skip examples without answer when calculate squad_loss
+                    squad_loss = squad_loss * tf.expand_dims(tf.expand_dims(tf.cast(self.y, tf.float32), axis=-1), axis=-1)
+
+            if self.predict_ans and self.scorer:
+                self.loss = self.squad_loss_weight * squad_loss + (1 - self.squad_loss_weight) * scorer_loss
+            elif self.scorer:
+                self.loss = scorer_loss
+            else:
+                self.loss = squad_loss
 
         if self.weight_decay < 1.0:
             self.var_ema = tf.train.ExponentialMovingAverage(self.weight_decay)
@@ -268,7 +277,7 @@ class SquadModel(TFModel):
             self.q_ph: q_tokens,
             self.qc_ph: q_chars,
         }
-        if y1 is not None and y2 is not None and not self.scorer:
+        if self.predict_ans and y1 is not None and y2 is not None:
             feed_dict.update({
                 self.y1_ph: y1,
                 self.y2_ph: y2,
@@ -295,7 +304,7 @@ class SquadModel(TFModel):
         ys = None
         if self.scorer:
             ys = [int(not (y1 == -1 and y2 == -1)) for y1, y2 in zip(y1s, y2s)]
-        if self.noans:
+        if self.noans_token and self.predict_ans:
             y1s_noans, y2s_noans = [], []
             for y1, y2 in zip(y1s, y2s):
                 if y1 == -1 or y2 == -1:
@@ -315,7 +324,7 @@ class SquadModel(TFModel):
             score = self.sess.run(self.yp, feed_dict=feed_dict)
             return [float(score) for score in score]
 
-        if self.noans:
+        if self.noans_token:
             yp1s, yp2s, prob, score = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_score],
                                                     feed_dict=feed_dict)
             yp1s_noans, yp2s_noans = [], []
