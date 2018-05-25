@@ -32,10 +32,13 @@ class NERDict(Component, Serializable):
     def save(self):
         pass
 
-    def __call__(self, tokens_batch, tags_batch, **kwargs):
-        for n, utt in enumerate(tokens_batch):
+    def __call__(self, tokens_batch_lemma, tokens_batch, tags_batch, **kwargs):
+        for n, utt in enumerate(tokens_batch_lemma):
             locs = [tok in self.cities for tok in utt]
             for k, loc in enumerate(locs):
                 if loc and tags_batch[n][k] == 'O':
                     tags_batch[n][k] = 'B-LOC'
-        return tags_batch
+        total_batch = []
+        for toks, tags in zip(tokens_batch, tags_batch):
+            total_batch.append(list(zip(toks, tags)))
+        return total_batch

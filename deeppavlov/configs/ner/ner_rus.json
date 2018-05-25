@@ -131,7 +131,7 @@
         "out": ["tags"]
       },
       {
-        "in": ["x_lemma", "tags"],
+        "in": ["x_lemma", "x", "tags"],
         "name": "nerdict",
         "save_path": "ner_rus/world_cities_on_rus.csv",
         "load_path": "ner_rus/world_cities_on_rus.csv",
@@ -139,7 +139,7 @@
       }
     ],
 
-    "out": ["x", "tags"]
+    "out": ["tags"]
   },
   "train": {
     "epochs": 100,
