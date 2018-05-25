@@ -27,7 +27,7 @@ from deeppavlov.dataset_iterators.sqlite_iterator import SQLiteDataIterator
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 fmt = logging.Formatter('%(asctime)s: [ %(message)s ]', '%m/%d/%Y %I:%M:%S %p')
-file = logging.FileHandler('../eval_logs/hnsw_en_drones.log')
+file = logging.FileHandler('../eval_logs/hnsw_en_drones_vector_dense_non_optim.log')
 file.setFormatter(fmt)
 logger.addHandler(file)
 
@@ -83,13 +83,25 @@ def main():
     query_matrix = numpy.array([item[0] for item in vectors]).squeeze()
 
     M = 15
-    efC = 100
+    efC = 500
+
     num_threads = 4
+    index_time_params = {'M': M, 'indexThreadQty': num_threads, 'efConstruction': efC, 'post': 0,
+                         'skip_optimized_index': 1  # using non-optimized index!
+                         }
     space_name = 'l2'
-    index_time_params = {'M': M, 'indexThreadQty': num_threads, 'efConstruction': efC}
     index = nmslib.init(method='hnsw', space=space_name, data_type=nmslib.DataType.DENSE_VECTOR)
     index.addDataPointBatch(data_matrix)
     index.createIndex(index_time_params)
+
+    # M = 15
+    # efC = 100
+    # num_threads = 4
+    # space_name = 'l2'
+    # index_time_params = {'M': M, 'indexThreadQty': num_threads, 'efConstruction': efC}
+    # index = nmslib.init(method='hnsw', space=space_name, data_type=nmslib.DataType.DENSE_VECTOR)
+    # index.addDataPointBatch(data_matrix)
+    # index.createIndex(index_time_params)
 
     efS = 100
     query_time_params = {'efSearch': efS}
@@ -157,6 +169,7 @@ def main():
         plt.plot(x, y)
         plt.xlabel('quantity of dataset returned by hnsw(nslib)')
         plt.ylabel('probability of true answer occurrence')
+        plt.grid(color='grey', linestyle='-', linewidth=0.5)
         plt.show()
 
     except Exception as e:
