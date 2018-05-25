@@ -90,7 +90,7 @@
         "out": ["ans_predicted", "ans_start_predicted", "ans_end_predicted"]
       }
     ],
-    "out": ["ans_predicted", "ans_start_predicted", "prosquad.jsonb"]
+    "out": ["ans_predicted", "ans_start_predicted", "prob"]
   },
   "train": {
     "show_examples": false,
