@@ -123,7 +123,7 @@
         "intra_layer_dropout": true,
         "l2_reg": 0,
         "learning_rate": 1e-2,
-        "dropout_keep_prob": 0.7
+        "dropout_keep_prob": 0.5
       },
       {
         "ref": "tag_vocab",
@@ -139,14 +139,14 @@
       }
     ],
 
-    "out": ["tags"]
+    "out": ["x", "tags"]
   },
   "train": {
     "epochs": 100,
     "batch_size": 64,
 
     "metrics": ["ner_f1"],
-    "validation_patience": 5,
+    "validation_patience": 8,
     "val_every_n_epochs": 1,
 
     "log_every_n_epochs": 1,

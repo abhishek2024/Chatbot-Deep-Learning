@@ -114,7 +114,7 @@
       }
     ],
 
-    "out": ["tags"]
+    "out": ["x", "tags"]
   },
   "train": {
     "epochs": 100,
