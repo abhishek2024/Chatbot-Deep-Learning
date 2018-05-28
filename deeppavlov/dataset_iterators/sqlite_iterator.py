@@ -17,6 +17,7 @@ limitations under the License.
 import sqlite3
 from typing import List, Any, Dict, Optional, Generator, Tuple
 from random import Random
+from pathlib import Path
 
 from overrides import overrides
 
@@ -28,8 +29,6 @@ from deeppavlov.core.data.data_fitting_iterator import DataFittingIterator
 
 logger = get_logger(__name__)
 
-DB_URL = 'http://lnsigo.mipt.ru/export/datasets/wikipedia/enwiki.db'
-
 
 @register('sqlite_iterator')
 class SQLiteDataIterator(DataFittingIterator):
@@ -37,16 +36,20 @@ class SQLiteDataIterator(DataFittingIterator):
     Load a SQLite database, read data batches and get docs content.
     """
 
-    def __init__(self, data_dir: str = '', data_url: str = DB_URL, batch_size: int = None,
-                 shuffle: bool = None, seed: int = None, **kwargs):
+    def __init__(self, save_path: str = '', load_path: str=None, data_url: str=None,
+                 batch_size: int = None, shuffle: bool = None, seed: int = None, **kwargs):
         """
-        :param data_dir: a directory name where DB is located
+        :param save_path: a directory name where DB is located
+        :param load_path: a path to local SQLite DB
         :param data_url: an URL to SQLite DB
         :param batch_size: a batch size for reading from the database
         """
-        download_dir = expand_path(data_dir)
-        download_path = download_dir.joinpath(data_url.split("/")[-1])
-        download(download_path, data_url, force_download=False)
+        if Path(load_path).is_file():
+            download_path = load_path
+        else:
+            download_dir = expand_path(save_path)
+            download_path = download_dir.joinpath(data_url.split("/")[-1])
+            download(download_path, data_url, force_download=False)
 
         # if not download_dir.exists() or is_empty(download_dir):
         #     logger.info('[downloading wiki.db from {} to {}]'.format(data_url, download_path))
