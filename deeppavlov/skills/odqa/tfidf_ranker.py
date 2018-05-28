@@ -68,25 +68,19 @@ class TfidfRanker(Estimator):
         :param n: a number of documents to return
         :return: document ids, document scores
         """
+
         batch_doc_ids, batch_docs_scores = [], []
 
         q_tfidfs = self.vectorizer(questions)
 
         for q_tfidf in q_tfidfs:
-            scores: csr_matrix = q_tfidf * self.tfidf_matrix
 
-            if len(scores.data) <= self.top_n:
-                o_sort = np.argsort(-scores.data)
-            else:
-                o = np.argpartition(-scores.data, self.top_n)[0:self.top_n]
-                o_sort = o[np.argsort(-scores.data[o])]
+            scores = q_tfidf * self.tfidf_matrix
+            scores = np.squeeze(scores.toarray() + 0.001)  # add a small value to eliminate zero scores
 
-            o_sort = scores.indices[o_sort]
-            scores = np.squeeze(scores.toarray())
-
-            # for cases when o_sort is empty
-            if len(o_sort) < self.top_n:
-                o_sort = np.concatenate([o_sort, np.arange(self.top_n - len(o_sort))])
+            print(scores.shape)
+            o = np.argpartition(-scores, self.top_n)[0:self.top_n]
+            o_sort = o[np.argsort(-scores[o])]
 
             doc_scores = scores[o_sort]
             doc_ids = [self.index2doc[i] for i in o_sort]
