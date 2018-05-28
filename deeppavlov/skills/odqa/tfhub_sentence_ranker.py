@@ -11,7 +11,7 @@ from deeppavlov.core.models.component import Component
 
 @register('sentence_ranker')
 class TFHUBSentenceRanker(Component):
-    def __init__(self, top_k=20, return_vectors=False, **kwargs):
+    def __init__(self, top_n=20, return_vectors=False, **kwargs):
         self.embed = hub.Module("https://tfhub.dev/google/universal-sentence-encoder/1")
         self.session = tf.Session()
         self.session.run([tf.global_variables_initializer(), tf.tables_initializer()])
@@ -19,7 +19,7 @@ class TFHUBSentenceRanker(Component):
         self.c_ph = tf.placeholder(shape=(None,), dtype=tf.string)
         self.q_emb = self.embed(self.q_ph)
         self.c_emb = self.embed(self.c_ph)
-        self.top_k = top_k
+        self.top_k = top_n
         self.return_vectors = return_vectors
 
     def __call__(self, query_cont: List[Tuple[str, List[str]]]):
