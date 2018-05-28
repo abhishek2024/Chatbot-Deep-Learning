@@ -1,0 +1,70 @@
+{
+  "chainer": {
+    "in": [
+      "question_raw"
+    ],
+    "in_y": [
+      "ans_raw",
+      "ans_raw_start"
+    ],
+    "out": [
+      "ans_predicted", "lgbm_score"
+    ],
+    "pipe": [
+      {
+        "name": "tfidf_ranker",
+        "top_n": 1,
+        "in": [
+          "question_raw"
+        ],
+        "out": [
+          "doc_ids",
+          "doc_scores"
+        ],
+        "fit_on_batch": [
+          "questions_raw"
+        ],
+        "vectorizer": {
+          "name": "hashing_tfidf_vectorizer",
+          "fit_on_batch": [
+            "questions_raw"
+          ],
+          "save_path": "pmef/ru_drones_tfidf.npz",
+          "load_path": "pmef/ru_drones_tfidf.npz",
+          "tokenizer": {
+            "name": "ru_tokenizer",
+            "lemmas": true,
+            "ngram_range": [
+              1,
+              2
+            ]
+          }
+        }
+      },
+      {
+        "name": "wiki_sqlite_vocab",
+        "in": [
+          "doc_ids"
+        ],
+        "out": [
+          "context_raw"
+        ],
+        "data_dir": "pmef",
+        "shuffle": false,
+        "data_url": "http://lnsigo.mipt.ru/export/datasets/pmef/ru_drones.db"
+      },
+      {
+        "config_path": "../deeppavlov/configs/squad/squad_ru_noans_lgbm.json",
+        "in": ["context_raw", "question_raw"],
+        "out": ["ans_predicted", "ans_start_predicted", "lgbm_score"]
+      }
+    ]
+  },
+  "metadata": {
+    "download": [
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/pmef.tar.gz",
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_model_ru.tar.gz",
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_scorer_ru.tar.gz"
+    ]
+  }
+}

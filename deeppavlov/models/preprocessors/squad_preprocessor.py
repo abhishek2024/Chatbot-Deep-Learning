@@ -152,7 +152,7 @@ class SquadAnsPreprocessor(Component):
                     y1, y2 = answer_span[0], answer_span[-1]
                 else:
                     # answer not found in context
-                    y1, y2 = 0, 0
+                    y1, y2 = -1, -1
                 start[-1].append(y1)
                 end[-1].append(y2)
                 answers[-1].append(ans)
@@ -298,9 +298,14 @@ class SquadAnsPostprocessor(Component):
         start = []
         end = []
         for a_st, a_end, c, p2r, span in zip(ans_start, ans_end, contexts, p2rs, spans):
-            start.append(p2r[span[a_st][0]])
-            end.append(p2r[span[a_end][1]])
-            answers.append(c[start[-1]:end[-1]])
+            if a_st == -1 or a_end == -1:
+                start.append(-1)
+                end.append(-1)
+                answers.append('')
+            else:
+                start.append(p2r[span[a_st][0]])
+                end.append(p2r[span[a_end][1]])
+                answers.append(c[start[-1]:end[-1]])
         return answers, start, end
 
 
@@ -319,32 +324,13 @@ class SquadLGBMScorer(Estimator):
     def fit(self, *args, **kwargs):
         pass
 
-    def __call__(self, prob, prob_unnorm, yp1_prob, yp2_prob, yp1_softmax, yp2_softmax):
+    def __call__(self, prob, score):
         df = pd.DataFrame()
-        data = list(zip(prob, prob_unnorm, yp1_prob, yp2_prob, yp1_softmax, yp2_softmax))
-        df['prob'] = [s for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['prob_unnorm'] = [su for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['log prob_unnorm'] = [np.log(su) for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['yp1'] = [yp1 for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['yp2'] = [yp2 for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['cov yp1s'] = [np.cov(yp1s) for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['cov yp2s'] = [np.cov(yp2s) for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['cov yp1s * prob'] = [s * np.cov(yp1s) for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['cov yp2s * prob'] = [s * np.cov(yp2s) for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['mean yp1s'] = [np.mean(yp1s) for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['mean yp2s'] = [np.mean(yp2s) for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['q75 yp1s'] = [np.percentile(yp1s, q=75) for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['q75 yp2s'] = [np.percentile(yp2s, q=75) for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['q95 yp1s'] = [np.percentile(yp1s, q=95) for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['q95 yp2s'] = [np.percentile(yp2s, q=95) for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['max/mean yp1s'] = [np.max(yp1s) / np.mean(yp1s) for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['max/mean yp2s'] = [np.max(yp2s) / np.mean(yp2s) for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['mean/min yp1s'] = [np.mean(yp1s) / np.min(yp1s) for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['mean/min yp2s'] = [np.mean(yp2s) / np.min(yp2s) for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['prob * prob_unnorm'] = [s * su for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['prob_unnorm / prob'] = [su / s for s, su, yp1, yp2, yp1s, yp2s in data]
-        df['cov yp1s'] = df['cov yp1s'].apply(float)
-        df['cov yp2s'] = df['cov yp2s'].apply(float)
+        data = list(zip(prob, score))
+        df['prob'] = [p for p, s in data]
+        df['score'] = [s for p, s in data]
+        df['log prob'] = [np.log(p) for p, s in data]
+        df['log score'] = [np.log(s) for p, s in data]
         scores = self.model.predict(df)
         return scores
 
