@@ -36,10 +36,17 @@ class TfidfRanker(Estimator):
     def get_main_component(self):
         return self
 
-    def __init__(self, vectorizer: HashingTfIdfVectorizer, top_n=5,  **kwargs):
+    def __init__(self, vectorizer: HashingTfIdfVectorizer, top_n=5, active: bool=True, **kwargs):
+        """
+
+        :param vectorizer: a tfidf vectorizer class
+        :param top_n: top n of document ids to return
+        :param active: when is not active, return all doc ids.
+        """
 
         self.top_n = top_n
         self.vectorizer = vectorizer
+        self.active = active
 
         if kwargs['mode'] != 'train':
             if self.vectorizer.load_path.exists():
@@ -78,7 +85,11 @@ class TfidfRanker(Estimator):
             scores = np.squeeze(
                 scores.toarray() + 0.0001)  # add a small value to eliminate zero scores
 
-            o = np.argpartition(-scores, self.top_n)[0:self.top_n]
+            if self.active:
+                thresh = self.top_n
+            else:
+                thresh = len(self.doc_index)
+            o = np.argpartition(-scores, self.top_n)[0:thresh]
             o_sort = o[np.argsort(-scores[o])]
 
             doc_scores = scores[o_sort]
