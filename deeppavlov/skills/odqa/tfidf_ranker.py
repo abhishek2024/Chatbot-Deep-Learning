@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from typing import Type, List
+from typing import List
 
 import numpy as np
 from scipy.sparse import csr_matrix
@@ -31,12 +31,12 @@ logger = get_logger(__name__)
 class TfidfRanker(Estimator):
     """
     temporary stub to run REST API
-     """
+    """
 
     def get_main_component(self):
         return self
 
-    def __init__(self, vectorizer: HashingTfIdfVectorizer, top_n=5, **kwargs):
+    def __init__(self, vectorizer: HashingTfIdfVectorizer, top_n=5,  **kwargs):
 
         self.top_n = top_n
         self.vectorizer = vectorizer
@@ -74,11 +74,10 @@ class TfidfRanker(Estimator):
         q_tfidfs = self.vectorizer(questions)
 
         for q_tfidf in q_tfidfs:
+            scores: csr_matrix = q_tfidf * self.tfidf_matrix
+            scores = np.squeeze(
+                scores.toarray() + 0.0001)  # add a small value to eliminate zero scores
 
-            scores = q_tfidf * self.tfidf_matrix
-            scores = np.squeeze(scores.toarray() + 0.001)  # add a small value to eliminate zero scores
-
-            print(scores.shape)
             o = np.argpartition(-scores, self.top_n)[0:self.top_n]
             o_sort = o[np.argsort(-scores[o])]
 
@@ -102,5 +101,3 @@ class TfidfRanker(Estimator):
 
     def load(self):
         self.vectorizer.load()
-
-
