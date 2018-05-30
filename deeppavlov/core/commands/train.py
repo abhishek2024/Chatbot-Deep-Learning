@@ -104,8 +104,7 @@ def train_model_from_config(config_path: str) -> None:
     reader_config = config.get('dataset_reader', None)
 
     if reader_config:
-        reader_config = config['dataset_reader']
-        reader = get_model(reader_config['name'])()
+        reader = from_params(reader_config)
         data_path = expand_path(reader_config.get('data_path', ''))
         kwargs = {k: v for k, v in reader_config.items() if k not in ['name', 'data_path']}
         data = reader.read(data_path, **kwargs)
