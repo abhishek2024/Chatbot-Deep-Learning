@@ -1,0 +1,107 @@
+{
+  "dataset_reader": {
+    "name": "odqa_reader",
+    "save_path": "pmef/en_sber.db",
+    "data_path": ""
+  },
+  "dataset_iterator": {
+    "name": "sqlite_iterator",
+    "save_path": "pmef",
+    "shuffle": false,
+    "load_path": "http://lnsigo.mipt.ru/export/datasets/pmef/en_sber.db"
+  },
+  "chainer": {
+    "in": [
+      "question_raw"
+    ],
+    "out": [
+      "context_raw"
+    ],
+    "pipe": [
+      {
+        "name": "tfidf_ranker",
+        "top_n": 10,
+        "active": true,
+        "in": [
+          "question_raw"
+        ],
+        "out": [
+          "doc_ids",
+          "doc_scores"
+        ],
+        "fit_on_batch": [
+          "questions_raw"
+        ],
+        "vectorizer": {
+          "name": "hashing_tfidf_vectorizer",
+          "fit_on_batch": [
+            "questions_raw"
+          ],
+          "save_path": "pmef/en_sber_tfidf.npz",
+          "load_path": "pmef/en_sber_tfidf.npz",
+          "tokenizer": {
+            "name": "stream_spacy_tokenizer",
+            "lemmas": true,
+            "ngram_range": [
+              1,
+              2
+            ]
+          }
+        }
+      },
+      {
+        "name": "wiki_sqlite_vocab",
+        "in": [
+          "doc_ids"
+        ],
+        "out": [
+          "contexts_as_docs"
+        ],
+        "save_path": "pmef",
+        "shuffle": false,
+        "join_docs": false,
+        "load_path": "http://lnsigo.mipt.ru/export/datasets/pmef/en_sber.db"
+      },
+      {
+        "name": "sentence_splitter",
+        "in": [
+          "contexts_as_docs"
+        ],
+        "out": [
+          "contexts_as_sentences"
+        ]
+      },
+      {
+        "name": "query_paragraph_tuplifier",
+        "in": [
+          "question_raw",
+          "contexts_as_sentences"
+        ],
+        "out": [
+          "question_contexts_pairs"
+        ]
+      },
+      {
+        "name": "sentence_ranker",
+        "top_n": 30,
+        "active": true,
+        "in": [
+          "question_contexts_pairs"
+        ],
+        "out": [
+          "context_raw"
+        ]
+      }
+    ]
+  },
+  "train": {
+    "validate_best": false,
+    "test_best": false,
+    "batch_size": 10000
+  },
+  "metadata": {
+    "download": [
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/pmef.tar.gz"
+    ]
+  }
+}
