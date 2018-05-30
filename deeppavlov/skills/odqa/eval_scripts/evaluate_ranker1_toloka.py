@@ -28,7 +28,7 @@ logger.addHandler(file)
 parser = argparse.ArgumentParser()
 
 parser.add_argument("-config_path", help="path to a JSON ranker config", type=str,
-                    default='/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ranker1_infer_drones.json')
+                    default='/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ranker_infer_drones.json')
 parser.add_argument("-dataset_path", help="path to a JSON formatted dataset", type=str,
                     default='/media/olga/Data/projects/ODQA/data/PMEF/QA_heli - v2.csv')
 parser.add_argument("-database_url", help="path to a SQLite database with wikipedia articles",
@@ -77,7 +77,7 @@ def main():
         mapping = {}
         db_size = len(iterator.doc_ids)
         logger.info("DB size: {}".format(db_size))
-        for n in range(1, db_size + 1, 2):
+        for n in range(1, db_size + 1):
             ranker.pipe[0][2].top_n = n
             for instance in dataset:
                 q = instance['question']
@@ -104,9 +104,8 @@ def main():
 
             total_correct = correct_answers / dataset_size
             logger.info(
-                'Percentage of the instances for which the correct document was'
-                ' retrieved in top {} retrieved documents: {}'.format(n, total_correct))
-            mapping[n / db_size] = total_correct
+                'Recall for top {}: {}'.format(n, total_correct))
+            mapping[n] = total_correct
             correct_answers = 0
         logger.info("Completed successfully in {} seconds.".format(time.time() - start_time))
         logger.info("Quality mapping: {}".format(mapping))
