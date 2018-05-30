@@ -38,7 +38,6 @@ class TfidfRanker(Estimator):
 
     def __init__(self, vectorizer: HashingTfIdfVectorizer, top_n=5, active: bool=True, **kwargs):
         """
-
         :param vectorizer: a tfidf vectorizer class
         :param top_n: top n of document ids to return
         :param active: when is not active, return all doc ids.
@@ -89,7 +88,11 @@ class TfidfRanker(Estimator):
                 thresh = self.top_n
             else:
                 thresh = len(self.doc_index)
-            o = np.argpartition(-scores, self.top_n)[0:thresh]
+
+            if thresh >= len(scores):
+                o = np.argpartition(-scores, len(scores) - 1)[0:thresh]
+            else:
+                o = np.argpartition(-scores, thresh)[0:thresh]
             o_sort = o[np.argsort(-scores[o])]
 
             doc_scores = scores[o_sort]
