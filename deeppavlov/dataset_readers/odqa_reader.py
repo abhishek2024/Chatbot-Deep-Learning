@@ -18,7 +18,7 @@ import logging
 from pathlib import Path
 import unicodedata
 import sqlite3
-from typing import Union, List, Tuple
+from typing import Union, List, Tuple, Generator, Any
 
 from overrides import overrides
 from multiprocessing import Pool as ProcessPool
@@ -34,11 +34,13 @@ logger = logging.getLogger(__name__)
 @register('odqa_reader')
 class ODQADataReader(DatasetReader):
 
-    def __init__(self, save_path: str, **kwargs):
+    def __init__(self, save_path: str, dataset_format='txt', **kwargs):
         """
         :param save_path: a path to an output SQLite DB
+        :param dataset_format: format of dataset files, choose from {'txt', 'json', 'wiki}
         """
         self.save_path = save_path
+        self.dataset_format = dataset_format
 
     @overrides
     def read(self, data_path: Union[Path, str], *args, **kwargs) -> None:
@@ -57,8 +59,7 @@ class ODQADataReader(DatasetReader):
         # if Path(self.save_path).exists():
         #     Path(self.save_path).unlink()
 
-    def iter_files(self, path: Union[Path, str]):
-
+    def iter_files(self, path: Union[Path, str]) -> Generator[Path, Any, Any]:
         path = Path(path)
         if path.is_file():
             yield path
@@ -78,7 +79,15 @@ class ODQADataReader(DatasetReader):
         files = [f for f in self.iter_files(data_path)]
         workers = ProcessPool(num_workers)
         with tqdm(total=len(files)) as pbar:
-            for data in tqdm(workers.imap_unordered(self._get_file_contents, files)):
+            if self.dataset_format == 'txt':
+                fn = self._get_file_contents
+            elif self.dataset_format == 'wiki':
+                fn = self._get_wiki_contents
+            elif self.dataset_format == 'json':
+                fn = self._get_json_contents
+            else:
+                raise RuntimeError('Unknown dataset format.')
+            for data in tqdm(workers.imap_unordered(fn, files)):
                 c.executemany("INSERT INTO documents VALUES (?,?)", data)
                 pbar.update()
         conn.commit()
@@ -87,7 +96,7 @@ class ODQADataReader(DatasetReader):
     def _get_json_contents(self) -> List[Tuple[str, str]]:
         """
         Read a single json file.
-        :return: file contents
+        :return: tuple of file names and contents
         """
 
         docs = []
@@ -105,11 +114,11 @@ class ODQADataReader(DatasetReader):
         return docs
 
     @staticmethod
-    def _get_file_contents(path) -> List[Tuple[str, str]]:
+    def _get_wiki_contents(path) -> List[Tuple[str, str]]:
         """
         Read a single wikipedia-extractor formatted file.
         :param path: path to a wikipedia-formatted file
-        :return: file contents
+        :return: tuple of file names and contents
         """
         docs = []
         with open(path) as fin:
@@ -123,3 +132,17 @@ class ODQADataReader(DatasetReader):
                 normalized_text = unicodedata.normalize('NFD', text)
                 docs.append((normalized_title, normalized_text))
         return docs
+
+    @staticmethod
+    def _get_file_contents(path) -> List[Tuple[str, str]]:
+        """
+        Read a single txt file.
+        :param path: path to a txt file
+        :return: tuple of file names and contents
+        """
+        with open(path) as fin:
+            text = fin.read()
+            normalized_title = unicodedata.normalize('NFD', path.name)
+            normalized_text = unicodedata.normalize('NFD', text)
+            return [(normalized_title, normalized_text)]
+
