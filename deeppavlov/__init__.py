@@ -28,6 +28,7 @@ import deeppavlov.dataset_readers.conll2003_reader
 import deeppavlov.dataset_readers.typos_reader
 import deeppavlov.dataset_readers.basic_classification_reader
 import deeppavlov.dataset_readers.squad_dataset_reader
+import deeppavlov.dataset_readers.odqa_reader
 import deeppavlov.dataset_iterators.dialog_iterator
 import deeppavlov.dataset_iterators.kvret_dialog_iterator
 import deeppavlov.dataset_iterators.dstc2_ner_iterator
@@ -62,6 +63,7 @@ import deeppavlov.skills.seq2seq_go_bot.bot
 import deeppavlov.skills.seq2seq_go_bot.network
 import deeppavlov.skills.seq2seq_go_bot.kb
 import deeppavlov.skills.odqa.tfidf_ranker
+import deeppavlov.skills.odqa.tfhub_sentence_ranker
 import deeppavlov.vocabs.typos
 import deeppavlov.vocabs.wiki_sqlite
 import deeppavlov.dataset_readers.insurance_reader
