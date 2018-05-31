@@ -101,7 +101,15 @@
   },
   "metadata": {
     "download": [
-      "http://lnsigo.mipt.ru/export/deeppavlov_data/en_odqa.tar.gz"
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/en_odqa.tar.gz",
+      {
+        "url": "http://lnsigo.mipt.ru/export/datasets/pmef/enwiki.db",
+        "subdir": "odqa"
+      },
+      {
+        "url": "https://tfhub.dev/google/universal-sentence-encoder/1?tf-hub-format=compressed",
+        "subdir": "tfhub"
+      }
     ]
   }
 }

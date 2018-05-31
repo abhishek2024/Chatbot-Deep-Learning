@@ -101,7 +101,15 @@
   },
   "metadata": {
     "download": [
-      "http://lnsigo.mipt.ru/export/deeppavlov_data/pmef.tar.gz"
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/pmef.tar.gz",
+      {
+        "url": "http://lnsigo.mipt.ru/export/datasets/pmef/en_drones.db",
+        "subdir": "pmef"
+      },
+      {
+        "url": "https://tfhub.dev/google/universal-sentence-encoder/1?tf-hub-format=compressed",
+        "subdir": "tfhub"
+      }
     ]
   }
 }
