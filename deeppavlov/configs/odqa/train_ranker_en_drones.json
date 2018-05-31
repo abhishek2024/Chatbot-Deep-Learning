@@ -10,8 +10,7 @@
       "x"
     ],
     "out": [
-      "y",
-      "score"
+      "y"
     ],
     "pipe": [
       {
@@ -31,8 +30,8 @@
           "fit_on_batch": [
             "x"
           ],
-          "save_path": "pmef/en_drones_tfidf.npz",
-          "load_path": "pmef/en_drones_tfidf.npz",
+          "save_path": "pmef/en_drones_tfidf_new.npz",
+          "load_path": "pmef/en_drones_tfidf_new.npz",
           "tokenizer": {
             "name": "stream_spacy_tokenizer",
             "lemmas": true,
