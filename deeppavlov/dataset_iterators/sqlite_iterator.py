@@ -50,7 +50,7 @@ class SQLiteDataIterator(DataFittingIterator):
         if load_path is not None:
             if load_path.startswith('http'):
                 logger.info("Downloading database from url: {}".format(load_path))
-                download_dir = expand_path(Path(self.save_path).parent)
+                download_dir = expand_path(Path(self.save_path))
                 download_path = download_dir.joinpath(load_path.split("/")[-1])
                 download(download_path, load_path, force_download=False)
             elif expand_path(load_path).is_file():
