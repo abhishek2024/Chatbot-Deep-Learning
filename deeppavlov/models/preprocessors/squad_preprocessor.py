@@ -18,6 +18,7 @@ import pickle
 import unicodedata
 from collections import Counter
 from pathlib import Path
+import string
 
 import numpy as np
 from nltk import word_tokenize
@@ -340,3 +341,37 @@ class SquadLGBMScorer(Estimator):
 
     def save(self, *args, **kwargs):
         pass
+
+
+@register('squad_features_extractor')
+class SquadFeaturesExtractor(Component):
+    def __init__(self, context_limit, question_limit, *args, **kwargs):
+        self.context_limit = context_limit
+        self.question_limit = question_limit
+        self.punkt = set(string.punctuation)
+
+    def __call__(self, contexts_tokens, questions_tokens, **kwargs):
+        c_em = np.zeros([len(contexts_tokens), self.context_limit], dtype=np.float32)
+        c_tf = np.zeros([len(contexts_tokens), self.context_limit], dtype=np.float32)
+        q_em = np.zeros([len(questions_tokens), self.question_limit], dtype=np.float32)
+        q_tf = np.zeros([len(questions_tokens), self.question_limit], dtype=np.float32)
+        for i, (context_tokens, question_tokens) in enumerate(zip(contexts_tokens, questions_tokens)):
+            context_tokens = list(map(lambda x: x.lower(), context_tokens))
+            question_tokens = list(map(lambda x: x.lower(), question_tokens))
+            context_len = len(contexts_tokens)
+            question_len = len(question_tokens)
+
+            if context_len == 0 or question_len == 0:
+                raise RuntimeError('Context or question is empty.')
+
+            context_unique_tokens = Counter(context_tokens)
+            question_unique_tokens = Counter(context_tokens)
+            for j, c_token in enumerate(context_tokens):
+                c_em[i][j] = 1 if c_token in question_unique_tokens and c_token not in self.punkt else 0
+                c_tf[i][j] = context_unique_tokens[c_token] / context_len if c_token not in self.punkt else 0
+            for j, q_token in enumerate(question_tokens):
+                q_em[i][j] = 1 if q_token in context_unique_tokens and q_token not in self.punkt else 0
+                q_tf[i][j] = question_unique_tokens[q_token] / question_len if q_token not in self.punkt else 0
+        c_features = np.stack([c_em, c_tf], axis=-1)
+        q_features = np.stack([q_em, q_tf], axis=-1)
+        return c_features, q_features

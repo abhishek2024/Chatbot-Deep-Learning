@@ -26,7 +26,7 @@ from deeppavlov.core.data.data_learning_iterator import DataLearningIterator
 class SquadIterator(DataLearningIterator):
     def split(self, *args, **kwargs):
         for dt in ['train', 'valid', 'test']:
-            setattr(self, dt, SquadIterator._extract_cqas(getattr(self, dt)))
+            setattr(self, dt, self._extract_cqas(getattr(self, dt)))
 
     @staticmethod
     def _extract_cqas(data):

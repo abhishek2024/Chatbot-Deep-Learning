@@ -55,6 +55,8 @@ class SquadModel(TFModel):
         self.predict_ans = self.opt.get('predict_answer', True)
         self.noans_token = self.opt.get('noans_token', False)
         self.scorer = self.opt.get('scorer', False)
+        self.use_features = self.opt.get('use_features', False)
+        self.features_dim = self.opt.get('features_dim', 2)
 
         self.word_emb_dim = self.init_word_emb.shape[1]
         self.char_emb_dim = self.init_char_emb.shape[1]
@@ -103,12 +105,21 @@ class SquadModel(TFModel):
         self.qc = tf.slice(self.qc_ph, [0, 0, 0], [bs, self.q_maxlen, self.char_limit])
         self.cc_len = tf.reshape(tf.reduce_sum(tf.cast(tf.cast(self.cc, tf.bool), tf.int32), axis=2), [-1])
         self.qc_len = tf.reshape(tf.reduce_sum(tf.cast(tf.cast(self.qc, tf.bool), tf.int32), axis=2), [-1])
+
+        if self.use_features:
+            self.c_f = tf.slice(self.c_f_ph, [0, 0, 0], [bs, self.c_maxlen, self.features_dim])
+            self.c_f = tf.reshape(self.c_f, shape=(bs, self.c_maxlen, self.features_dim))
+            self.q_f = tf.slice(self.q_f_ph, [0, 0, 0], [bs, self.q_maxlen, self.features_dim])
+            self.q_f = tf.reshape(self.q_f, shape=(bs, self.q_maxlen, self.features_dim))
+
         if self.noans_token:
+            # we use additional 'no answer' token to allow model not to answer on question
             self.y1 = tf.one_hot(self.y1_ph, depth=self.context_limit + 1)
             self.y2 = tf.one_hot(self.y2_ph, depth=self.context_limit + 1)
             self.y1 = tf.slice(self.y1, [0, 0], [bs, self.c_maxlen + 1])
             self.y2 = tf.slice(self.y2, [0, 0], [bs, self.c_maxlen + 1])
         elif self.scorer:
+            # we don't need to predict answer position
             self.y = self.y_ph
         else:
             self.y1 = tf.one_hot(self.y1_ph, depth=self.context_limit)
@@ -141,6 +152,10 @@ class SquadModel(TFModel):
 
             c_emb = tf.concat([c_emb, cc_emb], axis=2)
             q_emb = tf.concat([q_emb, qc_emb], axis=2)
+
+            if self.use_features:
+                c_emb = tf.concat([c_emb, self.c_f], axis=2)
+                q_emb = tf.concat([q_emb, self.q_f], axis=2)
 
         with tf.variable_scope("encoding"):
             rnn = CudnnGRU(num_layers=3, num_units=self.hidden_size, batch_size=bs,
@@ -249,6 +264,11 @@ class SquadModel(TFModel):
         self.cc_ph = tf.placeholder(shape=(None, None, self.char_limit), dtype=tf.int32, name='cc_ph')
         self.q_ph = tf.placeholder(shape=(None, None), dtype=tf.int32, name='q_ph')
         self.qc_ph = tf.placeholder(shape=(None, None, self.char_limit), dtype=tf.int32, name='qc_ph')
+
+        if self.use_features:
+            self.c_f_ph = tf.placeholder(shape=(None, None, self.features_dim), dtype=tf.float32, name='c_f_ph')
+            self.q_f_ph = tf.placeholder(shape=(None, None, self.features_dim), dtype=tf.float32, name='q_f_ph')
+
         if self.scorer:
             self.y_ph = tf.placeholder(shape=(None, ), dtype=tf.int32, name='y_ph')
         else:
@@ -270,13 +290,20 @@ class SquadModel(TFModel):
             capped_grads, _ = tf.clip_by_global_norm(gradients, self.grad_clip)
             self.train_op = self.opt.apply_gradients(zip(capped_grads, variables), global_step=self.global_step)
 
-    def _build_feed_dict(self, c_tokens, c_chars, q_tokens, q_chars, y1=None, y2=None, y=None):
+    def _build_feed_dict(self, c_tokens, c_chars, q_tokens, q_chars,
+                         c_features=None, q_features=None, y1=None, y2=None, y=None):
         feed_dict = {
             self.c_ph: c_tokens,
             self.cc_ph: c_chars,
             self.q_ph: q_tokens,
             self.qc_ph: q_chars,
         }
+        if self.use_features:
+            assert c_features is not None and q_features is not None
+            feed_dict.update({
+                self.c_f_ph: c_features,
+                self.q_f_ph: q_features,
+            })
         if self.predict_ans and y1 is not None and y2 is not None:
             feed_dict.update({
                 self.y1_ph: y1,
@@ -295,7 +322,9 @@ class SquadModel(TFModel):
 
         return feed_dict
 
-    def train_on_batch(self, c_tokens, c_chars, q_tokens, q_chars, y1s, y2s):
+    def train_on_batch(self, c_tokens, c_chars, q_tokens, q_chars,
+                       c_features=None, q_features=None,
+                       y1s=None, y2s=None):
         # TODO: filter examples in batches with answer position greater self.context_limit
         # select one answer from list of correct answers
         # y1s, y2s are start and end positions of answer
@@ -314,12 +343,14 @@ class SquadModel(TFModel):
                     y1s_noans.append(y1 + 1)
                     y2s_noans.append(y2 + 1)
             y1s, y2s = y1s_noans, y2s_noans
-        feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars, y1s, y2s, ys)
+        feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars,
+                                          c_features, q_features, y1s, y2s, ys)
         loss, _ = self.sess.run([self.loss, self.train_op], feed_dict=feed_dict)
         return loss
 
-    def __call__(self, c_tokens, c_chars, q_tokens, q_chars, *args, **kwargs):
-        feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars)
+    def __call__(self, c_tokens, c_chars, q_tokens, q_chars,
+                 c_features=None, q_features=None, *args, **kwargs):
+        feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars, c_features, q_features)
         if self.scorer:
             score = self.sess.run(self.yp, feed_dict=feed_dict)
             return [float(score) for score in score]
