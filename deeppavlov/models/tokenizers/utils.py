@@ -54,3 +54,23 @@ def ngramize(items: List[str], ngram_range=(1, 1)) -> Generator[List[str], Any, 
     formatted_ngrams = [' '.join(item) for item in ngrams]
 
     yield formatted_ngrams
+
+
+def replace(items, replace_dict):
+    """
+    Replace a token/lemma with a replacer codename.
+    Ex. usage:
+        replaced = replace(['1', 'hello'], str.isnumeric, 'NUM')
+    :param items: tokens/lemmas to replace
+    :param replace_dict: a dict with String types to replace and corresponding replacers.
+    Ex.: {'isnumeric': 'NUM', 'isalpha': 'WORD'}
+    :return: replaced items
+    """
+    replaced = []
+    for item in items:
+        for item_type, replacer in replace_dict.items():
+            if item_type(item):
+                replaced.append(replacer)
+            else:
+                replaced.append(item)
+    return replaced

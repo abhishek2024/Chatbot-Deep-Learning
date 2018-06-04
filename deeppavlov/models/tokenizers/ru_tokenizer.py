@@ -17,13 +17,12 @@ limitations under the License.
 from typing import List, Generator, Any
 
 from nltk.tokenize.toktok import ToktokTokenizer
-# from nltk.corpus import stopwords
-# STOPWORDS = stopwords.words('russian')
+from nltk.corpus import stopwords as nltk_stopwords
 import pymorphy2
 
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.registry import register
-from deeppavlov.models.tokenizers.utils import detokenize, ngramize
+from deeppavlov.models.tokenizers.utils import detokenize, ngramize, replace
 from deeppavlov.core.common.log import get_logger
 
 logger = get_logger(__name__)
@@ -38,7 +37,8 @@ class RussianTokenizer(Component):
     """
 
     def __init__(self, stopwords: list = None, ngram_range: List[int] = None, lemmas=False,
-                 lowercase: bool = None, alphas_only: bool = None, **kwargs):
+                 lowercase: bool = None, alphas_only: bool = None,
+                 replace: dict = None, **kwargs):
         """
         :param stopwords: a set of words to skip
         :param ngram_range: range for producing ngrams, ex. for unigrams + bigrams should be set to
@@ -47,9 +47,15 @@ class RussianTokenizer(Component):
         for the English language
         :param lowercase: perform lowercasing or not
         :param alphas_only: should filter numeric and alpha-numeric types or not
+        :param replace: a dict with String types to replace and corresponding replacers.
+        Ex.: {'isnumeric': 'NUM', 'isalpha': 'WORD'}
         """
         if ngram_range is None:
             ngram_range = [1, 1]
+
+        if stopwords == 'NLTK_STOPWORDS':
+            stopwords = set(nltk_stopwords.words('russian'))
+
         self.stopwords = stopwords or []
         self.tokenizer = ToktokTokenizer()
         self.lemmatizer = pymorphy2.MorphAnalyzer()
@@ -58,6 +64,24 @@ class RussianTokenizer(Component):
         self.lowercase = lowercase
         self.alphas_only = alphas_only
         self.tok2morph = {}
+
+        cast_replace = {}
+
+        for item_type, replacer in replace:
+            if item_type == 'isnumeric':
+                cast_replace[str.isnumeric] = replacer
+            elif item_type == 'isalpha':
+                cast_replace[str.isalpha] = replacer
+            elif item_type == 'isdigit':
+                cast_replace[str.isdigit] = replacer
+            elif item_type == 'isalnum':
+                cast_replace[str.isalnum] = replacer
+            elif item_type == 'isdecimal':
+                cast_replace[str.isdecimal] = replacer
+            elif item_type == 'isupper':
+                cast_replace[str.isupper] = replacer
+
+        self.replace = cast_replace
 
     def __call__(self, batch):
         if isinstance(batch[0], str):
@@ -70,8 +94,7 @@ class RussianTokenizer(Component):
         raise TypeError(
             "StreamSpacyTokenizer.__call__() is not implemented for `{}`".format(type(batch[0])))
 
-    def _tokenize(self, data: List[str], ngram_range=(1, 1), lowercase=True)\
-            -> Generator[List[str], Any, None]:
+    def _tokenize(self, data: List[str], lowercase=True) -> Generator[List[str], Any, None]:
         """
         Tokenize a list of documents.
         :param data: a list of documents to process
@@ -83,8 +106,6 @@ class RussianTokenizer(Component):
         """
         # DEBUG
         # size = len(data)
-        _ngram_range = self.ngram_range or ngram_range
-
         if self.lowercase is None:
             _lowercase = lowercase
         else:
@@ -96,12 +117,10 @@ class RussianTokenizer(Component):
             tokens = self.tokenizer.tokenize(doc)
             if _lowercase:
                 tokens = [t.lower() for t in tokens]
-            filtered = self._filter(tokens)
-            processed_doc = ngramize(filtered, ngram_range=_ngram_range)
+            processed_doc = self._pipe(tokens)
             yield from processed_doc
 
-    def _lemmatize(self, data: List[str], ngram_range=(1, 1)) -> \
-            Generator[List[str], Any, None]:
+    def _lemmatize(self, data: List[str]) -> Generator[List[str], Any, None]:
         """
         Lemmatize a list of documents.
         :param data: a list of documents to process
@@ -111,8 +130,6 @@ class RussianTokenizer(Component):
         """
         # DEBUG
         # size = len(data)
-        _ngram_range = self.ngram_range or ngram_range
-
         tokenized_data = list(self._tokenize(data))
 
         for i, doc in enumerate(tokenized_data):
@@ -126,8 +143,7 @@ class RussianTokenizer(Component):
                     lemma = self.lemmatizer.parse(token)[0].normal_form
                     self.tok2morph[token] = lemma
                 lemmas.append(lemma)
-            filtered = self._filter(lemmas)
-            processed_doc = ngramize(filtered, ngram_range=_ngram_range)
+            processed_doc = self._pipe(lemmas)
             yield from processed_doc
 
     def _filter(self, items, alphas_only=True):
@@ -151,5 +167,18 @@ class RussianTokenizer(Component):
 
     def set_stopwords(self, stopwords):
         self.stopwords = stopwords
+
+    def _pipe(self, items, ngram_range=(1, 1)):
+        """
+        :param items: tokens or lemmas to replace, filter and ngramize
+        :param ngram_range: range for producing ngrams, ex. for unigrams + bigrams should be set to
+        (1, 2), for bigrams only should be set to (2, 2)
+        :return: processed tokens/lemmas
+        """
+        _ngram_range = self.ngram_range or ngram_range
+        replaced = replace(items, self.replace)
+        filtered = self._filter(replaced)
+        processed_doc = ngramize(filtered, ngram_range=_ngram_range)
+        return processed_doc
 
 

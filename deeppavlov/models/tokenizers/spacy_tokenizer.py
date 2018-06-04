@@ -15,15 +15,16 @@ limitations under the License.
 """
 
 from itertools import chain
-from typing import List, Generator, Any, Tuple
+from typing import List, Generator, Any
 
 import spacy
 from spacy.lang.en import English
-from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS
+from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS as SKLEARN_STOPWORDS
+from nltk.corpus import stopwords as nltk_stopwords
 
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.registry import register
-from deeppavlov.models.tokenizers.utils import detokenize, ngramize
+from deeppavlov.models.tokenizers.utils import detokenize, ngramize, replace
 from deeppavlov.core.common.log import get_logger
 
 logger = get_logger(__name__)
@@ -39,7 +40,8 @@ class StreamSpacyTokenizer(Component):
 
     def __init__(self, disable: list = None, stopwords: list = None,
                  batch_size: int = None, ngram_range: List[int] = None, lemmas=False,
-                 n_threads: int = None, lowercase: bool = None, alphas_only: bool = None, **kwargs):
+                 n_threads: int = None, lowercase: bool = None, alphas_only: bool = None,
+                 replace: dict = None, **kwargs):
         """
         :param disable: pipeline processors to omit; if nothing should be disabled,
          pass an empty list
@@ -50,11 +52,19 @@ class StreamSpacyTokenizer(Component):
         :param lemmas: weather to perform lemmatizing or not while tokenizing, currently works only
         for the English language
         :param n_threads: a number of threads for internal spaCy multi-threading
+        :param replace: a dict with String types to replace and corresponding replacers.
+        Ex.: {'isnumeric': 'NUM', 'isalpha': 'WORD'}
         """
         if disable is None:
             disable = ['parser', 'ner']
         if ngram_range is None:
             ngram_range = [1, 1]
+
+        if stopwords == 'SKLEARN_STOPWORDS':
+            stopwords = SKLEARN_STOPWORDS
+        elif stopwords == 'NLTK_STOPWORDS':
+            stopwords = set(nltk_stopwords.words('english'))
+
         self.stopwords = stopwords or []
         self.model = spacy.load('en', disable=disable)
         self.model.add_pipe(self.model.create_pipe('sentencizer'))
@@ -65,6 +75,24 @@ class StreamSpacyTokenizer(Component):
         self.n_threads = n_threads
         self.lowercase = lowercase
         self.alphas_only = alphas_only
+
+        cast_replace = {}
+
+        for item_type, replacer in replace:
+            if item_type == 'isnumeric':
+                cast_replace[str.isnumeric] = replacer
+            elif item_type == 'isalpha':
+                cast_replace[str.isalpha] = replacer
+            elif item_type == 'isdigit':
+                cast_replace[str.isdigit] = replacer
+            elif item_type == 'isalnum':
+                cast_replace[str.isalnum] = replacer
+            elif item_type == 'isdecimal':
+                cast_replace[str.isdecimal] = replacer
+            elif item_type == 'isupper':
+                cast_replace[str.isupper] = replacer
+
+        self.replace = cast_replace
 
     def __call__(self, batch):
         if isinstance(batch[0], str):
@@ -77,13 +105,12 @@ class StreamSpacyTokenizer(Component):
         raise TypeError(
             "StreamSpacyTokenizer.__call__() is not implemented for `{}`".format(type(batch[0])))
 
-    def _tokenize(self, data: List[str], ngram_range=(1, 1), batch_size=10000, n_threads=1,
+    def _tokenize(self, data: List[str], batch_size=10000, n_threads=1,
                   lowercase=True) -> Generator[List[str], Any, None]:
         """
         Tokenize a list of documents.
         :param data: a list of documents to process
-        :param ngram_range: range for producing ngrams, ex. for unigrams + bigrams should be set to
-        (1, 2), for bigrams only should be set to (2, 2)
+
         :param batch_size: the number of documents to process at once;
         improves the spacy 'pipe' performance; shouldn't be too small
         :param n_threads: a number of threads for parallel computing; doesn't work good
@@ -94,7 +121,6 @@ class StreamSpacyTokenizer(Component):
         # DEBUG
         # size = len(data)
         _batch_size = self.batch_size or batch_size
-        _ngram_range = self.ngram_range or ngram_range
         _n_threads = self.n_threads or n_threads
 
         if self.lowercase is None:
@@ -112,17 +138,14 @@ class StreamSpacyTokenizer(Component):
                 tokens = [t.lower_ for t in doc]
             else:
                 tokens = [t.text for t in doc]
-            filtered = self._filter(tokens)
-            processed_doc = ngramize(filtered, ngram_range=_ngram_range)
+            processed_doc = self._pipe(tokens)
             yield from processed_doc
 
-    def _lemmatize(self, data: List[str], ngram_range=(1, 1), batch_size=10000, n_threads=1) -> \
+    def _lemmatize(self, data: List[str], batch_size=10000, n_threads=1) -> \
             Generator[List[str], Any, None]:
         """
         Lemmatize a list of documents.
         :param data: a list of documents to process
-        :param ngram_range: range for producing ngrams, ex. for unigrams + bigrams should be set to
-        (1, 2), for bigrams only should be set to (2, 2)
         :param batch_size: the number of documents to process at once;
         improves the spacy 'pipe' performance; shouldn't be too small
         :param n_threads: a number of threads for parallel computing; doesn't work good
@@ -132,7 +155,6 @@ class StreamSpacyTokenizer(Component):
         # DEBUG
         # size = len(data)
         _batch_size = self.batch_size or batch_size
-        _ngram_range = self.ngram_range or ngram_range
         _n_threads = self.n_threads or n_threads
 
         for i, doc in enumerate(
@@ -140,8 +162,7 @@ class StreamSpacyTokenizer(Component):
             # DEBUG
             # logger.info("Lemmatize doc {} from {}".format(i, size))
             lemmas = chain.from_iterable([sent.lemma_.split() for sent in doc.sents])
-            filtered = self._filter(lemmas)
-            processed_doc = ngramize(filtered, ngram_range=_ngram_range)
+            processed_doc = self._pipe(lemmas)
             yield from processed_doc
 
     def _filter(self, items, alphas_only=True):
@@ -165,3 +186,16 @@ class StreamSpacyTokenizer(Component):
 
     def set_stopwords(self, stopwords):
         self.stopwords = stopwords
+
+    def _pipe(self, items, ngram_range=(1, 1)):
+        """
+        :param items: tokens or lemmas to replace, filter and ngramize
+        :param ngram_range: range for producing ngrams, ex. for unigrams + bigrams should be set to
+        (1, 2), for bigrams only should be set to (2, 2)
+        :return: processed tokens/lemmas
+        """
+        _ngram_range = self.ngram_range or ngram_range
+        replaced = replace(items, self.replace)
+        filtered = self._filter(replaced)
+        processed_doc = ngramize(filtered, ngram_range=_ngram_range)
+        return processed_doc
