@@ -37,7 +37,7 @@ class ODQADataReader(DatasetReader):
     def __init__(self, save_path: str, dataset_format='txt', **kwargs):
         """
         :param save_path: a path to an output SQLite DB
-        :param dataset_format: format of dataset files, choose from {'txt', 'json', 'wiki}
+        :param dataset_format: format of dataset files, choose from {'txt', 'json', 'wiki', 'sqlite'}
         """
         self.save_path = save_path
         self.dataset_format = dataset_format
@@ -53,6 +53,8 @@ class ODQADataReader(DatasetReader):
         #     Path(self.save_path).unlink()
 
         logger.info('Reading files...')
+        if self.dataset_format == 'sqlite':
+            return
         self._build_db(data_path)
 
         # DEBUG

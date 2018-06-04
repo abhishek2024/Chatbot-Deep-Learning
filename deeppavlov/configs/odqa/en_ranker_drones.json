@@ -2,7 +2,8 @@
   "dataset_reader": {
     "name": "odqa_reader",
     "save_path": "pmef/en_drones.db",
-    "data_path": ""
+    "data_path": "",
+    "dataset_format": "sqlite"
   },
   "dataset_iterator": {
     "name": "sqlite_iterator",
