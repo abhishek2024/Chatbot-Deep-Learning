@@ -98,8 +98,6 @@ class RussianTokenizer(Component):
         """
         Tokenize a list of documents.
         :param data: a list of documents to process
-        :param ngram_range: range for producing ngrams, ex. for unigrams + bigrams should be set to
-        (1, 2), for bigrams only should be set to (2, 2)
         :param batch_size: the number of documents to process at once
         :param lowercase: whether to perform lowercasing or not
         :return: a single processed doc generator
@@ -124,8 +122,6 @@ class RussianTokenizer(Component):
         """
         Lemmatize a list of documents.
         :param data: a list of documents to process
-        :param ngram_range: range for producing ngrams, ex. for unigrams + bigrams should be set to
-        (1, 2), for bigrams only should be set to (2, 2)
         :return: a single processed doc generator
         """
         # DEBUG
