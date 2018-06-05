@@ -14,12 +14,12 @@ class WikiSQLiteVocab(SQLiteDataIterator):
     Get SQlite documents by ids.
     """
 
-    def __init__(self, load_path, save_path: str = '', **kwargs):
+    def __init__(self, load_path, data_dir: str = '', **kwargs):
         """
-        :param save_path: a directory name where DB is located
+        :param data_dir: a directory name where DB is located
         :param load_path: an URL to SQLite DB or local path to db file ('example.db')
         """
-        super().__init__(load_path=load_path, save_path=save_path)
+        super().__init__(load_path=load_path, data_dir=data_dir)
 
     def __call__(self, doc_ids: Optional[List[List[Any]]]=None, *args, **kwargs) -> List[str]:
         """

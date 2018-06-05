@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 import sqlite3
-from typing import List, Any, Dict, Optional, Generator, Tuple
+from typing import List, Any, Dict, Optional
 from random import Random
 from pathlib import Path
 
@@ -24,9 +24,8 @@ from overrides import overrides
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.utils import download
-from deeppavlov.core.commands.utils import expand_path, is_empty
-from deeppavlov.core.data.data_fitting_iterator import DataFittingIterator
 from deeppavlov.core.commands.utils import expand_path
+from deeppavlov.core.data.data_fitting_iterator import DataFittingIterator
 
 logger = get_logger(__name__)
 
@@ -37,28 +36,28 @@ class SQLiteDataIterator(DataFittingIterator):
     Load a SQLite database, read data batches and get docs content.
     """
 
-    def __init__(self, load_path, save_path: str = '',
+    def __init__(self, load_path, data_dir: str = '',
                  batch_size: int = None, shuffle: bool = None, seed: int = None, **kwargs):
         """
-        :param save_path: a directory name where DB should be stored
+        :param data_dir: a directory name where DB should be stored
         :param load_path: a path to local SQLite DB
         :param data_url: an URL to SQLite DB
         :param batch_size: a batch size for reading from the database
         """
-        self.save_path = save_path
+        self.data_dir = data_dir
 
         if load_path is not None:
             if load_path.startswith('http'):
                 logger.info("Downloading database from url: {}".format(load_path))
-                download_dir = expand_path(Path(self.save_path))
+                download_dir = expand_path(Path(self.data_dir))
                 download_path = download_dir.joinpath(load_path.split("/")[-1])
                 download(download_path, load_path, force_download=False)
             elif expand_path(load_path).is_file():
                 download_path = expand_path(load_path)
             else:
-                raise RuntimeError('String path expected, got None.')
+                raise ValueError('String path expected, got None.')
         else:
-            raise RuntimeError('String path expected, got None.')
+            raise ValueError('String path expected, got None.')
 
         logger.info("Connecting to database, path: {}".format(download_path))
         self.connect = sqlite3.connect(str(download_path), check_same_thread=False)
