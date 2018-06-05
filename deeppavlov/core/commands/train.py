@@ -19,6 +19,7 @@ import json
 import time
 from collections import OrderedDict
 from typing import List, Callable, Tuple, Dict, Union
+import importlib
 
 from deeppavlov.core.commands.utils import expand_path, set_deeppavlov_root
 from deeppavlov.core.commands.infer import build_model_from_config
@@ -79,7 +80,7 @@ def fit_chainer(config: dict, iterator: Union[DataLearningIterator, DataFittingI
             c_out = component_config['out']
             in_y = component_config.get('in_y', None)
             main = component_config.get('main', False)
-            chainer.append(c_in, c_out, component, in_y, main)
+            chainer.append(component, c_in, c_out, in_y, main)
     return chainer
 
 
@@ -104,10 +105,21 @@ def train_model_from_config(config_path: str) -> None:
     reader_config = config.get('dataset_reader', None)
 
     if reader_config:
-        reader = from_params(reader_config)
-        data_path = expand_path(reader_config.get('data_path', ''))
-        kwargs = {k: v for k, v in reader_config.items() if k not in ['name', 'data_path']}
-        data = reader.read(data_path, **kwargs)
+        if 'class' in reader_config:
+            c = reader_config.pop('class')
+            try:
+                module_name, cls_name = c.split(':')
+                reader = getattr(importlib.import_module(module_name), cls_name)()
+            except ValueError:
+                e = ConfigError(
+                    'Expected class description in a `module.submodules:ClassName` form, but got `{}`'
+                    .format(c))
+                log.exception(e)
+                raise e
+        else:
+            reader = get_model(reader_config.pop('name'))()
+        data_path = expand_path(reader_config.pop('data_path', ''))
+        data = reader.read(data_path, **reader_config)
     else:
         log.warning("No dataset reader is provided in the JSON config.")
 
