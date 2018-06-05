@@ -41,7 +41,7 @@ class StreamSpacyTokenizer(Component):
     def __init__(self, disable: list = None, stopwords: list = None,
                  batch_size: int = None, ngram_range: List[int] = None, lemmas=False,
                  n_threads: int = None, lowercase: bool = None, alphas_only: bool = None,
-                 replace: dict = None, **kwargs):
+                 replacers: dict = None, **kwargs):
         """
         :param disable: pipeline processors to omit; if nothing should be disabled,
          pass an empty list
@@ -52,13 +52,16 @@ class StreamSpacyTokenizer(Component):
         :param lemmas: weather to perform lemmatizing or not while tokenizing, currently works only
         for the English language
         :param n_threads: a number of threads for internal spaCy multi-threading
-        :param replace: a dict with String types to replace and corresponding replacers.
+        :param replacers: a dict with String types to replace and corresponding replacers.
         Ex.: {'isnumeric': 'NUM', 'isalpha': 'WORD'}
         """
         if disable is None:
             disable = ['parser', 'ner']
         if ngram_range is None:
             ngram_range = [1, 1]
+
+        if replacers is None:
+            replacers = {}
 
         if stopwords == 'SKLEARN_STOPWORDS':
             stopwords = SKLEARN_STOPWORDS
@@ -78,7 +81,7 @@ class StreamSpacyTokenizer(Component):
 
         cast_replace = {}
 
-        for item_type, replacer in replace:
+        for item_type, replacer in replacers.items():
             if item_type == 'isnumeric':
                 cast_replace[str.isnumeric] = replacer
             elif item_type == 'isalpha':
@@ -162,7 +165,7 @@ class StreamSpacyTokenizer(Component):
             # DEBUG
             # logger.info("Lemmatize doc {} from {}".format(i, size))
             lemmas = chain.from_iterable([sent.lemma_.split() for sent in doc.sents])
-            processed_doc = self._pipe(lemmas)
+            processed_doc = self._pipe(list(lemmas))
             yield from processed_doc
 
     def _filter(self, items, alphas_only=True):

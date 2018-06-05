@@ -71,6 +71,7 @@ def replace(items, replace_dict):
         for item_type, replacer in replace_dict.items():
             if item_type(item):
                 replaced.append(replacer)
-            else:
-                replaced.append(item)
+                break
+        else:
+            replaced.append(item)
     return replaced
