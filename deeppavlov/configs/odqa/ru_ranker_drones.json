@@ -1,12 +1,7 @@
 {
-  "dataset_reader": {
-    "name": "odqa_reader",
-    "save_path": "pmef/ru_drones.db",
-    "data_path": ""
-  },
   "dataset_iterator": {
     "name": "sqlite_iterator",
-    "save_path": "pmef",
+    "data_dir": "pmef",
     "shuffle": false,
     "load_path": "http://lnsigo.mipt.ru/export/datasets/pmef/ru_drones.db"
   },
@@ -57,7 +52,7 @@
         "out": [
           "context_raw"
         ],
-        "save_path": "pmef",
+        "data_dir": "pmef",
         "shuffle": false,
         "join_docs": true,
         "load_path": "http://lnsigo.mipt.ru/export/datasets/pmef/ru_drones.db"

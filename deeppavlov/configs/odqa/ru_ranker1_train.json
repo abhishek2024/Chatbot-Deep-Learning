@@ -1,9 +1,15 @@
 {
+  "dataset_reader": {
+    "class": "deeppavlov.dataset_readers.odqa_reader:ODQADataReader",
+    "data_path": "/path/to/data/folder",
+    "save_path": "/path/to/output/example.db",
+    "dataset_format": "txt"
+  },
   "dataset_iterator": {
     "name": "sqlite_iterator",
     "data_dir": "pmef",
     "shuffle": false,
-    "load_path": "http://lnsigo.mipt.ru/export/datasets/pmef/en_drones.db"
+    "load_path": "/path/to/output/example.db"
   },
   "chainer": {
     "in": [
@@ -32,10 +38,10 @@
           "fit_on_batch": [
             "questions_raw"
           ],
-          "save_path": "pmef/en_drones_tfidf.npz",
-          "load_path": "pmef/en_drones_tfidf.npz",
+          "save_path": "pmef/ru_new_tfidf.npz",
+          "load_path": "pmef/ru_new_tfidf.npz",
           "tokenizer": {
-            "name": "stream_spacy_tokenizer",
+            "name": "ru_tokenizer",
             "lemmas": true,
             "ngram_range": [
               1,
@@ -50,42 +56,12 @@
           "doc_ids"
         ],
         "out": [
-          "contexts_as_docs"
+          "context_raw"
         ],
         "data_dir": "pmef",
         "shuffle": false,
-        "join_docs": false,
-        "load_path": "http://lnsigo.mipt.ru/export/datasets/pmef/en_drones.db"
-      },
-      {
-        "name": "sentence_splitter",
-        "in": [
-          "contexts_as_docs"
-        ],
-        "out": [
-          "contexts_as_sentences"
-        ]
-      },
-      {
-        "name": "query_paragraph_tuplifier",
-        "in": [
-          "question_raw",
-          "contexts_as_sentences"
-        ],
-        "out": [
-          "question_contexts_pairs"
-        ]
-      },
-      {
-        "name": "sentence_ranker",
-        "top_n": 20,
-        "active": false,
-        "in": [
-          "question_contexts_pairs"
-        ],
-        "out": [
-          "context_raw"
-        ]
+        "join_docs": true,
+        "load_path": "/path/to/output/example.db"
       }
     ]
   },
@@ -96,11 +72,6 @@
   },
   "metadata": {
     "download": [
-      "http://lnsigo.mipt.ru/export/deeppavlov_data/pmef.tar.gz",
-      {
-        "url": "http://lnsigo.mipt.ru/export/datasets/pmef/en_drones.db",
-        "subdir": "pmef"
-      },
       {
         "url": "https://tfhub.dev/google/universal-sentence-encoder/1?tf-hub-format=compressed",
         "subdir": "tfhub"

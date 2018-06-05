@@ -1,12 +1,7 @@
 {
-  "dataset_reader": {
-    "name": "odqa_reader",
-    "save_path": "odqa/enwiki.db",
-    "data_path": ""
-  },
   "dataset_iterator": {
     "name": "sqlite_iterator",
-    "save_path": "odqa",
+    "data_dir": "odqa",
     "shuffle": false,
     "load_path": "http://lnsigo.mipt.ru/export/datasets/wikipedia/enwiki.db"
   },
@@ -57,7 +52,7 @@
         "out": [
           "contexts_as_docs"
         ],
-        "save_path": "odqa",
+        "data_dir": "odqa",
         "shuffle": false,
         "join_docs": false,
         "load_path": "http://lnsigo.mipt.ru/export/datasets/wikipedia/enwiki.db"
