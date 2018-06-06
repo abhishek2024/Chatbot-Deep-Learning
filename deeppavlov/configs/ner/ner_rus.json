@@ -97,7 +97,7 @@
       {
         "in": ["x_emb", "mask", "x_char_ind", "cap"],
         "in_y": ["y_ind"],
-        "out": ["y_predicted"],
+        "out": ["y_predicted", "probs"],
         "name": "ner",
         "main": true,
         "n_hidden_list": [128],
@@ -124,10 +124,17 @@
         "ref": "tag_vocab",
         "in": ["y_predicted"],
         "out": ["tags"]
+      },
+      {
+        "tags": "#tag_vocab.keys()",
+        "name": "tags_score_fuser",
+        "merge_b_i": true,
+        "in": ["probs"],
+        "out": ["probs"]
       }
     ],
 
-    "out": ["tags"]
+    "out": ["x", "tags", "probs"]
   },
   "train": {
     "epochs": 100,
