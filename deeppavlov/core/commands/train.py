@@ -1,12 +1,9 @@
 """
 Copyright 2017 Neural Networks and Deep Learning lab, MIPT
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -19,6 +16,7 @@ import json
 import time
 from collections import OrderedDict
 from typing import List, Callable, Tuple, Dict, Union
+import importlib
 
 from deeppavlov.core.commands.utils import expand_path, set_deeppavlov_root
 from deeppavlov.core.commands.infer import build_model_from_config
@@ -34,7 +32,6 @@ from deeppavlov.core.models.component import Component
 from deeppavlov.core.models.estimator import Estimator
 from deeppavlov.core.models.nn_model import NNModel
 from deeppavlov.core.common.log import get_logger
-
 
 log = get_logger(__name__)
 
@@ -53,7 +50,6 @@ def _fit_batches(model: Estimator, iterator: DataFittingIterator, train_config) 
 
 
 def fit_chainer(config: dict, iterator: Union[DataLearningIterator, DataFittingIterator]):
-
     chainer_config: dict = config['chainer']
     chainer = Chainer(chainer_config['in'], chainer_config['out'], chainer_config.get('in_y'))
     for component_config in chainer_config['pipe']:
@@ -61,7 +57,8 @@ def fit_chainer(config: dict, iterator: Union[DataLearningIterator, DataFittingI
         if 'fit_on' in component_config:
             component: Estimator
 
-            preprocessed = chainer(*iterator.get_instances('train'), to_return=component_config['fit_on'])
+            preprocessed = chainer(*iterator.get_instances('train'),
+                                   to_return=component_config['fit_on'])
             if len(component_config['fit_on']) == 1:
                 preprocessed = [preprocessed]
             else:
@@ -79,7 +76,7 @@ def fit_chainer(config: dict, iterator: Union[DataLearningIterator, DataFittingI
             c_out = component_config['out']
             in_y = component_config.get('in_y', None)
             main = component_config.get('main', False)
-            chainer.append(c_in, c_out, component, in_y, main)
+            chainer.append(component, c_in, c_out, in_y, main)
     return chainer
 
 
@@ -104,11 +101,21 @@ def train_model_from_config(config_path: str) -> None:
     reader_config = config.get('dataset_reader', None)
 
     if reader_config:
-        reader_config = config['dataset_reader']
-        reader = get_model(reader_config['name'])()
-        data_path = expand_path(reader_config.get('data_path', ''))
-        kwargs = {k: v for k, v in reader_config.items() if k not in ['name', 'data_path']}
-        data = reader.read(data_path, **kwargs)
+        if 'class' in reader_config:
+            c = reader_config.pop('class')
+            try:
+                module_name, cls_name = c.split(':')
+                reader = getattr(importlib.import_module(module_name), cls_name)()
+            except ValueError:
+                e = ConfigError(
+                    'Expected class description in a `module.submodules:ClassName` form, but got `{}`'
+                        .format(c))
+                log.exception(e)
+                raise e
+        else:
+            reader = get_model(reader_config.pop('name'))()
+        data_path = expand_path(reader_config.pop('data_path', ''))
+        data = reader.read(data_path, **reader_config)
     else:
         log.warning("No dataset reader is provided in the JSON config.")
 
@@ -178,7 +185,7 @@ def train_model_from_config(config_path: str) -> None:
 
 def _test_model(model: Component, metrics_functions: List[Tuple[str, Callable]],
                 iterator: DataLearningIterator, batch_size=-1, data_type='valid',
-                start_time: float=None) -> Dict[str, Union[int, OrderedDict, str]]:
+                start_time: float = None) -> Dict[str, Union[int, OrderedDict, str]]:
     if start_time is None:
         start_time = time.time()
 
@@ -201,7 +208,6 @@ def _test_model(model: Component, metrics_functions: List[Tuple[str, Callable]],
 
 def _train_batches(model: NNModel, iterator: DataLearningIterator, train_config: dict,
                    metrics_functions: List[Tuple[str, Callable]]) -> NNModel:
-
     default_train_config = {
         'epochs': 0,
         'max_batches': 0,
@@ -225,13 +231,16 @@ def _train_batches(model: NNModel, iterator: DataLearningIterator, train_config:
     if train_config['metric_optimization'] == 'maximize':
         def improved(score, best):
             return score > best
+
         best = float('-inf')
     elif train_config['metric_optimization'] == 'minimize':
         def improved(score, best):
             return score < best
+
         best = float('inf')
     else:
-        raise ConfigError('metric_optimization has to be one of {}'.format(['maximize', 'minimize']))
+        raise ConfigError(
+            'metric_optimization has to be one of {}'.format(['maximize', 'minimize']))
 
     i = 0
     epochs = 0
@@ -254,14 +263,17 @@ def _train_batches(model: NNModel, iterator: DataLearningIterator, train_config:
                 i += 1
                 examples += len(x)
 
-                if train_config['log_every_n_batches'] > 0 and i % train_config['log_every_n_batches'] == 0:
-                    metrics = [(s, f(train_y_true, train_y_predicted)) for s, f in metrics_functions]
+                if train_config['log_every_n_batches'] > 0 and i % train_config[
+                    'log_every_n_batches'] == 0:
+                    metrics = [(s, f(train_y_true, train_y_predicted)) for s, f in
+                               metrics_functions]
                     report = {
                         'epochs_done': epochs,
                         'batches_seen': i,
                         'examples_seen': examples,
                         'metrics': dict(metrics),
-                        'time_spent': str(datetime.timedelta(seconds=round(time.time() - start_time + 0.5)))
+                        'time_spent': str(
+                            datetime.timedelta(seconds=round(time.time() - start_time + 0.5)))
                     }
                     report = {'train': report}
                     print(json.dumps(report, ensure_ascii=False))
@@ -276,7 +288,8 @@ def _train_batches(model: NNModel, iterator: DataLearningIterator, train_config:
                     'epochs_done': epochs,
                     'batches_seen': i,
                     'train_examples_seen': examples,
-                    'time_spent': str(datetime.timedelta(seconds=round(time.time() - start_time + 0.5)))
+                    'time_spent': str(
+                        datetime.timedelta(seconds=round(time.time() - start_time + 0.5)))
                 }
                 model.process_event(event_name='after_batch', data=report)
             if break_flag:
@@ -292,7 +305,8 @@ def _train_batches(model: NNModel, iterator: DataLearningIterator, train_config:
             }
             model.process_event(event_name='after_epoch', data=report)
 
-            if train_config['log_every_n_epochs'] > 0 and epochs % train_config['log_every_n_epochs'] == 0\
+            if train_config['log_every_n_epochs'] > 0 and epochs % train_config[
+                'log_every_n_epochs'] == 0 \
                     and train_y_true:
                 metrics = [(s, f(train_y_true, train_y_predicted)) for s, f in metrics_functions]
                 report = {
@@ -300,7 +314,8 @@ def _train_batches(model: NNModel, iterator: DataLearningIterator, train_config:
                     'batches_seen': i,
                     'train_examples_seen': examples,
                     'metrics': dict(metrics),
-                    'time_spent': str(datetime.timedelta(seconds=round(time.time() - start_time + 0.5)))
+                    'time_spent': str(
+                        datetime.timedelta(seconds=round(time.time() - start_time + 0.5)))
                 }
                 model.process_event(event_name='after_train_log', data=report)
                 report = {'train': report}
@@ -308,7 +323,8 @@ def _train_batches(model: NNModel, iterator: DataLearningIterator, train_config:
                 train_y_true.clear()
                 train_y_predicted.clear()
 
-            if train_config['val_every_n_epochs'] > 0 and epochs % train_config['val_every_n_epochs'] == 0:
+            if train_config['val_every_n_epochs'] > 0 and epochs % train_config[
+                'val_every_n_epochs'] == 0:
                 report = _test_model(model, metrics_functions, iterator,
                                      train_config['batch_size'], 'valid', start_time)
                 report['epochs_done'] = epochs
