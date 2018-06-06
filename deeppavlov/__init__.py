@@ -79,11 +79,13 @@ import deeppavlov.models.preprocessors.assemble_embeddins_matrix
 import deeppavlov.models.preprocessors.capitalization
 import deeppavlov.models.preprocessors.field_getter
 import deeppavlov.models.preprocessors.sanitizer
+import deeppavlov.models.preprocessors.tag_probs_scorrer
 import deeppavlov.models.preprocessors.lazy_tokenizer
 import deeppavlov.models.slotfill.slotfill_raw
 import deeppavlov.models.slotfill.slotfill
 import deeppavlov.models.preprocessors.one_hotter
 import deeppavlov.dataset_readers.ontonotes_reader
+
 
 
 import deeppavlov.metrics.accuracy
