@@ -1,15 +1,15 @@
 from nltk.tokenize import sent_tokenize
 import json
 
-INPUT_PATH = '/media/olga/Data/projects/ranker_test/ranker_test/drones.txt'
-OUTPUT_PATH = '/media/olga/Data/projects/ranker_test/ranker_test/drones_chunks.json'
+INPUT_PATH = '/media/olga/Data/projects/ranker_test/ranker_test/wiki_article.txt'
+OUTPUT_PATH = '/media/olga/Data/projects/ranker_test/ranker_test/wiki_chunks_2ranker.json'
 SQUAD_LIMIT = 500
 
 with open(INPUT_PATH) as fin:
     data = fin.read()
     sentences = sent_tokenize(data)
 
-# all_chunks = {}
+# all_chunks = []
 #
 # _len = 0
 # chunks = []
@@ -24,7 +24,7 @@ with open(INPUT_PATH) as fin:
 # with open(OUTPUT_PATH, 'w') as fout:
 #         # fout.write(' '.join(chunk))
 #         # fout.write('\n')
-#     json.dump(all_chunks, fout)
+#     json.dump(all_chunks, fout, ensure_ascii=False)
 #
 #
 # print('Done!')
@@ -44,6 +44,10 @@ for sentence in sentences:
         chunks = []
         i += 1
     chunks.append(sentence)
+
+if chunks:
+    d = {'text': ' '.join(chunks), 'title': i}
+    all_chunks.append(d)
 
 with open(OUTPUT_PATH, 'w') as fout:
     # fout.write(' '.join(chunk))
