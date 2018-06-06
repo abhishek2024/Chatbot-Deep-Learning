@@ -104,7 +104,7 @@ def _get_json_contents(fpath) -> List[Tuple[str, str]]:
                 if not doc:
                     continue
                 title = doc['title']
-                normalized_title = unicodedata.normalize('NFD', title)
+                normalized_title = unicodedata.normalize('NFD', str(title))
                 text = doc['text']
                 normalized_text = unicodedata.normalize('NFD', text)
                 docs.append((normalized_title, normalized_text))
