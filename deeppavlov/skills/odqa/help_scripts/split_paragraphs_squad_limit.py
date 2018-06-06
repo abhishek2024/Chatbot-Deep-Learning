@@ -48,6 +48,6 @@ for sentence in sentences:
 with open(OUTPUT_PATH, 'w') as fout:
     # fout.write(' '.join(chunk))
     # fout.write('\n')
-    json.dump(all_chunks, fout)
+    json.dump(all_chunks, fout, ensure_ascii=False)
 
 print('Done!')
