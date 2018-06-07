@@ -59,8 +59,6 @@ def _build_db(save_path, dataset_format, data_path: Union[Path, str], num_worker
     conn.commit()
     conn.close()
 
-    # @staticmethod
-
 
 def _get_file_contents(fpath) -> List[Tuple[str, str]]:
     """

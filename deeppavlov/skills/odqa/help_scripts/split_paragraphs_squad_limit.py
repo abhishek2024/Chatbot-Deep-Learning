@@ -7,7 +7,7 @@ from nltk.tokenize import sent_tokenize
 parser = argparse.ArgumentParser()
 
 parser.add_argument("input_path", help="path to an input file with text", type=str)
-parser.add_argument("output_path", help="path to an output file", type=str)
+parser.add_argument("output_path", help="path to an output JSON file", type=str)
 parser.add_argument("-l", "--squad-limit", help="a number of tokens in a single chunks", type=int,
                     default=500)
 parser.add_argument("-f", "--output-format", help="a format of an output data", default='common',
