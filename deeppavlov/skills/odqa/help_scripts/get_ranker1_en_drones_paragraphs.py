@@ -13,6 +13,8 @@ import time
 import unicodedata
 import logging
 import csv
+import re
+import string
 
 from deeppavlov.core.common.file import read_json
 from deeppavlov.core.commands.infer import build_model_from_config
@@ -28,29 +30,21 @@ logger.addHandler(file)
 parser = argparse.ArgumentParser()
 
 parser.add_argument("-config_path", help="path to a JSON ranker config", type=str,
-                    default='/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ranker_infer_drones.json')
+                    default='/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ranker1_train_drones_chunks.json')
 parser.add_argument("-dataset_path", help="path to a JSON formatted dataset", type=str,
-                    default='/media/olga/Data/projects/ODQA/data/PMEF/QA_heli - v2.csv')
+                    default='/media/olga/Data/projects/ranker_test/ranker_test/drone_questions.txt')
 parser.add_argument("-database_url", help="path to a SQLite database with wikipedia articles",
                     type=str,
-                    default='http://lnsigo.mipt.ru/export/datasets/pmef/en_drones.db')
-parser.add_argument("-n", "--number-retrieve", help="top n documents to retrieve", default=5,
-                    type=int)
+                    default='/media/olga/Data/projects/iPavlov/DeepPavlov/download/pmef/en_drones_chunks.db')
+parser.add_argument("-output_path", help="path to output json", type=str,
+                    default='/media/olga/Data/projects/iPavlov/DeepPavlov/download/pmef/ensemble_drones.json')
 
 
 def encode_utf8(s: str):
     return unicodedata.normalize('NFD', s).encode('utf-8')  # encode_from_strings deprecated
 
 
-def instance_score(answers, texts):
-    for a in answers:
-        for doc_text in texts:
-            if doc_text.find(a) != -1:
-                return 1
-    return 0
-
-
-def read_csv(csv_path):
+def read_csv1(csv_path):
     output = []
     with open(csv_path) as fin:
         reader = csv.reader(fin)
@@ -60,12 +54,36 @@ def read_csv(csv_path):
     return output
 
 
+# def read_csv(csv_path):
+#     output = []
+#     with open(csv_path) as fin:
+#         reader = csv.reader(fin)
+#         for item in reader:
+#             try:
+#                 qa = item[0].split(';')
+#                 output.append({'question': qa[0], 'answer': qa[1]})
+#             except Exception:
+#                 pass
+#     return output
+
+def read_csv(csv_path):
+    output = []
+    with open(csv_path) as fin:
+        for line in fin.readlines():
+            qa = line.split(';')
+            output.append({'question': qa[0], 'answer': qa[1]})
+    return output
+
+
+
 def main():
     args = parser.parse_args()
     config = read_json(args.config_path)
     ranker = build_model_from_config(config)  # chainer
     dataset = read_csv(args.dataset_path)
-    iterator = SQLiteDataIterator(data_url=args.database_url)
+    iterator = SQLiteDataIterator(load_path=args.database_url)
+
+    output_path = args.output_path
 
     dataset_size = len(dataset)
     logger.info('Dataset size: {}'.format(dataset_size))
@@ -80,7 +98,6 @@ def main():
         ranker.pipe[0][2].top_n = db_size
         for instance in dataset:
             q = instance['question']
-            q = unicodedata.normalize('NFD', q)
             result = ranker([q])
             top_n = result[0][0]
             scores = list(result[0][1])
@@ -96,13 +113,14 @@ def main():
 
             # for item in zip(top_n_texts, scores)
 
+            assert len(context_score_pairs) == db_size
 
             mapping.append((q,
                             a,
                             context_score_pairs))
 
         import json
-        with open('/media/olga/Data/projects/ODQA/data/PMEF/ranker1_drones_all_paragraphs.json', 'w') as fout:
+        with open(output_path, 'w') as fout:
             json.dump(mapping, fout)
 
     except Exception as e:
@@ -113,5 +131,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-0
