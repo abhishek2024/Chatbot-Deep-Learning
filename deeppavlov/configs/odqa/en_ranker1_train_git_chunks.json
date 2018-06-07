@@ -1,0 +1,67 @@
+{
+  "dataset_reader": {
+    "class": "deeppavlov.dataset_readers.odqa_reader:ODQADataReader",
+    "data_path": "/media/olga/Data/projects/ranker_test/ranker_test/git_chunks_2ranker.json",
+    "save_path": "/media/olga/Data/projects/iPavlov/DeepPavlov/download/pmef/en_git_chunks.db",
+    "dataset_format": "json"
+  },
+  "dataset_iterator": {
+    "name": "sqlite_iterator",
+    "data_dir": "pmef",
+    "shuffle": false,
+    "load_path": "/media/olga/Data/projects/iPavlov/DeepPavlov/download/pmef/en_git_chunks.db"
+  },
+  "chainer": {
+    "in": [
+      "question_raw"
+    ],
+    "out": [
+      "doc_ids",
+      "doc_scores"
+    ],
+    "pipe": [
+      {
+        "name": "tfidf_ranker",
+        "top_n": 1,
+        "active": true,
+        "in": [
+          "question_raw"
+        ],
+        "out": [
+          "doc_ids",
+          "doc_scores"
+        ],
+        "fit_on_batch": true,
+        "vectorizer": {
+          "name": "hashing_tfidf_vectorizer",
+          "fit_on_batch": [
+            "questions_raw"
+          ],
+          "save_path": "pmef/en_git_chunks.npz",
+          "load_path": "pmef/en_git_chunks.npz",
+          "tokenizer": {
+            "name": "stream_spacy_tokenizer",
+            "lemmas": true,
+            "ngram_range": [
+              1,
+              2
+            ],
+            "stopwords": "SPACY_STOPWORDS",
+            "replacers": {
+              "isnumeric": "NUM"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "train": {
+    "validate_best": false,
+    "test_best": false,
+    "batch_size": 10000
+  },
+  "metadata": {
+    "download": [
+    ]
+  }
+}
