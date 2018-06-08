@@ -14,6 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import random
+
+import nltk
+
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.data_learning_iterator import DataLearningIterator
 
@@ -22,7 +26,7 @@ from deeppavlov.core.data.data_learning_iterator import DataLearningIterator
 class SquadIterator(DataLearningIterator):
     def split(self, *args, **kwargs):
         for dt in ['train', 'valid', 'test']:
-            setattr(self, dt, SquadIterator._extract_cqas(getattr(self, dt)))
+            setattr(self, dt, self._extract_cqas(getattr(self, dt)))
 
     @staticmethod
     def _extract_cqas(data):
@@ -50,3 +54,64 @@ class SquadIterator(DataLearningIterator):
                             ans_start.append(answer['answer_start'])
                         cqas.append(((context, q), (ans_text, ans_start)))
         return cqas
+
+
+@register('squad_noans_iterator')
+class SquadNoAnsIterator(SquadIterator):
+    def split(self, *args, **kwargs):
+        squad_qas = {}
+        rate = kwargs.get('noans_rate', 0.3)
+        for dt in ['train', 'valid', 'test']:
+            squad_qas[dt] = self._extract_cqas(getattr(self, dt))
+
+        squad_qas_noans = {}
+        for dt in ['train', 'valid', 'test']:
+            squad_qas_noans[dt] = self._extract_cqas_noans(getattr(self, dt), rate)
+
+        for dt in ['train', 'valid', 'test']:
+            setattr(self, dt, squad_qas[dt] + squad_qas_noans[dt])
+
+    @staticmethod
+    def _extract_cqas_noans(data, rate=1.0, qc_rate=0.3):
+        """
+        Adds random questions with no answer to SQuAD.
+        """
+        cqas = []
+        questions = []
+        if data:
+            for article in data['data']:
+                for par in article['paragraphs']:
+                    for qa in par['qas']:
+                        questions.append(qa['question'])
+
+            for article in data['data']:
+                for par in article['paragraphs']:
+                    context = par['context']
+                    for qa in par['qas']:
+                        if random.random() < rate:
+                            if random.random() < qc_rate:
+                                # add random question
+                                q = random.sample(questions, k=1)[0]
+                                ans_text = ['']
+                                ans_start = [-1]
+                                cqas.append(((context, q), (ans_text, ans_start)))
+                            else:
+                                # add context without answers
+                                q = qa['question']
+                                ans_text = ['']
+                                ans_start = [-1]
+                                new_context = ''
+                                for sent in nltk.sent_tokenize(context):
+                                    if not any(ans['text'].lower() in sent.lower() for ans in qa['answers']):
+                                        new_context += sent + ' '
+                                new_context = new_context.strip()
+                                if new_context != '':
+                                    cqas.append(((new_context, q), (ans_text, ans_start)))
+        return cqas
+
+
+@register('squad_scorer_iterator')
+class SquadIterator(DataLearningIterator):
+    def split(self, *args, **kwargs):
+        for dt in ['train', 'valid', 'test']:
+            setattr(self, dt, getattr(self, dt))

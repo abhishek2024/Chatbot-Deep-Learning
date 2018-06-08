@@ -3,9 +3,10 @@
     "name": "squad_dataset_reader",
     "data_path": "squad/"
   },
-  "dataset_iterator": {
-    "name": "squad_iterator",
+   "dataset_iterator": {
+    "name": "squad_noans_iterator",
     "seed": 1337,
+    "noans_rate": 1.0,
     "shuffle": true
   },
   "chainer": {
@@ -35,12 +36,12 @@
         "level": "token",
         "emb_folder": "embeddings/",
         "emb_url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M.vec",
-        "save_path": "squad_model/emb/vocab_embedder.pckl",
-        "load_path": "squad_model/emb/vocab_embedder.pckl",
+        "save_path": "squad_model_noans/emb/vocab_embedder.pckl",
+        "load_path": "squad_model_noans/emb/vocab_embedder.pckl",
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.context_limit",
-        "fit_on": ["context_tokens", "question_tokens"],
+        "fit_lol": ["context_tokens", "question_tokens"],
         "in": ["context_tokens", "question_tokens"],
         "out": ["context_tokens_idxs", "question_tokens_idxs"]
       },
@@ -50,12 +51,12 @@
         "level": "char",
         "emb_folder": "embeddings/",
         "emb_url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M-char.vec",
-        "save_path": "squad_model/emb/char_vocab_embedder.pckl",
-        "load_path": "squad_model/emb/char_vocab_embedder.pckl",
+        "save_path": "squad_model_noans/emb/char_vocab_embedder.pckl",
+        "load_path": "squad_model_noans/emb/char_vocab_embedder.pckl",
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.char_limit",
-        "fit_on": ["context_chars", "question_chars"],
+        "fit_lol": ["context_chars", "question_chars"],
         "in": ["context_chars", "question_chars"],
         "out": ["context_chars_idxs", "question_chars_idxs"]
       },
@@ -72,17 +73,26 @@
         "encoder_hidden_size": 75,
         "attention_hidden_size": 75,
         "learning_rate": 0.5,
-        "min_learning_rate": 0.001,
-        "learning_rate_patience": 5,
-        "keep_prob": 0.7,
+        "min_learning_rate": 0.0001,
+        "learning_rate_patience": 4,
+        "keep_prob": 0.6,
         "grad_clip": 5.0,
-        "weight_decay": 1.0,
-        "save_path": "squad_model/model",
-        "load_path": "squad_model/model",
+        "weight_decay": 0.999,
+        "noans_token": true,
+        "squad_loss_weight": 0.8,
+        "save_path": "squad_model_noans/model",
+        "load_path": "squad_model_noans/model",
         "in": ["context_tokens_idxs", "context_chars_idxs", "question_tokens_idxs", "question_chars_idxs"],
         "in_y": ["ans_start", "ans_end"],
-        "out": ["ans_start_predicted", "ans_end_predicted", "prob"]
+        "out": ["ans_start_predicted", "ans_end_predicted", "prob", "score"]
       },
+      {
+        "name": "squad_lgbm_scorer",
+         "save_path": "squad_model_noans/lgbm_model.txt",
+         "load_path": "squad_model_noans/lgbm_model.txt",
+         "in": ["prob", "score"],
+         "out": ["lgbm_score"]
+       },
       {
         "name": "squad_ans_postprocessor",
         "id": "squad_ans_postprepr",
@@ -90,7 +100,7 @@
         "out": ["ans_predicted", "ans_start_predicted", "ans_end_predicted"]
       }
     ],
-    "out": ["ans_predicted", "ans_start_predicted", "prob"]
+    "out": ["ans_predicted", "ans_start_predicted", "prob", "lgbm_score"]
   },
   "train": {
     "show_examples": false,
@@ -101,23 +111,14 @@
     "batch_size": 50,
     "pytest_max_batches": 2,
     "validation_patience": 10,
-    "metrics": ["squad_f1", "exact_match"]
+    "metrics": ["squad_f1", "exact_match", "squad_roc_auc", "squad_pr"]
   },
   "metadata": {
     "labels": {
-      "telegram_utils": "SquadModel",
-      "server_utils": "SquadModel"
+      "telegram_utils": "SquadModel"
     },
     "download": [
-      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_model_1.2.tar.gz",
-      {
-        "url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M.vec",
-        "subdir": "embeddings"
-      },
-      {
-        "url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M-char.vec",
-        "subdir": "embeddings"
-      }
+      "http://TODO"
       ]
   }
 }
