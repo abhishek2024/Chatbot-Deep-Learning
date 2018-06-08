@@ -58,6 +58,7 @@ class SquadModel(TFModel):
         self.scorer = self.opt.get('scorer', False)
         self.use_features = self.opt.get('use_features', False)
         self.features_dim = self.opt.get('features_dim', 2)
+        self.use_elmo = self.opt.get('use_elmo', False)
 
         self.word_emb_dim = self.init_word_emb.shape[1]
         self.char_emb_dim = self.init_char_emb.shape[1]
@@ -113,6 +114,10 @@ class SquadModel(TFModel):
             self.q_f = tf.slice(self.q_f_ph, [0, 0, 0], [bs, self.q_maxlen, self.features_dim])
             self.q_f = tf.reshape(self.q_f, shape=(bs, self.q_maxlen, self.features_dim))
 
+        if self.use_elmo:
+            self.c_str = tf.slice(self.c_str_ph, [0, 0], [bs, self.c_maxlen])
+            self.q_str = tf.slice(self.q_str_ph, [0, 0], [bs, self.q_maxlen])
+
         if self.noans_token:
             # we use additional 'no answer' token to allow model not to answer on question
             self.y1 = tf.one_hot(self.y1_ph, depth=self.context_limit + 1)
@@ -160,6 +165,27 @@ class SquadModel(TFModel):
             if self.use_features:
                 c_emb = tf.concat([c_emb, self.c_f], axis=2)
                 q_emb = tf.concat([q_emb, self.q_f], axis=2)
+
+            if self.use_elmo:
+                import tensorflow_hub as tfhub
+                elmo = tfhub.Module("https://tfhub.dev/google/elmo/2", trainable=True)
+                c_elmo = elmo(
+                    inputs={
+                        "tokens": self.c_str,
+                        "sequence_len": tf.reduce_sum(1-tf.cast(tf.equal(self.c_str, ""), tf.int32), axis=-1)
+                    },
+                    signature="tokens",
+                    as_dict=True)["elmo"]
+                q_elmo = elmo(
+                    inputs={
+                        "tokens": self.q_str,
+                        "sequence_len": tf.reduce_sum(1 - tf.cast(tf.equal(self.q_str, ""), tf.int32), axis=-1)
+                    },
+                    signature="tokens",
+                    as_dict=True)["elmo"]
+
+                c_emb = tf.concat([c_emb, c_elmo], axis=2)
+                q_emb = tf.concat([q_emb, q_elmo], axis=2)
 
         with tf.variable_scope("encoding"):
             rnn = CudnnGRU(num_layers=3, num_units=self.hidden_size, batch_size=bs,
@@ -273,6 +299,10 @@ class SquadModel(TFModel):
             self.c_f_ph = tf.placeholder(shape=(None, None, self.features_dim), dtype=tf.float32, name='c_f_ph')
             self.q_f_ph = tf.placeholder(shape=(None, None, self.features_dim), dtype=tf.float32, name='q_f_ph')
 
+        if self.use_elmo:
+            self.c_str_ph = tf.placeholder(shape=(None, None), dtype=tf.string, name='c_str_ph')
+            self.q_str_ph = tf.placeholder(shape=(None, None), dtype=tf.string, name='q_str_ph')
+
         if self.scorer:
             self.y_ph = tf.placeholder(shape=(None, ), dtype=tf.int32, name='y_ph')
         else:
@@ -295,7 +325,12 @@ class SquadModel(TFModel):
             self.train_op = self.opt.apply_gradients(zip(capped_grads, variables), global_step=self.global_step)
 
     def _build_feed_dict(self, c_tokens, c_chars, q_tokens, q_chars,
-                         c_features=None, q_features=None, y1=None, y2=None, y=None):
+                         c_features=None, q_features=None, c_str=None, q_str=None, y1=None, y2=None, y=None):
+
+        if self.use_elmo:
+          c_str = self._pad_strings(c_str, self.context_limit)
+          q_str = self._pad_strings(q_str, self.question_limit)
+
         feed_dict = {
             self.c_ph: c_tokens,
             self.cc_ph: c_chars,
@@ -323,11 +358,16 @@ class SquadModel(TFModel):
                 self.keep_prob_ph: self.keep_prob,
                 self.is_train_ph: True,
             })
+        if self.use_elmo:
+            feed_dict.update({
+                self.c_str_ph: c_str,
+                self.q_str_ph: q_str
+            })
 
         return feed_dict
 
     def train_on_batch(self, c_tokens, c_chars, q_tokens, q_chars,
-                       c_features=None, q_features=None,
+                       c_features=None, q_features=None, c_str=None, q_str=None,
                        y1s=None, y2s=None):
         # TODO: filter examples in batches with answer position greater self.context_limit
         # select one answer from list of correct answers
@@ -348,12 +388,12 @@ class SquadModel(TFModel):
                     y2s_noans.append(y2 + 1)
             y1s, y2s = y1s_noans, y2s_noans
         feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars,
-                                          c_features, q_features, y1s, y2s, ys)
+                                          c_features, q_features, c_str, q_str, y1s, y2s, ys)
         loss, _ = self.sess.run([self.loss, self.train_op], feed_dict=feed_dict)
         return loss
 
     def __call__(self, c_tokens, c_chars, q_tokens, q_chars,
-                 c_features=None, q_features=None, *args, **kwargs):
+                 c_features=None, q_features=None, c_str=None, q_str=None, *args, **kwargs):
 
         if any(np.sum(c_tokens, axis=-1) == 0) or any(np.sum(q_tokens, axis=-1) == 0):
             logger.info('SQuAD model: Warning! Empty question or context was found.')
@@ -365,7 +405,8 @@ class SquadModel(TFModel):
                 return noanswers, noanswers, zero_probs, zero_probs
             return noanswers, noanswers, zero_probs
 
-        feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars, c_features, q_features)
+        feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars,
+                                          c_features, q_features, c_str, q_str)
         if self.scorer:
             score = self.sess.run(self.yp, feed_dict=feed_dict)
             return [float(score) for score in score]
@@ -401,6 +442,13 @@ class SquadModel(TFModel):
                 self.learning_rate = max(self.learning_rate / 2, self.min_learning_rate)
                 logger.info('SQuAD model: learning_rate changed to {}'.format(self.learning_rate))
             logger.info('SQuAD model: lr_impatience: {}, learning_rate: {}'.format(self.lr_impatience, self.learning_rate))
+
+    def _pad_strings(self, batch, len_limit):
+        max_len = max(map(lambda x: len(x), batch))
+        max_len = min(max_len, len_limit)
+        for tokens in batch:
+            tokens.extend([''] * (max_len - len(tokens)))
+        return batch
 
     def shutdown(self):
         pass

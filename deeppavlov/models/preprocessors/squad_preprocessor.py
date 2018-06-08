@@ -375,3 +375,12 @@ class SquadFeaturesExtractor(Component):
         c_features = np.stack([c_em, c_tf], axis=-1)
         q_features = np.stack([q_em, q_tf], axis=-1)
         return c_features, q_features
+
+
+@register('squad_dummy_features')
+class SquadDummyFeatures(Component):
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def __call__(self, batch):
+        return [None] * len(batch)
