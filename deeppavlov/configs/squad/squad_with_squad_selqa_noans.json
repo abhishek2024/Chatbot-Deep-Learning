@@ -1,0 +1,35 @@
+{
+  "dataset_reader": {
+    "name": "squad_dataset_reader",
+    "data_path": "squad/"
+  },
+  "dataset_iterator": {
+    "name": "squad_iterator",
+    "seed": 1337,
+    "shuffle": true
+  },
+  "chainer": {
+    "in": ["context_raw", "question_raw"],
+    "in_y": ["ans_raw", "ans_raw_start"],
+    "out": ["ans_predicted", "ans_start_predicted", "score"],
+    "pipe": [
+      {
+        "config_path": "../deeppavlov/configs/squad/squad.json",
+        "in": ["context_raw", "question_raw"],
+        "out": ["ans_predicted", "ans_start_predicted", "prob"]
+      },
+      {
+        "config_path": "../deeppavlov/configs/squad/squad_selqa_noans.json",
+        "in": ["context_raw", "question_raw"],
+        "out": ["ans_predicted_1", "ans_start_predicted_1", "score", "prob_1"]
+      }
+    ]
+  },
+  "metadata": {
+    "labels": {
+      "telegram_utils": "SquadModel",
+      "server_utils": "SquadModel"
+    }
+  }
+}
+
