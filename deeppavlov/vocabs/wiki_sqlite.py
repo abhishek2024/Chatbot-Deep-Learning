@@ -14,12 +14,13 @@ class WikiSQLiteVocab(SQLiteDataIterator):
     Get SQlite documents by ids.
     """
 
-    def __init__(self, load_path, data_dir: str = '', **kwargs):
+    def __init__(self, load_path, data_dir: str = '', join_docs=True, **kwargs):
         """
         :param data_dir: a directory name where DB is located
         :param load_path: an URL to SQLite DB or local path to db file ('example.db')
         """
         super().__init__(load_path=load_path, data_dir=data_dir)
+        self.join_docs = join_docs
 
     def __call__(self, doc_ids: Optional[List[List[Any]]]=None, *args, **kwargs) -> List[str]:
         """
@@ -35,7 +36,8 @@ class WikiSQLiteVocab(SQLiteDataIterator):
 
         for ids in doc_ids:
             contents = [self.get_doc_content(doc_id) for doc_id in ids]
-            contents = ' '.join(contents)
+            if self.join_docs:
+                contents = ' '.join(contents)
             all_contents.append(contents)
 
         return all_contents
