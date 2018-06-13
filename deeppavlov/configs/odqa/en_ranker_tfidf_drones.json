@@ -10,7 +10,7 @@
       "question_raw"
     ],
     "out": [
-      "rank_text_score"
+      "rank_text_score_id"
     ],
     "pipe": [
       {
@@ -50,7 +50,8 @@
           "doc_ids"
         ],
         "out": [
-          "context_raw"
+          "context_raw",
+          "doc_ids"
         ],
         "data_dir": "pmef",
         "shuffle": false,
@@ -58,9 +59,9 @@
         "load_path": "http://lnsigo.mipt.ru/export/datasets/pmef/en_drones.db"
       },
       {
-        "name": "doc_score_tuplifier",
-        "in": ["context_raw", "doc_scores"],
-        "out": ["rank_text_score"]
+        "name": "rank_doc_score_tuplifier",
+        "in": ["context_raw", "doc_scores", "doc_ids"],
+        "out": ["rank_text_score_id"]
       }
     ]
   },
