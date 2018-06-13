@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from typing import List
+from typing import List, Any
 from operator import itemgetter
 
 import numpy as np
@@ -22,21 +22,23 @@ from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.registry import register
 
 
-@register("doc_score_tuplifier")
-class DocScoreTuplifier(Component):
+@register("rank_doc_score_tuplifier")
+class RankDocScoreIdTuplifier(Component):
 
     def __init__(self, *args, **kwargs):
         pass
 
-    def __call__(self, docs: List[List[str]], scores: List[np.array], *args, **kwargs):
-        result = []
-        for item in zip(docs, scores):
-            tuples = list(zip(item[0], item[1]))
+    def __call__(self, docs: List[List[str]], scores: List[np.array], ids: List[Any], *args, **kwargs):
+        all_results = []
+        for triple in zip(docs, scores, ids):
+            tuples = list(zip(triple[0], triple[1], triple[2]))
             tuples.sort(key=itemgetter(1))
             tuples = tuples[::-1]
+            result = []
             for i, item in enumerate(tuples, 1):
                 item = list(item)
                 item.insert(0, i)
                 item = tuple(item)
                 result.append(item)
-        return result
+            all_results.append(result)
+        return all_results
