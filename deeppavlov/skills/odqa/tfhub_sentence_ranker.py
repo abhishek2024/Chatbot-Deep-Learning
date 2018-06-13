@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Any
 import time
 
 import numpy as np
@@ -11,7 +11,7 @@ from deeppavlov.core.models.component import Component
 
 @register('sentence_ranker')
 class TFHUBSentenceRanker(Component):
-    def __init__(self, top_n=20, return_vectors=False, active: bool=True, **kwargs):
+    def __init__(self, top_n=20, return_vectors=False, active: bool = True, **kwargs):
         """
         :param top_n: top n sentences to return
         :param return_vectors: return unranged USE vectors instead of sentences
@@ -24,37 +24,43 @@ class TFHUBSentenceRanker(Component):
         self.c_ph = tf.placeholder(shape=(None,), dtype=tf.string)
         self.q_emb = self.embed(self.q_ph)
         self.c_emb = self.embed(self.c_ph)
-        self.top_k = top_n
+        self.top_n = top_n
         self.return_vectors = return_vectors
         self.active = active
 
-    def __call__(self, query_cont: List[Tuple[str, List[str]]]):
+    def __call__(self, query_context_id: List[Tuple[str, List[str]]]):
         """
         Rank sentences and return top n sentences.
         """
         predictions = []
+        all_top_scores = []
+        fake_scores = [0.001] * len(query_context_id)
 
-        if self.active:
-            for el in query_cont:
-                # DEBUG
-                # start_time = time.time()
-                qe, ce = self.session.run([self.q_emb, self.c_emb],
-                                          feed_dict={
-                                              self.q_ph: [el[0]],
-                                              self.c_ph: el[1],
-                                          })
-                # print("Time spent: {}".format(time.time() - start_time))
-                if self.return_vectors:
-                    predictions.append((qe, ce))
-                else:
-                    scores = (qe @ ce.T).squeeze()
-                    top_ids = np.argsort(scores)[::-1][:self.top_k]
-                    predictions.append([el[1][x] for x in top_ids])
+        for el in query_context_id:
+            # DEBUG
+            # start_time = time.time()
+            qe, ce = self.session.run([self.q_emb, self.c_emb],
+                                      feed_dict={
+                                          self.q_ph: [el[0]],
+                                          self.c_ph: el[1],
+                                      })
+            # print("Time spent: {}".format(time.time() - start_time))
             if self.return_vectors:
-                return predictions
+                predictions.append((qe, ce))
             else:
-                return [' '.join(sentences) for sentences in predictions]
+                scores = (qe @ ce.T).squeeze()
+                if self.active:
+                    thresh = self.top_n
+                else:
+                    thresh = len(query_context_id)
+                if scores.size == 1:
+                    top_scores = np.sort([scores])[::-1][:thresh]
+                else:
+                    top_scores = np.sort(scores)[::-1][:thresh]
+                all_top_scores.append(top_scores)
+                sentence_top_ids = np.argsort(scores)[::-1][:thresh]
+                predictions.append([el[1][x] for x in sentence_top_ids])
+        if self.return_vectors:
+            return predictions, fake_scores
         else:
-            docs = [' '.join(item[1]) for item in query_cont]
-            return docs
-
+            return [' '.join(sentences) for sentences in predictions], all_top_scores
