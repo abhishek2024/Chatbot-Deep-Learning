@@ -10,7 +10,7 @@
       "question_raw"
     ],
     "out": [
-      "doc_score_tuples"
+      "rank_text_score"
     ],
     "pipe": [
       {
@@ -60,7 +60,7 @@
       {
         "name": "doc_score_tuplifier",
         "in": ["context_raw", "doc_scores"],
-        "out": ["doc_score_tuples"]
+        "out": ["rank_text_score"]
       }
     ]
   },
