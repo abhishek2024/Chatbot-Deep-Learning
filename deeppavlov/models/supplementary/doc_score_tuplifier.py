@@ -33,5 +33,10 @@ class DocScoreTuplifier(Component):
         for item in zip(docs, scores):
             tuples = list(zip(item[0], item[1]))
             tuples.sort(key=itemgetter(1))
-            result.append(tuples[::-1])
+            tuples = tuples[::-1]
+            for i, item in enumerate(tuples, 1):
+                item = list(item)
+                item.insert(0, i)
+                item = tuple(item)
+                result.append(item)
         return result
