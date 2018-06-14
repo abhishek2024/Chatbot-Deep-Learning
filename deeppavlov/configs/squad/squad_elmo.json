@@ -72,7 +72,7 @@
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.char_limit",
-        "train_char_emb": true,
+        "train_char_emb": false,
         "char_hidden_size": 100,
         "encoder_hidden_size": 75,
         "attention_hidden_size": 75,
@@ -106,7 +106,7 @@
     "validate_best": true,
     "log_every_n_batches": 250,
     "val_every_n_epochs": 1,
-    "batch_size": 16,
+    "batch_size": 32,
     "pytest_max_batches": 2,
     "validation_patience": 10,
     "metrics": ["squad_f1", "exact_match"]
