@@ -3,7 +3,7 @@
     "class": "deeppavlov.dataset_readers.odqa_reader:ODQADataReader",
     "data_path": "/media/olga/Data/projects/ranker_test/ranker_test/wiki_chunks_2ranker.json",
     "save_path": "/media/olga/Data/projects/iPavlov/DeepPavlov/download/pmef/google_custom.db",
-    "dataset_format": "json"
+    "dataset_format": "sqlite"
   },
   "dataset_iterator": {
     "name": "sqlite_iterator",
@@ -16,7 +16,8 @@
       "question_raw"
     ],
     "out": [
-      "doc_ids"
+      "doc_ids",
+      "doc_scores"
     ],
     "pipe": [
       {
@@ -45,9 +46,10 @@
               1,
               2
             ],
-            "stopwords": "sklearn",
             "lowercase": true,
-            "alphas_only": true
+            "alphas_only": true,
+            "stopwords": "nltk",
+            "add_entities": true
           }
         }
       }

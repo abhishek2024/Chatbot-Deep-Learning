@@ -21,7 +21,7 @@ from string import punctuation
 import spacy
 from spacy.lang.en import English
 from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS as SKLEARN_STOPWORDS
-from nltk.corpus import stopwords as nltk_stopwords
+from nltk.corpus import stopwords as NLTK_STOPWORDS
 
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.registry import register
@@ -42,7 +42,7 @@ class CustomTokenizer(Component):
     def __init__(self, disable: list = None, stopwords: list = None,
                  batch_size: int = None, ngram_range: List[int] = None, lemmas=False,
                  n_threads: int = None, lowercase: bool = None, alphas_only: bool = None,
-                 replacers: dict = None, **kwargs):
+                 replacers: dict = None, add_entities:bool = False, **kwargs):
         """
         :param disable: pipeline processors to omit; if nothing should be disabled,
          pass an empty list
@@ -67,7 +67,7 @@ class CustomTokenizer(Component):
         if stopwords == 'sklearn':
             stopwords = SKLEARN_STOPWORDS
         elif stopwords == 'nltk':
-            stopwords = set(nltk_stopwords.words('english'))
+            stopwords = set(NLTK_STOPWORDS.words('english'))
 
         self.stopwords = stopwords or []
         self.model = spacy.load('en', disable=disable)
@@ -79,6 +79,7 @@ class CustomTokenizer(Component):
         self.n_threads = n_threads
         self.lowercase = lowercase
         self.alphas_only = alphas_only
+        self.add_entities = add_entities
 
         cast_replace = {}
 
@@ -141,7 +142,11 @@ class CustomTokenizer(Component):
                 tokens = [t.lower_ for t in doc]
             else:
                 tokens = [t.text for t in doc]
-            processed_doc = self._pipe(tokens)
+            if self.add_entities:
+                ents = [e.label_ for e in doc.ents if e.label_ != 'CARDINAL']
+            else:
+                ents = []
+            processed_doc = self._pipe(tokens, ents)
             yield from processed_doc
 
     def _lemmatize(self, data: List[str], batch_size=10000, n_threads=1):
@@ -163,7 +168,10 @@ class CustomTokenizer(Component):
                 self.model.pipe(data, batch_size=_batch_size, n_threads=_n_threads)):
             # DEBUG
             # logger.info("Lemmatize doc {} from {}".format(i, size))
-            ents = [e.label_ for e in doc.ents if e.label_ != 'CARDINAL']
+            if self.add_entities:
+                ents = [e.label_ for e in doc.ents if e.label_ != 'CARDINAL']
+            else:
+                ents = []
             lemmas = chain.from_iterable([sent.lemma_.split() for sent in doc.sents])
             processed_doc = self._pipe(lemmas, ents)
             yield processed_doc
@@ -181,7 +189,7 @@ class CustomTokenizer(Component):
             _alphas_only = self.alphas_only
 
         if _alphas_only:
-            filter_fn = lambda x: x.isalpha() and not x.isspace() and x not in self.stopwords
+            filter_fn = lambda x: not x.isspace() and x not in self.stopwords
         else:
             filter_fn = lambda x: not x.isspace() and x not in self.stopwords and x not in punctuation and x != '-PRON-'
 
@@ -199,14 +207,14 @@ class CustomTokenizer(Component):
         """
         _ngram_range = self.ngram_range or ngram_range
         replaced = replace(items, self.replace)
-        replaced = replace_digits(replaced)
+        # replaced = replace_digits(replaced)
         filtered = self._filter(replaced)
         processed_doc = list(ngramize_new(filtered, ngram_range=_ngram_range))
         processed_doc += entities
         return processed_doc
 
 
-# tokenizer = CustomTokenizer(disable=['parser'], stopwords=SKLEARN_STOPWORDS, ngram_range=[1, 2],
+# tokenizer = CustomTokenizer(disable=['parser'], ngram_range=[1, 2],
 #                             lemmas=True, lowercase=True, alphas_only=False)
 #
 # data = ['Hello my dear 100 friends!', 'How are you doing, guys?', 'This is Russia!!!', '300 kg of drones']

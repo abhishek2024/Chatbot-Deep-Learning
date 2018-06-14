@@ -96,10 +96,11 @@ def replace(items, replace_dict):
     return replaced
 
 
-def replace_digits(items, digit='1'):
+def replace_digits(items, digit: str='1'):
     """
     Replace numeric strings with digits.
     :param items: tokens/lemmas to replace
+    :param digit: a number to replace with
     :return: replaced items
     """
     return [item if not item.isnumeric() else digit * len(item) for item in items]

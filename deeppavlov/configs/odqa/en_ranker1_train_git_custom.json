@@ -1,15 +1,15 @@
 {
   "dataset_reader": {
     "class": "deeppavlov.dataset_readers.odqa_reader:ODQADataReader",
-    "data_path": "/media/olga/Data/projects/ranker_test/ranker_test/drones_chunks_2ranker.json",
-    "save_path": "/media/olga/Data/projects/iPavlov/DeepPavlov/download/pmef/drones_custom.db",
+    "data_path": "/media/olga/Data/projects/ranker_test/ranker_test/git_chunks_2ranker.json",
+    "save_path": "/media/olga/Data/projects/iPavlov/DeepPavlov/download/pmef/git_custom.db",
     "dataset_format": "sqlite"
   },
   "dataset_iterator": {
     "name": "sqlite_iterator",
     "data_dir": "pmef",
     "shuffle": false,
-    "load_path": "/media/olga/Data/projects/iPavlov/DeepPavlov/download/pmef/drones_custom.db"
+    "load_path": "/media/olga/Data/projects/iPavlov/DeepPavlov/download/pmef/git_custom.db"
   },
   "chainer": {
     "in": [
@@ -37,8 +37,8 @@
           "fit_on_batch": [
             "questions_raw"
           ],
-          "save_path": "pmef/en_drones_chunks_custom.npz",
-          "load_path": "pmef/en_drones_chunks_custom.npz",
+          "save_path": "pmef/en_git_chunks_custom.npz",
+          "load_path": "pmef/en_git_chunks_custom.npz",
           "tokenizer": {
             "name": "custom_tokenizer",
             "lemmas": true,

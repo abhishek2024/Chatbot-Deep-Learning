@@ -30,12 +30,12 @@ logger.addHandler(file)
 parser = argparse.ArgumentParser()
 
 parser.add_argument("-config_path", help="path to a JSON ranker config", type=str,
-                    default='/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ranker1_train_drones_chunks.json')
+                    default='/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ranker1_train_google_custom.json')
 parser.add_argument("-dataset_path", help="path to a JSON formatted dataset", type=str,
-                    default='/media/olga/Data/projects/ranker_test/ranker_test/drone_questions.txt')
+                    default='/media/olga/Data/projects/ranker_test/ranker_test/questions.txt')
 parser.add_argument("-database_url", help="path to a SQLite database with wikipedia articles",
                     type=str,
-                    default='/media/olga/Data/projects/iPavlov/DeepPavlov/download/pmef/en_drones_chunks.db')
+                    default='/media/olga/Data/projects/iPavlov/DeepPavlov/download/pmef/google_custom.db')
 
 
 

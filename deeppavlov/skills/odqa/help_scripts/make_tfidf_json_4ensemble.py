@@ -15,6 +15,7 @@ import logging
 import csv
 import re
 import string
+import json
 
 from deeppavlov.core.common.file import read_json
 from deeppavlov.core.commands.infer import build_model_from_config
@@ -30,14 +31,14 @@ logger.addHandler(file)
 parser = argparse.ArgumentParser()
 
 parser.add_argument("-config_path", help="path to a JSON ranker config", type=str,
-                    default='/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ranker1_train_hottabych_chunks.json')
+                    default='/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ranker1_train_git_custom.json')
 parser.add_argument("-dataset_path", help="path to a JSON formatted dataset", type=str,
-                    default='/media/olga/Data/projects/ranker_test/ranker_test/hottabych_questions.txt')
+                    default='/media/olga/Data/projects/ranker_test/ranker_test/git_questions.txt')
 parser.add_argument("-database_url", help="path to a SQLite database with wikipedia articles",
                     type=str,
-                    default='/media/olga/Data/projects/iPavlov/DeepPavlov/download/pmef/en_hottabych.db')
+                    default='/media/olga/Data/projects/iPavlov/DeepPavlov/download/pmef/git_custom.db')
 parser.add_argument("-output_path", help="path to output json", type=str,
-                    default='/media/olga/Data/projects/iPavlov/DeepPavlov/download/pmef/ensemble_hottabych.json')
+                    default='/media/olga/Data/projects/iPavlov/DeepPavlov/download/pmef/ensemble_custom_git.json')
 
 
 def encode_utf8(s: str):
@@ -118,7 +119,6 @@ def main():
                             a,
                             context_score_pairs))
 
-        import json
         with open(output_path, 'w') as fout:
             json.dump(mapping, fout)
 
