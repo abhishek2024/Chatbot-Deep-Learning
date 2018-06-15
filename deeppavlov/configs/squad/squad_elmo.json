@@ -98,7 +98,7 @@
         "out": ["ans_predicted", "ans_start_predicted", "ans_end_predicted"]
       }
     ],
-    "out": ["ans_predicted", "ans_start_predicted", "prob"]
+    "out": ["ans_predicted", "ans_start_predicted"]
   },
   "train": {
     "show_examples": false,
@@ -117,7 +117,7 @@
       "server_utils": "SquadModel"
     },
     "download": [
-      "http://TODO",
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_model_elmo.tar.gz",
       {
         "url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M.vec",
         "subdir": "embeddings"
