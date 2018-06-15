@@ -15,11 +15,11 @@ limitations under the License.
 """
 
 import datetime
-import importlib
 import json
 import time
 from collections import OrderedDict
 from typing import List, Callable, Tuple, Dict, Union
+import importlib
 
 from deeppavlov.core.commands.utils import expand_path, set_deeppavlov_root
 from deeppavlov.core.commands.infer import build_model_from_config
@@ -105,15 +105,15 @@ def train_model_from_config(config_path: str) -> None:
     reader_config = config.get('dataset_reader', None)
 
     if reader_config:
-        reader_config = config['dataset_reader']
         if 'class' in reader_config:
             c = reader_config.pop('class')
             try:
                 module_name, cls_name = c.split(':')
                 reader = getattr(importlib.import_module(module_name), cls_name)()
             except ValueError:
-                e = ConfigError('Expected class description in a `module.submodules:ClassName` form, but got `{}`'
-                                .format(c))
+                e = ConfigError(
+                    'Expected class description in a `module.submodules:ClassName` form, but got `{}`'
+                    .format(c))
                 log.exception(e)
                 raise e
         else:

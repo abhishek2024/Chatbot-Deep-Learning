@@ -29,6 +29,7 @@ import deeppavlov.dataset_readers.conll2003_reader
 import deeppavlov.dataset_readers.typos_reader
 import deeppavlov.dataset_readers.basic_classification_reader
 import deeppavlov.dataset_readers.squad_dataset_reader
+import deeppavlov.dataset_readers.odqa_reader
 import deeppavlov.dataset_iterators.dialog_iterator
 import deeppavlov.dataset_iterators.kvret_dialog_iterator
 import deeppavlov.dataset_iterators.dstc2_ner_iterator
@@ -38,6 +39,9 @@ import deeppavlov.dataset_iterators.basic_classification_iterator
 import deeppavlov.dataset_iterators.squad_iterator
 import deeppavlov.dataset_iterators.sqlite_iterator
 import deeppavlov.models.classifiers.intents.intent_model
+import deeppavlov.models.supplementary.sentence_splitter
+import deeppavlov.models.supplementary.query_paragraph_tuplifier
+import deeppavlov.models.supplementary.rank_doc_score_tuplifier
 import deeppavlov.models.commutators.random_commutator
 import deeppavlov.models.embedders.fasttext_embedder
 import deeppavlov.models.embedders.dict_embedder
@@ -49,6 +53,7 @@ import deeppavlov.models.trackers.hcn_at
 import deeppavlov.models.trackers.hcn_et
 import deeppavlov.models.preprocessors.str_lower
 import deeppavlov.models.preprocessors.squad_preprocessor
+import deeppavlov.models.preprocessors.dirty_comments_preprocessor
 import deeppavlov.models.tokenizers.spacy_tokenizer
 import deeppavlov.models.tokenizers.split_tokenizer
 import deeppavlov.models.tokenizers.ru_tokenizer
@@ -59,7 +64,9 @@ import deeppavlov.skills.go_bot.tracker
 import deeppavlov.skills.seq2seq_go_bot.bot
 import deeppavlov.skills.seq2seq_go_bot.network
 import deeppavlov.skills.seq2seq_go_bot.kb
-import deeppavlov.skills.odqa.ranker
+import deeppavlov.skills.odqa.tfidf_ranker
+import deeppavlov.skills.odqa.tfhub_sentence_ranker
+import deeppavlov.skills.odqa.tfhub_paragraph_ranker
 import deeppavlov.vocabs.typos
 import deeppavlov.vocabs.wiki_sqlite
 import deeppavlov.dataset_readers.insurance_reader

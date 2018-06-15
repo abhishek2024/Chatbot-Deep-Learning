@@ -13,29 +13,32 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+import json
 
-from deeppavlov.core.commands.train import train_model_from_config
+from deeppavlov.core.commands.train import train_model_from_config, build_model_from_config
 from deeppavlov.core.commands.infer import interact_model
+from deeppavlov.core.commands.utils import expand_path
+from deeppavlov.core.common.file import read_json
+
+# config_path = 'configs/odqa/en_ranker_news.json'
+# config_path = 'configs/odqa/en_ranker_drones.json'
+# config_path = 'configs/odqa/en_ranker_sber.json'
+# config_path = 'configs/odqa/en_ranker_wiki.json'
+# config_path = 'configs/odqa/ru_ranker_corp.json'
+# config_path = 'configs/odqa/ru_ranker_drones.json'
+# config_path = 'configs/odqa/ru_ranker_wiki.json'
+config_path = '/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ranker_tfidf_drones.json'
+
+print("Interacting {}".format(config_path))
+# interact_model(config_path)
+
+model = build_model_from_config(read_json(config_path))
+data = ["Where can I buy some drones?", "What is the maximum speed of drones?", "Who am I?"]
+result = model(data)
+print('Done!')
 
 
-PIPELINE_CONFIG_PATH = 'configs/intents/intents_dstc2.json'
-# PIPELINE_CONFIG_PATH = 'configs/intents/intents_snips.json'
-# PIPELINE_CONFIG_PATH = 'configs/ner/ner_dstc2.json'
-# PIPELINE_CONFIG_PATH = 'configs/ner/ner_dstc2.json'
-# PIPELINE_CONFIG_PATH = 'configs/ner/slotfill_dstc2.json'
-# PIPELINE_CONFIG_PATH = 'configs/error_model/brillmoore_wikitypos_en.json'
-# PIPELINE_CONFIG_PATH = 'configs/error_model/brillmoore_kartaslov_ru.json'
-# PIPELINE_CONFIG_PATH = 'configs/go_bot/config.json'
-# PIPELINE_CONFIG_PATH = 'configs/go_bot/config_minimal.json'
-# PIPELINE_CONFIG_PATH = 'configs/go_bot/config_all.json'
-# PIPELINE_CONFIG_PATH = 'configs/squad/squad.json'
-# PIPELINE_CONFIG_PATH = 'configs/ranking/insurance_config.json'
-# PIPELINE_CONFIG_PATH = 'configs/seq2seq_go_bot/bot_kvret.json'
-# PIPELINE_CONFIG_PATH = 'configs/odqa/en_ranker_prod.json'
-# PIPELINE_CONFIG_PATH = 'configs/odqa/ru_ranker_prod.json'
-# PIPELINE_CONFIG_PATH = 'configs/odqa/en_odqa_infer_prod.json'
-# PIPELINE_CONFIG_PATH = 'configs/odqa/ru_odqa_infer_prod.json'
-# PIPELINE_CONFIG_PATH = 'configs/odqa/ranker_test.json'
 
-train_model_from_config(PIPELINE_CONFIG_PATH)
-interact_model(PIPELINE_CONFIG_PATH)
+
+
+

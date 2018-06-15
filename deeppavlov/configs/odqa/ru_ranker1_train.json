@@ -1,0 +1,81 @@
+{
+  "dataset_reader": {
+    "class": "deeppavlov.dataset_readers.odqa_reader:ODQADataReader",
+    "data_path": "/path/to/data/folder",
+    "save_path": "/path/to/output/example.db",
+    "dataset_format": "txt"
+  },
+  "dataset_iterator": {
+    "name": "sqlite_iterator",
+    "data_dir": "pmef",
+    "shuffle": false,
+    "load_path": "/path/to/output/example.db"
+  },
+  "chainer": {
+    "in": [
+      "question_raw"
+    ],
+    "out": [
+      "context_raw"
+    ],
+    "pipe": [
+      {
+        "name": "tfidf_ranker",
+        "top_n": 10,
+        "active": false,
+        "in": [
+          "question_raw"
+        ],
+        "out": [
+          "doc_ids",
+          "doc_scores"
+        ],
+        "fit_on_batch": [
+          "questions_raw"
+        ],
+        "vectorizer": {
+          "name": "hashing_tfidf_vectorizer",
+          "fit_on_batch": [
+            "questions_raw"
+          ],
+          "save_path": "pmef/ru_new_tfidf.npz",
+          "load_path": "pmef/ru_new_tfidf.npz",
+          "tokenizer": {
+            "name": "ru_tokenizer",
+            "lemmas": true,
+            "ngram_range": [
+              1,
+              2
+            ]
+          }
+        }
+      },
+      {
+        "name": "wiki_sqlite_vocab",
+        "in": [
+          "doc_ids"
+        ],
+        "out": [
+          "context_raw"
+        ],
+        "data_dir": "pmef",
+        "shuffle": false,
+        "join_docs": true,
+        "load_path": "/path/to/output/example.db"
+      }
+    ]
+  },
+  "train": {
+    "validate_best": false,
+    "test_best": false,
+    "batch_size": 10000
+  },
+  "metadata": {
+    "download": [
+      {
+        "url": "https://tfhub.dev/google/universal-sentence-encoder/1?tf-hub-format=compressed",
+        "subdir": "tfhub"
+      }
+    ]
+  }
+}

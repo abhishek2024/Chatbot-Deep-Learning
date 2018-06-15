@@ -1,0 +1,76 @@
+{
+  "dataset_iterator": {
+    "name": "sqlite_iterator",
+    "data_dir": "pmef",
+    "shuffle": false,
+    "load_path": "http://lnsigo.mipt.ru/export/datasets/pmef/ru_corp.db"
+  },
+  "chainer": {
+    "in": [
+      "question_raw"
+    ],
+    "out": [
+      "context_raw"
+    ],
+    "pipe": [
+      {
+        "name": "tfidf_ranker",
+        "top_n": 20,
+        "active": true,
+        "in": [
+          "question_raw"
+        ],
+        "out": [
+          "doc_ids",
+          "doc_scores"
+        ],
+        "fit_on_batch": [
+          "questions_raw"
+        ],
+        "vectorizer": {
+          "name": "hashing_tfidf_vectorizer",
+          "fit_on_batch": [
+            "questions_raw"
+          ],
+          "save_path": "pmef/ru_corp_tfidf.npz",
+          "load_path": "pmef/ru_corp_tfidf.npz",
+          "tokenizer": {
+            "name": "ru_tokenizer",
+            "lemmas": true,
+            "ngram_range": [
+              1,
+              2
+            ]
+          }
+        }
+      },
+      {
+        "name": "wiki_sqlite_vocab",
+        "in": [
+          "doc_ids"
+        ],
+        "out": [
+          "context_raw"
+        ],
+        "data_dir": "pmef",
+        "shuffle": false,
+        "join_docs": true,
+        "load_path": "http://lnsigo.mipt.ru/export/datasets/pmef/ru_corp.db"
+      }
+    ]
+  },
+  "train": {
+    "validate_best": false,
+    "test_best": false,
+    "batch_size": 10000
+  },
+  "metadata": {
+    "download": [
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/pmef.tar.gz",
+      {
+        "url": "http://lnsigo.mipt.ru/export/datasets/pmef/ru_corp.db",
+        "subdir": "pmef"
+      }
+    ]
+  }
+}

@@ -15,7 +15,7 @@
       {
         "name": "squad_preprocessor",
         "id": "squad_prepr",
-        "context_limit": 4000,
+        "context_limit": 400,
         "question_limit": 150,
         "char_limit": 16,
         "in": ["context_raw", "question_raw"],
@@ -81,7 +81,14 @@
         "load_path": "squad_model/model",
         "in": ["context_tokens_idxs", "context_chars_idxs", "question_tokens_idxs", "question_chars_idxs"],
         "in_y": ["ans_start", "ans_end"],
-        "out": ["ans_start_predicted", "ans_end_predicted", "prob"]
+        "out": ["ans_start_predicted", "ans_end_predicted", "prob", "prob_unnorm", "yp1_prob", "yp2_prob", "yp1_softmax", "yp2_softmax"]
+      },
+      {
+        "name": "squad_lgbm_scorer",
+        "save_path": "squad_scorer_en/lgbm_model.txt",
+        "load_path": "squad_scorer_en/lgbm_model.txt",
+        "in": ["prob", "prob_unnorm", "yp1_prob", "yp2_prob", "yp1_softmax", "yp2_softmax"],
+        "out": ["lgbm_score"]
       },
       {
         "name": "squad_ans_postprocessor",
@@ -90,7 +97,7 @@
         "out": ["ans_predicted", "ans_start_predicted", "ans_end_predicted"]
       }
     ],
-    "out": ["ans_predicted", "ans_start_predicted", "prob"]
+    "out": ["ans_predicted", "ans_start_predicted", "lgbm_score"]
   },
   "train": {
     "show_examples": false,
@@ -105,19 +112,11 @@
   },
   "metadata": {
     "labels": {
-      "telegram_utils": "SquadModel",
-      "server_utils": "SquadModel"
+      "telegram_utils": "SquadModel"
     },
     "download": [
       "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_model_1.1.tar.gz",
-      {
-        "url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M.vec",
-        "subdir": "embeddings"
-      },
-      {
-        "url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M-char.vec",
-        "subdir": "embeddings"
-      }
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_scorer_en.tar.gz"
       ]
   }
 }
