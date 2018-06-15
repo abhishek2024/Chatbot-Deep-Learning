@@ -21,6 +21,7 @@ import numpy as np
 from scipy.sparse import csr_matrix
 import json
 from pathlib import Path
+from nltk import sent_tokenize
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.log import get_logger
@@ -34,16 +35,18 @@ logger = get_logger(__name__)
 @register("squad_paragraph_ranker")
 class SquadParagraphRanker(Component):
 
-    def __init__(self, ranker_config=None, top_n=10, **kwargs):
+    def __init__(self, ranker_config=None, top_n=10, type='paragraph', **kwargs):
         """
 
         Args:
             ranker: squad ranker model
             top_n: number of documents to return
+            mode: paragraph or sentences
         """
         self.ranker_config = expand_path(Path(ranker_config))
         self.ranker = build_model_from_config(json.load(self.ranker_config.open()))
         self.top_n = top_n
+        self.type = type
 
     def __call__(self, query_context_id: List[Tuple[str, List[str], List[Any]]]):
 
@@ -55,7 +58,18 @@ class SquadParagraphRanker(Component):
 
             scores = []
             for context in contexts:
-                _, _, score, _ = self.ranker([(context, query)])[0]
+                if self.type == 'paragraph':
+                    _, _, score, _ = self.ranker([(context, query)])[0]
+                elif self.type == 'sentences':
+                    sentences = sent_tokenize(context)
+                    score = []
+                    for sent in sentences:
+                        _, _, s, _ = self.ranker([(sent, query)])[0]
+                        score.append(s)
+                    score = np.mean(score)
+                else:
+                    raise RuntimeError('Unsupported type: {}'.format(self.mode))
+
                 scores.append(score)
 
             texts = contexts
