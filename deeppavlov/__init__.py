@@ -30,6 +30,8 @@ import deeppavlov.dataset_readers.conll2003_reader
 import deeppavlov.dataset_readers.typos_reader
 import deeppavlov.dataset_readers.basic_classification_reader
 import deeppavlov.dataset_readers.squad_dataset_reader
+import deeppavlov.dataset_readers.ne_ner_reader
+
 import deeppavlov.dataset_iterators.dialog_iterator
 import deeppavlov.dataset_iterators.kvret_dialog_iterator
 import deeppavlov.dataset_iterators.dstc2_ner_iterator
@@ -52,6 +54,7 @@ import deeppavlov.models.trackers.hcn_at
 import deeppavlov.models.trackers.hcn_et
 import deeppavlov.models.preprocessors.str_lower
 import deeppavlov.models.preprocessors.squad_preprocessor
+import deeppavlov.models.preprocessors.capitalization
 import deeppavlov.models.preprocessors.dirty_comments_preprocessor
 import deeppavlov.models.tokenizers.nltk_tokenizer
 import deeppavlov.models.tokenizers.nltk_moses_tokenizer
@@ -85,7 +88,6 @@ import deeppavlov.models.slotfill.slotfill_raw
 import deeppavlov.models.slotfill.slotfill
 import deeppavlov.models.preprocessors.one_hotter
 import deeppavlov.dataset_readers.ontonotes_reader
-
 
 
 import deeppavlov.metrics.accuracy
