@@ -239,11 +239,9 @@ class NerNetwork(TFModel):
         pred = []
         for utt, l in zip(pred_idxs, sequence_lengths):
             pred.append(utt[:l])
-        if self._provide_probs:
-            probs = self.sess.run(self._probs, feed_dict)
-            return pred, probs
-        else:
-            return pred
+        probs = self.sess.run(self._probs, feed_dict)
+        return pred, probs
+
 
     def predict_crf(self, xs):
         feed_dict = self._fill_feed_dict(xs)
@@ -258,11 +256,8 @@ class NerNetwork(TFModel):
             logit = logit[:int(sequence_length)]  # keep only the valid steps
             viterbi_seq, viterbi_score = tf.contrib.crf.viterbi_decode(logit, trans_params)
             y_pred += [viterbi_seq]
-        if self._provide_probs:
-            probs = self.sess.run(self._probs, feed_dict)
-            return y_pred, probs
-        else:
-            return y_pred
+        probs = self.sess.run(self._probs, feed_dict)
+        return y_pred, probs
 
     def _fill_feed_dict(self, xs, y=None, learning_rate=None, train=False):
         assert len(xs) == len(self._xs_ph_list)
@@ -281,11 +276,11 @@ class NerNetwork(TFModel):
     def __call__(self, *args, **kwargs):
         if len(args[0]) == 0 or (len(args[0]) == 1 and len(args[0][0]) == 0):
             return []
+        tags, probs = self.predict(args)
         if self._provide_probs:
-            tags, probs = self.predict(args)
             return tags, probs
         else:
-            return self.predict(args)
+            return tags
 
     def train_on_batch(self, *args):
         *xs, y = args
