@@ -18,12 +18,11 @@ class TFHUBSentenceRanker(Component):
         :param active: when is not active, return all sentences
         """
         self.embed = hub.Module("https://tfhub.dev/google/universal-sentence-encoder/1")
-        self.session = tf.Session(config=tf.ConfigProto(allow_soft_placement=True,
-                                                        log_device_placement=True,
-                                                        gpu_options=tf.GPUOptions(
-                                                            per_process_gpu_memory_fraction=0.1,
-                                                            allow_growth=False
-                                                        )))
+        self.session = tf.Session(config=tf.ConfigProto(
+            gpu_options=tf.GPUOptions(
+                per_process_gpu_memory_fraction=0.2,
+                allow_growth=False
+            )))
         self.session.run([tf.global_variables_initializer(), tf.tables_initializer()])
         self.q_ph = tf.placeholder(shape=(None,), dtype=tf.string)
         self.c_ph = tf.placeholder(shape=(None,), dtype=tf.string)
