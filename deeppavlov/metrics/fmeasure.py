@@ -6,6 +6,7 @@ from itertools import chain
 @register_metric('ner_f1')
 def ner_f1(y_true, y_predicted):
     y_true = list(chain(*y_true))
+    y_predicted = [y[1] for y in y_predicted]
     y_predicted = list(chain(*y_predicted))
     results = precision_recall_f1(y_true,
                                   y_predicted,
