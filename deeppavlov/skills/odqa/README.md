@@ -137,10 +137,16 @@ and is built by the following steps:
 If you train for English language, copy `deeppavlov/configs/odqa/ru_ranker1.json` config.
 2. Insert in `dataset_reader:data_path` section path to a folder with your data (should be a folder
 with .txt files).
+
+   **Important:** Your data should be in **utf-8** encoding, otherwise an error will raise.
+   **Important:** It is safer to pass **full paths** in JSON config.
+
 3. Insert in `dataset_reader:save_path`, `dataset_iterator:load_path`, `wiki_sqlite_vocab:load_path`
 path to a future SQLite database file (the file will be created automatically).
+
 4. Insert in `tfidf_vectorizer.save_path` and `tfidf_vectorizer.load_path` path to a future tfidf matrix
 (will be created automatically).
+
 5. Run
 ```bash
 python deeppavlov/deep.py train path/to/your/config/name.json
