@@ -50,6 +50,10 @@ class RussianTokenizer(Component):
         :param replace: a dict with String types to replace and corresponding replacers.
         Ex.: {'isnumeric': 'NUM', 'isalpha': 'WORD'}
         """
+
+        if replace is None:
+            replace = {}
+
         if ngram_range is None:
             ngram_range = [1, 1]
 
@@ -172,8 +176,8 @@ class RussianTokenizer(Component):
         :return: processed tokens/lemmas
         """
         _ngram_range = self.ngram_range or ngram_range
-        replaced = replace(items, self.replace)
-        filtered = self._filter(replaced)
+        # replaced = replace(items, self.replace)
+        filtered = self._filter(items)
         processed_doc = ngramize(filtered, ngram_range=_ngram_range)
         return processed_doc
 
