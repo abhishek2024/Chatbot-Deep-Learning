@@ -55,8 +55,8 @@ class SQLiteDataIterator(DataFittingIterator):
             elif expand_path(load_path).is_file():
                 download_path = expand_path(load_path)
             else:
+                download_path = expand_path(load_path)
                 logger.warn("{} load_path yet doesn't exist".format(self.__class__.__name__))
-                raise ValueError('String path expected, got None.')
         else:
             raise ValueError('String path expected, got None.')
 
