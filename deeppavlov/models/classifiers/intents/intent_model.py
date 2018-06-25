@@ -78,8 +78,6 @@ class KerasIntentModel(KerasModel):
         if model is being initialized from saved
 
         Args:
-            vocabs: dictionary of considered vocabularies
-            opt: model parameters for network and learning
             model_path: path to model serialization dir or file.
                             It is always an empty string and is ignored if it is not set in json config.
             model_dir: name of a serialization dir, can be default or set in json config
@@ -89,21 +87,13 @@ class KerasIntentModel(KerasModel):
             tokenizer: instance of NLTKTokenizer class
             **kwargs:
         """
-        super().__init__(**kwargs) # self.opt initialized in here
+        super().__init__(**kwargs)  # self.opt initialized in here
 
-        self.tokenizer = self.opt.get('tokenizer')
-        self.fasttext_model = self.opt.get('embedder')
-        self.opt.pop("vocabs")
-        self.opt.pop("embedder")
-        self.opt.pop("tokenizer")
+        self.tokenizer = self.opt.pop('tokenizer')
+        self.fasttext_model = self.opt.pop('embedder')
 
-        if self.opt.get('classes'):
-            self.classes = list(np.sort(np.array(list(self.opt.get('classes')))))
-            self.opt['classes'] = self.classes
-        else:
-            # self.classes = list(np.sort(np.array(list(self.opt.get('vocabs')["classes_vocab"].keys()))))
-            self.classes = list(self.opt.get('vocabs')["classes_vocab"].keys())
-            self.opt['classes'] = self.classes
+        self.classes = list(np.sort(np.array(list(self.opt.get('classes')))))
+        self.opt['classes'] = self.classes
         self.n_classes = len(self.classes)
         if self.n_classes == 0:
             ConfigError("Please, provide vocabulary with considered intents.")
@@ -136,11 +126,24 @@ class KerasIntentModel(KerasModel):
                     "Given fasttext model does NOT match fasttext model used previously to train loaded model")
 
     def _init_missed_params(self):
+        """
+        Initialize not given changable parameters with default values
+        Returns:
+            None
+        """
         for param in list(self.CHANGABLE_PARAMS.keys()):
             self.opt[param] = self.opt.get(param, self.CHANGABLE_PARAMS[param])
         return
 
     def _change_not_fixed_params(self, **kwargs):
+        """
+        Change changable parameters from saved model to given ones.
+        Args:
+            **kwargs: dictionary of new parameters
+
+        Returns:
+            None
+        """
         for param in self.opt.keys():
             if param not in self.FIXED_PARAMS:
                 self.opt[param] = kwargs.get(param)
@@ -171,7 +174,7 @@ class KerasIntentModel(KerasModel):
             labels - list of labels
 
         Returns:
-            loss and metrics values on the given batch
+            metrics values on the given batch
         """
         if isinstance(texts[0], str):
             texts = self.tokenizer(list(texts))
@@ -188,7 +191,7 @@ class KerasIntentModel(KerasModel):
             labels - list of labels
 
         Returns:
-            loss and metrics values on the given batch, if labels are given
+            metrics values on the given batch, if labels are given
             predictions, otherwise
         """
         if isinstance(texts[0], str):

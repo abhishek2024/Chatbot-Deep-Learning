@@ -22,8 +22,6 @@ from pathlib import Path
 import numpy as np
 from nltk import word_tokenize
 from tqdm import tqdm
-import lightgbm as lgbm
-import pandas as pd
 
 from deeppavlov.core.commands.utils import expand_path
 from deeppavlov.core.common.log import get_logger
@@ -152,7 +150,7 @@ class SquadAnsPreprocessor(Component):
                     y1, y2 = answer_span[0], answer_span[-1]
                 else:
                     # answer not found in context
-                    y1, y2 = -1, -1
+                    y1, y2 = 0, 0
                 start[-1].append(y1)
                 end[-1].append(y2)
                 answers[-1].append(ans)
@@ -307,36 +305,3 @@ class SquadAnsPostprocessor(Component):
                 end.append(p2r[span[a_end][1]])
                 answers.append(c[start[-1]:end[-1]])
         return answers, start, end
-
-
-@register('squad_lgbm_scorer')
-class SquadLGBMScorer(Estimator):
-    def __init__(self, save_path, load_path, *args, **kwargs):
-        self.save_path = expand_path(save_path)
-        self.load_path = expand_path(load_path)
-        self.model = None
-
-        if self.load_path.exists():
-            self.load()
-        else:
-            raise RuntimeError('SquadLGBMScorer: there is no pretrained model')
-
-    def fit(self, *args, **kwargs):
-        pass
-
-    def __call__(self, prob, score):
-        df = pd.DataFrame()
-        data = list(zip(prob, score))
-        df['prob'] = [p for p, s in data]
-        df['score'] = [s for p, s in data]
-        df['log prob'] = [np.log(p) for p, s in data]
-        df['log score'] = [np.log(s) for p, s in data]
-        scores = self.model.predict(df)
-        return scores
-
-    def load(self, *args, **kwargs):
-        logger.info('SquadLGBMScorer: loading saved model vocab from {}'.format(self.load_path))
-        self.model = lgbm.Booster(model_file=str(self.load_path))
-
-    def save(self, *args, **kwargs):
-        pass

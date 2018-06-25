@@ -61,8 +61,8 @@
         ],
         "main": true,
         "name": "intent_model",
-        "save_path": "sentiment/sentiment_twitter_v0",
-        "load_path": "sentiment/sentiment_twitter_v0",
+        "save_path": "sentiment/sentiment_twitter_v1",
+        "load_path": "sentiment/sentiment_twitter_v1",
         "classes": "#classes_vocab.keys()",
         "kernel_sizes_cnn": [
           1,
