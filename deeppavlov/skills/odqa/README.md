@@ -133,8 +133,8 @@ and is built by the following steps:
  class.
 
 ## Training your own tfidf model.
-1. If you train for Russian language, copy `deeppavlov/configs/odqa/ru_ranker1.json` config.
-If you train for English language, copy `deeppavlov/configs/odqa/ru_ranker1.json` config.
+1. If you train for Russian language, copy `deeppavlov/configs/odqa/ru_ranker1_train.json` config.
+If you train for English language, copy `deeppavlov/configs/odqa/ru_ranker1_train.json` config.
 2. Insert in `dataset_reader:data_path` section path to a folder with your data (should be a folder
 with .txt files).
 
