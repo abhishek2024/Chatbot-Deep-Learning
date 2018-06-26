@@ -16,7 +16,7 @@
     "pipe": [
       {
         "name": "api_requester",
-        "url": "http://0.0.0.0:5000/tfidf",
+        "url": "http://0.0.0.0:5000/model",
         "in": "question_raw",
         "param_names": [
           "context"
@@ -27,7 +27,7 @@
       },
       {
         "name": "api_requester",
-        "url": "http://0.0.0.0:5001/tfhub",
+        "url": "http://0.0.0.0:5001/model",
         "in": "question_raw",
         "debatchify": true,
         "param_names": [
@@ -35,6 +35,18 @@
         ],
         "out": [
           "rank_text_score_id_tfhub"
+        ]
+      },
+      {
+        "name": "api_requester",
+        "url": "http://0.0.0.0:5002/model",
+        "in": "question_raw",
+        "debatchify": true,
+        "param_names": [
+          "context"
+        ],
+        "out": [
+          "rank_text_score_id_rnet"
         ]
       }
     ]
