@@ -63,12 +63,13 @@ class TFHUBParagraphRanker(Component):
             text_score_id = sorted(text_score_id, key=itemgetter(1), reverse=True)
             if self.active:
                 text_score_id = text_score_id[:self.top_n]
-                batch_docs = [text for text, score, doc_id in text_score_id]
-                batch_scores = [score for text, score, doc_id in text_score_id]
-                batch_ids = [doc_id for text, score, doc_id in text_score_id]
-                all_docs.append(batch_docs)
-                all_scores.append(batch_scores)
-                all_ids.append(batch_ids)
+
+            batch_docs = [text for text, score, doc_id in text_score_id]
+            batch_scores = [score for text, score, doc_id in text_score_id]
+            batch_ids = [doc_id for text, score, doc_id in text_score_id]
+            all_docs.append(batch_docs)
+            all_scores.append(batch_scores)
+            all_ids.append(batch_ids)
 
         return all_docs, all_scores, all_ids
 
