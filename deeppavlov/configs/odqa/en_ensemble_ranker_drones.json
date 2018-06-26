@@ -19,7 +19,7 @@
         "url": "http://0.0.0.0:5000/tfidf",
         "in": "question_raw",
         "param_names": [
-          "text1"
+          "context"
         ],
         "out": [
           "rank_text_score_id_tfidf"
@@ -31,7 +31,7 @@
         "in": "question_raw",
         "debatchify": true,
         "param_names": [
-          "text1"
+          "context"
         ],
         "out": [
           "rank_text_score_id_tfhub"
