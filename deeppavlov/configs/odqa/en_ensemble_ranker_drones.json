@@ -1,0 +1,56 @@
+{
+  "dataset_iterator": {
+    "name": "sqlite_iterator",
+    "data_dir": "pmef",
+    "shuffle": false,
+    "load_path": "http://lnsigo.mipt.ru/export/datasets/pmef/en_drones.db"
+  },
+  "chainer": {
+    "in": [
+      "question_raw"
+    ],
+    "out": [
+      "rank_text_score_id_tfidf",
+      "rank_text_score_id_tfhub"
+    ],
+    "pipe": [
+      {
+        "name": "api_requester",
+        "url": "http://0.0.0.0:5000/tfidf",
+        "in": "question_raw",
+        "param_names": [
+          "text1"
+        ],
+        "out": [
+          "rank_text_score_id_tfidf"
+        ]
+      },
+      {
+        "name": "api_requester",
+        "url": "http://0.0.0.0:5001/tfhub",
+        "in": "question_raw",
+        "debatchify": true,
+        "param_names": [
+          "text1"
+        ],
+        "out": [
+          "rank_text_score_id_tfhub"
+        ]
+      }
+    ]
+  },
+  "train": {
+    "validate_best": false,
+    "test_best": false,
+    "batch_size": 10000
+  },
+  "metadata": {
+    "download": [
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/pmef.tar.gz",
+      {
+        "url": "http://lnsigo.mipt.ru/export/datasets/pmef/en_drones.db",
+        "subdir": "pmef"
+      }
+    ]
+  }
+}
