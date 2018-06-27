@@ -78,6 +78,7 @@ import deeppavlov.skills.seq2seq_go_bot.kb
 import deeppavlov.skills.odqa.tfidf_ranker
 import deeppavlov.skills.odqa.tfhub_sentence_ranker
 import deeppavlov.skills.odqa.tfhub_paragraph_ranker
+import deeppavlov.skills.odqa.ensemble_ranker
 import deeppavlov.vocabs.typos
 import deeppavlov.vocabs.wiki_sqlite
 import deeppavlov.dataset_readers.insurance_reader
@@ -96,7 +97,6 @@ import deeppavlov.models.slotfill.slotfill_raw
 import deeppavlov.models.slotfill.slotfill
 import deeppavlov.models.preprocessors.one_hotter
 import deeppavlov.dataset_readers.ontonotes_reader
-
 
 import deeppavlov.metrics.accuracy
 import deeppavlov.metrics.fmeasure
