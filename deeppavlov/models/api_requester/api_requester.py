@@ -17,6 +17,8 @@ class ApiRequester(Component):
     def __call__(self, *args, **kwargs):
         data = kwargs or dict(zip(self.param_names, args))
 
+        batch_size = 1
+
         if self.debatchify:
             for v in data.values():
                 batch_size = len(v)
@@ -50,3 +52,4 @@ class ApiRequester(Component):
         ]
         for r in await asyncio.gather(*futures):
             yield r.json()
+
