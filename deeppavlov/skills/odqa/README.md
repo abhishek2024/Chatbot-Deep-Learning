@@ -132,6 +132,23 @@ and is built by the following steps:
  `2**24 x 1463888`. This matrix is built with `deeppavlov/models/vectorizers/hashing_tfidf_vectorizer.HashingTfidfVectorizer`
  class.
 
+## Training your own tfidf model.
+1. If you train for Russian language, copy `deeppavlov/configs/odqa/ru_ranker1.json` config.
+If you train for English language, copy `deeppavlov/configs/odqa/ru_ranker1.json` config.
+2. Insert in `dataset_reader:data_path` section path to a folder with your data (should be a folder
+with .txt files).
+3. Insert in `dataset_reader:save_path`, `dataset_iterator:load_path`, `wiki_sqlite_vocab:load_path`
+path to a future SQLite database file (the file will be created automatically).
+4. Insert in `tfidf_vectorizer.save_path` and `tfidf_vectorizer.load_path` path to a future tfidf matrix
+(will be created automatically).
+5. Run
+```bash
+python deeppavlov/deep.py train path/to/your/config/name.json
+```
+6. The same config can be used for inference. Regulate `top_n` parameter to return a specified number
+of documents.
+
+
 
 ## References
 

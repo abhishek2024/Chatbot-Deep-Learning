@@ -115,3 +115,7 @@ download/
 
 # project data
 /data/
+
+# logs
+.log
+eval_logs/

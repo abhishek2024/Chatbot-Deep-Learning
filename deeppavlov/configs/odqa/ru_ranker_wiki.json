@@ -3,33 +3,34 @@
     "name": "sqlite_iterator",
     "data_dir": "odqa",
     "shuffle": false,
-    "data_url": "http://lnsigo.mipt.ru/export/datasets/wikipedia/ruwiki.db"
+    "load_path": "http://lnsigo.mipt.ru/export/datasets/wikipedia/ruwiki.db"
   },
   "chainer": {
     "in": [
-      "x"
+      "question_raw"
     ],
     "out": [
-      "y"
+      "context_raw"
     ],
     "pipe": [
       {
         "name": "tfidf_ranker",
         "top_n": 5,
+        "active": true,
         "in": [
-          "x"
+          "question_raw"
         ],
         "out": [
-          "y",
-          "score"
+          "doc_ids",
+          "doc_scores"
         ],
         "fit_on_batch": [
-          "x"
+          "questions_raw"
         ],
         "vectorizer": {
           "name": "hashing_tfidf_vectorizer",
           "fit_on_batch": [
-            "x"
+            "questions_raw"
           ],
           "save_path": "odqa/ruwiki_tfidf_matrix.npz",
           "load_path": "odqa/ruwiki_tfidf_matrix.npz",
@@ -42,6 +43,19 @@
             ]
           }
         }
+      },
+      {
+        "name": "wiki_sqlite_vocab",
+        "in": [
+          "doc_ids"
+        ],
+        "out": [
+          "context_raw"
+        ],
+        "data_dir": "odqa",
+        "shuffle": false,
+        "join_docs": false,
+        "load_path": "http://lnsigo.mipt.ru/export/datasets/wikipedia/ruwiki.db"
       }
     ]
   },
@@ -51,11 +65,12 @@
     "batch_size": 10000
   },
   "metadata": {
-    "labels": {
-      "server_utils": "Ranker"
-    },
     "download": [
-      "http://lnsigo.mipt.ru/export/deeppavlov_data/ru_odqa.tar.gz"
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/ru_odqa.tar.gz",
+      {
+        "url": "http://lnsigo.mipt.ru/export/datasets/pmef/ruwiki.db",
+        "subdir": "odqa"
+      }
     ]
   }
 }

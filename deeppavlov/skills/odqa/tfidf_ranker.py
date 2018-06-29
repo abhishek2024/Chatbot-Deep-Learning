@@ -14,6 +14,7 @@ limitations under the License.
 from typing import List
 
 import numpy as np
+from scipy.sparse import csr_matrix
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.log import get_logger
@@ -32,7 +33,7 @@ class TfidfRanker(Estimator):
     def get_main_component(self):
         return self
 
-    def __init__(self, vectorizer: HashingTfIdfVectorizer, top_n=5, active: bool = True, **kwargs):
+    def __init__(self, vectorizer: HashingTfIdfVectorizer, top_n=5, active: bool=True, **kwargs):
         """
         :param vectorizer: a tfidf vectorizer class
         :param top_n: top n of document ids to return
@@ -77,6 +78,9 @@ class TfidfRanker(Estimator):
 
         for q_tfidf in q_tfidfs:
             scores = q_tfidf * self.tfidf_matrix
+            scores = np.squeeze(
+                scores.toarray() + 0.0001)  # add a small value to eliminate zero scores
+            scores: csr_matrix = q_tfidf * self.tfidf_matrix
             scores = np.squeeze(
                 scores.toarray() + 0.0001)  # add a small value to eliminate zero scores
 
