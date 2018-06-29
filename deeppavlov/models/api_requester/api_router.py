@@ -21,13 +21,13 @@ class ApiRouter(Component):
                        in
                        self.api_requesters]
 
+            concurrent.futures.wait(futures)
             results = []
-            for future in concurrent.futures.as_completed(futures):
-                results.append(future.result())
+            for future, api_requester in zip(futures, self.api_requesters):
+                result = future.result()
+                if api_requester.out_count > 1:
+                    results += result
+                else:
+                    results.append(result)
 
         return results
-
-
-
-
-
