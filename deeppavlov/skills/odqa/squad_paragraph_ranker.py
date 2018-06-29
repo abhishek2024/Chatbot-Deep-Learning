@@ -66,7 +66,7 @@ class SquadParagraphRanker(Component):
                     for sent in sentences:
                         _, _, s, _ = self.ranker([(sent, query)])[0]
                         score.append(s)
-                    score = np.mean(score)
+                    score = np.max(score)
                 else:
                     raise RuntimeError('Unsupported type: {}'.format(self.mode))
 
