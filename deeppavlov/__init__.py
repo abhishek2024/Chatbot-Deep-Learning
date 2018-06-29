@@ -79,12 +79,12 @@ import deeppavlov.models.morpho_tagger.common
 import deeppavlov.models.api_requester
 
 import deeppavlov.skills.odqa.tfidf_ranker
-import deeppavlov.skills.go_bot.bot
-import deeppavlov.skills.go_bot.network
-import deeppavlov.skills.go_bot.tracker
-import deeppavlov.skills.seq2seq_go_bot.bot
-import deeppavlov.skills.seq2seq_go_bot.network
-import deeppavlov.skills.seq2seq_go_bot.kb
+import deeppavlov.models.go_bot.bot
+import deeppavlov.models.go_bot.network
+import deeppavlov.models.go_bot.tracker
+import deeppavlov.models.seq2seq_go_bot.bot
+import deeppavlov.models.seq2seq_go_bot.network
+import deeppavlov.models.seq2seq_go_bot.kb
 import deeppavlov.skills.odqa.tfidf_ranker
 import deeppavlov.skills.odqa.squad_paragraph_ranker
 import deeppavlov.skills.odqa.tfhub_sentence_ranker
