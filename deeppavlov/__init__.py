@@ -68,17 +68,10 @@ import deeppavlov.models.tokenizers.ru_tokenizer
 import deeppavlov.models.squad.squad
 # import deeppavlov.models.morpho_tagger.tagger
 # import deeppavlov.models.morpho_tagger.common
-import deeppavlov.models.api_requester
-import deeppavlov.models.api_router
-import deeppavlov.skills.go_bot.bot
-import deeppavlov.skills.go_bot.network
-import deeppavlov.skills.go_bot.tracker
-import deeppavlov.skills.seq2seq_go_bot.bot
-import deeppavlov.skills.seq2seq_go_bot.network
-import deeppavlov.skills.seq2seq_go_bot.kb
+import deeppavlov.models.api_requester.api_router
 import deeppavlov.skills.odqa.tfidf_ranker
-import deeppavlov.skills.odqa.tfhub_sentence_ranker
-import deeppavlov.skills.odqa.tfhub_paragraph_ranker
+# import deeppavlov.skills.odqa.tfhub_sentence_ranker
+# import deeppavlov.skills.odqa.tfhub_paragraph_ranker
 import deeppavlov.skills.odqa.ensemble_ranker
 import deeppavlov.vocabs.typos
 import deeppavlov.vocabs.wiki_sqlite
