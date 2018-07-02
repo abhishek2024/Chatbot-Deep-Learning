@@ -60,7 +60,7 @@ class SquadDatasetReader(DatasetReader):
         dataset = {}
         for f in required_files:
             data = json.load((dir_path / f).open('r'))
-            if f == 'dev-v1.1.json':
+            if f in ['dev-v{}.json'.format(v) for v in ['1.1', '2.0']]:
                 dataset['valid'] = data
             else:
                 dataset['train'] = data
