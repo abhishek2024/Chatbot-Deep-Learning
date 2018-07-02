@@ -272,6 +272,8 @@ class SquadModel(TFModel):
             else:
                 self.loss = squad_loss
 
+            self.loss = tf.reduce_mean(self.loss)
+
         if self.weight_decay < 1.0:
             self.var_ema = tf.train.ExponentialMovingAverage(self.weight_decay)
             ema_op = self.var_ema.apply(tf.trainable_variables())
