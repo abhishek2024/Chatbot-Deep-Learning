@@ -39,9 +39,6 @@ def exact_match(y_true, y_predicted):
     EM_total = 0
     count = 0
     for ground_truth, prediction in zip(y_true, y_predicted):
-        if len(ground_truth[0][0]) == 0:
-            # skip empty answers
-            continue
         count += 1
         ground_truth = ground_truth[0]
         prediction = prediction[0]
@@ -65,8 +62,6 @@ def squad_f1(y_true, y_predicted):
     f1_total = 0.0
     count = 0
     for ground_truth, prediction in zip(y_true, y_predicted):
-        if len(ground_truth[0][0]) == 0:
-            continue
         count += 1
         ground_truth = ground_truth[0]
         prediction = prediction[0]
@@ -74,6 +69,9 @@ def squad_f1(y_true, y_predicted):
         f1s = []
         for gt in ground_truth:
             gt_tokens = normalize_answer(gt).split()
+            if len(gt_tokens) == 0 or len(prediction_tokens) == 0:
+                f1s.append(float(gt_tokens == prediction_tokens))
+                continue
             common = Counter(prediction_tokens) & Counter(gt_tokens)
             num_same = sum(common.values())
             if num_same == 0:

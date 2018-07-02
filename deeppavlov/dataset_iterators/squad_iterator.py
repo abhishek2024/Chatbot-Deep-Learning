@@ -49,10 +49,14 @@ class SquadIterator(DataLearningIterator):
                         q = qa['question']
                         ans_text = []
                         ans_start = []
-                        for answer in qa['answers']:
-                            ans_text.append(answer['text'])
-                            ans_start.append(answer['answer_start'])
-                        cqas.append(((context, q), (ans_text, ans_start)))
+                        if len(qa['answers']) == 0:
+                            # squad 2.0 has questions without an answer
+                            cqas.append(((context, q), ([''], [-1])))
+                        else:
+                            for answer in qa['answers']:
+                                ans_text.append(answer['text'])
+                                ans_start.append(answer['answer_start'])
+                            cqas.append(((context, q), (ans_text, ans_start)))
         return cqas
 
 

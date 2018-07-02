@@ -34,18 +34,23 @@ class SquadDatasetReader(DatasetReader):
     """
 
     url_squad = 'http://lnsigo.mipt.ru/export/datasets/squad-v1.1.tar.gz'
+    url_squad_2_0 = 'http://lnsigo.mipt.ru/export/datasets/squad-v2.0.tar.gz'
     url_sber_squad = 'http://lnsigo.mipt.ru/export/datasets/sber_squad-v1.1.tar.gz'
 
     def read(self, dir_path: str, dataset='SQuAD'):
+        required_files = ['{}-v1.1.json'.format(dt) for dt in ['train', 'dev']]
+
         if dataset == 'SQuAD':
             self.url = self.url_squad
+        if dataset == 'SQuAD 2.0':
+            self.url = self.url_squad_2_0
+            required_files = ['{}-v2.0.json'.format(dt) for dt in ['train', 'dev']]
         elif dataset == 'SberSQuAD':
             self.url = self.url_sber_squad
         else:
             raise RuntimeError('Dataset {} is unknown'.format(dataset))
 
         dir_path = Path(dir_path)
-        required_files = ['{}-v1.1.json'.format(dt) for dt in ['train', 'dev']]
         if not dir_path.exists():
             dir_path.mkdir()
 
