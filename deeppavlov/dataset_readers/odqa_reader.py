@@ -69,8 +69,11 @@ def _build_db(save_path, dataset_format, data_path: Union[Path, str], num_worker
 
     with tqdm(total=len(files)) as pbar:
         for data in tqdm(workers.imap_unordered(fn, files)):
-            c.executemany("INSERT INTO documents VALUES (?,?)", data)
-            pbar.update()
+            try:
+                c.executemany("INSERT INTO documents VALUES (?,?)", data)
+                pbar.update()
+            except sqlite3.IntegrityError as e:
+                logger.warn(e)
 
     conn.commit()
     conn.close()
