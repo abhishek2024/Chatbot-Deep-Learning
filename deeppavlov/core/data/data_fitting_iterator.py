@@ -61,11 +61,10 @@ class DataFittingIterator:
                    range(0, len(_doc_ids), batch_size)]
 
         # DEBUG
-        # len_batches = len(batches)
+        len_batches = len(batches)
 
         for i, doc_ids in enumerate(batches):
             # DEBUG
-            # logger.info(
-            #     "Processing batch # {} of {} ({} documents)".format(i, len_batches, len(doc_index)))
+            logger.info("Processing batch # {} of {} ({} documents)".format(i, len_batches, len(self.doc_ids)))
             docs = [self.get_doc_content(doc_id) for doc_id in doc_ids]
             yield docs, doc_ids
