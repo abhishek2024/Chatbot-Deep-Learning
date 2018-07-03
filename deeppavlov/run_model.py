@@ -15,7 +15,7 @@ limitations under the License.
 """
 import json
 
-from deeppavlov.core.commands.train import train_model_from_config, build_model_from_config
+from deeppavlov.core.commands.train import train_evaluate_model_from_config, build_model_from_config
 from deeppavlov.core.commands.infer import interact_model
 from deeppavlov.core.commands.utils import expand_path
 from deeppavlov.core.common.file import read_json
@@ -26,15 +26,15 @@ from deeppavlov.core.common.file import read_json
 # config_path = 'configs/odqa/en_ranker_wiki.json'
 # config_path = 'configs/odqa/ru_ranker_corp.json'
 # config_path = 'configs/odqa/ru_ranker_drones.json'
-# config_path = 'configs/odqa/ru_ranker_wiki.json'
-config_path = '/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ranker_tfidf_drones.json'
+# config_path =/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ranker_tfhub_drones.json
+config_path = '/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ensemble_ranker_drones.json'
 
-print("Interacting {}".format(config_path))
 # interact_model(config_path)
 
 model = build_model_from_config(read_json(config_path))
-data = ["Where can I buy some drones?", "What is the maximum speed of drones?", "Who am I?"]
+data = ["Where can I buy unmanned drones?", "Maximum speed of drones?", "What parts do drones consist of?"]
 result = model(data)
+print(result)
 print('Done!')
 
 
