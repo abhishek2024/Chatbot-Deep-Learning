@@ -57,9 +57,9 @@ class TFHUBParagraphRanker(Component):
             for context in contexts:
                 sentences = self.sentencize_fn(context)
                 query_sentence_pairs.append((query, sentences))
-            texts, scores = self.sentence_ranker(query_sentence_pairs)
+            _, scores = self.sentence_ranker(query_sentence_pairs)
             mean_scores = [np.mean(score) for score in scores]
-            text_score_id = list(zip(texts, mean_scores, ids))
+            text_score_id = list(zip(contexts, mean_scores, ids))
             text_score_id = sorted(text_score_id, key=itemgetter(1), reverse=True)
             if self.active:
                 text_score_id = text_score_id[:self.top_n]
