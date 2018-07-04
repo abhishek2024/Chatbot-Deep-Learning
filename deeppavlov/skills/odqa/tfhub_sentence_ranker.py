@@ -56,14 +56,15 @@ class TFHUBSentenceRanker(Component):
                 if self.active:
                     thresh = self.top_n
                 else:
-                    thresh = len(query_context_id)
+                    thresh = len(el[1])
                 if scores.size == 1:
-                    top_scores = np.sort([scores])[::-1][:thresh]
-                else:
-                    top_scores = np.sort(scores)[::-1][:thresh]
+                    scores = [scores]
+                top_scores = np.sort(scores)[::-1][:thresh]
                 all_top_scores.append(top_scores)
-                sentence_top_ids = np.argsort(scores)[::-1][:thresh]
-                predictions.append([el[1][x] for x in sentence_top_ids])
+                # Sorts the sentences!
+                # sentence_top_ids = np.argsort(scores)[::-1][:thresh]
+                # predictions.append([el[1][x] for x in sentence_top_ids])
+                predictions.append(el[1])
         if self.return_vectors:
             return predictions, fake_scores
         else:
