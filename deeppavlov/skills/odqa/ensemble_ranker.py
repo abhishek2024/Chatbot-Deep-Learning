@@ -1,7 +1,6 @@
 from typing import List, Union, Any
 from operator import itemgetter
-from itertools import chain
-
+import copy
 import numpy as np
 
 from deeppavlov.core.common.registry import register
@@ -28,6 +27,7 @@ class EnsembleRanker(Component):
         SCORE_IDX = 2
         NUM_RANKERS = 3
         FAKE_SCORE = 0.001
+        TFIDF_NORM_THRESH = 50
 
         def update_all_predictions(predictions, ranker_instance):
             for predicted_chunk in ranker_instance:
@@ -43,7 +43,7 @@ class EnsembleRanker(Component):
         # Normalize tfidf scores
         for instance in tfidf:
             scores = list(map(itemgetter(SCORE_IDX), instance))
-            norm = np.linalg.norm(scores)
+            norm = np.linalg.norm(scores[:TFIDF_NORM_THRESH])
             for prediction in instance:
                 prediction[SCORE_IDX] = float(prediction[SCORE_IDX] / norm)
 
@@ -54,8 +54,8 @@ class EnsembleRanker(Component):
             for item in tfidf_instance:
                 item[SCORE_IDX] = [item[SCORE_IDX]]
 
-            instance_predictions = tfidf_instance
-            instance_data_ids = set(map(itemgetter(CHUNK_ID), tfidf_instance))
+            instance_predictions = copy.deepcopy(tfidf_instance)
+            instance_data_ids = set(map(itemgetter(CHUNK_ID), instance_predictions))
 
             update_all_predictions(instance_predictions, tfhub_instance)
             update_all_predictions(instance_predictions, rnet_instance)
