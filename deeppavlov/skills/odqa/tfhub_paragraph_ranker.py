@@ -72,17 +72,3 @@ class TFHUBParagraphRanker(Component):
             all_ids.append(batch_ids)
 
         return all_docs, all_scores, all_ids
-
-    # def fit_batches(self, iterator, batch_size: int):
-    #     self.vectorizer.doc_index = iterator.doc2index
-    #     for x, y in iterator.gen_batches(batch_size):
-    #         self.vectorizer.fit_batch(x, y)
-    #
-    # def fit(self):
-    #     pass
-    #
-    # def save(self):
-    #     self.vectorizer.save()
-    #
-    # def load(self):
-    #     self.vectorizer.load()
