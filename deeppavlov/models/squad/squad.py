@@ -59,6 +59,7 @@ class SquadModel(TFModel):
         self.use_features = self.opt.get('use_features', False)
         self.features_dim = self.opt.get('features_dim', 2)
         self.use_elmo = self.opt.get('use_elmo', False)
+        self.soft_labels = self.opt.get('soft_labels', False)
 
         self.word_emb_dim = self.init_word_emb.shape[1]
         self.char_emb_dim = self.init_char_emb.shape[1]
@@ -132,6 +133,19 @@ class SquadModel(TFModel):
             self.y2 = tf.one_hot(self.y2_ph, depth=self.context_limit)
             self.y1 = tf.slice(self.y1, [0, 0], [bs, self.c_maxlen])
             self.y2 = tf.slice(self.y2, [0, 0], [bs, self.c_maxlen])
+
+            if self.soft_labels:
+                smoothing_kernel_st = tf.constant([0.15, 0.7, 0.15])
+                smoothing_kernel_st = tf.reshape(smoothing_kernel_st, [3, 1, 1])
+                # WARNING: smoothing_kernel_end with non-zero first value makes huge values in loss
+                smoothing_kernel_end = tf.constant([0.0, 0.85, 0.15])
+                smoothing_kernel_end = tf.reshape(smoothing_kernel_end, [3, 1, 1])
+                self.y1 = tf.expand_dims(self.y1, axis=-1)
+                self.y2 = tf.expand_dims(self.y2, axis=-1)
+                self.y1 = tf.squeeze(tf.nn.conv1d(self.y1, filters=smoothing_kernel_st, stride=1, padding='SAME'))
+                self.y2 = tf.squeeze(tf.nn.conv1d(self.y2, filters=smoothing_kernel_end, stride=1, padding='SAME'))
+                self.y1 = self.y1 / tf.expand_dims(tf.maximum(tf.reduce_sum(self.y1, axis=-1), 1e-3), axis=-1)
+                self.y2 = self.y2 / tf.expand_dims(tf.maximum(tf.reduce_sum(self.y2, axis=-1), 1e-3), axis=-1)
 
         with tf.variable_scope("emb"):
             with tf.variable_scope("char"):
