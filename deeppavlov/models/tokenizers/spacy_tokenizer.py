@@ -63,9 +63,9 @@ class StreamSpacyTokenizer(Component):
         if replacers is None:
             replacers = {}
 
-        if stopwords == 'SKLEARN_STOPWORDS':
+        if stopwords == 'sklearn':
             stopwords = SKLEARN_STOPWORDS
-        elif stopwords == 'NLTK_STOPWORDS':
+        elif stopwords == 'nltk':
             stopwords = set(nltk_stopwords.words('english'))
 
         self.stopwords = stopwords or []
@@ -142,7 +142,7 @@ class StreamSpacyTokenizer(Component):
             else:
                 tokens = [t.text for t in doc]
             processed_doc = self._pipe(tokens)
-            yield from processed_doc
+            yield processed_doc
 
     def _lemmatize(self, data: List[str], batch_size=10000, n_threads=1) -> \
             Generator[List[str], Any, None]:
@@ -166,7 +166,7 @@ class StreamSpacyTokenizer(Component):
             # logger.info("Lemmatize doc {} from {}".format(i, size))
             lemmas = chain.from_iterable([sent.lemma_.split() for sent in doc.sents])
             processed_doc = self._pipe(list(lemmas))
-            yield from processed_doc
+            yield processed_doc
 
     def _filter(self, items, alphas_only=True):
         """
@@ -201,4 +201,6 @@ class StreamSpacyTokenizer(Component):
         replaced = replace(items, self.replace)
         filtered = self._filter(replaced)
         processed_doc = ngramize(filtered, ngram_range=_ngram_range)
+        if not processed_doc:
+            processed_doc = ['unk']
         return processed_doc
