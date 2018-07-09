@@ -241,7 +241,7 @@ class NerNetwork(TFModel):
         for utt, l in zip(pred_idxs, sequence_lengths):
             pred.append(utt[:l])
         probs, units = self.sess.run([self._probs, self._units], feed_dict)
-        return pred, probs
+        return pred, probs, units
 
     def predict_crf(self, xs):
         feed_dict = self._fill_feed_dict(xs)
@@ -257,7 +257,7 @@ class NerNetwork(TFModel):
             viterbi_seq, viterbi_score = tf.contrib.crf.viterbi_decode(logit, trans_params)
             y_pred += [viterbi_seq]
         probs, units = self.sess.run([self._probs, self._units], feed_dict)
-        return y_pred, probs
+        return y_pred, probs, units
 
     def _fill_feed_dict(self, xs, y=None, learning_rate=None, train=False):
         assert len(xs) == len(self._xs_ph_list)
