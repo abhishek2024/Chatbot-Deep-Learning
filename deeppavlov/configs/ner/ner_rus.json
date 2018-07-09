@@ -96,7 +96,7 @@
       {
         "in": ["x_emb", "mask", "x_char_ind", "cap"],
         "in_y": ["y_ind"],
-        "out": ["y_predicted", "probs"],
+        "out": ["y_predicted", "probs", "units"],
         "name": "ner",
         "main": true,
         "n_hidden_list": [128],
@@ -133,7 +133,7 @@
       }
     ],
 
-    "out": ["x", "tags", "probs"]
+    "out": ["x", "tags", "probs", "units"]
   },
   "train": {
     "epochs": 100,
