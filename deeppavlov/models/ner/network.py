@@ -106,6 +106,7 @@ class NerNetwork(TFModel):
                 units = self._build_rnn(features, n_hidden_list, cell_type, intra_layer_dropout, self.mask_ph,)
         elif net_type == 'cnn':
             units = self._build_cnn(features, n_hidden_list, cnn_filter_width, use_batch_norm)
+        self._units = units
         self._logits = self._build_top(units, n_tags, n_hidden_list[-1], top_dropout, two_dense_on_top)
         self._probs = tf.nn.softmax(self._logits, axis=2)
 
