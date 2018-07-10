@@ -23,17 +23,17 @@ class EnsembleRanker(Component):
                  rnet: List[List[List[Union[Any]]]], *args, **kwargs) -> \
             List[List[List[Union[str, int, float]]]]:
 
-        CHUNK_ID = 3
+        CHUNK_IDX = 3
         SCORE_IDX = 2
         NUM_RANKERS = 3
         FAKE_SCORE = 0.001
-        TFIDF_NORM_THRESH = 50
+        TFIDF_NORM_THRESH = 50  # take only the first 50 results to count np.linalg.norm
 
         def update_all_predictions(predictions, ranker_instance):
             for predicted_chunk in ranker_instance:
-                chunk_idx = predicted_chunk[CHUNK_ID]
+                chunk_idx = predicted_chunk[CHUNK_IDX]
                 if chunk_idx in instance_data_ids:
-                    data_idx = list(map(itemgetter(CHUNK_ID), predictions)).index(chunk_idx)
+                    data_idx = list(map(itemgetter(CHUNK_IDX), predictions)).index(chunk_idx)
                     predictions[data_idx][SCORE_IDX] = flatten_nested_list(
                         predictions[data_idx][SCORE_IDX] + [predicted_chunk[SCORE_IDX]])
                 else:
@@ -54,11 +54,11 @@ class EnsembleRanker(Component):
             for item in tfidf_instance:
                 item[SCORE_IDX] = [item[SCORE_IDX]]
 
-            instance_predictions = copy.deepcopy(tfidf_instance)
-            instance_data_ids = set(map(itemgetter(CHUNK_ID), instance_predictions))
+            instance_predictions = copy.deepcopy(tfidf_instance)  # include tfidf
+            instance_data_ids = set(map(itemgetter(CHUNK_IDX), instance_predictions))
 
-            update_all_predictions(instance_predictions, tfhub_instance)
-            update_all_predictions(instance_predictions, rnet_instance)
+            update_all_predictions(instance_predictions, tfhub_instance)  # include tfhub
+            update_all_predictions(instance_predictions, rnet_instance)  # include rnet
 
             for prediction in instance_predictions:
                 len_scores = len(prediction[SCORE_IDX])
