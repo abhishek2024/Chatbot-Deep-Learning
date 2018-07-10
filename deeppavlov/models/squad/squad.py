@@ -60,6 +60,7 @@ class SquadModel(TFModel):
         self.features_dim = self.opt.get('features_dim', 2)
         self.use_elmo = self.opt.get('use_elmo', False)
         self.soft_labels = self.opt.get('soft_labels', False)
+        self.true_label_weight = self.opt.get('true_label_weight', 0.7)
 
         self.word_emb_dim = self.init_word_emb.shape[1]
         self.char_emb_dim = self.init_char_emb.shape[1]
@@ -135,10 +136,12 @@ class SquadModel(TFModel):
             self.y2 = tf.slice(self.y2, [0, 0], [bs, self.c_maxlen])
 
             if self.soft_labels:
-                smoothing_kernel_st = tf.constant([0.15, 0.7, 0.15])
+                center_weight = self.true_label_weight
+                border_weight = (1 - self.true_label_weight) / 2
+                smoothing_kernel_st = tf.constant([border_weight, center_weight, border_weight])
                 smoothing_kernel_st = tf.reshape(smoothing_kernel_st, [3, 1, 1])
                 # WARNING: smoothing_kernel_end with non-zero first value makes huge values in loss
-                smoothing_kernel_end = tf.constant([0.0, 0.85, 0.15])
+                smoothing_kernel_end = tf.constant([0.0, center_weight + border_weight / 2, border_weight * 3 / 2])
                 smoothing_kernel_end = tf.reshape(smoothing_kernel_end, [3, 1, 1])
                 self.y1 = tf.expand_dims(self.y1, axis=-1)
                 self.y2 = tf.expand_dims(self.y2, axis=-1)

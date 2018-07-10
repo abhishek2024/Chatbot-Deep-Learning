@@ -79,6 +79,7 @@
         "grad_clip": 5.0,
         "weight_decay": 1.0,
         "soft_labels": true,
+        "true_label_weight": 0.7,
         "save_path": "squad_model_ru_softlabels/model",
         "load_path": "squad_model_ru_softlabels/model",
         "in": {
