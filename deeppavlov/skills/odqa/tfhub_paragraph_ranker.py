@@ -42,7 +42,7 @@ class TFHUBParagraphRanker(Component):
 
         self.top_n = top_n
         self.sentence_ranker = sentence_ranker
-        self.sentence_ranker.top_n = top_n
+        self.sentence_ranker.active = False
         self.sentencize_fn = sentencize_fn
         self.active = active
 
