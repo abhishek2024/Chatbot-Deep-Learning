@@ -239,12 +239,14 @@ class SquadModel(TFModel):
 
         with tf.variable_scope("predict"):
             if self.predict_ans:
+                outer_logits = tf.exp(tf.expand_dims(logits1, axis=2) + tf.expand_dims(logits2, axis=1))
                 outer = tf.matmul(tf.expand_dims(tf.nn.softmax(logits1), axis=2),
                                   tf.expand_dims(tf.nn.softmax(logits2), axis=1))
                 outer = tf.matrix_band_part(outer, 0, tf.cast(tf.minimum(15, self.c_maxlen), tf.int64))
                 self.yp1 = tf.argmax(tf.reduce_max(outer, axis=2), axis=1)
                 self.yp2 = tf.argmax(tf.reduce_max(outer, axis=1), axis=1)
                 self.yp_prob = tf.reduce_max(tf.reduce_max(outer, axis=2), axis=1)
+                self.yp_logits = tf.reduce_max(tf.reduce_max(outer_logits, axis=2), axis=1)
                 if self.noans_token:
                     self.yp_score = 1 - tf.nn.softmax(logits1)[:,0] * tf.nn.softmax(logits2)[:,0]
                 loss_p1 = tf.nn.softmax_cross_entropy_with_logits(logits=logits1, labels=self.y1)
@@ -422,7 +424,7 @@ class SquadModel(TFModel):
                 return zero_probs
             if self.noans_token:
                 return noanswers, noanswers, zero_probs, zero_probs
-            return noanswers, noanswers, zero_probs
+            return noanswers, noanswers, zero_probs, zero_probs
 
         feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars,
                                           c_features, q_features, c_str, q_str)
@@ -444,8 +446,8 @@ class SquadModel(TFModel):
             yp1s, yp2s = yp1s_noans, yp2s_noans
             return yp1s, yp2s, [float(prob) for prob in prob], [float(score) for score in score]
 
-        yp1s, yp2s, prob = self.sess.run([self.yp1, self.yp2, self.yp_prob], feed_dict=feed_dict)
-        return yp1s, yp2s, [float(prob) for prob in prob]
+        yp1s, yp2s, prob, logits = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_logits], feed_dict=feed_dict)
+        return yp1s, yp2s, [float(prob) for prob in prob], [float(logit) for logit in logits]
 
     def process_event(self, event_name, data):
         if event_name == "after_validation":
