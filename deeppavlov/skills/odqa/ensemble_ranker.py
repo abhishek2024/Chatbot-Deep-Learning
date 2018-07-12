@@ -27,7 +27,7 @@ class EnsembleRanker(Component):
         SCORE_IDX = 2
         NUM_RANKERS = 3
         FAKE_SCORE = 0.001
-        TFIDF_NORM_THRESH = 50  # take only the first 50 results to count np.linalg.norm
+        NORM_THRESH = 50  # take only the first 50 results to count np.linalg.norm?
 
         def update_all_predictions(predictions, ranker_instance):
             for predicted_chunk in ranker_instance:
@@ -40,12 +40,19 @@ class EnsembleRanker(Component):
                     predicted_chunk[SCORE_IDX] = [predicted_chunk[SCORE_IDX]]
                     predictions.append(predicted_chunk)
 
-        # Normalize tfidf scores
-        for instance in tfidf:
-            scores = list(map(itemgetter(SCORE_IDX), instance))
-            norm = np.linalg.norm(scores[:TFIDF_NORM_THRESH])
-            for prediction in instance:
-                prediction[SCORE_IDX] = float(prediction[SCORE_IDX] / norm)
+        def normalize_scores(ranker_results):
+            """
+            Normalize paragraph scores with np.linalg.norm
+            """
+            for instance in ranker_results:
+                scores = list(map(itemgetter(SCORE_IDX), instance))
+                norm = np.linalg.norm(scores[:NORM_THRESH])
+                for prediction in instance:
+                    prediction[SCORE_IDX] = float(prediction[SCORE_IDX] / norm)
+
+        # Normalize scores from all tfidf and rnet:
+        normalize_scores(tfidf)
+        normalize_scores(rnet)
 
         # Count average scores from all rankers
         all_data = []
