@@ -46,7 +46,6 @@
             "_comment": "Requires tf 1.4 GPU, run from odqa_pmef branch",
             "url": "http://0.0.0.0:5002/model",
             "in": "question_raw",
-            "debatchify": true,
             "param_names": [
               "context"
             ],
@@ -58,6 +57,7 @@
       },
       {
         "name": "ensemble_ranker",
+        "top_n": 20,
         "in": [
           "rank_text_score_id_tfidf",
           "rank_text_score_id_tfhub",
