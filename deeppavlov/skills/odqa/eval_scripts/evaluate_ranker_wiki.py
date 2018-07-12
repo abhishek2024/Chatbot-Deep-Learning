@@ -161,7 +161,7 @@ def main():
             logger.info(
                 'PMEF recall for top {}: {}'.format(n, pmef_total_score_on_top_i))
             logger.info(
-                'DRQA recall for top {}: {}'.format(n, pmef_total_score_on_top_i))
+                'DRQA recall for top {}: {}'.format(n, drqa_total_score_on_top_i))
             mapping[n] = total_score_on_top_i
             pmef_mapping[n] = pmef_total_score_on_top_i
             drqa_mapping[n] = drqa_total_score_on_top_i
