@@ -142,7 +142,7 @@ def main():
             correct_answers = 0
             pmef_correct_answers = 0
             drqa_correct_answers = 0
-            i = 0
+            i = 1
             for qa, ranker_answer in zip(dataset, ranker_answers):
                 answers = qa['answers']
                 texts = [answer[TEXT_IDX] for answer in ranker_answer[:n]]
@@ -150,7 +150,8 @@ def main():
                 pmef_correct_answers += pmef_instance_score(answers, texts)
                 drqa_correct_answers += drqa_instance_score(answers, texts)
                 logger.info(
-                    "Processed {} from {} qa pairs for n={}".format(i, qa_dataset_size, n))
+                    "Processed {} qa pairs for n={}".format(i, n))
+                i += 1
             total_score_on_top_i = correct_answers / qa_dataset_size
             pmef_total_score_on_top_i = pmef_correct_answers / qa_dataset_size
             drqa_total_score_on_top_i = drqa_correct_answers / qa_dataset_size
