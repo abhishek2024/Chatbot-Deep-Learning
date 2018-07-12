@@ -1,15 +1,15 @@
 {
   "dataset_reader": {
     "class": "deeppavlov.dataset_readers.odqa_reader:ODQADataReader",
-    "data_path": "/media/olga/Data/projects/ODQA/data/PMEF/original/Текст_сбер_корп_ru",
-    "save_path": "/media/olga/Data/projects/iPavlov/DeepPavlov/download/pmef/en_drones1.db",
-    "dataset_format": "txt"
+    "data_path": "/media/olga/Data/projects/iPavlov/DeepPavlov/download/odqa/wiki_test.db",
+    "save_path": "/media/olga/Data/projects/iPavlov/DeepPavlov/download/odqa/wiki_test.db",
+    "dataset_format": "sqlite"
   },
   "dataset_iterator": {
     "name": "sqlite_iterator",
-    "data_dir": "pmef",
+    "data_dir": "odqa",
     "shuffle": false,
-    "load_path": "/media/olga/Data/projects/iPavlov/DeepPavlov/download/pmef/en_drones1.db"
+    "load_path": "/media/olga/Data/projects/iPavlov/DeepPavlov/download/odqa/wiki_test.db"
   },
   "chainer": {
     "in": [
@@ -36,8 +36,8 @@
           "fit_on_batch": [
             "questions_raw"
           ],
-          "save_path": "pmef/en_new_tfidf.npz",
-          "load_path": "pmef/en_new_tfidf.npz",
+          "save_path": "odqa/en_test_tfidf.npz",
+          "load_path": "odqa/en_test_tfidf.npz",
           "tokenizer": {
             "name": "stream_spacy_tokenizer",
             "lemmas": true,
@@ -56,17 +56,17 @@
         "out": [
           "context_raw"
         ],
-        "data_dir": "pmef",
+        "data_dir": "odqa",
         "shuffle": false,
         "join_docs": true,
-        "load_path": "/media/olga/Data/projects/iPavlov/DeepPavlov/download/pmef/en_drones1.db"
+        "load_path": "/media/olga/Data/projects/iPavlov/DeepPavlov/download/odqa/wiki_test.db"
       }
     ]
   },
   "train": {
     "validate_best": false,
     "test_best": false,
-    "batch_size": 10000
+    "batch_size": 2
   },
   "metadata": {
     "download": [
