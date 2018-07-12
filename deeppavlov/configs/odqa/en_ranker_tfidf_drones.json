@@ -1,10 +1,4 @@
 {
-  "dataset_iterator": {
-    "name": "sqlite_iterator",
-    "data_dir": "pmef",
-    "shuffle": false,
-    "load_path": "http://lnsigo.mipt.ru/export/datasets/pmef/en_drones.db"
-  },
   "chainer": {
     "in": [
       "question_raw"
@@ -15,7 +9,7 @@
     "pipe": [
       {
         "name": "tfidf_ranker",
-        "top_n": 10,
+        "top_n": 20,
         "active": true,
         "in": [
           "question_raw"

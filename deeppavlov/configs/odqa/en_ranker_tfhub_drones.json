@@ -35,7 +35,7 @@
       },
       {
         "name": "tfhub_paragraph_ranker",
-        "top_n": 10,
+        "top_n": 20,
         "active": true,
         "sentence_ranker": {
           "name": "sentence_ranker",
