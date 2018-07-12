@@ -26,13 +26,19 @@ from deeppavlov.core.common.file import read_json
 # config_path = 'configs/odqa/en_ranker_wiki.json'
 # config_path = 'configs/odqa/ru_ranker_corp.json'
 # config_path = 'configs/odqa/ru_ranker_drones.json'
-# config_path =/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ranker_tfhub_drones.json
-config_path = '/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ensemble_ranker_drones.json'
+
+
+# config_path ="configs/odqa/en_ranker_tfidf_train.json"
+# train_evaluate_model_from_config(config_path)
+
+# config_path = '/home/gureenkova/tmp/pycharm_project_196/deeppavlov/configs/odqa/en_ranker_ensemble_drones.json'
+# config_path = '/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ranker_tfidf_drones.json'
+config_path = '/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ranker_ensemble_drones.json'
 
 # interact_model(config_path)
-
+#
 model = build_model_from_config(read_json(config_path))
-data = ["Where can I buy unmanned drones?", "Maximum speed of drones?", "What parts do drones consist of?"]
+data = ["What corporation manufactures drones in Russia?", "Maximum speed of drones?", "What parts are the most significant?"]
 result = model(data)
 print(result)
 print('Done!')
