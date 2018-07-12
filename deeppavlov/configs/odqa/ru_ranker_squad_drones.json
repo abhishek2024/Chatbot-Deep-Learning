@@ -37,7 +37,7 @@
         "name": "squad_paragraph_ranker",
         "top_n": 10,
         "ranker_config": "../deeppavlov/configs/squad/squad_ru_noans.json",
-        "type": "sentences",
+        "type": "paragraph",
         "in": [
           "question_paragraph_tuples"
         ],
