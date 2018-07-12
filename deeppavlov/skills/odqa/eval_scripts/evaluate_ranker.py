@@ -97,7 +97,7 @@ def main():
 
         ranker_answers = ranker([i['question'] for i in dataset])
         returned_db_size = len(ranker_answers[0])
-        logger.info("DB size: {}".format(returned_db_size))
+        logger.info("Returned DB size: {}".format(returned_db_size))
 
         for n in range(1, returned_db_size + 1):
             correct_answers = 0
