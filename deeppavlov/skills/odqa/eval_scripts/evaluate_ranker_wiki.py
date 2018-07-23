@@ -2,7 +2,7 @@
 Count a ranker recall.
 Need:
 1. A ranker config (with rank, text, score, text_id API) for a specific domain (eg. "en_drones")
-2. QA dataset for this domain.
+2. SQuAD dataset.
 """
 
 import argparse
