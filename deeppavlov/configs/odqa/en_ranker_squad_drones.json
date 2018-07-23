@@ -68,7 +68,7 @@
         "url": "http://lnsigo.mipt.ru/export/datasets/pmef/en_drones.db",
         "subdir": "pmef"
       },
-      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_selqa_model_noans.tar.gz",
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_selqa_model_noans_tf1.8.tar.gz",
       {
         "url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M.vec",
         "subdir": "embeddings"
