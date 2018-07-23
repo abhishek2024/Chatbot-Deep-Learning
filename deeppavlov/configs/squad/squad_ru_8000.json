@@ -5,7 +5,7 @@
     "data_path": "squad_ru/"
   },
   "dataset_iterator": {
-    "name": "squad_noans_iterator",
+    "name": "squad_iterator",
     "seed": 1337,
     "shuffle": true
   },
@@ -16,7 +16,7 @@
       {
         "name": "squad_preprocessor",
         "id": "squad_prepr",
-        "context_limit": 400,
+        "context_limit": 8000,
         "question_limit": 50,
         "char_limit": 16,
         "in": ["context_raw", "question_raw"],
@@ -36,8 +36,8 @@
         "level": "token",
         "emb_folder": "embeddings/",
         "emb_url": "http://lnsigo.mipt.ru/export/embeddings/ft_native_300_ru_wiki_lenta_nltk_word_tokenize/ft_native_300_ru_wiki_lenta_nltk_word_tokenize.vec",
-        "save_path": "squad_model_ru_noans/emb/vocab_embedder.pckl",
-        "load_path": "squad_model_ru_noans/emb/vocab_embedder.pckl",
+        "save_path": "squad_model_ru/emb/vocab_embedder.pckl",
+        "load_path": "squad_model_ru/emb/vocab_embedder.pckl",
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.context_limit",
@@ -51,26 +51,14 @@
         "level": "char",
         "emb_folder": "embeddings/",
         "emb_url": "http://lnsigo.mipt.ru/export/embeddings/ft_native_300_ru_wiki_lenta_nltk_word_tokenize-char.vec",
-        "save_path": "squad_model_ru_noans/emb/char_vocab_embedder.pckl",
-        "load_path": "squad_model_ru_noans/emb/char_vocab_embedder.pckl",
+        "save_path": "squad_model_ru/emb/char_vocab_embedder.pckl",
+        "load_path": "squad_model_ru/emb/char_vocab_embedder.pckl",
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.char_limit",
         "fit_on": ["context_chars", "question_chars"],
         "in": ["context_chars", "question_chars"],
         "out": ["context_chars_idxs", "question_chars_idxs"]
-      },
-      {
-        "name": "squad_features_extractor",
-        "context_limit": "#squad_prepr.context_limit",
-        "question_limit": "#squad_prepr.question_limit",
-        "in": ["context_tokens", "question_tokens"],
-        "out": ["context_features", "question_features"]
-      },
-      {
-        "name": "squad_dummy_features",
-        "in": ["context_raw"],
-        "out": ["dummy"]
       },
       {
         "name": "squad_model",
@@ -86,18 +74,15 @@
         "attention_hidden_size": 75,
         "learning_rate": 0.5,
         "min_learning_rate": 0.0001,
-        "learning_rate_patience": 4,
-        "keep_prob": 0.7,
+        "learning_rate_patience": 2,
+        "keep_prob": 0.6,
         "grad_clip": 5.0,
         "weight_decay": 1.0,
-        "noans_token": true,
-	    "use_features": false,
-        "squad_loss_weight": 0.8,
-        "save_path": "squad_model_ru_noans/model",
-        "load_path": "squad_model_ru_noans/model",
-        "in": ["context_tokens_idxs", "context_chars_idxs", "question_tokens_idxs", "question_chars_idxs", "context_features", "question_features", "dummy", "dummy"],
+        "save_path": "squad_model_ru/model",
+        "load_path": "squad_model_ru/model",
+        "in": ["context_tokens_idxs", "context_chars_idxs", "question_tokens_idxs", "question_chars_idxs"],
         "in_y": ["ans_start", "ans_end"],
-        "out": ["ans_start_predicted", "ans_end_predicted", "prob", "score"]
+        "out": ["ans_start_predicted", "ans_end_predicted", "prob"]
       },
       {
         "name": "squad_ans_postprocessor",
@@ -106,7 +91,7 @@
         "out": ["ans_predicted", "ans_start_predicted", "ans_end_predicted"]
       }
     ],
-    "out": ["ans_predicted", "ans_start_predicted", "score", "prob"]
+    "out": ["ans_predicted", "ans_start_predicted", "prob"]
   },
   "train": {
     "show_examples": false,
@@ -117,14 +102,15 @@
     "batch_size": 50,
     "pytest_max_batches": 2,
     "validation_patience": 10,
-    "metrics": ["squad_f1", "exact_match", "squad_roc_auc", "squad_pr", "squad_acc", "squad_score_f1"]
+    "metrics": ["squad_f1", "exact_match"]
   },
   "metadata": {
     "labels": {
-      "telegram_utils": "SquadModel"
+      "telegram_utils": "SquadModel",
+      "server_utils": "SquadModel"
     },
     "download": [
-      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_model_ru_noans_tf1.8.tar.gz",
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_model_ru_1.2.tar.gz",
       {
         "url": "http://lnsigo.mipt.ru/export/embeddings/ft_native_300_ru_wiki_lenta_nltk_word_tokenize/ft_native_300_ru_wiki_lenta_nltk_word_tokenize.vec",
         "subdir": "embeddings"

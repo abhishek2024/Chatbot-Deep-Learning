@@ -17,7 +17,8 @@ import re
 import string
 from collections import Counter
 
-from sklearn.metrics import precision_recall_curve, roc_auc_score, auc
+import numpy as np
+from sklearn.metrics import precision_recall_curve, roc_auc_score, auc, f1_score
 
 from deeppavlov.core.common.metrics_registry import register_metric
 
@@ -38,9 +39,6 @@ def exact_match(y_true, y_predicted):
     EM_total = 0
     count = 0
     for ground_truth, prediction in zip(y_true, y_predicted):
-        if len(ground_truth[0][0]) == 0:
-            # skip empty answers
-            continue
         count += 1
         ground_truth = ground_truth[0]
         prediction = prediction[0]
@@ -64,8 +62,6 @@ def squad_f1(y_true, y_predicted):
     f1_total = 0.0
     count = 0
     for ground_truth, prediction in zip(y_true, y_predicted):
-        if len(ground_truth[0][0]) == 0:
-            continue
         count += 1
         ground_truth = ground_truth[0]
         prediction = prediction[0]
@@ -73,6 +69,9 @@ def squad_f1(y_true, y_predicted):
         f1s = []
         for gt in ground_truth:
             gt_tokens = normalize_answer(gt).split()
+            if len(gt_tokens) == 0 or len(prediction_tokens) == 0:
+                f1s.append(float(gt_tokens == prediction_tokens))
+                continue
             common = Counter(prediction_tokens) & Counter(gt_tokens)
             num_same = sum(common.values())
             if num_same == 0:
@@ -106,13 +105,27 @@ def normalize_answer(s):
 @register_metric('squad_roc_auc')
 def squad_roc_auc(y_true, y_predicted):
     y_true = list(map(lambda x: int(len(x[0][0]) != 0), y_true))
-    y_predicted = list(map(lambda x: x[2], y_predicted))
+    y_predicted = list(map(lambda x: x[2] if not isinstance(x, float) else x, y_predicted))
     return 100 * roc_auc_score(y_true, y_predicted) if len(y_true) > 0 else 0
 
 
 @register_metric('squad_pr')
 def squad_pr(y_true, y_predicted):
     y_true = list(map(lambda x: int(len(x[0][0]) != 0), y_true))
-    y_predicted = list(map(lambda x: x[2], y_predicted))
+    y_predicted = list(map(lambda x: x[2] if not isinstance(x, float) else x, y_predicted))
     precision, recall, thresholds = precision_recall_curve(y_true, y_predicted)
     return 100 * auc(recall, precision) if len(y_true) > 0 else 0
+
+
+@register_metric('squad_acc')
+def squad_acc(y_true, y_predicted):
+    y_true = np.array(list(map(lambda x: int(len(x[0][0]) != 0), y_true)))
+    y_predicted = np.array(list(map(lambda x: int((x[2] if not isinstance(x, float) else x) > 0.5), y_predicted)))
+    return 100 * sum(y_true == y_predicted) / len(y_true) if len(y_true) > 0 else 0
+
+
+@register_metric('squad_score_f1')
+def squad_score_f1(y_true, y_predicted):
+    y_true = np.array(list(map(lambda x: int(len(x[0][0]) != 0), y_true)))
+    y_predicted = np.array(list(map(lambda x: int((x[2] if not isinstance(x, float) else x) > 0.5), y_predicted)))
+    return 100 * f1_score(y_true, y_predicted) if len(y_true) > 0 else 0

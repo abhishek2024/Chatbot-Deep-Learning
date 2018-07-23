@@ -77,8 +77,8 @@
         "learning_rate_patience": 4,
         "keep_prob": 0.6,
         "grad_clip": 5.0,
-        "weight_decay": 0.999,
-        "noans": true,
+        "weight_decay": 1.0,
+        "noans_token": true,
         "squad_loss_weight": 0.8,
         "save_path": "squad_model_noans/model",
         "load_path": "squad_model_noans/model",
@@ -93,7 +93,7 @@
         "out": ["ans_predicted", "ans_start_predicted", "ans_end_predicted"]
       }
     ],
-    "out": ["ans_predicted", "ans_start_predicted", "score"]
+    "out": ["ans_predicted", "ans_start_predicted", "score", "prob"]
   },
   "train": {
     "show_examples": false,
@@ -104,7 +104,7 @@
     "batch_size": 50,
     "pytest_max_batches": 2,
     "validation_patience": 10,
-    "metrics": ["squad_f1", "exact_match", "squad_roc_auc", "squad_pr"]
+    "metrics": ["squad_f1", "exact_match", "squad_roc_auc", "squad_pr", "squad_acc", "squad_score_f1"]
   },
   "metadata": {
     "labels": {

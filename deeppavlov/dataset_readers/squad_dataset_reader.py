@@ -16,6 +16,7 @@ limitations under the License.
 
 from pathlib import Path
 import json
+import pickle
 
 from deeppavlov.core.data.dataset_reader import DatasetReader
 from deeppavlov.core.data.utils import download_decompress
@@ -33,18 +34,23 @@ class SquadDatasetReader(DatasetReader):
     """
 
     url_squad = 'http://lnsigo.mipt.ru/export/datasets/squad-v1.1.tar.gz'
+    url_squad_2_0 = 'http://lnsigo.mipt.ru/export/datasets/squad-v2.0.tar.gz'
     url_sber_squad = 'http://lnsigo.mipt.ru/export/datasets/sber_squad-v1.1.tar.gz'
 
     def read(self, dir_path: str, dataset='SQuAD'):
+        required_files = ['{}-v1.1.json'.format(dt) for dt in ['train', 'dev']]
+
         if dataset == 'SQuAD':
             self.url = self.url_squad
+        if dataset == 'SQuAD 2.0':
+            self.url = self.url_squad_2_0
+            required_files = ['{}-v2.0.json'.format(dt) for dt in ['train', 'dev']]
         elif dataset == 'SberSQuAD':
             self.url = self.url_sber_squad
         else:
             raise RuntimeError('Dataset {} is unknown'.format(dataset))
 
         dir_path = Path(dir_path)
-        required_files = ['{}-v1.1.json'.format(dt) for dt in ['train', 'dev']]
         if not dir_path.exists():
             dir_path.mkdir()
 
@@ -54,7 +60,55 @@ class SquadDatasetReader(DatasetReader):
         dataset = {}
         for f in required_files:
             data = json.load((dir_path / f).open('r'))
-            if f == 'dev-v1.1.json':
+            if f in ['dev-v{}.json'.format(v) for v in ['1.1', '2.0']]:
+                dataset['valid'] = data
+            else:
+                dataset['train'] = data
+
+        return dataset
+
+
+@register('squad_scorer_dataset_reader')
+class SquadScorerDatasetReader(DatasetReader):
+    url = 'http://lnsigo.mipt.ru/export/datasets/selqa_squad_scorer.zip'
+
+    def read(self, dir_path: str):
+        dir_path = Path(dir_path)
+        required_files = ['selqa_squad_{}.pckl'.format(dt) for dt in ['train', 'dev']]
+        if not dir_path.exists():
+            dir_path.mkdir()
+
+        if not all((dir_path / f).exists() for f in required_files):
+            download_decompress(self.url, dir_path)
+
+        dataset = {}
+        for f in required_files:
+            data = pickle.load((dir_path / f).open('rb'))
+            if f == 'selqa_squad_dev.pckl':
+                dataset['valid'] = data
+            else:
+                dataset['train'] = data
+
+        return dataset
+
+
+@register('selqa_squad_noans_dataset_reader')
+class SquadScorerDatasetReader(DatasetReader):
+    url = 'http://lnsigo.mipt.ru/export/datasets/selqa_squad_noans.zip'
+
+    def read(self, dir_path: str):
+        dir_path = Path(dir_path)
+        required_files = ['selqa_squad_noans_{}.pckl'.format(dt) for dt in ['train', 'dev']]
+        if not dir_path.exists():
+            dir_path.mkdir()
+
+        if not all((dir_path / f).exists() for f in required_files):
+            download_decompress(self.url, dir_path)
+
+        dataset = {}
+        for f in required_files:
+            data = pickle.load((dir_path / f).open('rb'))
+            if f == 'selqa_squad_noans_dev.pckl':
                 dataset['valid'] = data
             else:
                 dataset['train'] = data
