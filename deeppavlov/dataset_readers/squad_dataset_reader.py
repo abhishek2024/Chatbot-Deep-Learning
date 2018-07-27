@@ -42,7 +42,7 @@ class SquadDatasetReader(DatasetReader):
 
         if dataset == 'SQuAD':
             self.url = self.url_squad
-        if dataset == 'SQuAD 2.0':
+        elif dataset == 'SQuAD 2.0':
             self.url = self.url_squad_2_0
             required_files = ['{}-v2.0.json'.format(dt) for dt in ['train', 'dev']]
         elif dataset == 'SberSQuAD':
