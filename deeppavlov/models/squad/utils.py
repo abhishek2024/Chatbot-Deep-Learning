@@ -85,7 +85,7 @@ class PtrNet:
             return logits1, logits2
 
 
-def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0, scope="dot_attention"):
+def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0, use_gate=True, drop_diag=False, scope="dot_attention"):
     """Computes attention vector for each item in inputs:
        attention vector is a weighted sum of memory items.
        Dot product between input and memory vector is used as similarity measure.
@@ -115,16 +115,24 @@ def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0, scope="dot_atte
             inputs_att = tf.layers.dense(d_inputs, att_size, use_bias=False, activation=tf.nn.relu)
             memory_att = tf.layers.dense(d_memory, att_size, use_bias=False, activation=tf.nn.relu)
             logits = tf.matmul(inputs_att, tf.transpose(memory_att, [0, 2, 1])) / (att_size ** 0.5)
+
+            if drop_diag:
+                logits = logits * (1 - tf.diag(tf.ones(shape=(IL,), dtype=tf.float32)))
+
             mask = tf.tile(tf.expand_dims(mask, axis=1), [1, IL, 1])
             att_weights = tf.nn.softmax(softmax_mask(logits, mask))
             outputs = tf.matmul(att_weights, memory)
             res = tf.concat([inputs, outputs], axis=2)
 
-        with tf.variable_scope("gate"):
-            dim = res.get_shape().as_list()[-1]
-            d_res = tf.nn.dropout(res, keep_prob=keep_prob, noise_shape=[BS, 1, IH + MH])
-            gate = tf.layers.dense(d_res, dim, use_bias=False, activation=tf.nn.sigmoid)
-            return res * gate
+        if use_gate:
+            with tf.variable_scope("gate"):
+                dim = res.get_shape().as_list()[-1]
+                d_res = tf.nn.dropout(res, keep_prob=keep_prob, noise_shape=[BS, 1, IH + MH])
+                gate = tf.layers.dense(d_res, dim, use_bias=False, activation=tf.nn.sigmoid)
+                return res * gate
+
+        return res
+
 
 
 def simple_attention(memory, att_size, mask, keep_prob=1.0, scope="simple_attention"):

@@ -61,6 +61,9 @@ class SquadModel(TFModel):
         self.use_elmo = self.opt.get('use_elmo', False)
         self.soft_labels = self.opt.get('soft_labels', False)
         self.true_label_weight = self.opt.get('true_label_weight', 0.7)
+        self.use_gated_attention = self.opt.get('use_gated_attention', True)
+        self.transform_char_emb = self.opt.get('transform_char_emb', 0)
+        self.drop_diag_self_att = self.opt.get('drop_diag_self_att', False)
 
         self.word_emb_dim = self.init_word_emb.shape[1]
         self.char_emb_dim = self.init_char_emb.shape[1]
@@ -160,6 +163,24 @@ class SquadModel(TFModel):
                 cc_emb = variational_dropout(cc_emb, keep_prob=self.keep_prob_ph)
                 qc_emb = variational_dropout(qc_emb, keep_prob=self.keep_prob_ph)
 
+                if self.transform_char_emb != 0:
+                    cc_emb = tf.layers.dense(
+                        tf.layers.dense(cc_emb, self.transform_char_emb, activation=tf.nn.relu,
+                                        name='transform_char_emb_1'),
+                        self.transform_char_emb,
+                        use_bias=False,
+                        name='transform_char_emb_2'
+                    )
+
+                    qc_emb = tf.layers.dense(
+                        tf.layers.dense(qc_emb, self.transform_char_emb, activation=tf.nn.relu,
+                                        name='transform_char_emb_1', reuse=True),
+                        self.transform_char_emb,
+                        use_bias=False,
+                        name='transform_char_emb_2',
+                        reuse=True
+                    )
+
                 _, (state_fw, state_bw) = cudnn_bi_gru(cc_emb, self.char_hidden_size, seq_lengths=self.cc_len,
                                                        trainable_initial_states=True)
                 cc_emb = tf.concat([state_fw, state_bw], axis=1)
@@ -213,21 +234,24 @@ class SquadModel(TFModel):
 
         with tf.variable_scope("attention"):
             qc_att = dot_attention(c, q, mask=self.q_mask, att_size=self.attention_hidden_size,
-                                   keep_prob=self.keep_prob_ph)
+                                   keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention)
+            """
             rnn = CudnnGRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
                            input_size=qc_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
             att = rnn(qc_att, seq_len=self.c_len)
+            """
 
         if self.predict_ans:
             with tf.variable_scope("match"):
-                self_att = dot_attention(att, att, mask=self.c_mask, att_size=self.attention_hidden_size,
-                                         keep_prob=self.keep_prob_ph)
+                self_att = dot_attention(qc_att, qc_att, mask=self.c_mask, att_size=self.attention_hidden_size,
+                                         keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
+                                         drop_diag=self.drop_diag_self_att)
                 rnn = CudnnGRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
                                input_size=self_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
                 match = rnn(self_att, seq_len=self.c_len)
 
             with tf.variable_scope("pointer"):
-                init = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph)
+                init = simple_attention(q, self.attention_hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph)
                 pointer = PtrNet(cell_size=init.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
                 if self.noans_token:
                     noans_token = tf.Variable(tf.random_uniform((match.get_shape().as_list()[-1],), -0.1, 0.1), tf.float32)
