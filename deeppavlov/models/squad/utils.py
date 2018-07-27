@@ -129,6 +129,7 @@ def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0, scope="dot_atte
 
 def simple_attention(memory, att_size, mask, keep_prob=1.0, scope="simple_attention"):
     """Simple attention without any conditions.
+        a_i = v^T * tanh(W * m_i + b)
 
        Computes weighted sum of memory elements.
     """
@@ -143,7 +144,11 @@ def simple_attention(memory, att_size, mask, keep_prob=1.0, scope="simple_attent
 
 
 def attention(inputs, state, att_size, mask, scope="attention"):
-    """Computes weighted sum of inputs conditioned on state"""
+    """Computes weighted sum of inputs conditioned on state
+
+        a_i = v^T * tanh(W * [state, m_i] + b)
+    """
+
     with tf.variable_scope(scope):
         u = tf.concat([tf.tile(tf.expand_dims(state, axis=1), [1, tf.shape(inputs)[1], 1]), inputs], axis=2)
         logits = tf.layers.dense(tf.layers.dense(u, att_size, activation=tf.nn.tanh), 1, use_bias=False)
