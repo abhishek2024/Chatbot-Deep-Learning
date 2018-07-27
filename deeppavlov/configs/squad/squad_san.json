@@ -81,6 +81,7 @@
         "weight_decay": 1.0,
         "use_gated_attention": false,
         "drop_diag_self_att": true,
+        "use_birnn_after_qc_att": false,
         "save_path": "squad_model_san/model",
         "load_path": "squad_model_san/model",
         "in": {

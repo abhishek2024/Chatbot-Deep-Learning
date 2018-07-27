@@ -64,6 +64,7 @@ class SquadModel(TFModel):
         self.use_gated_attention = self.opt.get('use_gated_attention', True)
         self.transform_char_emb = self.opt.get('transform_char_emb', 0)
         self.drop_diag_self_att = self.opt.get('drop_diag_self_att', False)
+        self.use_birnn_after_qc_att = self.opt.get('use_birnn_after_qc_att', True)
 
         self.word_emb_dim = self.init_word_emb.shape[1]
         self.char_emb_dim = self.init_char_emb.shape[1]
@@ -235,11 +236,10 @@ class SquadModel(TFModel):
         with tf.variable_scope("attention"):
             qc_att = dot_attention(c, q, mask=self.q_mask, att_size=self.attention_hidden_size,
                                    keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention)
-            """
-            rnn = CudnnGRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
-                           input_size=qc_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
-            att = rnn(qc_att, seq_len=self.c_len)
-            """
+            if self.use_birnn_after_qc_att:
+                rnn = CudnnGRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
+                               input_size=qc_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
+                qc_att = rnn(qc_att, seq_len=self.c_len)
 
         if self.predict_ans:
             with tf.variable_scope("match"):
