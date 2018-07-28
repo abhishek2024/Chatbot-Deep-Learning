@@ -286,29 +286,22 @@ class SquadModel(TFModel):
                     logits1, logits2 = pointer(init, match, self.hidden_size, self.c_mask)
                 else:
                     # TODO add noans_token support
-                    print(init)
                     multihop_cell = tf.nn.rnn_cell.GRUCell(num_units=init.get_shape().as_list()[-1])
-                    state = tf.nn.dropout(init, keep_prob=self.keep_prob_ph)
+                    state = variational_dropout(init, keep_prob=self.keep_prob_ph)
                     hops_start_logits = []
                     hops_end_logits = []
 
                     for i in range(self.number_of_hops):
                         x, _ = attention(match, state, att_size=self.attention_hidden_size, mask=self.c_mask,
-                                      scope='multihop_cell_att', reuse=tf.AUTO_REUSE)
-                        # DEBUG IT!
-                        # Dimensions must be equal, but are 600 and 900: [?,600], [900,900].
-                        print('!!!!!!!!state:', state)
-                        print('!!!!!!!!x:', x)
-                        _, state = multihop_cell(state, tf.nn.dropout(x, keep_prob=self.keep_prob_ph))
-
-                        print('!!!!!!!!!!!!!!!!!!!!')
+                                         scope='multihop_cell_att', reuse=tf.AUTO_REUSE)
+                        x = variational_dropout(x, keep_prob=self.keep_prob_ph)
+                        _, state = multihop_cell(x, state)
 
                         start_att, start_logits = attention(match, state, att_size=self.attention_hidden_size,
                                                             mask=self.c_mask, scope='start_pointer_att',
                                                             reuse=tf.AUTO_REUSE)
-                        print(state)
-                        print(start_att)
-                        _, end_logits = attention(tf.concat([state, start_att], axis=-1),
+
+                        _, end_logits = attention(match, tf.concat([state, start_att], axis=-1),
                                                   att_size=self.attention_hidden_size, mask=self.c_mask,
                                                   scope='end_pointer_att', reuse=tf.AUTO_REUSE)
 
@@ -319,13 +312,12 @@ class SquadModel(TFModel):
                     hops_end_logits = tf.stack(hops_end_logits, axis=1)
 
                     logits1 = tf.reduce_mean(tf.nn.dropout(hops_start_logits, keep_prob=self.keep_prob_ph,
-                                                                     noise_shape=(bs, self.number_of_hops,1)),
-                                                       axis=1)
+                                                           noise_shape=(bs, self.number_of_hops, 1)),
+                                             axis=1)
 
                     logits2 = tf.reduce_mean(tf.nn.dropout(hops_end_logits, keep_prob=self.keep_prob_ph,
-                                                                     noise_shape=(bs, self.number_of_hops, 1)),
-                                                       axis=1)
-
+                                                           noise_shape=(bs, self.number_of_hops, 1)),
+                                             axis=1)
 
         with tf.variable_scope("predict"):
             if self.predict_ans:
@@ -354,11 +346,13 @@ class SquadModel(TFModel):
                 q_att = tf.nn.dropout(q_att, keep_prob=self.keep_prob_ph)
                 c_att = tf.nn.dropout(c_att, keep_prob=self.keep_prob_ph)
                 dense_input = tf.concat([q_att, c_att, c_att - q_att, c_att * q_att], -1)
-                layer_1_logits = tf.nn.dropout(tf.layers.dense(dense_input,
-                                                units=self.hidden_size,
-                                                activation=tf.nn.tanh,
-                                                kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                                name='noans_dense_1'), keep_prob=self.keep_prob_ph)
+                layer_1_logits = tf.nn.dropout(
+                                    tf.layers.dense(dense_input,
+                                                    units=self.hidden_size,
+                                                    activation=tf.nn.tanh,
+                                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                                    name='noans_dense_1'),
+                                    keep_prob=self.keep_prob_ph)
                 layer_2_logits = tf.layers.dense(layer_1_logits,
                                                  activation=tf.nn.tanh,
                                                  units=2,
@@ -442,8 +436,8 @@ class SquadModel(TFModel):
                          c_features=None, q_features=None, c_str=None, q_str=None, y1=None, y2=None, y=None):
 
         if self.use_elmo:
-          c_str = self._pad_strings(c_str, self.context_limit)
-          q_str = self._pad_strings(q_str, self.question_limit)
+            c_str = self._pad_strings(c_str, self.context_limit)
+            q_str = self._pad_strings(q_str, self.question_limit)
 
         feed_dict = {
             self.c_ph: c_tokens,
