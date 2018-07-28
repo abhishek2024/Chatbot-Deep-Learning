@@ -21,7 +21,7 @@ import numpy as np
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
-from deeppavlov.models.squad.utils import CudnnGRU, dot_attention, simple_attention, PtrNet
+from deeppavlov.models.squad.utils import CudnnGRU, dot_attention, simple_attention, attention, PtrNet
 from deeppavlov.core.common.check_gpu import check_gpu_existence
 from deeppavlov.core.layers.tf_layers import cudnn_bi_gru, variational_dropout
 from deeppavlov.core.common.log import get_logger
@@ -63,8 +63,12 @@ class SquadModel(TFModel):
         self.true_label_weight = self.opt.get('true_label_weight', 0.7)
         self.use_gated_attention = self.opt.get('use_gated_attention', True)
         self.transform_char_emb = self.opt.get('transform_char_emb', 0)
+        self.transform_word_emb = self.opt.get('transform_word_emb', 0)
         self.drop_diag_self_att = self.opt.get('drop_diag_self_att', False)
         self.use_birnn_after_qc_att = self.opt.get('use_birnn_after_qc_att', True)
+        self.number_of_hops = self.opt.get('number_of_hops', 1)
+
+        assert self.number_of_hops >= 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
 
         self.word_emb_dim = self.init_word_emb.shape[1]
         self.char_emb_dim = self.init_char_emb.shape[1]
@@ -167,9 +171,10 @@ class SquadModel(TFModel):
                 if self.transform_char_emb != 0:
                     cc_emb = tf.layers.dense(
                         tf.layers.dense(cc_emb, self.transform_char_emb, activation=tf.nn.relu,
+                                        kernel_initializer=tf.contrib.layers.xavier_initializer(),
                                         name='transform_char_emb_1'),
                         self.transform_char_emb,
-                        use_bias=False,
+                        kernel_initializer=tf.contrib.layers.xavier_initializer(),
                         name='transform_char_emb_2'
                     )
 
@@ -177,7 +182,6 @@ class SquadModel(TFModel):
                         tf.layers.dense(qc_emb, self.transform_char_emb, activation=tf.nn.relu,
                                         name='transform_char_emb_1', reuse=True),
                         self.transform_char_emb,
-                        use_bias=False,
                         name='transform_char_emb_2',
                         reuse=True
                     )
@@ -204,6 +208,24 @@ class SquadModel(TFModel):
             if self.use_features:
                 c_emb = tf.concat([c_emb, self.c_f], axis=2)
                 q_emb = tf.concat([q_emb, self.q_f], axis=2)
+
+            if self.transform_word_emb != 0:
+                c_emb = tf.layers.dense(
+                        tf.layers.dense(c_emb, self.transform_word_emb, activation=tf.nn.relu,
+                                        kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                        name='transform_word_emb_1'),
+                        self.transform_word_emb,
+                        kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                        name='transform_word_emb_2'
+                    )
+
+                q_emb = tf.layers.dense(
+                        tf.layers.dense(q_emb, self.transform_word_emb, activation=tf.nn.relu,
+                                        name='transform_word_emb_1', reuse=True),
+                        self.transform_word_emb,
+                        name='transform_word_emb_2',
+                        reuse=True
+                    )
 
             if self.use_elmo:
                 import tensorflow_hub as tfhub
@@ -252,14 +274,58 @@ class SquadModel(TFModel):
 
             with tf.variable_scope("pointer"):
                 init = simple_attention(q, self.attention_hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph)
-                pointer = PtrNet(cell_size=init.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
-                if self.noans_token:
-                    noans_token = tf.Variable(tf.random_uniform((match.get_shape().as_list()[-1],), -0.1, 0.1), tf.float32)
-                    noans_token = tf.nn.dropout(noans_token, keep_prob=self.keep_prob_ph)
-                    noans_token = tf.expand_dims(tf.tile(tf.expand_dims(noans_token, axis=0), [bs, 1]), axis=1)
-                    match = tf.concat([noans_token, match], axis=1)
-                    self.c_mask = tf.concat([tf.ones(shape=(bs, 1), dtype=tf.bool), self.c_mask], axis=1)
-                logits1, logits2 = pointer(init, match, self.hidden_size, self.c_mask)
+                if self.number_of_hops == 1:
+                    # default model
+                    pointer = PtrNet(cell_size=init.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
+                    if self.noans_token:
+                        noans_token = tf.Variable(tf.random_uniform((match.get_shape().as_list()[-1],), -0.1, 0.1), tf.float32)
+                        noans_token = tf.nn.dropout(noans_token, keep_prob=self.keep_prob_ph)
+                        noans_token = tf.expand_dims(tf.tile(tf.expand_dims(noans_token, axis=0), [bs, 1]), axis=1)
+                        match = tf.concat([noans_token, match], axis=1)
+                        self.c_mask = tf.concat([tf.ones(shape=(bs, 1), dtype=tf.bool), self.c_mask], axis=1)
+                    logits1, logits2 = pointer(init, match, self.hidden_size, self.c_mask)
+                else:
+                    # TODO add noans_token support
+                    print(init)
+                    multihop_cell = tf.nn.rnn_cell.GRUCell(num_units=init.get_shape().as_list()[-1])
+                    state = tf.nn.dropout(init, keep_prob=self.keep_prob_ph)
+                    hops_start_logits = []
+                    hops_end_logits = []
+
+                    for i in range(self.number_of_hops):
+                        x, _ = attention(match, state, att_size=self.attention_hidden_size, mask=self.c_mask,
+                                      scope='multihop_cell_att', reuse=tf.AUTO_REUSE)
+                        # DEBUG IT!
+                        # Dimensions must be equal, but are 600 and 900: [?,600], [900,900].
+                        print('!!!!!!!!state:', state)
+                        print('!!!!!!!!x:', x)
+                        _, state = multihop_cell(state, tf.nn.dropout(x, keep_prob=self.keep_prob_ph))
+
+                        print('!!!!!!!!!!!!!!!!!!!!')
+
+                        start_att, start_logits = attention(match, state, att_size=self.attention_hidden_size,
+                                                            mask=self.c_mask, scope='start_pointer_att',
+                                                            reuse=tf.AUTO_REUSE)
+                        print(state)
+                        print(start_att)
+                        _, end_logits = attention(tf.concat([state, start_att], axis=-1),
+                                                  att_size=self.attention_hidden_size, mask=self.c_mask,
+                                                  scope='end_pointer_att', reuse=tf.AUTO_REUSE)
+
+                        hops_start_logits.append(start_logits)
+                        hops_end_logits.append(end_logits)
+
+                    hops_start_logits = tf.stack(hops_start_logits, axis=1)
+                    hops_end_logits = tf.stack(hops_end_logits, axis=1)
+
+                    logits1 = tf.reduce_mean(tf.nn.dropout(hops_start_logits, keep_prob=self.keep_prob_ph,
+                                                                     noise_shape=(bs, self.number_of_hops,1)),
+                                                       axis=1)
+
+                    logits2 = tf.reduce_mean(tf.nn.dropout(hops_end_logits, keep_prob=self.keep_prob_ph,
+                                                                     noise_shape=(bs, self.number_of_hops, 1)),
+                                                       axis=1)
+
 
         with tf.variable_scope("predict"):
             if self.predict_ans:
@@ -279,7 +345,7 @@ class SquadModel(TFModel):
 
             if self.scorer:
                 q_att = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph, scope='q_att')
-                c_att = simple_attention(att, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph, scope='c_att')
+                c_att = simple_attention(qc_att, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph, scope='c_att')
                 q_att = tf.layers.dense(q_att, units=c_att.get_shape().as_list()[-1],
                                         activation=tf.nn.tanh,
                                         kernel_initializer=tf.contrib.layers.xavier_initializer(),
