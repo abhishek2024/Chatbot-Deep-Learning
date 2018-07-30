@@ -66,6 +66,7 @@ class SquadModel(TFModel):
         self.transform_word_emb = self.opt.get('transform_word_emb', 0)
         self.drop_diag_self_att = self.opt.get('drop_diag_self_att', False)
         self.use_birnn_after_qc_att = self.opt.get('use_birnn_after_qc_att', True)
+        self.hops_keep_prob = self.opt.get('hops_keep_prob', 0.6)
         self.number_of_hops = self.opt.get('number_of_hops', 1)
 
         assert self.number_of_hops >= 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
@@ -311,11 +312,11 @@ class SquadModel(TFModel):
                     hops_start_logits = tf.stack(hops_start_logits, axis=1)
                     hops_end_logits = tf.stack(hops_end_logits, axis=1)
 
-                    logits1 = tf.reduce_mean(tf.nn.dropout(hops_start_logits, keep_prob=self.keep_prob_ph,
+                    logits1 = tf.reduce_mean(tf.nn.dropout(hops_start_logits, keep_prob=self.hops_keep_prob_ph,
                                                            noise_shape=(bs, self.number_of_hops, 1)),
                                              axis=1)
 
-                    logits2 = tf.reduce_mean(tf.nn.dropout(hops_end_logits, keep_prob=self.keep_prob_ph,
+                    logits2 = tf.reduce_mean(tf.nn.dropout(hops_end_logits, keep_prob=self.hops_keep_prob_ph,
                                                            noise_shape=(bs, self.number_of_hops, 1)),
                                              axis=1)
 
@@ -419,6 +420,7 @@ class SquadModel(TFModel):
 
         self.lr_ph = tf.placeholder(dtype=tf.float32, shape=[], name='lr_ph')
         self.keep_prob_ph = tf.placeholder_with_default(1.0, shape=[], name='keep_prob_ph')
+        self.hops_keep_prob_ph = tf.placeholder_with_default(1.0, shape=[], name='hops_keep_prob_ph')
         self.is_train_ph = tf.placeholder_with_default(False, shape=[], name='is_train_ph')
 
     def _init_optimizer(self):
@@ -457,6 +459,7 @@ class SquadModel(TFModel):
                 self.y2_ph: y2,
                 self.lr_ph: self.learning_rate,
                 self.keep_prob_ph: self.keep_prob,
+                self.hops_keep_prob_ph: self.hops_keep_prob,
                 self.is_train_ph: True,
             })
         if self.scorer and y is not None:
@@ -464,6 +467,7 @@ class SquadModel(TFModel):
                 self.y_ph: y,
                 self.lr_ph: self.learning_rate,
                 self.keep_prob_ph: self.keep_prob,
+                self.hops_keep_prob_ph: self.hops_keep_prob,
                 self.is_train_ph: True,
             })
         if self.use_elmo:
