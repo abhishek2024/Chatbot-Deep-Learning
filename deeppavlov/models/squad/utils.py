@@ -116,10 +116,12 @@ def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0, use_gate=True, 
             memory_att = tf.layers.dense(d_memory, att_size, use_bias=False, activation=tf.nn.relu)
             logits = tf.matmul(inputs_att, tf.transpose(memory_att, [0, 2, 1])) / (att_size ** 0.5)
 
-            if drop_diag:
-                logits = logits * (1 - tf.diag(tf.ones(shape=(IL,), dtype=tf.float32)))
-
             mask = tf.tile(tf.expand_dims(mask, axis=1), [1, IL, 1])
+
+            if drop_diag:
+                # set mask values to zero on diag
+                mask = tf.cast(mask, tf.float32) * (1 - tf.diag(tf.ones(shape=(IL,), dtype=tf.float32)))
+
             att_weights = tf.nn.softmax(softmax_mask(logits, mask))
             outputs = tf.matmul(att_weights, memory)
             res = tf.concat([inputs, outputs], axis=2)
