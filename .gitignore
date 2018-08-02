@@ -115,3 +115,6 @@ download/
 
 # project data
 /data/
+
+#Atom IDE
+.ftpconfig

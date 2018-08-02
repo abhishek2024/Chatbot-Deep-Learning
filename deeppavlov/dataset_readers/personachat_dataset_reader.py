@@ -25,7 +25,7 @@ class PersonaChatDatasetReader(DatasetReader):
 
     """
 
-    url = 'http://lnsigo.mipt.ru/export/datasets/personachat.tar.gz'
+    url = 'http://parl.ai/downloads/personachat/personachat.tgz'
 
     def read(self, dir_path: str, mode='self_original'):
         assert mode in ['self_original', 'self_revised'], print('mode: {} is unsupported'.format(mode))

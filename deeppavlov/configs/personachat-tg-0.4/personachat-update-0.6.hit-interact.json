@@ -1,0 +1,120 @@
+{
+  "dataset_reader": {
+    "name": "personachat_dataset_reader",
+    "data_path": "personachat/"
+  },
+  "dataset_iterator": {
+    "name": "personachat_iterator",
+    "seed": 1337,
+    "shuffle": true
+  },
+  "chainer": {
+    "in": ["persona", "dialog_history", "x_utterance"],
+    "in_y": ["y_utterance"],
+    "pipe":
+    [
+      {
+        "name": "personachat_tokenizer",
+        "id": "tokenizer",
+        "in": ["x_utterance"],
+        "out": ["x_utterance_tok"]
+      },
+      {
+        "ref": "tokenizer",
+        "in": ["dialog_history"],
+        "out": ["dialog_history_tok"]
+      },
+      {
+        "ref": "tokenizer",
+        "in": ["persona"],
+        "out": ["persona_tok"]
+      },
+      {
+        "ref": "tokenizer",
+        "in": ["y_utterance"],
+        "out": ["y_utterance_tok"]
+      },
+      {
+        "name": "personachat_vocab",
+        "id": "vocab_token",
+        "level": "token",
+        "emb_folder": "embeddings/",
+        "emb_url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M.vec",
+        "save_path": "personachat_model/emb/vocab_embedder.pckl",
+        "load_path": "personachat_model/emb/vocab_embedder.pckl",
+        "x_len_limit": 50,
+        "persona_len_limit": 50,
+        "y_len_limit": 50,
+        "char_limit": 16,
+        "fit_lol": ["x_utterance_tok", "y_utterance_tok", "persona_tok"],
+        "in": ["x_utterance_tok", "persona_tok"],
+        "out": ["x_tok_idxs", "persona_tok_idxs"]
+      },
+      {
+        "name": "personachat_vocab",
+        "id": "vocab_char",
+        "level": "char",
+        "emb_folder": "embeddings/",
+        "emb_url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M-char.vec",
+        "save_path": "personachat_model/emb/char_vocab_embedder.pckl",
+        "load_path": "personachat_model/emb/char_vocab_embedder.pckl",
+        "x_len_limit": "#vocab_token.x_len_limit",
+        "persona_len_limit": "#vocab_token.persona_len_limit",
+        "y_len_limit": "#vocab_token.y_len_limit",
+        "char_limit": 16,
+        "fit_lol": ["x_utterance_tok", "y_utterance_tok", "persona_tok"],
+        "in": ["x_utterance_tok", "persona_tok"],
+        "out": ["x_char_idxs", "persona_char_idxs"]
+      },
+      {
+        "ref": "vocab_token",
+        "in": ["y_utterance_tok"],
+        "out": ["y_tok_idxs"]
+      },
+      {
+        "name": "personachat_model",
+        "id": "personachat",
+        "word_emb": "#vocab_token.emb_mat",
+        "char_emb": "#vocab_char.emb_mat",
+        "x_len_limit": 150,
+        "persona_len_limit": 100,
+        "y_len_limit": 50,
+        "char_limit": 16,
+        "train_char_emb": true,
+        "use_char_emb": true,
+        "char_hidden_size": 100,
+        "encoder_hidden_size": 128,
+        "attention_hidden_size": 128,
+        "learning_rate": 0.0003,
+        "keep_prob": 0.5,
+        "grad_clip": 5.0,
+        "teacher_forcing": true,
+        "teacher_forcing_rate": 1.0,
+        "use_match_layer": true,
+        "cell_type": "GRU",
+        "save_path": "personachat_model/21_128hs_GRU_0.5do_1.0tf_use_match_model-update-0.6.hit/model",
+        "load_path": "personachat_model/21_128hs_GRU_0.5do_1.0tf_use_match_model-update-0.6.hit/model",
+        "in": ["persona_tok_idxs", "persona_char_idxs", "x_tok_idxs", "x_char_idxs"],
+        "in_y": ["y_tok_idxs"],
+        "out": ["y_pred_tok_idxs", "y_probs"]
+      },
+      {
+        "name": "personachat_postprocessor",
+        "idx2token": "#vocab_token.idx2token",
+        "NULL": "#vocab_token.NULL",
+        "in": ["y_pred_tok_idxs"],
+        "out": ["y_pred"]
+      }
+    ],
+    "out": ["y_pred"]
+  },
+  "train": {
+    "show_examples": false,
+    "test_best": false,
+    "validate_best": false,
+    "log_every_n_batches": 250,
+    "val_every_n_epochs": 1,
+    "batch_size": 64,
+    "metrics": ["personachat_loss", "personachat_perplexity"]
+  }
+}

@@ -379,7 +379,7 @@ class PersonaChatPostprocessor(Component):
                     break
                 tokens[-1].append(token)
         tokens = [' '.join(utt) for utt in tokens]
-        
+
         return tokens
 
 
