@@ -115,7 +115,7 @@ class SquadNoAnsIterator(SquadIterator):
 
 
 @register('squad_scorer_iterator')
-class SquadIterator(DataLearningIterator):
+class SquadScorerIterator(DataLearningIterator):
     def split(self, *args, **kwargs):
         for dt in ['train', 'valid', 'test']:
             setattr(self, dt, getattr(self, dt))
