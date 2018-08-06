@@ -21,9 +21,8 @@ import numpy as np
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
-from deeppavlov.models.squad.utils import CudnnGRU, dot_attention, simple_attention, attention, PtrNet
-from deeppavlov.core.common.check_gpu import check_gpu_existence
-from deeppavlov.models.squad.utils import dot_attention, simple_attention, PtrNet, CudnnGRU, CudnnCompatibleGRU
+from deeppavlov.models.squad.utils import dot_attention, simple_attention, PtrNet, attention
+from deeppavlov.models.squad.utils import CudnnGRU, CudnnCompatibleGRU, CudnnGRULegacy
 from deeppavlov.core.common.check_gpu import GPU_AVAILABLE
 from deeppavlov.core.layers.tf_layers import cudnn_bi_gru, variational_dropout
 from deeppavlov.core.common.log import get_logger
@@ -67,6 +66,7 @@ class SquadModel(TFModel):
         self.use_transpose_att = self.opt.get('use_transpose_att', False)
         self.hops_keep_prob = self.opt.get('hops_keep_prob', 0.6)
         self.number_of_hops = self.opt.get('number_of_hops', 1)
+        self.legacy = self.opt.get('legacy', True)  # support old checkpoints
 
         assert self.number_of_hops > 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
 
@@ -77,9 +77,9 @@ class SquadModel(TFModel):
         self.lr_impatience = 0
 
         if GPU_AVAILABLE:
-            self.GRU = CudnnGRU
+            self.GRU = CudnnGRU if not self.legacy else CudnnGRULegacy
         else:
-            self.GRU = CudnnCompatibleGRU
+            raise RuntimeError('SquadModel requires GPU')
 
         self.sess_config = tf.ConfigProto(allow_soft_placement=True)
         self.sess_config.gpu_options.allow_growth = True
@@ -262,17 +262,13 @@ class SquadModel(TFModel):
 
         with tf.variable_scope("attention"):
             qc_att = dot_attention(c, q, mask=self.q_mask, att_size=self.attention_hidden_size,
-                                   keep_prob=self.keep_prob_ph)
-            rnn = self.GRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
-                           input_size=qc_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
-            att = rnn(qc_att, seq_len=self.c_len)
                                    keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
                                    use_transpose_att=self.use_transpose_att)
+
             if self.use_birnn_after_qc_att:
-                rnn = CudnnGRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
+                rnn = self.GRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
                                input_size=qc_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
                 qc_att = rnn(qc_att, seq_len=self.c_len)
-
 
         if self.predict_ans:
             with tf.variable_scope("match"):

@@ -40,7 +40,8 @@ class TFModel(NNModel, metaclass=TfModelMeta):
         if tf.train.checkpoint_exists(path):
             log.info('[loading model from {}]'.format(path))
             # Exclude optimizer variables from saved variables
-            var_list = self._get_saveable_variables(exclude_scopes)
+            # TODO use _get_saveable_variables
+            var_list = self._get_trainable_variables(exclude_scopes)
             saver = tf.train.Saver(var_list)
             saver.restore(self.sess, path)
 
@@ -48,7 +49,7 @@ class TFModel(NNModel, metaclass=TfModelMeta):
         """Save model parameters to self.save_path"""
         path = str(self.save_path.resolve())
         log.info('[saving model to {}]'.format(path))
-        var_list = self._get_saveable_variables(exclude_scopes)
+        var_list = self._get_trainable_variables(exclude_scopes)
         saver = tf.train.Saver(var_list)
         saver.save(self.sess, path)
 
