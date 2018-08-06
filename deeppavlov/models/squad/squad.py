@@ -23,6 +23,8 @@ from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
 from deeppavlov.models.squad.utils import CudnnGRU, dot_attention, simple_attention, attention, PtrNet
 from deeppavlov.core.common.check_gpu import check_gpu_existence
+from deeppavlov.models.squad.utils import dot_attention, simple_attention, PtrNet, CudnnGRU, CudnnCompatibleGRU
+from deeppavlov.core.common.check_gpu import GPU_AVAILABLE
 from deeppavlov.core.layers.tf_layers import cudnn_bi_gru, variational_dropout
 from deeppavlov.core.common.log import get_logger
 
@@ -32,10 +34,6 @@ logger = get_logger(__name__)
 @register('squad_model')
 class SquadModel(TFModel):
     def __init__(self, **kwargs):
-
-        if not check_gpu_existence():
-            raise RuntimeError('SquadModel requires GPU')
-
         self.opt = deepcopy(kwargs)
         self.init_word_emb = self.opt['word_emb']
         self.init_char_emb = self.opt['char_emb']
@@ -77,6 +75,11 @@ class SquadModel(TFModel):
 
         self.last_impatience = 0
         self.lr_impatience = 0
+
+        if GPU_AVAILABLE:
+            self.GRU = CudnnGRU
+        else:
+            self.GRU = CudnnCompatibleGRU
 
         self.sess_config = tf.ConfigProto(allow_soft_placement=True)
         self.sess_config.gpu_options.allow_growth = True
@@ -251,7 +254,7 @@ class SquadModel(TFModel):
                 q_emb = tf.concat([q_emb, q_elmo], axis=2)
 
         with tf.variable_scope("encoding"):
-            rnn = CudnnGRU(num_layers=3, num_units=self.hidden_size, batch_size=bs,
+            rnn = self.GRU(num_layers=3, num_units=self.hidden_size, batch_size=bs,
                            input_size=c_emb.get_shape().as_list()[-1],
                            keep_prob=self.keep_prob_ph)
             c = rnn(c_emb, seq_len=self.c_len)
@@ -259,6 +262,10 @@ class SquadModel(TFModel):
 
         with tf.variable_scope("attention"):
             qc_att = dot_attention(c, q, mask=self.q_mask, att_size=self.attention_hidden_size,
+                                   keep_prob=self.keep_prob_ph)
+            rnn = self.GRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
+                           input_size=qc_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
+            att = rnn(qc_att, seq_len=self.c_len)
                                    keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
                                    use_transpose_att=self.use_transpose_att)
             if self.use_birnn_after_qc_att:
@@ -266,12 +273,13 @@ class SquadModel(TFModel):
                                input_size=qc_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
                 qc_att = rnn(qc_att, seq_len=self.c_len)
 
+
         if self.predict_ans:
             with tf.variable_scope("match"):
                 self_att = dot_attention(qc_att, qc_att, mask=self.c_mask, att_size=self.attention_hidden_size,
                                          keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
                                          drop_diag=self.drop_diag_self_att, use_transpose_att=False)
-                rnn = CudnnGRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
+                rnn = self.GRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
                                input_size=self_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
                 match = rnn(self_att, seq_len=self.c_len)
 
