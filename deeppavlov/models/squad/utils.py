@@ -85,7 +85,9 @@ class PtrNet:
             return logits1, logits2
 
 
-def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0, use_gate=True, drop_diag=False, scope="dot_attention"):
+def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0,
+                  use_gate=True, drop_diag=False, use_transpose_att=False, inputs_mask=None,
+                  scope="dot_attention"):
     """Computes attention vector for each item in inputs:
        attention vector is a weighted sum of memory items.
        Dot product between input and memory vector is used as similarity measure.
@@ -124,7 +126,22 @@ def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0, use_gate=True, 
 
             att_weights = tf.nn.softmax(softmax_mask(logits, mask))
             outputs = tf.matmul(att_weights, memory)
+
             res = tf.concat([inputs, outputs], axis=2)
+
+            # like in QA-NET and DCN: S * SS_T * C
+            if use_transpose_att:
+                if inputs_mask is None:
+                    inputs_mask = tf.ones(shape=(BS, IL), dtype=tf.float32)
+
+                transpose_mask = tf.transpose(tf.tile(tf.expand_dims(inputs_mask, axis=1), [1, ML, 1]), [0, 2, 1])
+                transpose_att_weights = tf.nn.softmax(softmax_mask(logits, transpose_mask), axis=1)
+
+                S_SS_T = tf.matmul(att_weights, transpose_att_weights, transpose_b=True)
+
+                transpose_outputs = tf.matmul(S_SS_T, inputs)
+
+                res = tf.concat([res, inputs * outputs, inputs * transpose_outputs], axis=2)
 
         if use_gate:
             with tf.variable_scope("gate"):

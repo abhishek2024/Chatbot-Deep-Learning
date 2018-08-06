@@ -66,10 +66,11 @@ class SquadModel(TFModel):
         self.transform_word_emb = self.opt.get('transform_word_emb', 0)
         self.drop_diag_self_att = self.opt.get('drop_diag_self_att', False)
         self.use_birnn_after_qc_att = self.opt.get('use_birnn_after_qc_att', True)
+        self.use_transpose_att = self.opt.get('use_transpose_att', False)
         self.hops_keep_prob = self.opt.get('hops_keep_prob', 0.6)
         self.number_of_hops = self.opt.get('number_of_hops', 1)
 
-        assert self.number_of_hops >= 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
+        assert self.number_of_hops > 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
 
         self.word_emb_dim = self.init_word_emb.shape[1]
         self.char_emb_dim = self.init_char_emb.shape[1]
@@ -234,7 +235,7 @@ class SquadModel(TFModel):
                 c_elmo = elmo(
                     inputs={
                         "tokens": self.c_str,
-                        "sequence_len": tf.reduce_sum(1-tf.cast(tf.equal(self.c_str, ""), tf.int32), axis=-1)
+                        "sequence_len": tf.reduce_sum(1 - tf.cast(tf.equal(self.c_str, ""), tf.int32), axis=-1)
                     },
                     signature="tokens",
                     as_dict=True)["elmo"]
@@ -258,7 +259,8 @@ class SquadModel(TFModel):
 
         with tf.variable_scope("attention"):
             qc_att = dot_attention(c, q, mask=self.q_mask, att_size=self.attention_hidden_size,
-                                   keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention)
+                                   keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
+                                   use_transpose_att=self.use_transpose_att)
             if self.use_birnn_after_qc_att:
                 rnn = CudnnGRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
                                input_size=qc_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
@@ -268,7 +270,7 @@ class SquadModel(TFModel):
             with tf.variable_scope("match"):
                 self_att = dot_attention(qc_att, qc_att, mask=self.c_mask, att_size=self.attention_hidden_size,
                                          keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
-                                         drop_diag=self.drop_diag_self_att)
+                                         drop_diag=self.drop_diag_self_att, use_transpose_att=False)
                 rnn = CudnnGRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
                                input_size=self_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
                 match = rnn(self_att, seq_len=self.c_len)
@@ -287,6 +289,7 @@ class SquadModel(TFModel):
                     logits1, logits2 = pointer(init, match, self.hidden_size, self.c_mask)
                 else:
                     # TODO add noans_token support
+                    # TODO multihop cell with 128 hidden size?
                     multihop_cell = tf.nn.rnn_cell.GRUCell(num_units=init.get_shape().as_list()[-1])
                     state = variational_dropout(init, keep_prob=self.keep_prob_ph)
                     hops_start_logits = []
