@@ -278,12 +278,30 @@ def simple_attention(memory, att_size, mask, keep_prob=1.0, scope="simple_attent
 def attention(inputs, state, att_size, mask, scope="attention", reuse=False):
     """Computes weighted sum of inputs conditioned on state
 
+        Additive form of attention:
         a_i = v^T * tanh(W * [state, m_i] + b)
     """
 
     with tf.variable_scope(scope, reuse=reuse):
         u = tf.concat([tf.tile(tf.expand_dims(state, axis=1), [1, tf.shape(inputs)[1], 1]), inputs], axis=2)
         logits = tf.layers.dense(tf.layers.dense(u, att_size, activation=tf.nn.tanh), 1, use_bias=False)
+        logits = softmax_mask(tf.squeeze(logits, [2]), mask)
+        att_weights = tf.expand_dims(tf.nn.softmax(logits), axis=2)
+        res = tf.reduce_sum(att_weights * inputs, axis=1)
+        return res, logits
+
+
+def mult_attention(inputs, state, att_size, mask, scope="attention", reuse=False):
+    """Computes weighted sum of inputs conditioned on state
+
+        Multiplicative form of attention:
+        a_i = state * W * m_i
+    """
+
+    with tf.variable_scope(scope, reuse=reuse):
+        logits = tf.matmul(tf.expand_dims(state, axis=1),
+                           tf.layers.dense(inputs, units=state.get_shape()[-1], use_bias=False, reuse=reuse),
+                           transpose_b=True)
         logits = softmax_mask(tf.squeeze(logits, [2]), mask)
         att_weights = tf.expand_dims(tf.nn.softmax(logits), axis=2)
         res = tf.reduce_sum(att_weights * inputs, axis=1)

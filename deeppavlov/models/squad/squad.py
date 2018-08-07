@@ -21,7 +21,7 @@ import numpy as np
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
-from deeppavlov.models.squad.utils import dot_attention, simple_attention, PtrNet, attention
+from deeppavlov.models.squad.utils import dot_attention, simple_attention, PtrNet, attention, mult_attention
 from deeppavlov.models.squad.utils import CudnnGRU, CudnnCompatibleGRU, CudnnGRULegacy
 from deeppavlov.core.common.check_gpu import GPU_AVAILABLE
 from deeppavlov.core.layers.tf_layers import cudnn_bi_gru, variational_dropout
@@ -67,6 +67,7 @@ class SquadModel(TFModel):
         self.hops_keep_prob = self.opt.get('hops_keep_prob', 0.6)
         self.number_of_hops = self.opt.get('number_of_hops', 1)
         self.legacy = self.opt.get('legacy', True)  # support old checkpoints
+        self.multihop_cell_size = self.opt.get('multihop_cell_size', 128)
 
         assert self.number_of_hops > 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
 
@@ -293,23 +294,24 @@ class SquadModel(TFModel):
                     logits1, logits2 = pointer(init, match, self.hidden_size, self.c_mask)
                 else:
                     # TODO add noans_token support
-                    # TODO multihop cell with 128 hidden size?
-                    multihop_cell = tf.nn.rnn_cell.GRUCell(num_units=init.get_shape().as_list()[-1])
+                    init = tf.layers.dense(init, units=self.multihop_cell_size, name='init_projection')
                     state = variational_dropout(init, keep_prob=self.keep_prob_ph)
+                    multihop_cell = tf.nn.rnn_cell.GRUCell(num_units=self.multihop_cell_size)
+
                     hops_start_logits = []
                     hops_end_logits = []
 
                     for i in range(self.number_of_hops):
-                        x, _ = attention(match, state, att_size=self.attention_hidden_size, mask=self.c_mask,
+                        x, _ = mult_attention(match, state, att_size=self.attention_hidden_size, mask=self.c_mask,
                                          scope='multihop_cell_att', reuse=tf.AUTO_REUSE)
                         x = variational_dropout(x, keep_prob=self.keep_prob_ph)
                         _, state = multihop_cell(x, state)
 
-                        start_att, start_logits = attention(match, state, att_size=self.attention_hidden_size,
+                        start_att, start_logits = mult_attention(match, state, att_size=self.attention_hidden_size,
                                                             mask=self.c_mask, scope='start_pointer_att',
                                                             reuse=tf.AUTO_REUSE)
 
-                        _, end_logits = attention(match, tf.concat([state, start_att], axis=-1),
+                        _, end_logits = mult_attention(match, tf.concat([state, start_att], axis=-1),
                                                   att_size=self.attention_hidden_size, mask=self.c_mask,
                                                   scope='end_pointer_att', reuse=tf.AUTO_REUSE)
 
