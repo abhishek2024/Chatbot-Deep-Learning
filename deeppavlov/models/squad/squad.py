@@ -68,6 +68,7 @@ class SquadModel(TFModel):
         self.number_of_hops = self.opt.get('number_of_hops', 1)
         self.legacy = self.opt.get('legacy', True)  # support old checkpoints
         self.multihop_cell_size = self.opt.get('multihop_cell_size', 128)
+        self.num_encoder_layers = self.opt.get('num_encoder_layers', 3)
 
         assert self.number_of_hops > 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
 
@@ -255,7 +256,7 @@ class SquadModel(TFModel):
                 q_emb = tf.concat([q_emb, q_elmo], axis=2)
 
         with tf.variable_scope("encoding"):
-            rnn = self.GRU(num_layers=3, num_units=self.hidden_size, batch_size=bs,
+            rnn = self.GRU(num_layers=self.num_encoder_layers, num_units=self.hidden_size, batch_size=bs,
                            input_size=c_emb.get_shape().as_list()[-1],
                            keep_prob=self.keep_prob_ph)
             c = rnn(c_emb, seq_len=self.c_len)
