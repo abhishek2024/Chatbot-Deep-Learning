@@ -119,3 +119,26 @@ class SquadScorerIterator(DataLearningIterator):
     def split(self, *args, **kwargs):
         for dt in ['train', 'valid', 'test']:
             setattr(self, dt, getattr(self, dt))
+
+
+@register('multi_squad_iterator')
+class MultiSquadIterator(DataLearningIterator):
+
+    def __init__(self, data, seed: int = None, shuffle: bool = True, *args, **kwargs):
+        self.rate = kwargs.get('with_answer_rate', 0.666)
+        super().__init__(data, seed, shuffle, *args, **kwargs)
+
+    def gen_batches(self, batch_size: int, data_type: str = 'train',
+                    shuffle: bool = None):
+        # TODO: implement
+        pass
+
+    def get_instances(self, data_type: str = 'train'):
+        data_examples = []
+        for qcas in self.data[data_type]:  # question, contexts, answers
+            question = qcas['question']
+            for context in qcas['contexts']:
+                answer_text = list(map(lambda x: x['text'], context['answer']))
+                answer_start = list(map(lambda x: x['answer_start'], context['answer']))
+                data_examples.append(((context['context'], question), (answer_text, answer_start)))
+        return tuple(zip(*data_examples))

@@ -53,7 +53,7 @@ class SquadPreprocessor(Component):
         questions_tokens = []
         questions_chars = []
         spans = []
-        for c_raw, q_raw in zip(contexts_raw, questions_raw):
+        for c_raw, q_raw in tqdm(list(zip(contexts_raw, questions_raw))):
             c, r2p, p2r = SquadPreprocessor.preprocess_str(c_raw, return_mapping=True)
             c_tokens = [token.replace("''", '"').replace("``", '"') for token in word_tokenize(c)][:self.context_limit]
             c_chars = [list(token)[:self.char_limit] for token in c_tokens]

@@ -33,9 +33,10 @@ class SquadDatasetReader(DatasetReader):
     https://www.sdsj.ru/ru/contest.html
     """
 
-    url_squad = 'http://lnsigo.mipt.ru/export/datasets/squad-v1.1.tar.gz'
-    url_squad_2_0 = 'http://lnsigo.mipt.ru/export/datasets/squad-v2.0.tar.gz'
-    url_sber_squad = 'http://lnsigo.mipt.ru/export/datasets/sber_squad-v1.1.tar.gz'
+    url_squad = 'http://files.deeppavlov.ai/datasets/squad-v1.1.tar.gz'
+    url_squad_2_0 = 'http://files.deeppavlov.ai/datasets/squad-v2.0.tar.gz'
+    url_sber_squad = 'http://files.deeppavlov.ai/datasets/sber_squad-v1.1.tar.gz'
+    url_multi_squad = 'http://files.deeppavlov.ai/datasets/multiparagraph_squad.tar.gz'
 
     def read(self, dir_path: str, dataset='SQuAD'):
         required_files = ['{}-v1.1.json'.format(dt) for dt in ['train', 'dev']]
@@ -47,6 +48,9 @@ class SquadDatasetReader(DatasetReader):
             required_files = ['{}-v2.0.json'.format(dt) for dt in ['train', 'dev']]
         elif dataset == 'SberSQuAD':
             self.url = self.url_sber_squad
+        elif dataset == 'MultiSQuAD':
+            self.url = self.url_multi_squad
+            required_files = ['{}_multi-v1.1.json'.format(dt) for dt in ['train', 'dev']]
         else:
             raise RuntimeError('Dataset {} is unknown'.format(dataset))
 
@@ -60,7 +64,7 @@ class SquadDatasetReader(DatasetReader):
         dataset = {}
         for f in required_files:
             data = json.load((dir_path / f).open('r'))
-            if f in ['dev-v{}.json'.format(v) for v in ['1.1', '2.0']]:
+            if f in (['dev-v{}.json'.format(v) for v in ['1.1', '2.0']] + ['dev_multi-v1.1.json']):
                 dataset['valid'] = data
             else:
                 dataset['train'] = data
