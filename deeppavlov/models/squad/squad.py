@@ -304,7 +304,7 @@ class SquadModel(TFModel):
 
                     for i in range(self.number_of_hops):
                         x, _ = mult_attention(match, state, mask=self.c_mask,
-                                         scope='multihop_cell_att', reuse=tf.AUTO_REUSE)
+                                              scope='multihop_cell_att', reuse=tf.AUTO_REUSE)
                         x = variational_dropout(x, keep_prob=self.keep_prob_ph)
                         _, state = multihop_cell(x, state)
 

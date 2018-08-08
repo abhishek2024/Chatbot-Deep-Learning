@@ -297,8 +297,6 @@ def mult_attention(inputs, state, mask, scope="attention", reuse=False):
         Multiplicative form of attention:
         a_i = state * W * m_i
     """
-    print('inputs', inputs)
-    print('state', state)
     with tf.variable_scope(scope, reuse=reuse):
         logits = tf.matmul(tf.expand_dims(state, axis=1),
                            tf.layers.dense(inputs, units=state.get_shape()[-1], use_bias=False, reuse=reuse),
