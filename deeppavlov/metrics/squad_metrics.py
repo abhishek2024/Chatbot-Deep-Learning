@@ -48,7 +48,7 @@ def exact_match(y_true, y_predicted):
 
 
 @register_metric('exact_match_1.1')
-def exact_match(y_true, y_predicted):
+def exact_match_v1(y_true, y_predicted):
     """ Calculates Exact Match score between y_true and y_predicted
         EM score uses the best matching y_true answer:
             if y_pred equal at least to one answer in y_true then EM = 1, else EM = 0
@@ -112,7 +112,7 @@ def squad_f1(y_true, y_predicted):
 
 
 @register_metric('squad_f1_1.1')
-def squad_f1(y_true, y_predicted):
+def squad_f1_v1(y_true, y_predicted):
     """ Calculates F-1 score between y_true and y_predicted
         F-1 score uses the best matching y_true answer
 
