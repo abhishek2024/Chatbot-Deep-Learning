@@ -142,6 +142,8 @@ class MultiSquadIterator(DataLearningIterator):
         for i in range((data_len - 1) // batch_size + 1):
             batch = []
             for j in range(i * batch_size, (i+1) * batch_size):
+                if data_len <= j:
+                    break
                 q = data[j]['question']
                 contexts = data[j]['contexts']
                 ans_contexts = [c for c in contexts if len(c['answer']) > 0]
