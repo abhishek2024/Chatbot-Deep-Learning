@@ -41,8 +41,8 @@
         "load_path": "multi_squad_model_noans/emb/vocab_embedder.pckl",
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
-        "char_limit": "#squad_prepr.context_limit",
-        "fit_on": ["context_tokens", "question_tokens"],
+        "char_limit": "#squad_prepr.char_limit",
+        "fit_lol": ["context_tokens", "question_tokens"],
         "in": ["context_tokens", "question_tokens"],
         "out": ["context_tokens_idxs", "question_tokens_idxs"]
       },
@@ -57,14 +57,9 @@
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.char_limit",
-        "fit_on": ["context_chars", "question_chars"],
+        "fit_lol": ["context_chars", "question_chars"],
         "in": ["context_chars", "question_chars"],
         "out": ["context_chars_idxs", "question_chars_idxs"]
-      },
-      {
-        "name": "squad_dummy_features",
-        "in": ["context_raw"],
-        "out": ["dummy"]
       },
       {
         "name": "squad_model",
@@ -74,7 +69,7 @@
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.char_limit",
-        "train_char_emb": false,
+        "train_char_emb": true,
         "char_hidden_size": 100,
         "encoder_hidden_size": 75,
         "attention_hidden_size": 75,
@@ -84,7 +79,6 @@
         "keep_prob": 0.7,
         "grad_clip": 5.0,
         "weight_decay": 1.0,
-        "use_elmo": true,
         "noans_token": true,
         "save_path": "multi_squad_model_noans/model",
         "load_path": "multi_squad_model_noans/model",
@@ -92,9 +86,7 @@
           "c_tokens": "context_tokens_idxs",
           "c_chars": "context_chars_idxs",
           "q_tokens": "question_tokens_idxs",
-          "q_chars": "question_chars_idxs",
-          "c_str": "context_tokens",
-          "q_str": "question_tokens"
+          "q_chars": "question_chars_idxs"
         },
         "in_y": {
           "y1s": "ans_start",
@@ -115,12 +107,13 @@
     "show_examples": false,
     "test_best": false,
     "validate_best": true,
-    "log_every_n_epochs": 1,
+    "log_every_n_batches": 250,
     "val_every_n_epochs": 1,
-    "batch_size": 32,
+    "batch_size": 64,
     "pytest_max_batches": 2,
     "validation_patience": 10,
-    "metrics": ["squad_f1", "exact_match", "squad_roc_auc", "squad_pr", "squad_acc", "squad_score_f1"],
+    "metrics": ["squad_f1", "exact_match", "squad_f1_1.1", "exact_match_1.1",
+      "squad_roc_auc", "squad_pr", "squad_acc", "squad_score_f1"],
     "tensorboard_log_dir": "multi_squad_model_noans/logs"
   },
   "metadata": {
@@ -129,7 +122,7 @@
       "server_utils": "SquadModel"
     },
     "download": [
-      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_model_elmo_noans_2.0.tar.gz",
+      "http://TODO",
       {
         "url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M.vec",
         "subdir": "embeddings"

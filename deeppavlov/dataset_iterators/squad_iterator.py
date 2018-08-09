@@ -17,6 +17,7 @@ limitations under the License.
 import random
 
 import nltk
+import numpy as np
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.data_learning_iterator import DataLearningIterator
@@ -131,7 +132,36 @@ class MultiSquadIterator(DataLearningIterator):
     def gen_batches(self, batch_size: int, data_type: str = 'train',
                     shuffle: bool = None):
         # TODO: implement
-        pass
+
+        if self.shuffle:
+            random.shuffle(self.data[data_type])
+
+        data = self.data[data_type]
+        data_len = len(data)
+
+        for i in range((data_len - 1) // batch_size + 1):
+            batch = []
+            for j in range(i * batch_size, (i+1) * batch_size):
+                q = data[j]['question']
+                contexts = data[j]['contexts']
+                ans_contexts = [c for c in contexts if len(c['answer']) > 0]
+                noans_contexts = [c for c in contexts if len(c['answer']) == 0]
+                context = None
+                # sample context with answer or without answer
+                if np.random.rand() < self.rate or len(noans_contexts) == 0:
+                    # select random context with answer
+                    context = random.choice(ans_contexts)
+                else:
+                    # select random context without answer
+                    # prob ~ context tfidf score
+                    noans_scores = np.array(list(map(lambda x: x['score'], noans_contexts)))
+                    noans_scores = noans_scores / np.sum(noans_scores)
+                    context = noans_contexts[np.argmax(np.random.multinomial(1, noans_scores))]
+
+                answer_text = [ans['text'] for ans in context['answer']] if len(context['answer']) > 0 else ['']
+                answer_start = [ans['answer_start'] for ans in context['answer']] if len(context['answer']) > 0 else [-1]
+                batch.append(((context['context'], q), (answer_text, answer_start)))
+            yield tuple(zip(*batch))
 
     def get_instances(self, data_type: str = 'train'):
         data_examples = []
