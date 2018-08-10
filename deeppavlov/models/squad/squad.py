@@ -361,12 +361,12 @@ class SquadModel(TFModel):
                 layer_1_logits = tf.nn.dropout(
                                     tf.layers.dense(dense_input,
                                                     units=self.hidden_size,
-                                                    activation=tf.nn.tanh,
+                                                    activation=tf.nn.relu,
                                                     kernel_initializer=tf.contrib.layers.xavier_initializer(),
                                                     name='noans_dense_1'),
                                     keep_prob=self.keep_prob_ph)
                 layer_2_logits = tf.layers.dense(layer_1_logits,
-                                                 activation=tf.nn.tanh,
+                                                 activation=tf.nn.relu,
                                                  units=2,
                                                  name='noans_dense_2')
                 self.y_ohe = tf.one_hot(self.y, depth=2)
