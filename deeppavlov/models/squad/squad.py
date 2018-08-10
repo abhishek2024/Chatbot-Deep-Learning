@@ -29,6 +29,8 @@ from deeppavlov.core.common.log import get_logger
 
 logger = get_logger(__name__)
 
+eps = 1e-06
+
 
 @register('squad_model')
 class SquadModel(TFModel):
@@ -377,10 +379,13 @@ class SquadModel(TFModel):
                 scorer_loss = tf.pow(1 - yt_prob, self.focal_loss_exp) * \
                     tf.nn.softmax_cross_entropy_with_logits(logits=layer_2_logits, labels=self.y_ohe)
 
+                no_ans_rate = 1 - tf.cast(bs, tf.float32) / (tf.reduce_sum(tf.cast(self.y, tf.float32)) + eps)
+
                 if self.predict_ans and not self.noans_token:
                     # skip examples without answer when calculate squad_loss
                     # normalize to number of examples with answer?
                     squad_loss = squad_loss * tf.expand_dims(tf.expand_dims(tf.cast(self.y, tf.float32), axis=-1), axis=-1)
+                    squad_loss = squad_loss * (1 - no_ans_rate)
 
             if self.predict_ans and self.scorer:
                 self.loss = self.squad_loss_weight * squad_loss + (1 - self.squad_loss_weight) * scorer_loss
