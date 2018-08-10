@@ -144,7 +144,8 @@ class SquadModel(TFModel):
         elif self.scorer:
             # we don't need to predict answer position
             self.y = self.y_ph
-        else:
+
+        if self.predict_ans:
             self.y1 = tf.one_hot(self.y1_ph, depth=self.context_limit)
             self.y2 = tf.one_hot(self.y2_ph, depth=self.context_limit)
             self.y1 = tf.slice(self.y1, [0, 0], [bs, self.c_maxlen])
@@ -345,8 +346,12 @@ class SquadModel(TFModel):
                 squad_loss = loss_p1 + loss_p2
 
             if self.scorer:
-                q_att = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph, scope='q_att')
-                c_att = simple_attention(qc_att, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph, scope='c_att')
+                print('q:', q)
+                print('match:', match)
+                q_att = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph,
+                                         scope='q_att')
+                c_att = simple_attention(match, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph,
+                                         scope='c_att')
                 q_att = tf.layers.dense(q_att, units=c_att.get_shape().as_list()[-1],
                                         activation=tf.nn.tanh,
                                         kernel_initializer=tf.contrib.layers.xavier_initializer(),
@@ -519,7 +524,7 @@ class SquadModel(TFModel):
             logger.info('SQuAD model: Warning! Empty question or context was found.')
             noanswers = -np.ones(shape=(c_tokens.shape[0]), dtype=np.int32)
             zero_probs = np.zeros(shape=(c_tokens.shape[0]), dtype=np.float32)
-            if self.scorer:
+            if self.scorer and not self.predict_ans:
                 return zero_probs
             if self.noans_token:
                 return noanswers, noanswers, zero_probs, zero_probs
@@ -527,7 +532,7 @@ class SquadModel(TFModel):
 
         feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars,
                                           c_features, q_features, c_str, q_str)
-        if self.scorer:
+        if self.scorer and not self.predict_ans:
             score = self.sess.run(self.yp, feed_dict=feed_dict)
             return [float(score) for score in score]
 
@@ -543,10 +548,16 @@ class SquadModel(TFModel):
                     yp1s_noans.append(yp1 - 1)
                     yp2s_noans.append(yp2 - 1)
             yp1s, yp2s = yp1s_noans, yp2s_noans
-            return yp1s, yp2s, [float(prob) for prob in prob], [float(score) for score in score]
+            return yp1s, yp2s, [float(p) for p in prob], [float(score) for score in score]
 
-        yp1s, yp2s, prob, logits = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_logits], feed_dict=feed_dict)
-        return yp1s, yp2s, [float(prob) for prob in prob], [float(logit) for logit in logits]
+        if self.predict_ans and self.scorer:
+            yp1s, yp2s, prob, logits, score = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_logits, self.yp],
+                                                            feed_dict=feed_dict)
+            return yp1s, yp2s, [float(p) for p in prob], [float(logit) for logit in logits], [float(s) for s in score]
+
+        yp1s, yp2s, prob, logits = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_logits],
+                                                 feed_dict=feed_dict)
+        return yp1s, yp2s, [float(p) for p in prob], [float(logit) for logit in logits]
 
     def process_event(self, event_name, data):
         if event_name == "after_validation":
