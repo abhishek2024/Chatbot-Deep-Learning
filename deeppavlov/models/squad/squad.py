@@ -346,8 +346,6 @@ class SquadModel(TFModel):
                 squad_loss = loss_p1 + loss_p2
 
             if self.scorer:
-                print('q:', q)
-                print('match:', match)
                 q_att = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph,
                                          scope='q_att')
                 c_att = simple_attention(match, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph,
