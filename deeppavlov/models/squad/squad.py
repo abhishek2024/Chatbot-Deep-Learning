@@ -71,6 +71,7 @@ class SquadModel(TFModel):
         self.legacy = self.opt.get('legacy', True)  # support old checkpoints
         self.multihop_cell_size = self.opt.get('multihop_cell_size', 128)
         self.num_encoder_layers = self.opt.get('num_encoder_layers', 3)
+        self.use_focal_loss = self.opt.get('use_focal_loss', False)
 
         assert self.number_of_hops > 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
 
@@ -353,7 +354,7 @@ class SquadModel(TFModel):
                 c_att = simple_attention(match, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph,
                                          scope='c_att')
                 q_att = tf.layers.dense(q_att, units=c_att.get_shape().as_list()[-1],
-                                        activation=tf.nn.tanh,
+                                        activation=tf.nn.relu,
                                         kernel_initializer=tf.contrib.layers.xavier_initializer(),
                                         name='q_att_dense'
                                         )
@@ -376,16 +377,19 @@ class SquadModel(TFModel):
                 self.yp = predict_probas[:,1]
                 yt_prob = tf.reduce_sum(predict_probas * self.y_ohe, axis=-1)
                 # focal loss
-                scorer_loss = tf.pow(1 - yt_prob, self.focal_loss_exp) * \
-                    tf.nn.softmax_cross_entropy_with_logits(logits=layer_2_logits, labels=self.y_ohe)
+                if self.use_focal_loss:
+                    scorer_loss = tf.pow(1 - yt_prob, self.focal_loss_exp) * \
+                        tf.nn.softmax_cross_entropy_with_logits(logits=layer_2_logits, labels=self.y_ohe)
+                else:
+                    scorer_loss = tf.nn.softmax_cross_entropy_with_logits(logits=layer_2_logits, labels=self.y_ohe)
 
                 no_ans_rate = 1 - tf.cast(bs, tf.float32) / (tf.reduce_sum(tf.cast(self.y, tf.float32)) + eps)
-
+                # TODO: check loss computation!
                 if self.predict_ans and not self.noans_token:
                     # skip examples without answer when calculate squad_loss
                     # normalize to number of examples with answer?
                     squad_loss = squad_loss * tf.expand_dims(tf.expand_dims(tf.cast(self.y, tf.float32), axis=-1), axis=-1)
-                    squad_loss = squad_loss * (1 - no_ans_rate)
+                    squad_loss = squad_loss / (1 - no_ans_rate)
 
             if self.predict_ans and self.scorer:
                 self.loss = self.squad_loss_weight * squad_loss + (1 - self.squad_loss_weight) * scorer_loss
