@@ -32,15 +32,15 @@ class TFHUBSentenceRanker(Component):
         self.return_vectors = return_vectors
         self.active = active
 
-    def __call__(self, query_context_id: List[Tuple[str, List[str]]]):
+    def __call__(self, query_sentences: List[Tuple[str, List[str]]]):
         """
         Rank sentences and return top n sentences.
         """
         predictions = []
         all_top_scores = []
-        fake_scores = [0.001] * len(query_context_id)
+        fake_scores = [0.001] * len(query_sentences)
 
-        for el in query_context_id:
+        for el in query_sentences:
             # DEBUG
             # start_time = time.time()
             qe, ce = self.session.run([self.q_emb, self.c_emb],
