@@ -10,7 +10,7 @@ from deeppavlov.core.models.component import Component
 
 
 @register('sentence_ranker')
-class TFHUBSentenceRanker(Component):
+class USESentenceRanker(Component):
     def __init__(self, top_n=20, return_vectors=False, active: bool = True, **kwargs):
         """
         :param top_n: top n sentences to return

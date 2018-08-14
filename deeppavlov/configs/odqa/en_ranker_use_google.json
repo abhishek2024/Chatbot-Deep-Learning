@@ -20,7 +20,7 @@
         "shuffle": false,
         "join_docs": false,
         "return_all_content": true,
-        "load_path": "http://lnsigo.mipt.ru/export/datasets/pmef/en_drones.db"
+        "load_path": "http://lnsigo.mipt.ru/export/datasets/pmef/en_google.db"
       },
       {
         "name": "query_paragraph_tuplifier",
@@ -37,8 +37,8 @@
         "name": "tfhub_paragraph_ranker",
         "top_n": 20,
         "active": true,
-        "sentence_ranker": {
-          "name": "sentence_ranker",
+        "ranker": {
+          "name": "use_sentence_ranker",
           "active": false
         },
         "in": [
@@ -68,7 +68,7 @@
     "download": [
       "http://lnsigo.mipt.ru/export/deeppavlov_data/pmef.tar.gz",
       {
-        "url": "http://lnsigo.mipt.ru/export/datasets/pmef/en_drones.db",
+        "url": "http://lnsigo.mipt.ru/export/datasets/pmef/en_google.db",
         "subdir": "pmef"
       }
     ]

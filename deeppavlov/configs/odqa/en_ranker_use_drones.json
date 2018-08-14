@@ -20,7 +20,7 @@
         "shuffle": false,
         "join_docs": false,
         "return_all_content": true,
-        "load_path": "http://lnsigo.mipt.ru/export/datasets/pmef/ru_drones.db"
+        "load_path": "http://lnsigo.mipt.ru/export/datasets/pmef/en_drones.db"
       },
       {
         "name": "query_paragraph_tuplifier",
@@ -34,10 +34,13 @@
         ]
       },
       {
-        "name": "squad_paragraph_ranker",
-        "top_n": 10,
-        "ranker_config": "../deeppavlov/configs/squad/squad_ru_noans.json",
-        "type": "paragraph",
+        "name": "tfhub_paragraph_ranker",
+        "top_n": 20,
+        "active": true,
+        "ranker": {
+          "name": "use_sentence_ranker",
+          "active": false
+        },
         "in": [
           "question_paragraph_tuples"
         ],
@@ -65,17 +68,8 @@
     "download": [
       "http://lnsigo.mipt.ru/export/deeppavlov_data/pmef.tar.gz",
       {
-        "url": "http://lnsigo.mipt.ru/export/datasets/pmef/ru_drones.db",
+        "url": "http://lnsigo.mipt.ru/export/datasets/pmef/en_drones.db",
         "subdir": "pmef"
-      },
-      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_model_ru_noans_tf1.8.tar.gz",
-      {
-        "url": "http://lnsigo.mipt.ru/export/embeddings/ft_native_300_ru_wiki_lenta_nltk_word_tokenize/ft_native_300_ru_wiki_lenta_nltk_word_tokenize.vec",
-        "subdir": "embeddings"
-      },
-      {
-        "url": "http://lnsigo.mipt.ru/export/embeddings/ft_native_300_ru_wiki_lenta_nltk_word_tokenize-char.vec",
-        "subdir": "embeddings"
       }
     ]
   }
