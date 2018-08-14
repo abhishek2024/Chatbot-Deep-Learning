@@ -40,11 +40,11 @@ log = get_logger(__name__)
 class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
 
     def __init__(self,
-                 src_max_length: int, tgt_max_length: int,
                  target_start_of_sequence_index: int,
                  target_end_of_sequence_index: int,
                  source_vocab_size: int,
                  target_vocab_size: int,
+                 src_max_length: int = None, tgt_max_length: int = None,
                  encoder_embedding_size: int = None,
                  decoder_embedding_size: int = None,
                  model_name: str = "lstm_lstm_model",
@@ -79,7 +79,7 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
                   "lear_rate": self.opt.get('lear_rate'),
                   "lear_rate_decay": self.opt.get('lear_rate_decay')}
 
-        self.encoder_decoder_model, self.encoder_model, self.decoder_model = self.load(**params)
+        self.model = self.load(**params)
 
         self._change_not_fixed_params(encoder_embedding_size=encoder_embedding_size,
                                       decoder_embedding_size=decoder_embedding_size,
@@ -126,7 +126,7 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
                         decoder_hidden_size=300,
                         decoder_coef_reg_lstm=0.,
                         decoder_dropout_rate=0.,
-                        decoder_rec_dropout_rate=0.) -> List[Model]:
+                        decoder_rec_dropout_rate=0., **kwargs) -> List[Model]:
 
         self._build_encoder(encoder_hidden_size,
                             encoder_coef_reg_lstm,
@@ -143,16 +143,16 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
                                               self._decoder_emb_inp],
                                       outputs=self._train_decoder_outputs)
 
-        encoder_model = Model(inputs=self._encoder_emb_inp,
+        self.encoder_model = Model(inputs=self._encoder_emb_inp,
                               outputs=[self._encoder_state_0,
                                        self._encoder_state_1])
 
-        decoder_model = Model(inputs=[self._decoder_emb_inp,
+        self.decoder_model = Model(inputs=[self._decoder_emb_inp,
                                       self._decoder_input_state_0,
                                       self._decoder_input_state_1],
                               outputs=self._infer_decoder_outputs)
 
-        return encoder_decoder_model, encoder_model, decoder_model
+        return encoder_decoder_model
 
     def one_hotter(self, data, vocab_size):
         """
@@ -183,7 +183,7 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
                        encoder_dropout_rate,
                        encoder_rec_dropout_rate):
 
-        if np.isnan(self.opt["encoder_embedding_size"]):
+        if self.opt["encoder_embedding_size"] is None:
             self._encoder_emb_inp = Input(shape=(self.opt["src_max_length"],
                                                  self.opt["src_vocab_size"]))
         else:
@@ -206,7 +206,7 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
                        decoder_dropout_rate,
                        decoder_rec_dropout_rate):
 
-        if np.isnan(self.opt["decoder_embedding_size"]):
+        if self.opt["decoder_embedding_size"] is None:
             self._decoder_emb_inp = Input(shape=(self.opt["tgt_max_length"],
                                                  self.opt["tgt_vocab_size"]))
         else:
@@ -234,33 +234,37 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
             self._decoder_emb_inp,
             initial_state=[self._decoder_input_state_0, self._decoder_input_state_1])
 
-        decoder_dense = Dense(self.opt["decoder_n_tokens"], name="dense_lstm")
+        decoder_dense = Dense(self.opt["tgt_vocab_size"], name="dense_lstm")
         self._train_decoder_outputs = decoder_dense(self._train_decoder_outputs)
         self._infer_decoder_outputs = decoder_dense(self._infer_decoder_outputs)
 
     def train_on_batch(self, enc_inputs, dec_inputs, dec_outputs,
                        src_seq_lengths, tgt_seq_lengths, tgt_weights):
         K.set_session(self.sess)
+        # self.opt["src_max_length"] = max(src_seq_lengths)
+        # self.opt["tgt_max_length"] = max(tgt_seq_lengths)
 
-        if np.isnan(self.opt["encoder_embedding_size"]):
+        if self.opt["encoder_embedding_size"] is None:
             enc_inputs = self.one_hotter(enc_inputs, self.opt["src_vocab_size"])
-        if np.isnan(self.opt["decoder_embedding_size"]):
+        if self.opt["decoder_embedding_size"] is None:
             dec_inputs = self.one_hotter(dec_inputs, self.opt["tgt_vocab_size"])
             dec_outputs = self.one_hotter(dec_outputs, self.opt["tgt_vocab_size"])
 
-        metrics_values = self.encoder_decoder_model.train_on_batch([enc_inputs,
-                                                                    dec_inputs],
-                                                                   dec_outputs)
+        metrics_values = self.model.train_on_batch([enc_inputs,
+                                                    dec_inputs],
+                                                   dec_outputs)
         return metrics_values
 
     def infer_on_batch(self, enc_inputs, src_seq_lengths, dec_outputs=None):
         K.set_session(self.sess)
+        # self.opt["src_max_length"] = max(src_seq_lengths)
+        self.opt["tgt_max_length"] = None
         dec_inputs = self._get_decoder_inputs(enc_inputs=enc_inputs)
 
         if dec_outputs:
-            if np.isnan(self.opt["encoder_embedding_size"]):
+            if self.opt["encoder_embedding_size"] is None:
                 enc_inputs = self.one_hotter(enc_inputs, self.opt["src_vocab_size"])
-            if np.isnan(self.opt["decoder_embedding_size"]):
+            if self.opt["decoder_embedding_size"] is None:
                 dec_inputs = self.one_hotter(dec_inputs, self.opt["tgt_vocab_size"])
                 dec_outputs = self.one_hotter(dec_outputs, self.opt["tgt_vocab_size"])
 
@@ -271,15 +275,15 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
                                                                dec_outputs)
             return metrics_values
         else:
-            if np.isnan(self.opt["encoder_embedding_size"]):
+            if self.opt["encoder_embedding_size"] is None:
                 enc_inputs = self.one_hotter(enc_inputs, self.opt["src_vocab_size"])
-            if np.isnan(self.opt["decoder_embedding_size"]):
+            if self.opt["decoder_embedding_size"] is None:
                 dec_inputs = self.one_hotter(dec_inputs, self.opt["tgt_vocab_size"])
 
             _encoder_state_0, _encoder_state_1 = self.encoder_model.predict(enc_inputs)
-            predictions = self.decoder_model.predict([dec_inputs,
-                                                      _encoder_state_0,
-                                                      _encoder_state_1])
+            predictions = self._probas2onehot(self.decoder_model.predict([dec_inputs,
+                                                                          _encoder_state_0,
+                                                                          _encoder_state_1]))
             return predictions
 
     def __call__(self, enc_inputs, src_seq_lengths, prob=False):
@@ -288,15 +292,29 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
                                                    src_seq_lengths=src_seq_lengths))
         return predictions
 
+    def _probas2onehot(self, data):
+        text_data = []
+
+        for sample in data:
+            text_sample = []
+            for token in sample:
+                text_sample.append(np.argmax(token))
+            text_data.append(text_sample)
+
+        return np.asarray(text_data)
+
     def _get_decoder_inputs(self, enc_inputs):
         dec_inputs = []
         if type(enc_inputs[0][0]) is int:
             for sample in enc_inputs:
-                dec_inputs.append(sample[1:] + self.opt["tgt_eos_id"])
+                dec_inputs.append(sample[1:] + [self.opt["tgt_eos_id"]])
         else:
             for sample in enc_inputs:
                 dec_inputs.append(sample[1:] + self.one_hotter(self.opt["tgt_eos_id"], self.opt["tgt_vocab_size"]))
         return dec_inputs
 
     def shutdown(self):
+        self.sess.close()
+
+    def reset(self):
         self.sess.close()
