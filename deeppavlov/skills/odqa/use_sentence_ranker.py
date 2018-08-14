@@ -9,7 +9,7 @@ from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.component import Component
 
 
-@register('sentence_ranker')
+@register('use_sentence_ranker')
 class USESentenceRanker(Component):
     def __init__(self, top_n=20, return_vectors=False, active: bool = True, **kwargs):
         """
@@ -17,7 +17,7 @@ class USESentenceRanker(Component):
         :param return_vectors: return unranged USE vectors instead of sentences
         :param active: when is not active, return all sentences
         """
-        self.embed = hub.Module("https://tfhub.dev/google/universal-sentence-encoder/1")
+        self.embed = hub.Module("https://tfhub.dev/google/universal-sentence-encoder/2")
         self.session = tf.Session(config=tf.ConfigProto(
             gpu_options=tf.GPUOptions(
                 per_process_gpu_memory_fraction=0.2,
@@ -32,15 +32,15 @@ class USESentenceRanker(Component):
         self.return_vectors = return_vectors
         self.active = active
 
-    def __call__(self, query_sentences: List[Tuple[str, List[str]]]):
+    def __call__(self, query_context: List[Tuple[str, List[str]]]):
         """
         Rank sentences and return top n sentences.
         """
         predictions = []
         all_top_scores = []
-        fake_scores = [0.001] * len(query_sentences)
+        fake_scores = [0.001] * len(query_context)
 
-        for el in query_sentences:
+        for el in query_context:
             # DEBUG
             # start_time = time.time()
             qe, ce = self.session.run([self.q_emb, self.c_emb],
