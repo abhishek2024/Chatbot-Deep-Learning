@@ -14,17 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from typing import List, Tuple, Any
+from typing import List, Tuple, Any, Union, Optional
 from operator import itemgetter
 
 import numpy as np
-from scipy.sparse import csr_matrix
 from nltk.tokenize import sent_tokenize
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.models.component import Component
-from deeppavlov.skills.odqa.tfhub_sentence_ranker import TFHUBSentenceRanker
+from deeppavlov.skills.odqa.use_sentence_ranker import USESentenceRanker
+from deeppavlov.skills.odqa.elmo_ranker import ELMoRanker
+from deeppavlov.models.tokenizers.spacy_tokenizer import StreamSpacyTokenizer
 
 logger = get_logger(__name__)
 
@@ -32,41 +33,62 @@ logger = get_logger(__name__)
 @register("tfhub_paragraph_ranker")
 class TFHUBParagraphRanker(Component):
 
-    def __init__(self, sentence_ranker: TFHUBSentenceRanker, top_n=10, active: bool = True,
-                 sentencize_fn=sent_tokenize, **kwargs):
+    def __init__(self, ranker: Union[USESentenceRanker, ELMoRanker], tokenizer: Optional[StreamSpacyTokenizer] = None,
+                 top_n=10, active: bool = True, sentencize_fn=sent_tokenize, **kwargs):
         """
-        :param sentence_ranker: a tfhub sentence vectorizer class
+        :param ranker: an inner ranker, can be USE or ELMo models from tfhub
         :param top_n: top n of document ids to return
         :param active: when is not active, return all doc ids.
         """
 
         self.top_n = top_n
-        self.sentence_ranker = sentence_ranker
-        self.sentence_ranker.active = False
+        self._ranker = ranker
+        self._ranker.active = False
         self.sentencize_fn = sentencize_fn
+        self.tokenizer = tokenizer
         self.active = active
 
     def __call__(self, query_context_id: List[Tuple[str, List[str], List[Any]]]):
+
+        """
+        todo: optimize query embedding counting (now counts at every iteration)
+        """
 
         all_docs = []
         all_scores = []
         all_ids = []
 
         for query, contexts, ids in query_context_id:
-            query_sentence_pairs = []
-            for context in contexts:
-                sentences = self.sentencize_fn(context)
-                query_sentence_pairs.append((query, sentences))
-            _, scores = self.sentence_ranker(query_sentence_pairs)
+            query_chunks_pairs = []
+            if isinstance(self._ranker, ELMoRanker):
+                tokenized_query = self.tokenizer([query])
+                tokenized_contexts = self.tokenizer(contexts)
+                reverse = False
+                query_chunks_pairs += [(' '.join(tokenized_query[0]), ' '.join(c)) for c in tokenized_contexts]
+            elif isinstance(self._ranker, USESentenceRanker):
+                reverse = True
+                for context in contexts:
+                    sentences = self.sentencize_fn(context)
+                    query_chunks_pairs.append((query, sentences))
+            else:
+                raise TypeError(
+                    'Unsupported inner ranker type. Select from USESentenceRanker or ElmoSentenceRanker')
+
+            _, scores = self._ranker(query_chunks_pairs)
             mean_scores = [np.mean(score) for score in scores]
             text_score_id = list(zip(contexts, mean_scores, ids))
-            text_score_id = sorted(text_score_id, key=itemgetter(1), reverse=True)
+            text_score_id = sorted(text_score_id, key=itemgetter(1), reverse=reverse)
             if self.active:
                 text_score_id = text_score_id[:self.top_n]
 
-            batch_docs = [text for text, score, doc_id in text_score_id]
-            batch_scores = [score for text, score, doc_id in text_score_id]
-            batch_ids = [doc_id for text, score, doc_id in text_score_id]
+            batch_docs = []
+            batch_scores = []
+            batch_ids = []
+            for text, score, doc_id in text_score_id:
+                batch_docs.append(text)
+                batch_scores.append(score)
+                batch_ids.append(doc_id)
+
             all_docs.append(batch_docs)
             all_scores.append(batch_scores)
             all_ids.append(batch_ids)
