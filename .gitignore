@@ -119,3 +119,4 @@ download/
 # logs
 .log
 eval_logs/
+plots/
