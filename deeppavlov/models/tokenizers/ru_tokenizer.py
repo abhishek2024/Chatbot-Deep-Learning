@@ -120,7 +120,7 @@ class RussianTokenizer(Component):
             if _lowercase:
                 tokens = [t.lower() for t in tokens]
             processed_doc = self._pipe(tokens)
-            yield from processed_doc
+            yield processed_doc
 
     def _lemmatize(self, data: List[str]) -> Generator[List[str], Any, None]:
         """
@@ -144,7 +144,7 @@ class RussianTokenizer(Component):
                     self.tok2morph[token] = lemma
                 lemmas.append(lemma)
             processed_doc = self._pipe(lemmas)
-            yield from processed_doc
+            yield processed_doc
 
     def _filter(self, items, alphas_only=True):
         """
