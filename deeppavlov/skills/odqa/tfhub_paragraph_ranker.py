@@ -63,21 +63,19 @@ class TFHUBParagraphRanker(Component):
             if isinstance(self._ranker, ELMoRanker):
                 tokenized_query = self.tokenizer([query])
                 tokenized_contexts = self.tokenizer(contexts)
-                reverse = False
                 query_chunks_pairs += [(' '.join(tokenized_query[0]), ' '.join(c)) for c in tokenized_contexts]
             elif isinstance(self._ranker, USESentenceRanker):
-                reverse = True
                 for context in contexts:
                     sentences = self.sentencize_fn(context)
                     query_chunks_pairs.append((query, sentences))
             else:
                 raise TypeError(
-                    'Unsupported inner ranker type. Select from USESentenceRanker or ElmoSentenceRanker')
+                    'Unsupported inner ranker type. Select from USESentenceRanker or ElmoRanker')
 
             _, scores = self._ranker(query_chunks_pairs)
             mean_scores = [np.mean(score) for score in scores]
             text_score_id = list(zip(contexts, mean_scores, ids))
-            text_score_id = sorted(text_score_id, key=itemgetter(1), reverse=reverse)
+            text_score_id = sorted(text_score_id, key=itemgetter(1), reverse=True)
             if self.active:
                 text_score_id = text_score_id[:self.top_n]
 
