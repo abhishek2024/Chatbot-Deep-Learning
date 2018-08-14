@@ -1,12 +1,14 @@
 {
   "dataset_reader": {
     "name": "squad_dataset_reader",
+    "dataset": "MultiSQuAD",
     "data_path": "squad/"
   },
   "dataset_iterator": {
-    "name": "squad_iterator",
+    "name": "multi_squad_iterator",
     "seed": 1337,
-    "shuffle": true
+    "shuffle": true,
+    "with_answer_rate": 0.666
   },
   "chainer": {
     "in": ["context_raw", "question_raw"],
@@ -15,7 +17,7 @@
       {
         "name": "squad_preprocessor",
         "id": "squad_prepr",
-        "context_limit": 4000,
+        "context_limit": 400,
         "question_limit": 150,
         "char_limit": 16,
         "in": ["context_raw", "question_raw"],
@@ -35,12 +37,12 @@
         "level": "token",
         "emb_folder": "embeddings/",
         "emb_url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M.vec",
-        "save_path": "squad_model/emb/vocab_embedder.pckl",
-        "load_path": "squad_model/emb/vocab_embedder.pckl",
+        "save_path": "multi_squad_model_scorer/emb/vocab_embedder.pckl",
+        "load_path": "multi_squad_model_scorer/emb/vocab_embedder.pckl",
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.char_limit",
-        "fit_on": ["context_tokens", "question_tokens"],
+        "fit_lol": ["context_tokens", "question_tokens"],
         "in": ["context_tokens", "question_tokens"],
         "out": ["context_tokens_idxs", "question_tokens_idxs"]
       },
@@ -50,12 +52,12 @@
         "level": "char",
         "emb_folder": "embeddings/",
         "emb_url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M-char.vec",
-        "save_path": "squad_model/emb/char_vocab_embedder.pckl",
-        "load_path": "squad_model/emb/char_vocab_embedder.pckl",
+        "save_path": "multi_squad_model_scorer/emb/char_vocab_embedder.pckl",
+        "load_path": "multi_squad_model_scorer/emb/char_vocab_embedder.pckl",
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.char_limit",
-        "fit_on": ["context_chars", "question_chars"],
+        "fit_lol": ["context_chars", "question_chars"],
         "in": ["context_chars", "question_chars"],
         "out": ["context_chars_idxs", "question_chars_idxs"]
       },
@@ -77,21 +79,23 @@
         "keep_prob": 0.7,
         "grad_clip": 5.0,
         "weight_decay": 1.0,
-        "save_path": "squad_model/model",
-        "load_path": "squad_model/model",
+        "noans_token": false,
+        "scorer": true,
+        "predict_answer": true,
+        "legacy": false,
+        "save_path": "multi_squad_model_scorer/model",
+        "load_path": "multi_squad_model_scorer/model",
         "in": {
           "c_tokens": "context_tokens_idxs",
           "c_chars": "context_chars_idxs",
           "q_tokens": "question_tokens_idxs",
-          "q_chars": "question_chars_idxs",
-          "c_str": "context_tokens",
-          "q_str": "question_tokens"
+          "q_chars": "question_chars_idxs"
         },
         "in_y": {
           "y1s": "ans_start",
           "y2s": "ans_end"
         },
-        "out": ["ans_start_predicted", "ans_end_predicted", "prob", "logit"]
+        "out": ["ans_start_predicted", "ans_end_predicted", "prob", "logit", "score"]
       },
       {
         "name": "squad_ans_postprocessor",
@@ -100,7 +104,7 @@
         "out": ["ans_predicted", "ans_start_predicted", "ans_end_predicted"]
       }
     ],
-    "out": ["ans_predicted", "ans_start_predicted", "prob", "logit"]
+    "out": ["ans_predicted", "ans_start_predicted", "score"]
   },
   "train": {
     "show_examples": false,
@@ -108,21 +112,20 @@
     "validate_best": true,
     "log_every_n_batches": 250,
     "val_every_n_epochs": 1,
-    "batch_size": 50,
+    "batch_size": 32,
     "pytest_max_batches": 2,
     "validation_patience": 10,
-    "metrics": ["squad_f1", "exact_match"]
+    "metrics": ["squad_f1", "exact_match", "squad_f1_1.1", "exact_match_1.1",
+      "squad_roc_auc", "squad_pr", "squad_acc", "squad_score_f1"],
+    "tensorboard_log_dir": "multi_squad_model_scorer/logs"
   },
   "metadata": {
-    "requirements": [
-      "../dp_requirements/tf-gpu.txt"
-    ],
     "labels": {
       "telegram_utils": "SquadModel",
       "server_utils": "SquadModel"
     },
     "download": [
-      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_model_1.2.tar.gz",
+      "http://TODO",
       {
         "url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M.vec",
         "subdir": "embeddings"

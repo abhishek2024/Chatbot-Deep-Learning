@@ -1,6 +1,7 @@
 {
   "dataset_reader": {
     "name": "squad_dataset_reader",
+    "dataset": "SQuAD",
     "data_path": "squad/"
   },
   "dataset_iterator": {
@@ -15,7 +16,7 @@
       {
         "name": "squad_preprocessor",
         "id": "squad_prepr",
-        "context_limit": 4000,
+        "context_limit": 450,
         "question_limit": 150,
         "char_limit": 16,
         "in": ["context_raw", "question_raw"],
@@ -35,12 +36,12 @@
         "level": "token",
         "emb_folder": "embeddings/",
         "emb_url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M.vec",
-        "save_path": "squad_model/emb/vocab_embedder.pckl",
-        "load_path": "squad_model/emb/vocab_embedder.pckl",
+        "save_path": "squad_model_san/emb/vocab_embedder.pckl",
+        "load_path": "squad_model_san/emb/vocab_embedder.pckl",
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
-        "char_limit": "#squad_prepr.char_limit",
-        "fit_on": ["context_tokens", "question_tokens"],
+        "char_limit": "#squad_prepr.context_limit",
+        "fit_lol": ["context_tokens", "question_tokens"],
         "in": ["context_tokens", "question_tokens"],
         "out": ["context_tokens_idxs", "question_tokens_idxs"]
       },
@@ -50,12 +51,12 @@
         "level": "char",
         "emb_folder": "embeddings/",
         "emb_url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M-char.vec",
-        "save_path": "squad_model/emb/char_vocab_embedder.pckl",
-        "load_path": "squad_model/emb/char_vocab_embedder.pckl",
+        "save_path": "squad_model_san/emb/char_vocab_embedder.pckl",
+        "load_path": "squad_model_san/emb/char_vocab_embedder.pckl",
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.char_limit",
-        "fit_on": ["context_chars", "question_chars"],
+        "fit_lol": ["context_chars", "question_chars"],
         "in": ["context_chars", "question_chars"],
         "out": ["context_chars_idxs", "question_chars_idxs"]
       },
@@ -68,8 +69,10 @@
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.char_limit",
         "train_char_emb": true,
+        "transform_char_emb": 100,
         "char_hidden_size": 100,
-        "encoder_hidden_size": 75,
+        "transform_word_emb": 128,
+        "encoder_hidden_size": 128,
         "attention_hidden_size": 75,
         "learning_rate": 0.5,
         "min_learning_rate": 0.001,
@@ -77,8 +80,13 @@
         "keep_prob": 0.7,
         "grad_clip": 5.0,
         "weight_decay": 1.0,
-        "save_path": "squad_model/model",
-        "load_path": "squad_model/model",
+        "number_of_hops": 5,
+        "use_gated_attention": false,
+        "drop_diag_self_att": true,
+        "use_birnn_after_qc_att": false,
+        "num_encoder_layers": 2,
+        "save_path": "squad_model_san/model",
+        "load_path": "squad_model_san/model",
         "in": {
           "c_tokens": "context_tokens_idxs",
           "c_chars": "context_chars_idxs",
@@ -111,18 +119,16 @@
     "batch_size": 50,
     "pytest_max_batches": 2,
     "validation_patience": 10,
-    "metrics": ["squad_f1", "exact_match"]
+    "metrics": ["squad_f1", "exact_match"],
+    "tensorboard_log_dir": "squad_model_san/logs"
   },
   "metadata": {
-    "requirements": [
-      "../dp_requirements/tf-gpu.txt"
-    ],
     "labels": {
       "telegram_utils": "SquadModel",
       "server_utils": "SquadModel"
     },
     "download": [
-      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_model_1.2.tar.gz",
+      "http://TODO",
       {
         "url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M.vec",
         "subdir": "embeddings"

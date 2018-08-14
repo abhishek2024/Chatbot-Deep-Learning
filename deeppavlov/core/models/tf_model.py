@@ -17,6 +17,7 @@ from collections import defaultdict
 import numpy as np
 
 import tensorflow as tf
+from tensorflow.python.ops import variables
 
 from deeppavlov.core.models.nn_model import NNModel
 from deeppavlov.core.common.log import get_logger
@@ -39,6 +40,7 @@ class TFModel(NNModel, metaclass=TfModelMeta):
         if tf.train.checkpoint_exists(path):
             log.info('[loading model from {}]'.format(path))
             # Exclude optimizer variables from saved variables
+            # TODO use _get_saveable_variables
             var_list = self._get_trainable_variables(exclude_scopes)
             saver = tf.train.Saver(var_list)
             saver.restore(self.sess, path)
@@ -50,6 +52,11 @@ class TFModel(NNModel, metaclass=TfModelMeta):
         var_list = self._get_trainable_variables(exclude_scopes)
         saver = tf.train.Saver(var_list)
         saver.save(self.sess, path)
+
+    def _get_saveable_variables(self, exclude_scopes=[]):
+        all_vars = variables._all_saveable_objects()
+        vars_to_train = [var for var in all_vars if all(sc not in var.name for sc in exclude_scopes)]
+        return vars_to_train
 
     def _get_trainable_variables(self, exclude_scopes=[]):
         all_vars = tf.global_variables()

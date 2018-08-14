@@ -21,21 +21,20 @@ import numpy as np
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
-from deeppavlov.models.squad.utils import CudnnGRU, dot_attention, simple_attention, PtrNet
-from deeppavlov.core.common.check_gpu import check_gpu_existence
+from deeppavlov.models.squad.utils import dot_attention, simple_attention, PtrNet, attention, mult_attention
+from deeppavlov.models.squad.utils import CudnnGRU, CudnnCompatibleGRU, CudnnGRULegacy
+from deeppavlov.core.common.check_gpu import GPU_AVAILABLE
 from deeppavlov.core.layers.tf_layers import cudnn_bi_gru, variational_dropout
 from deeppavlov.core.common.log import get_logger
 
 logger = get_logger(__name__)
 
+eps = 1e-06
+
 
 @register('squad_model')
 class SquadModel(TFModel):
     def __init__(self, **kwargs):
-
-        if not check_gpu_existence():
-            raise RuntimeError('SquadModel requires GPU')
-
         self.opt = deepcopy(kwargs)
         self.init_word_emb = self.opt['word_emb']
         self.init_char_emb = self.opt['char_emb']
@@ -61,12 +60,31 @@ class SquadModel(TFModel):
         self.use_elmo = self.opt.get('use_elmo', False)
         self.soft_labels = self.opt.get('soft_labels', False)
         self.true_label_weight = self.opt.get('true_label_weight', 0.7)
+        self.use_gated_attention = self.opt.get('use_gated_attention', True)
+        self.transform_char_emb = self.opt.get('transform_char_emb', 0)
+        self.transform_word_emb = self.opt.get('transform_word_emb', 0)
+        self.drop_diag_self_att = self.opt.get('drop_diag_self_att', False)
+        self.use_birnn_after_qc_att = self.opt.get('use_birnn_after_qc_att', True)
+        self.use_transpose_att = self.opt.get('use_transpose_att', False)
+        self.hops_keep_prob = self.opt.get('hops_keep_prob', 0.6)
+        self.number_of_hops = self.opt.get('number_of_hops', 1)
+        self.legacy = self.opt.get('legacy', True)  # support old checkpoints
+        self.multihop_cell_size = self.opt.get('multihop_cell_size', 128)
+        self.num_encoder_layers = self.opt.get('num_encoder_layers', 3)
+        self.use_focal_loss = self.opt.get('use_focal_loss', False)
+
+        assert self.number_of_hops > 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
 
         self.word_emb_dim = self.init_word_emb.shape[1]
         self.char_emb_dim = self.init_char_emb.shape[1]
 
         self.last_impatience = 0
         self.lr_impatience = 0
+
+        if GPU_AVAILABLE:
+            self.GRU = CudnnGRU if not self.legacy else CudnnGRULegacy
+        else:
+            raise RuntimeError('SquadModel requires GPU')
 
         self.sess_config = tf.ConfigProto(allow_soft_placement=True)
         self.sess_config.gpu_options.allow_growth = True
@@ -129,7 +147,8 @@ class SquadModel(TFModel):
         elif self.scorer:
             # we don't need to predict answer position
             self.y = self.y_ph
-        else:
+
+        if self.predict_ans:
             self.y1 = tf.one_hot(self.y1_ph, depth=self.context_limit)
             self.y2 = tf.one_hot(self.y2_ph, depth=self.context_limit)
             self.y1 = tf.slice(self.y1, [0, 0], [bs, self.c_maxlen])
@@ -160,6 +179,24 @@ class SquadModel(TFModel):
                 cc_emb = variational_dropout(cc_emb, keep_prob=self.keep_prob_ph)
                 qc_emb = variational_dropout(qc_emb, keep_prob=self.keep_prob_ph)
 
+                if self.transform_char_emb != 0:
+                    cc_emb = tf.layers.dense(
+                        tf.layers.dense(cc_emb, self.transform_char_emb, activation=tf.nn.relu,
+                                        kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                        name='transform_char_emb_1'),
+                        self.transform_char_emb,
+                        kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                        name='transform_char_emb_2'
+                    )
+
+                    qc_emb = tf.layers.dense(
+                        tf.layers.dense(qc_emb, self.transform_char_emb, activation=tf.nn.relu,
+                                        name='transform_char_emb_1', reuse=True),
+                        self.transform_char_emb,
+                        name='transform_char_emb_2',
+                        reuse=True
+                    )
+
                 _, (state_fw, state_bw) = cudnn_bi_gru(cc_emb, self.char_hidden_size, seq_lengths=self.cc_len,
                                                        trainable_initial_states=True)
                 cc_emb = tf.concat([state_fw, state_bw], axis=1)
@@ -183,13 +220,31 @@ class SquadModel(TFModel):
                 c_emb = tf.concat([c_emb, self.c_f], axis=2)
                 q_emb = tf.concat([q_emb, self.q_f], axis=2)
 
+            if self.transform_word_emb != 0:
+                c_emb = tf.layers.dense(
+                        tf.layers.dense(c_emb, self.transform_word_emb, activation=tf.nn.relu,
+                                        kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                        name='transform_word_emb_1'),
+                        self.transform_word_emb,
+                        kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                        name='transform_word_emb_2'
+                    )
+
+                q_emb = tf.layers.dense(
+                        tf.layers.dense(q_emb, self.transform_word_emb, activation=tf.nn.relu,
+                                        name='transform_word_emb_1', reuse=True),
+                        self.transform_word_emb,
+                        name='transform_word_emb_2',
+                        reuse=True
+                    )
+
             if self.use_elmo:
                 import tensorflow_hub as tfhub
                 elmo = tfhub.Module("https://tfhub.dev/google/elmo/2", trainable=True)
                 c_elmo = elmo(
                     inputs={
                         "tokens": self.c_str,
-                        "sequence_len": tf.reduce_sum(1-tf.cast(tf.equal(self.c_str, ""), tf.int32), axis=-1)
+                        "sequence_len": tf.reduce_sum(1 - tf.cast(tf.equal(self.c_str, ""), tf.int32), axis=-1)
                     },
                     signature="tokens",
                     as_dict=True)["elmo"]
@@ -205,7 +260,7 @@ class SquadModel(TFModel):
                 q_emb = tf.concat([q_emb, q_elmo], axis=2)
 
         with tf.variable_scope("encoding"):
-            rnn = CudnnGRU(num_layers=3, num_units=self.hidden_size, batch_size=bs,
+            rnn = self.GRU(num_layers=self.num_encoder_layers, num_units=self.hidden_size, batch_size=bs,
                            input_size=c_emb.get_shape().as_list()[-1],
                            keep_prob=self.keep_prob_ph)
             c = rnn(c_emb, seq_len=self.c_len)
@@ -213,29 +268,69 @@ class SquadModel(TFModel):
 
         with tf.variable_scope("attention"):
             qc_att = dot_attention(c, q, mask=self.q_mask, att_size=self.attention_hidden_size,
-                                   keep_prob=self.keep_prob_ph)
-            rnn = CudnnGRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
-                           input_size=qc_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
-            att = rnn(qc_att, seq_len=self.c_len)
+                                   keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
+                                   use_transpose_att=self.use_transpose_att)
+
+            if self.use_birnn_after_qc_att:
+                rnn = self.GRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
+                               input_size=qc_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
+                qc_att = rnn(qc_att, seq_len=self.c_len)
 
         if self.predict_ans:
             with tf.variable_scope("match"):
-                self_att = dot_attention(att, att, mask=self.c_mask, att_size=self.attention_hidden_size,
-                                         keep_prob=self.keep_prob_ph)
-                rnn = CudnnGRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
+                self_att = dot_attention(qc_att, qc_att, mask=self.c_mask, att_size=self.attention_hidden_size,
+                                         keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
+                                         drop_diag=self.drop_diag_self_att, use_transpose_att=False)
+                rnn = self.GRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
                                input_size=self_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
                 match = rnn(self_att, seq_len=self.c_len)
 
             with tf.variable_scope("pointer"):
-                init = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph)
-                pointer = PtrNet(cell_size=init.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
-                if self.noans_token:
-                    noans_token = tf.Variable(tf.random_uniform((match.get_shape().as_list()[-1],), -0.1, 0.1), tf.float32)
-                    noans_token = tf.nn.dropout(noans_token, keep_prob=self.keep_prob_ph)
-                    noans_token = tf.expand_dims(tf.tile(tf.expand_dims(noans_token, axis=0), [bs, 1]), axis=1)
-                    match = tf.concat([noans_token, match], axis=1)
-                    self.c_mask = tf.concat([tf.ones(shape=(bs, 1), dtype=tf.bool), self.c_mask], axis=1)
-                logits1, logits2 = pointer(init, match, self.hidden_size, self.c_mask)
+                init = simple_attention(q, self.attention_hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph)
+                if self.number_of_hops == 1:
+                    # default model
+                    pointer = PtrNet(cell_size=init.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
+                    if self.noans_token:
+                        noans_token = tf.Variable(tf.random_uniform((match.get_shape().as_list()[-1],), -0.1, 0.1), tf.float32)
+                        noans_token = tf.nn.dropout(noans_token, keep_prob=self.keep_prob_ph)
+                        noans_token = tf.expand_dims(tf.tile(tf.expand_dims(noans_token, axis=0), [bs, 1]), axis=1)
+                        match = tf.concat([noans_token, match], axis=1)
+                        self.c_mask = tf.concat([tf.ones(shape=(bs, 1), dtype=tf.bool), self.c_mask], axis=1)
+                    logits1, logits2 = pointer(init, match, self.hidden_size, self.c_mask)
+                else:
+                    # TODO add noans_token support
+                    init = tf.layers.dense(init, units=self.multihop_cell_size, name='init_projection')
+                    state = variational_dropout(init, keep_prob=self.keep_prob_ph)
+                    multihop_cell = tf.nn.rnn_cell.GRUCell(num_units=self.multihop_cell_size)
+
+                    hops_start_logits = []
+                    hops_end_logits = []
+
+                    for i in range(self.number_of_hops):
+                        x, _ = mult_attention(match, state, mask=self.c_mask,
+                                              scope='multihop_cell_att', reuse=tf.AUTO_REUSE)
+                        x = variational_dropout(x, keep_prob=self.keep_prob_ph)
+                        _, state = multihop_cell(x, state)
+
+                        start_att, start_logits = mult_attention(match, state, mask=self.c_mask,
+                                                                 scope='start_pointer_att', reuse=tf.AUTO_REUSE)
+
+                        _, end_logits = mult_attention(match, tf.concat([state, start_att], axis=-1),
+                                                       mask=self.c_mask, scope='end_pointer_att', reuse=tf.AUTO_REUSE)
+
+                        hops_start_logits.append(start_logits)
+                        hops_end_logits.append(end_logits)
+
+                    hops_start_logits = tf.stack(hops_start_logits, axis=1)
+                    hops_end_logits = tf.stack(hops_end_logits, axis=1)
+
+                    logits1 = tf.reduce_mean(tf.nn.dropout(hops_start_logits, keep_prob=self.hops_keep_prob_ph,
+                                                           noise_shape=(bs, self.number_of_hops, 1)),
+                                             axis=1)
+
+                    logits2 = tf.reduce_mean(tf.nn.dropout(hops_end_logits, keep_prob=self.hops_keep_prob_ph,
+                                                           noise_shape=(bs, self.number_of_hops, 1)),
+                                             axis=1)
 
         with tf.variable_scope("predict"):
             if self.predict_ans:
@@ -254,35 +349,47 @@ class SquadModel(TFModel):
                 squad_loss = loss_p1 + loss_p2
 
             if self.scorer:
-                q_att = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph, scope='q_att')
-                c_att = simple_attention(att, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph, scope='c_att')
+                q_att = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph,
+                                         scope='q_att')
+                c_att = simple_attention(match, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph,
+                                         scope='c_att')
                 q_att = tf.layers.dense(q_att, units=c_att.get_shape().as_list()[-1],
-                                        activation=tf.nn.tanh,
+                                        activation=tf.nn.relu,
                                         kernel_initializer=tf.contrib.layers.xavier_initializer(),
                                         name='q_att_dense'
                                         )
                 q_att = tf.nn.dropout(q_att, keep_prob=self.keep_prob_ph)
                 c_att = tf.nn.dropout(c_att, keep_prob=self.keep_prob_ph)
                 dense_input = tf.concat([q_att, c_att, c_att - q_att, c_att * q_att], -1)
-                layer_1_logits = tf.nn.dropout(tf.layers.dense(dense_input,
-                                                units=self.hidden_size,
-                                                activation=tf.nn.tanh,
-                                                kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                                name='noans_dense_1'), keep_prob=self.keep_prob_ph)
+                layer_1_logits = tf.nn.dropout(
+                                    tf.layers.dense(dense_input,
+                                                    units=self.hidden_size,
+                                                    activation=tf.nn.relu,
+                                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                                    name='noans_dense_1'),
+                                    keep_prob=self.keep_prob_ph)
                 layer_2_logits = tf.layers.dense(layer_1_logits,
-                                                 activation=tf.nn.tanh,
+                                                 activation=tf.nn.relu,
                                                  units=2,
                                                  name='noans_dense_2')
                 self.y_ohe = tf.one_hot(self.y, depth=2)
                 predict_probas = tf.nn.softmax(layer_2_logits)
                 self.yp = predict_probas[:,1]
                 yt_prob = tf.reduce_sum(predict_probas * self.y_ohe, axis=-1)
-                scorer_loss = tf.pow(1 - yt_prob, self.focal_loss_exp) * \
-                    tf.nn.softmax_cross_entropy_with_logits(logits=layer_2_logits, labels=self.y_ohe)
+                # focal loss
+                if self.use_focal_loss:
+                    scorer_loss = tf.pow(1 - yt_prob, self.focal_loss_exp) * \
+                        tf.nn.softmax_cross_entropy_with_logits(logits=layer_2_logits, labels=self.y_ohe)
+                else:
+                    scorer_loss = tf.nn.softmax_cross_entropy_with_logits(logits=layer_2_logits, labels=self.y_ohe)
 
+                no_ans_rate = 1 - tf.cast(bs, tf.float32) / (tf.reduce_sum(tf.cast(self.y, tf.float32)) + eps)
+                # TODO: check loss computation!
                 if self.predict_ans and not self.noans_token:
                     # skip examples without answer when calculate squad_loss
+                    # normalize to number of examples with answer?
                     squad_loss = squad_loss * tf.expand_dims(tf.expand_dims(tf.cast(self.y, tf.float32), axis=-1), axis=-1)
+                    squad_loss = squad_loss / (1 - no_ans_rate)
 
             if self.predict_ans and self.scorer:
                 self.loss = self.squad_loss_weight * squad_loss + (1 - self.squad_loss_weight) * scorer_loss
@@ -326,12 +433,14 @@ class SquadModel(TFModel):
 
         if self.scorer:
             self.y_ph = tf.placeholder(shape=(None, ), dtype=tf.int32, name='y_ph')
-        else:
+
+        if self.predict_ans:
             self.y1_ph = tf.placeholder(shape=(None, ), dtype=tf.int32, name='y1_ph')
             self.y2_ph = tf.placeholder(shape=(None, ), dtype=tf.int32, name='y2_ph')
 
         self.lr_ph = tf.placeholder(dtype=tf.float32, shape=[], name='lr_ph')
         self.keep_prob_ph = tf.placeholder_with_default(1.0, shape=[], name='keep_prob_ph')
+        self.hops_keep_prob_ph = tf.placeholder_with_default(1.0, shape=[], name='hops_keep_prob_ph')
         self.is_train_ph = tf.placeholder_with_default(False, shape=[], name='is_train_ph')
 
     def _init_optimizer(self):
@@ -349,8 +458,8 @@ class SquadModel(TFModel):
                          c_features=None, q_features=None, c_str=None, q_str=None, y1=None, y2=None, y=None):
 
         if self.use_elmo:
-          c_str = self._pad_strings(c_str, self.context_limit)
-          q_str = self._pad_strings(q_str, self.question_limit)
+            c_str = self._pad_strings(c_str, self.context_limit)
+            q_str = self._pad_strings(q_str, self.question_limit)
 
         feed_dict = {
             self.c_ph: c_tokens,
@@ -370,6 +479,7 @@ class SquadModel(TFModel):
                 self.y2_ph: y2,
                 self.lr_ph: self.learning_rate,
                 self.keep_prob_ph: self.keep_prob,
+                self.hops_keep_prob_ph: self.hops_keep_prob,
                 self.is_train_ph: True,
             })
         if self.scorer and y is not None:
@@ -377,6 +487,7 @@ class SquadModel(TFModel):
                 self.y_ph: y,
                 self.lr_ph: self.learning_rate,
                 self.keep_prob_ph: self.keep_prob,
+                self.hops_keep_prob_ph: self.hops_keep_prob,
                 self.is_train_ph: True,
             })
         if self.use_elmo:
@@ -420,7 +531,7 @@ class SquadModel(TFModel):
             logger.info('SQuAD model: Warning! Empty question or context was found.')
             noanswers = -np.ones(shape=(c_tokens.shape[0]), dtype=np.int32)
             zero_probs = np.zeros(shape=(c_tokens.shape[0]), dtype=np.float32)
-            if self.scorer:
+            if self.scorer and not self.predict_ans:
                 return zero_probs
             if self.noans_token:
                 return noanswers, noanswers, zero_probs, zero_probs
@@ -428,7 +539,7 @@ class SquadModel(TFModel):
 
         feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars,
                                           c_features, q_features, c_str, q_str)
-        if self.scorer:
+        if self.scorer and not self.predict_ans:
             score = self.sess.run(self.yp, feed_dict=feed_dict)
             return [float(score) for score in score]
 
@@ -444,10 +555,16 @@ class SquadModel(TFModel):
                     yp1s_noans.append(yp1 - 1)
                     yp2s_noans.append(yp2 - 1)
             yp1s, yp2s = yp1s_noans, yp2s_noans
-            return yp1s, yp2s, [float(prob) for prob in prob], [float(score) for score in score]
+            return yp1s, yp2s, [float(p) for p in prob], [float(score) for score in score]
 
-        yp1s, yp2s, prob, logits = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_logits], feed_dict=feed_dict)
-        return yp1s, yp2s, [float(prob) for prob in prob], [float(logit) for logit in logits]
+        if self.predict_ans and self.scorer:
+            yp1s, yp2s, prob, logits, score = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_logits, self.yp],
+                                                            feed_dict=feed_dict)
+            return yp1s, yp2s, [float(p) for p in prob], [float(logit) for logit in logits], [float(s) for s in score]
+
+        yp1s, yp2s, prob, logits = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_logits],
+                                                 feed_dict=feed_dict)
+        return yp1s, yp2s, [float(p) for p in prob], [float(logit) for logit in logits]
 
     def process_event(self, event_name, data):
         if event_name == "after_validation":
