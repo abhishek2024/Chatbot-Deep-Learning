@@ -35,7 +35,7 @@ logger = get_logger(__name__)
 @register("squad_paragraph_ranker")
 class SquadParagraphRanker(Component):
 
-    def __init__(self, ranker_config=None, top_n=10, type='paragraph', **kwargs):
+    def __init__(self, ranker_config=None, top_n=10, type='paragraph', active: bool = True,  **kwargs):
         """
 
         Args:
@@ -48,6 +48,7 @@ class SquadParagraphRanker(Component):
         self.ranker_batch_size = self.ranker_config['train'].get('batch_size', 1)
         self.top_n = top_n
         self.type = type
+        self.active = active
 
     def __call__old(self, query_context_id: List[Tuple[str, List[str], List[Any]]]):
 
@@ -77,10 +78,17 @@ class SquadParagraphRanker(Component):
             text_score_id = list(zip(texts, scores, ids))
             text_score_id = sorted(text_score_id, key=itemgetter(1), reverse=True)
 
-            text_score_id = text_score_id[:self.top_n]
-            batch_docs = [text for text, score, doc_id in text_score_id]
-            batch_scores = [score for text, score, doc_id in text_score_id]
-            batch_ids = [doc_id for text, score, doc_id in text_score_id]
+            if self.active:
+                text_score_id = text_score_id[:self.top_n]
+
+            batch_docs = []
+            batch_scores = []
+            batch_ids = []
+            for text, score, doc_id in text_score_id:
+                batch_docs.append(text)
+                batch_scores.append(score)
+                batch_ids.append(doc_id)
+
             all_docs.append(batch_docs)
             all_scores.append(batch_scores)
             all_ids.append(batch_ids)
