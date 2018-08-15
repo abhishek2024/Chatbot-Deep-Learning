@@ -12,9 +12,10 @@ from deeppavlov.core.models.component import Component
 
 @register('elmo_ranker')
 class ELMoRanker(Component):
-    def __init__(self, top_n=20, return_vectors=False, active: bool = True, **kwargs):
+    def __init__(self, top_n=20, hub_url: str = 'https://tfhub.dev/google/elmo/2',
+                 return_vectors=False, active: bool = True, **kwargs):
 
-        self.embed = hub.Module("https://tfhub.dev/google/elmo/2", trainable=False)
+        self.embed = hub.Module(hub_url, trainable=False)
         self.session = tf.Session()
         self.session.run([tf.global_variables_initializer(), tf.tables_initializer()])
         self.q_ph = tf.placeholder(shape=(None,), dtype=tf.string)
