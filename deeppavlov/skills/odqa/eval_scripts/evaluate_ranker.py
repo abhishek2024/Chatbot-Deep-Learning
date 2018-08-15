@@ -90,7 +90,6 @@ def main():
     start_time = time.time()
     TEXT_IDX = 1
 
-
     try:
         mapping = {}
         pmef_mapping = {}
