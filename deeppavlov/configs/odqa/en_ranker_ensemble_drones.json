@@ -19,7 +19,7 @@
         "api_requesters": [
           {
             "name": "api_requester",
-            "_comment": "Doesn't requre tf, run from odqa_pmef_tf_1.7 branch",
+            "_comment": "Doesn't use tf",
             "url": "http://0.0.0.0:5000/model",
             "in": "question_raw",
             "param_names": [
@@ -31,7 +31,7 @@
           },
           {
             "name": "api_requester",
-            "_comment": "Requires tf 1.7 GPU, run from odqa_pmef_tf_1.7 branch",
+            "_comment": "Requires tf 1.7 GPU",
             "url": "http://0.0.0.0:5001/model",
             "in": "question_raw",
             "param_names": [
@@ -43,7 +43,7 @@
           },
           {
             "name": "api_requester",
-            "_comment": "Requires tf 1.4 GPU, run from odqa_pmef branch",
+            "_comment": "Requires tf 1.7 GPU",
             "url": "http://0.0.0.0:5002/model",
             "in": "question_raw",
             "param_names": [

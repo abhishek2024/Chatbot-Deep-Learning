@@ -65,6 +65,9 @@
     "batch_size": 10000
   },
   "metadata": {
+    "labels": {
+      "server_utils": "USE_RANKER"
+    },
     "download": [
       "http://lnsigo.mipt.ru/export/deeppavlov_data/pmef.tar.gz",
       {
