@@ -1,0 +1,81 @@
+{
+  "chainer": {
+    "in": [
+      "question_raw"
+    ],
+    "out": [
+      "rank_text_score_id"
+    ],
+    "pipe": [
+      {
+        "name": "wiki_sqlite_vocab",
+        "in": [
+          "question_raw"
+        ],
+        "out": [
+          "context_raw",
+          "doc_ids"
+        ],
+        "data_dir": "pmef",
+        "shuffle": false,
+        "join_docs": false,
+        "return_all_content": true,
+        "load_path": "http://lnsigo.mipt.ru/export/datasets/pmef/ru_news.db"
+      },
+      {
+        "name": "query_paragraph_tuplifier",
+        "in": [
+          "question_raw",
+          "context_raw",
+          "doc_ids"
+        ],
+        "out": [
+          "question_paragraph_tuples"
+        ]
+      },
+      {
+        "name": "tfhub_paragraph_ranker",
+        "top_n": 20,
+        "active": true,
+        "ranker": {
+          "name": "elmo_ranker",
+          "hub_url": "http://files.deeppavlov.ai/deeppavlov_data/elmo_ru-news_wmt11-16_1.5M_steps.tar.gz"
+          "active": false
+        },
+        "tokenizer": {
+          "name": "ru_tokenizer",
+          "alphas_only": true
+        },
+        "in": [
+          "question_paragraph_tuples"
+        ],
+        "out": ["docs", "doc_scores", "doc_ids"]
+      },
+      {
+        "name": "rank_doc_score_tuplifier",
+        "in": [
+          "docs",
+          "doc_scores",
+          "doc_ids"
+        ],
+        "out": [
+          "rank_text_score_id"
+        ]
+      }
+    ]
+  },
+  "train": {
+    "validate_best": false,
+    "test_best": false,
+    "batch_size": 10000
+  },
+  "metadata": {
+    "download": [
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/pmef.tar.gz",
+      {
+        "url": "http://lnsigo.mipt.ru/export/datasets/pmef/ru_news.db",
+        "subdir": "pmef"
+      }
+    ]
+  }
+}
