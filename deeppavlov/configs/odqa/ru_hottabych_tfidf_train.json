@@ -1,0 +1,76 @@
+{
+  "dataset_reader": {
+    "class": "deeppavlov.dataset_readers.odqa_reader:ODQADataReader",
+    "data_path": "/media/olga/Data/projects/ranker_test/ranker_test/ru_hottabych_chunks_2ranker.json",
+    "save_path": "/media/olga/Data/projects/DeepPavlov/download/pmef/ru_hottabych.db",
+    "dataset_format": "json"
+  },
+  "dataset_iterator": {
+    "name": "sqlite_iterator",
+    "data_dir": "odqa",
+    "shuffle": false,
+    "load_path": "/media/olga/Data/projects/DeepPavlov/download/pmef/ru_hottabych.db"
+  },
+  "chainer": {
+    "in": [
+      "question_raw"
+    ],
+    "out": [
+      "context_raw"
+    ],
+    "pipe": [
+      {
+        "name": "tfidf_ranker",
+        "top_n": 1,
+        "active": true,
+        "in": [
+          "question_raw"
+        ],
+        "out": [
+          "doc_ids",
+          "doc_scores"
+        ],
+        "fit_on_batch": true,
+        "vectorizer": {
+          "name": "hashing_tfidf_vectorizer",
+          "fit_on_batch": [
+            "questions_raw"
+          ],
+          "save_path": "pmef/ru_hottabych_tfidf.npz",
+          "load_path": "pmef/ru_hottabych_tfidf.npz",
+          "tokenizer": {
+            "name": "ru_tokenizer",
+            "lemmas": true,
+            "ngram_range": [
+              1,
+              2
+            ],
+            "stopwords": "NLTK_STOPWORDS"
+          }
+        }
+      },
+      {
+        "name": "wiki_sqlite_vocab",
+        "in": [
+          "doc_ids"
+        ],
+        "out": [
+          "context_raw"
+        ],
+        "data_dir": "odqa",
+        "shuffle": false,
+        "join_docs": true,
+        "load_path": "/media/olga/Data/projects/DeepPavlov/download/pmef/ru_hottabych.db"
+      }
+    ]
+  },
+  "train": {
+    "validate_best": false,
+    "test_best": false,
+    "batch_size": 200
+  },
+  "metadata": {
+    "download": [
+    ]
+  }
+}
