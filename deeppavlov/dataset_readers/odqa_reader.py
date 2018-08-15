@@ -50,7 +50,11 @@ def iter_files(path: Union[Path, str]) -> Generator[Path, Any, Any]:
 
 def _build_db(save_path, dataset_format, data_path: Union[Path, str], num_workers=4):
     logger.info('Building the database...')
-    conn = sqlite3.connect(str(save_path))
+    try:
+        conn = sqlite3.connect(str(save_path))
+    except sqlite3.OperationalError as e:
+        e.args = e.args + ("Check that DB path exists and is a valid DB file.",)
+        raise e
     c = conn.cursor()
     sql_table = "CREATE TABLE documents (id PRIMARY KEY, text);"
     c.execute(sql_table)
@@ -73,7 +77,7 @@ def _build_db(save_path, dataset_format, data_path: Union[Path, str], num_worker
                 c.executemany("INSERT INTO documents VALUES (?,?)", data)
                 pbar.update()
             except sqlite3.IntegrityError as e:
-                logger.warn(e)
+                logger.warning(e)
 
     conn.commit()
     conn.close()
@@ -89,9 +93,8 @@ def _get_file_contents(fpath) -> List[Tuple[str, str]]:
     """
     with open(fpath) as fin:
         text = fin.read()
-        normalized_title = unicodedata.normalize('NFD', fpath.name)
         normalized_text = unicodedata.normalize('NFD', text)
-        return [(normalized_title, normalized_text)]
+        return [(fpath.name, normalized_text)]
 
 
 def _get_json_contents(fpath) -> List[Tuple[str, str]]:
@@ -106,11 +109,9 @@ def _get_json_contents(fpath) -> List[Tuple[str, str]]:
             for doc in data:
                 if not doc:
                     continue
-                title = doc['title']
-                normalized_title = unicodedata.normalize('NFD', str(title))
                 text = doc['text']
                 normalized_text = unicodedata.normalize('NFD', text)
-                docs.append((normalized_title, normalized_text))
+                docs.append((doc['title'], normalized_text))
     return docs
 
 
@@ -126,11 +127,9 @@ def _get_wiki_contents(fpath) -> List[Tuple[str, str]]:
             doc = json.loads(line)
             if not doc:
                 continue
-            title = doc['title']
-            normalized_title = unicodedata.normalize('NFD', title)
             text = doc['text']
             normalized_text = unicodedata.normalize('NFD', text)
-            docs.append((normalized_title, normalized_text))
+            docs.append((doc['title'], normalized_text))
     return docs
 
 

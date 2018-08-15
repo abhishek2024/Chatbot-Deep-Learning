@@ -61,8 +61,18 @@ class SQLiteDataIterator(DataFittingIterator):
             raise ValueError('String path expected, got None.')
 
         logger.info("Connecting to database, path: {}".format(download_path))
-        self.connect = sqlite3.connect(str(download_path), check_same_thread=False)
-        self.db_name = self.get_db_name()
+        try:
+            self.connect = sqlite3.connect(str(download_path), check_same_thread=False)
+        except sqlite3.OperationalError as e:
+            e.args = e.args + ("Check that DB path exists and is a valid DB file",)
+            raise e
+        try:
+            self.db_name = self.get_db_name()
+        except TypeError as e:
+            e.args = e.args + (
+                'Check that DB path was created correctly and is not empty. '
+                'Check that a correct dataset_format is passed to the ODQAReader config',)
+            raise e
         self.doc_ids = self.get_doc_ids()
         self.doc2index = self.map_doc2idx()
         self.batch_size = batch_size
