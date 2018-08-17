@@ -174,6 +174,29 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
 
         return encoder_decoder_model
 
+    def one_hotter(self, data, vocab_size):
+        """
+        Convert given batch of tokenized samples with indexed tokens
+        to one-hot representation of tokens
+
+        Args:
+            data: list of samples. Each sample is a list of indexes of words in the vocabulary
+            vocab_size: size of the vocabulary. Length of one-hot vector
+
+        Returns:
+            one-hot representation of given batch
+        """
+        vocab_matrix = np.eye(vocab_size)
+
+        if type(data) is int:
+            one_hotted_data = vocab_matrix[data]
+        else:
+            one_hotted_data = []
+            for sample in data:
+                one_hotted_data.append([vocab_matrix[token] for token in sample])
+
+        return np.asarray(one_hotted_data)
+
     def _build_encoder(self,
                        hidden_size,
                        encoder_coef_reg_lstm,
@@ -202,10 +225,11 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
 
         self._decoder_inp = Input(shape=(self.opt["tgt_max_length"],))
 
-        _decoder_emb_inp = Embedding(input_dim=self.opt["decoder_embeddings"].shape[0],
-                                     output_dim=self.opt["decoder_embedding_size"],
-                                     weights=[self.opt["decoder_embeddings"]],
-                                     trainable=False)(self._decoder_inp)
+        self._decoder_embedder = Embedding(input_dim=self.opt["decoder_embeddings"].shape[0],
+                                           output_dim=self.opt["decoder_embedding_size"],
+                                           weights=[self.opt["decoder_embeddings"]],
+                                           trainable=False)
+        _decoder_emb_inp = self._decoder_embedder(self._decoder_inp)
 
         self._decoder_input_state_0 = Input(shape=(hidden_size,))
         self._decoder_input_state_1 = Input(shape=(hidden_size,))
@@ -228,28 +252,38 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
             _decoder_emb_inp,
             initial_state=[self._decoder_input_state_0, self._decoder_input_state_1])
 
-        decoder_dense = Dense(self.opt["tgt_vocab_size"], name="dense_lstm")
+        decoder_dense = Dense(self.opt["tgt_vocab_size"], name="dense_lstm")  # (batch_size, text_size, tgt_vocab_size)
         self._train_decoder_outputs = decoder_dense(_train_decoder_outputs)
         self._infer_decoder_outputs = decoder_dense(_infer_decoder_outputs)
 
         return None
 
-    def train_on_batch(self, enc_inputs, dec_inputs, dec_outputs,
-                       src_seq_lengths, tgt_seq_lengths, tgt_weights, kb_masks):
+    def train_on_batch(self,
+                       enc_inputs,
+                       dec_inputs,
+                       dec_outputs,
+                       src_seq_lengths,
+                       tgt_seq_lengths,
+                       tgt_weights,
+                       kb_masks):
         K.set_session(self.sess)
+        dec_outputs = self.one_hotter(dec_outputs, vocab_size=self.opt["tgt_vocab_size"])
 
         metrics_values = self.model.train_on_batch([enc_inputs,
                                                     dec_inputs],
                                                    dec_outputs)
         return metrics_values
 
-    def infer_on_batch(self, enc_inputs, dec_outputs=None):
+    def infer_on_batch(self,
+                       enc_inputs,
+                       dec_outputs=None):
         K.set_session(self.sess)
         # self.opt["src_max_length"] = max(src_seq_lengths)
         self.opt["tgt_max_length"] = None
         dec_inputs = self._get_decoder_inputs(enc_inputs=enc_inputs)
 
         if dec_outputs:
+            dec_outputs = self.one_hotter(dec_outputs, vocab_size=self.opt["tgt_vocab_size"])
             _encoder_state_0, _encoder_state_1 = self.encoder_model.predict(enc_inputs)
             metrics_values = self.decoder_model.test_on_batch([dec_inputs,
                                                                _encoder_state_0,

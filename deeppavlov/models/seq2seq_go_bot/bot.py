@@ -91,6 +91,7 @@ class Seq2SeqGoalOrientedBot(NNModel):
                                    for idx in range(self.tgt_vocab_size)]])[0]
         dec_embs[self.tgt_vocab[self.sos_token]][:] = 0.
         params['decoder_embeddings'] = dec_embs
+        # return Seq2SeqGoalOrientedBotNetwork(**params)
         return Seq2SeqGoalOrientedBotKerasNetwork(**params)
 
     def _embed_kb_key(self, key):
