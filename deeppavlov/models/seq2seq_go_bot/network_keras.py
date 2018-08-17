@@ -269,10 +269,10 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
                 dec_outputs = self.one_hotter(dec_outputs, self.opt["tgt_vocab_size"])
 
             _encoder_state_0, _encoder_state_1 = self.encoder_model.predict(enc_inputs)
-            metrics_values = self.decoder_model.test_one_batch([dec_inputs,
-                                                                _encoder_state_0,
-                                                                _encoder_state_1],
-                                                               dec_outputs)
+            metrics_values = self.decoder_model.test_on_batch([dec_inputs,
+                                                               _encoder_state_0,
+                                                               _encoder_state_1],
+                                                              dec_outputs)
             return metrics_values
         else:
             if self.opt["encoder_embedding_size"] is None:
