@@ -21,7 +21,6 @@ from deeppavlov.core.models.component import Component
 from deeppavlov.core.models.nn_model import NNModel
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.models.seq2seq_go_bot.network import Seq2SeqGoalOrientedBotNetwork
-from deeppavlov.models.seq2seq_go_bot.network_keras import Seq2SeqGoalOrientedBotKerasNetwork
 
 
 log = get_logger(__name__)
@@ -91,8 +90,7 @@ class Seq2SeqGoalOrientedBot(NNModel):
                                    for idx in range(self.tgt_vocab_size)]])[0]
         dec_embs[self.tgt_vocab[self.sos_token]][:] = 0.
         params['decoder_embeddings'] = dec_embs
-        # return Seq2SeqGoalOrientedBotNetwork(**params)
-        return Seq2SeqGoalOrientedBotKerasNetwork(**params)
+        return Seq2SeqGoalOrientedBotNetwork(**params)
 
     def _embed_kb_key(self, key):
 # TODO: fasttext embedder to work with tokens

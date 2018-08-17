@@ -34,8 +34,8 @@ from deeppavlov.core.common.log import get_logger
 log = get_logger(__name__)
 
 
-@register("seq2seq_go_bot_keras")
-class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
+@register("keras_seq2seq_model")
+class KerasSeq2SeqModel(KerasModel):
 
     def __init__(self,
                  hidden_size: int,
