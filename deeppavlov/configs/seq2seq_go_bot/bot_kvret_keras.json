@@ -92,6 +92,8 @@
           "lear_rate": 0.0001,
           "lear_rate_decay": 0.0001,
           "beam_width": 1,
+          "encoder_embedding_size": "#token_embedder.dim",
+          "decoder_embedding_size": "#token_embedder.dim",
           "target_start_of_sequence_index": "#tgt_token_vocab.__getitem__('<SOS>')",
           "target_end_of_sequence_index": "#tgt_token_vocab.__getitem__('<EOS>')",
           "source_vocab_size": "#src_token_vocab.__len__()",
