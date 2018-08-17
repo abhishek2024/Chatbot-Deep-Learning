@@ -29,8 +29,6 @@ from keras import backend as K
 
 from deeppavlov.core.models.keras_model import KerasModel
 from deeppavlov.core.common.registry import register
-from deeppavlov.core.common.errors import ConfigError
-from deeppavlov.core.models.tf_model import TFModel
 from deeppavlov.core.common.log import get_logger
 
 log = get_logger(__name__)
@@ -40,37 +38,45 @@ log = get_logger(__name__)
 class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
 
     def __init__(self,
-                 target_start_of_sequence_index: int,
-                 target_end_of_sequence_index: int,
+                 hidden_size: int,
                  source_vocab_size: int,
                  target_vocab_size: int,
-                 src_max_length: int = None, tgt_max_length: int = None,
+                 target_start_of_sequence_index: int,
+                 target_end_of_sequence_index: int,
+                 knowledge_base_entry_embeddings: np.ndarray = None,
+                 kb_attention_hidden_sizes: List[int] = None,
+                 decoder_embeddings: np.ndarray = None,
+                 source_max_length: int = None,
+                 target_max_length: int = None,
                  encoder_embedding_size: int = None,
                  decoder_embedding_size: int = None,
+                 beam_width: int = 1,
                  model_name: str = "lstm_lstm_model",
-                 optimizer: str = "Adam", loss: str = "binary_crossentropy",
-                 lear_rate: float = 0.01, lear_rate_decay: float = 0.,
+                 optimizer: str = "Adam",
+                 loss: str = "binary_crossentropy",
+                 lear_rate: float = 0.01,
+                 lear_rate_decay: float = 0.,
                  **kwargs):
 
-        super().__init__(encoder_embedding_size=encoder_embedding_size,
+        super().__init__(hidden_size=hidden_size,
+                         src_vocab_size=source_vocab_size,
+                         tgt_vocab_size=target_vocab_size,
+                         tgt_sos_id=target_start_of_sequence_index,
+                         tgt_eos_id=target_end_of_sequence_index,
+                         knowledge_base_entry_embeddings=knowledge_base_entry_embeddings,
+                         kb_attention_hidden_sizes=kb_attention_hidden_sizes,
+                         decoder_embeddings=decoder_embeddings,
+                         src_max_length=source_max_length,
+                         tgt_max_length=target_max_length,
+                         encoder_embedding_size=encoder_embedding_size,
                          decoder_embedding_size=decoder_embedding_size,
-                         src_max_length=src_max_length,
-                         tgt_max_length=tgt_max_length,
+                         beam_width=beam_width,
                          model_name=model_name,
                          optimizer=optimizer,
                          loss=loss,
                          lear_rate=lear_rate,
                          lear_rate_decay=lear_rate_decay,
-                         **kwargs)  # self.opt = copy(kwargs) initialized in here
-
-        self.opt["encoder_embedding_size"] = encoder_embedding_size
-        self.opt["decoder_embedding_size"] = decoder_embedding_size
-        self.opt["src_max_length"] = src_max_length
-        self.opt["tgt_max_length"] = tgt_max_length
-        self.opt["tgt_sos_id"] = target_start_of_sequence_index
-        self.opt["tgt_eos_id"] = target_end_of_sequence_index
-        self.opt["src_vocab_size"] = source_vocab_size
-        self.opt["tgt_vocab_size"] = target_vocab_size
+                         **kwargs)
 
         # Parameters required to init model
         params = {"model_name": self.opt.get('model_name'),
@@ -79,17 +85,20 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
                   "lear_rate": self.opt.get('lear_rate'),
                   "lear_rate_decay": self.opt.get('lear_rate_decay')}
 
+        self.encoder_model = None
+        self.decoder_model = None
         self.model = self.load(**params)
 
-        self._change_not_fixed_params(encoder_embedding_size=encoder_embedding_size,
+        self._change_not_fixed_params(hidden_size=hidden_size,
+                                      src_vocab_size=source_vocab_size,
+                                      tgt_vocab_size=target_vocab_size,
+                                      tgt_sos_id=target_start_of_sequence_index,
+                                      tgt_eos_id=target_end_of_sequence_index,
+                                      encoder_embedding_size=encoder_embedding_size,
                                       decoder_embedding_size=decoder_embedding_size,
                                       model_name=model_name,
                                       optimizer=optimizer,
                                       loss=loss,
-                                      tgt_sos_id=target_start_of_sequence_index,
-                                      tgt_eos_id=target_end_of_sequence_index,
-                                      src_vocab_size=source_vocab_size,
-                                      tgt_vocab_size=target_vocab_size,
                                       **kwargs)
 
     def _change_not_fixed_params(self, **kwargs) -> None:
@@ -104,14 +113,15 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
         """
         fixed_params = [
             "model_name",
-            "encoder_embedding_size",
-            "decoder_embedding_size",
-            "encoder_hidden_size",
-            "decoder_hidden_size",
+            "hidden_size",
+            "src_vocab_size",
+            "tgt_vocab_size",
             "tgt_sos_id",
             "tgt_eos_id",
-            "src_vocab_size",
-            "tgt_vocab_size"
+            "encoder_embedding_size",
+            "decoder_embedding_size",
+            "optimizer",
+            "loss"
         ]
         for param in self.opt.keys():
             if param not in fixed_params:
@@ -119,22 +129,21 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
         return
 
     def lstm_lstm_model(self,
-                        encoder_hidden_size=300,
+                        hidden_size=300,
                         encoder_coef_reg_lstm=0.,
                         encoder_dropout_rate=0.,
                         encoder_rec_dropout_rate=0.,
-                        decoder_hidden_size=300,
                         decoder_coef_reg_lstm=0.,
                         decoder_dropout_rate=0.,
-                        decoder_rec_dropout_rate=0., **kwargs) -> List[Model]:
+                        decoder_rec_dropout_rate=0.,
+                        **kwargs) -> List[Model]:
 
-        self._build_encoder(encoder_hidden_size,
+        self._build_encoder(hidden_size,
                             encoder_coef_reg_lstm,
                             encoder_dropout_rate,
                             encoder_rec_dropout_rate)
 
-        self._build_decoder(encoder_hidden_size,
-                            decoder_hidden_size,
+        self._build_decoder(hidden_size,
                             decoder_coef_reg_lstm,
                             decoder_dropout_rate,
                             decoder_rec_dropout_rate)
@@ -144,13 +153,13 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
                                       outputs=self._train_decoder_outputs)
 
         self.encoder_model = Model(inputs=self._encoder_emb_inp,
-                              outputs=[self._encoder_state_0,
+                                   outputs=[self._encoder_state_0,
                                        self._encoder_state_1])
 
         self.decoder_model = Model(inputs=[self._decoder_emb_inp,
-                                      self._decoder_input_state_0,
-                                      self._decoder_input_state_1],
-                              outputs=self._infer_decoder_outputs)
+                                           self._decoder_input_state_0,
+                                           self._decoder_input_state_1],
+                                   outputs=self._infer_decoder_outputs)
 
         return encoder_decoder_model
 
@@ -178,7 +187,7 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
         return np.asarray(one_hotted_data)
 
     def _build_encoder(self,
-                       encoder_hidden_size,
+                       hidden_size,
                        encoder_coef_reg_lstm,
                        encoder_dropout_rate,
                        encoder_rec_dropout_rate):
@@ -191,7 +200,7 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
                                                  self.opt["encoder_embedding_size"]))
 
         self._encoder_outputs, self._encoder_state_0, self._encoder_state_1 = LSTM(
-            encoder_hidden_size,
+            hidden_size,
             activation='tanh',
             return_state=True,  # get encoder's last state
             kernel_regularizer=l2(encoder_coef_reg_lstm),
@@ -200,8 +209,7 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
             name="encoder_lstm")(self._encoder_emb_inp)
 
     def _build_decoder(self,
-                       encoder_hidden_size,
-                       decoder_hidden_size,
+                       hidden_size,
                        decoder_coef_reg_lstm,
                        decoder_dropout_rate,
                        decoder_rec_dropout_rate):
@@ -213,11 +221,11 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
             self._decoder_emb_inp = Input(shape=(self.opt["tgt_max_length"],
                                                  self.opt["decoder_embedding_size"]))
 
-        self._decoder_input_state_0 = Input(shape=(encoder_hidden_size,))
-        self._decoder_input_state_1 = Input(shape=(encoder_hidden_size,))
+        self._decoder_input_state_0 = Input(shape=(hidden_size,))
+        self._decoder_input_state_1 = Input(shape=(hidden_size,))
 
         decoder_lstm = LSTM(
-            decoder_hidden_size,
+            hidden_size,
             activation='tanh',
             return_state=True,  # due to teacher forcing, this state is used only for inference
             return_sequences=True,  # to get decoder_n_tokens outputs' representations
@@ -239,7 +247,7 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
         self._infer_decoder_outputs = decoder_dense(self._infer_decoder_outputs)
 
     def train_on_batch(self, enc_inputs, dec_inputs, dec_outputs,
-                       src_seq_lengths, tgt_seq_lengths, tgt_weights):
+                       src_seq_lengths, tgt_seq_lengths, tgt_weights, kb_masks):
         K.set_session(self.sess)
         # self.opt["src_max_length"] = max(src_seq_lengths)
         # self.opt["tgt_max_length"] = max(tgt_seq_lengths)
@@ -255,7 +263,7 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
                                                    dec_outputs)
         return metrics_values
 
-    def infer_on_batch(self, enc_inputs, src_seq_lengths, dec_outputs=None):
+    def infer_on_batch(self, enc_inputs, dec_outputs=None):
         K.set_session(self.sess)
         # self.opt["src_max_length"] = max(src_seq_lengths)
         self.opt["tgt_max_length"] = None
@@ -286,10 +294,9 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
                                                                           _encoder_state_1]))
             return predictions
 
-    def __call__(self, enc_inputs, src_seq_lengths, prob=False):
+    def __call__(self, enc_inputs, src_seq_lengths, kb_masks, prob=False):
         K.set_session(self.sess)
-        predictions = np.array(self.infer_on_batch(enc_inputs=enc_inputs,
-                                                   src_seq_lengths=src_seq_lengths))
+        predictions = np.array(self.infer_on_batch(enc_inputs=enc_inputs))
         return predictions
 
     def _probas2onehot(self, data):
