@@ -65,10 +65,7 @@ class KerasModel(NNModel, metaclass=TfModelMeta):
         self.batches_seen = 0
         self.train_examples_seen = 0
 
-        super().__init__(save_path=save_path,
-                         load_path=load_path,
-                         url=url,
-                         mode=kwargs['mode'])
+        super().__init__(**kwargs)
 
         self.sess = self._config_session()
         K.set_session(self.sess)
