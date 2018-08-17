@@ -98,9 +98,17 @@ class Seq2SeqGoalOrientedBotKerasNetwork(KerasModel):
                                       tgt_eos_id=target_end_of_sequence_index,
                                       encoder_embedding_size=encoder_embedding_size,
                                       decoder_embedding_size=decoder_embedding_size,
+                                      decoder_embeddings=decoder_embeddings,
+                                      knowledge_base_entry_embeddings=knowledge_base_entry_embeddings,
+                                      kb_attention_hidden_sizes=kb_attention_hidden_sizes,
+                                      src_max_length=source_max_length,
+                                      tgt_max_length=target_max_length,
+                                      beam_width=beam_width,
                                       model_name=model_name,
                                       optimizer=optimizer,
                                       loss=loss,
+                                      lear_rate=lear_rate,
+                                      lear_rate_decay=lear_rate_decay,
                                       **kwargs)
         return
 
