@@ -3,7 +3,7 @@
     "name": "sqlite_iterator",
     "data_dir": "odqa",
     "shuffle": false,
-    "load_path": "/media/olga/Data/projects/iPavlov/DeepPavlov/download/odqa/enwiki_new.db"
+    "load_path": "/media/olga/Data/projects/iPavlov/DeepPavlov/download/odqa/enwiki.db"
   },
   "chainer": {
     "in": [
@@ -32,8 +32,8 @@
           "fit_on_batch": [
             "questions_raw"
           ],
-          "save_path": "odqa/enwiki_new_tfidf_matrix.npz",
-          "load_path": "odqa/enwiki_new_tfidf_matrix.npz",
+          "save_path": "odqa/enwiki_tfidf_matrix.npz",
+          "load_path": "odqa/enwiki_tfidf_matrix.npz",
           "tokenizer": {
             "name": "stream_spacy_tokenizer",
             "lemmas": true,
@@ -56,7 +56,7 @@
         "data_dir": "odqa",
         "shuffle": false,
         "join_docs": false,
-        "load_path": "/media/olga/Data/projects/iPavlov/DeepPavlov/download/odqa/enwiki_new.db"
+        "load_path": "/media/olga/Data/projects/iPavlov/DeepPavlov/download/odqa/enwiki.db"
       },
       {
         "name": "rank_doc_score_tuplifier",
@@ -80,12 +80,7 @@
     "download": [
       "http://lnsigo.mipt.ru/export/deeppavlov_data/en_odqa.tar.gz",
       {
-        "url": "http://lnsigo.mipt.ru/export/datasets/pmef/enwiki.db",
-        "subdir": "odqa"
-      },
-      {
-        "url": "https://tfhub.dev/google/universal-sentence-encoder/1?tf-hub-format=compressed",
-        "subdir": "tfhub"
+        "url": "http://lnsigo.mipt.ru/export/datasets/wikipedia/enwiki.tar.gz"
       }
     ]
   }
