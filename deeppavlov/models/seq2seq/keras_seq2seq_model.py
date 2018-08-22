@@ -30,6 +30,7 @@ from keras import backend as K
 from deeppavlov.core.models.keras_model import KerasModel
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.log import get_logger
+from deeppavlov.core.models.component import Component
 
 log = get_logger(__name__)
 
@@ -45,7 +46,7 @@ class KerasSeq2SeqModel(KerasModel):
                  target_end_of_sequence_index: int,
                  encoder_embedding_size: int,
                  decoder_embedding_size: int,
-                 decoder_embeddings: np.ndarray,
+                 decoder_embedder: Component,
                  source_max_length: int = None,
                  target_max_length: int = None,
                  model_name: str = "lstm_lstm_model",
@@ -62,7 +63,6 @@ class KerasSeq2SeqModel(KerasModel):
                          tgt_eos_id=target_end_of_sequence_index,
                          encoder_embedding_size=encoder_embedding_size,
                          decoder_embedding_size=decoder_embedding_size,
-                         decoder_embeddings=decoder_embeddings,
                          src_max_length=source_max_length,
                          tgt_max_length=target_max_length,
                          model_name=model_name,
@@ -79,7 +79,7 @@ class KerasSeq2SeqModel(KerasModel):
                   "lear_rate": self.opt.get('lear_rate'),
                   "lear_rate_decay": self.opt.get('lear_rate_decay')}
 
-        self.opt["decoder_embeddings"] = np.asarray(self.opt["decoder_embeddings"])
+        self.decoder_embedder = decoder_embedder
 
         self.encoder_model = None
         self.decoder_model = None
@@ -92,7 +92,6 @@ class KerasSeq2SeqModel(KerasModel):
                                       tgt_eos_id=target_end_of_sequence_index,
                                       encoder_embedding_size=encoder_embedding_size,
                                       decoder_embedding_size=decoder_embedding_size,
-                                      decoder_embeddings=decoder_embeddings,
                                       src_max_length=source_max_length,
                                       tgt_max_length=target_max_length,
                                       model_name=model_name,
@@ -129,6 +128,23 @@ class KerasSeq2SeqModel(KerasModel):
             if param not in fixed_params:
                 self.opt[param] = kwargs.get(param)
         return
+
+    def texts2decoder_embeddings(self, sentences):
+        """
+        Convert texts to vector representations using decoder_embedder and padding up to self.opt["tgt_max_length"] tokens
+        Args:
+            sentences: list of lists of tokens
+
+        Returns:
+            array of embedded texts
+        """
+        pad = np.zeros(self.opt['decoder_embedding_size'])
+
+        embeddings_batch = self.decoder_embedder([sen[:self.opt['tgt_max_length']] for sen in sentences])
+        embeddings_batch = [[pad] * (self.opt['tgt_max_length'] - len(tokens)) + tokens for tokens in embeddings_batch]
+
+        embeddings_batch = np.asarray(embeddings_batch)
+        return embeddings_batch
 
     def lstm_lstm_model(self,
                         hidden_size=300,
@@ -249,14 +265,7 @@ class KerasSeq2SeqModel(KerasModel):
 
         return None
 
-    def train_on_batch(self,
-                       enc_inputs,
-                       dec_inputs,
-                       dec_outputs,
-                       src_seq_lengths,
-                       tgt_seq_lengths,
-                       tgt_weights,
-                       kb_masks):
+    def train_on_batch(self, *args, **kwargs):
         K.set_session(self.sess)
         dec_outputs = self.one_hotter(dec_outputs, vocab_size=self.opt["tgt_vocab_size"])
 
@@ -265,9 +274,7 @@ class KerasSeq2SeqModel(KerasModel):
                                                    dec_outputs)
         return metrics_values
 
-    def infer_on_batch(self,
-                       enc_inputs,
-                       dec_outputs=None):
+    def infer_on_batch(self, *args, **kwargs):
         K.set_session(self.sess)
         # self.opt["src_max_length"] = max(src_seq_lengths)
         self.opt["tgt_max_length"] = None
@@ -288,7 +295,7 @@ class KerasSeq2SeqModel(KerasModel):
                                                                           _encoder_state_1]))
             return predictions
 
-    def __call__(self, enc_inputs, src_seq_lengths, kb_masks, prob=False):
+    def __call__(self, *args, **kwargs):
         K.set_session(self.sess)
         predictions = np.array(self.infer_on_batch(enc_inputs=enc_inputs))
         return predictions

@@ -76,6 +76,7 @@
         "target_end_of_sequence_index": "#tokens_vocab.__getitem__('<EOS>')",
         "source_max_length": 1000,
         "target_max_length": 1000,
+        "decoder_embedder": "#my_embedder",
         "optimizer": "Adam",
         "lear_rate": 0.01,
         "lear_rate_decay": 0.1,
