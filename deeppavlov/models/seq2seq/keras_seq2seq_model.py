@@ -289,8 +289,9 @@ class KerasSeq2SeqModel(KerasModel):
     def train_on_batch(self, *args, **kwargs):
         K.set_session(self.sess)
         pad_emb_enc_inputs = self.pad_texts(args[0], mode="encoder")
-        emb_dec_inputs = self.texts2decoder_embeddings([[self.opt["tgt_sos_id"]] + sample + [self.opt["tgt_eos_id"]]
-                                                        for sample in args[1]])
+        dec_inputs = [[self.opt["tgt_sos_id"]] + list(sample) + [self.opt["tgt_eos_id"]]
+                      for sample in args[1]]
+        emb_dec_inputs = self.texts2decoder_embeddings(dec_inputs)
         pad_emb_dec_inputs = self.pad_texts(emb_dec_inputs, mode="decoder")
         emb_dec_outputs = self.texts2decoder_embeddings(args[1])
         pad_emb_dec_outputs = self.pad_texts(emb_dec_outputs, mode="decoder")
@@ -306,20 +307,9 @@ class KerasSeq2SeqModel(KerasModel):
         embedded_eos = self.decoder_embedder([["<EOS>"]])[0][0]
         embedded_sos = self.decoder_embedder([["<SOS>"]])[0][0]
         # TODO: no teacher forcing during infer
-        pad_emb_dec_inputs = self.pad_texts([[embedded_eos] + sample + [embedded_sos]
+        pad_emb_dec_inputs = self.pad_texts([[embedded_eos] + list(sample) + [embedded_sos]
                                              for sample in args[0][0]], mode="decoder")
 
-        # if len(args[0]) == 2:
-        #     emb_dec_outputs = self.texts2decoder_embeddings(args[1])
-        #     pad_emb_dec_outputs = self.pad_texts(emb_dec_outputs, mode="decoder")
-        #     _encoder_state_0, _encoder_state_1 = self.encoder_model.predict(pad_emb_enc_inputs)
-        #
-        #     metrics_values = self.decoder_model.test_on_batch([pad_emb_dec_inputs,
-        #                                                        _encoder_state_0,
-        #                                                        _encoder_state_1],
-        #                                                       pad_emb_dec_outputs)
-        #     return metrics_values
-        # else:
         _encoder_state_0, _encoder_state_1 = self.encoder_model.predict(pad_emb_enc_inputs)
         predictions = self._probas2onehot(self.decoder_model.predict([pad_emb_dec_inputs,
                                                                       _encoder_state_0,
