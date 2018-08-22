@@ -32,6 +32,7 @@
   "insurance_reader": "deeppavlov.dataset_readers.insurance_reader:InsuranceReader",
   "kenlm_elector": "deeppavlov.models.spelling_correction.electors.kenlm_elector:KenlmElector",
   "keras_classification_model": "deeppavlov.models.classifiers.keras_classification_model:KerasClassificationModel",
+  "keras_seq2seq_model": "deeppavlov.models.classifiers.keras_seq2seq_model:KerasSeq2SeqModel",
   "knowledge_base": "deeppavlov.models.seq2seq_go_bot.kb:KnowledgeBase",
   "knowledge_base_entity_normalizer": "deeppavlov.models.seq2seq_go_bot.kb:KnowledgeBaseEntityNormalizer",
   "kvret_dialog_iterator": "deeppavlov.dataset_iterators.kvret_dialog_iterator:KvretDialogDatasetIterator",
@@ -48,7 +49,6 @@
   "one_hotter": "deeppavlov.models.preprocessors.one_hotter:OneHotter",
   "ontonotes_reader": "deeppavlov.dataset_readers.ontonotes_reader:OntonotesReader",
   "params_evolution": "deeppavlov.models.evolution.evolution_param_generator:ParamsEvolution",
-  "per_item_wrapper": "deeppavlov.models.seq2seq_go_bot.wrapper:PerItemWrapper",
   "pymorphy_russian_lemmatizer": "deeppavlov.models.preprocessors.russian_lemmatizer:PymorphyRussianLemmatizer",
   "pymorphy_vectorizer": "deeppavlov.models.vectorizers.word_vectorizer:PymorphyVectorizer",
   "random_emb_mat": "deeppavlov.models.preprocessors.assemble_embeddings_matrix:RandomEmbeddingsMatrix",
@@ -59,7 +59,6 @@
   "russian_words_vocab": "deeppavlov.vocabs.typos:RussianWordsVocab",
   "sanitizer": "deeppavlov.models.preprocessors.sanitizer:Sanitizer",
   "seq2seq_go_bot": "deeppavlov.models.seq2seq_go_bot.bot:Seq2SeqGoalOrientedBot",
-  "seq2seq_go_bot_keras": "deeppavlov.models.seq2seq_go_bot.network_keras:Seq2SeqGoalOrientedBotKerasNetwork",
   "seq2seq_go_bot_nn": "deeppavlov.models.seq2seq_go_bot.network:Seq2SeqGoalOrientedBotNetwork",
   "simple_vocab": "deeppavlov.core.data.simple_vocab:SimpleVocabulary",
   "slotfill_raw": "deeppavlov.models.slotfill.slotfill_raw:SlotFillingComponent",
@@ -86,5 +85,6 @@
   "typos_kartaslov_reader": "deeppavlov.dataset_readers.typos_reader:TyposKartaslov",
   "typos_wikipedia_reader": "deeppavlov.dataset_readers.typos_reader:TyposWikipedia",
   "wiki_sqlite_vocab": "deeppavlov.vocabs.wiki_sqlite:WikiSQLiteVocab",
+  "wikitext2_reader": "deeppavlov.dataset_readers.wikitext2_reader:Wikitext2DatasetReader",
   "wikitionary_100K_vocab": "deeppavlov.vocabs.typos:Wiki100KDictionary"
 }
