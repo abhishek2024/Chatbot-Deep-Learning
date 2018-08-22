@@ -62,7 +62,7 @@
       },
       {
         "in": "x_emb",
-        "in_y": "x_emb",
+        "in_y": "x_tok_ind",
         "out": "y_tok_ind",
         "main": true,
         "name": "keras_seq2seq_model",
