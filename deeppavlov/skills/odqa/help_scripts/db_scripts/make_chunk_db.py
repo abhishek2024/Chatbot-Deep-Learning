@@ -5,7 +5,6 @@ from itertools import chain
 
 from nltk.tokenize import sent_tokenize
 
-from deeppavlov.core.common.file import read_json
 from deeppavlov.dataset_iterators.sqlite_iterator import SQLiteDataIterator
 
 parser = argparse.ArgumentParser()
@@ -14,13 +13,13 @@ parser.add_argument("-input_db_path",
                     help="path to an input db with wikipedia articles \
                     (BETTER MAKE A COPY SINCE IT WILL BE CHANGED IN RUNTIME)",
                     type=str,
-                    default="/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki_cut_truth.db")
+                    default="/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki_cut_irrelevant.db")
 parser.add_argument("-new_db_path", help="path to a SQuAD dataset preprocessed for ranker", type=str,
                     default="/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki_chunk.db")
 
 
 def make_chunks(batch_docs: List[Union[str, List[str]]], keep_sentences=True, tokens_limit=500,
-                flatten_result=False) -> List[Union[List[str], List[List[str]]]]:
+                flatten_result=True) -> List[Union[List[str], List[List[str]]]]:
     result = []
 
     for docs in batch_docs:
@@ -54,8 +53,7 @@ def make_chunks(batch_docs: List[Union[str, List[str]]], keep_sentences=True, to
     if flatten_result:
         if isinstance(result[0][0], list):
             for i in range(len(result)):
-                flattened = list(chain.from_iterable(result[i]))
-                result[i] = flattened
+                result[i] = list(chain.from_iterable(result[i]))
 
     return result
 
@@ -63,7 +61,7 @@ def make_chunks(batch_docs: List[Union[str, List[str]]], keep_sentences=True, to
 def main():
     args = parser.parse_args()
     db_path = args.input_db_path
-    new_db_path = read_json(args.new_db_path)
+    new_db_path = args.new_db_path
 
     # conn = sqlite3.connect(db_path)
     # cursor = conn.cursor()
@@ -80,7 +78,7 @@ def main():
     for i in iterator.doc_ids:
         content = iterator.get_doc_content(i)
         chunks = make_chunks([content])
-        for chunk in enumerate(chunks):
+        for chunk in chain.from_iterable(chunks):
             cursor.execute("INSERT INTO documents VALUES (?,?)", (chunk_id, chunk))
             chunk_id += 1
 
