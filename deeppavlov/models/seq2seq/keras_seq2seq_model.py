@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Tuple
+from typing import List, Tuple, Union
 import json
 import numpy as np
+import scipy.sparse as sp
 from keras.layers import Dense, Input, concatenate, Activation, Concatenate, Reshape, Embedding
 from keras.layers.wrappers import Bidirectional
 from keras.layers.recurrent import LSTM, GRU
@@ -148,7 +149,8 @@ class KerasSeq2SeqModel(KerasModel):
         embeddings_batch = np.asarray(embeddings_batch)
         return embeddings_batch
 
-    def pad_texts(self, sentences: List[List[np.ndarray]], mode="encoder") -> np.ndarray:
+    def pad_texts(self, sentences: Union[List[List[np.ndarray]], List[List[int]]],
+                  text_size: int, embedding_size: int = None) -> np.ndarray:
         """
         Cut and pad tokenized texts to self.opt["text_size"] tokens
 
@@ -159,11 +161,11 @@ class KerasSeq2SeqModel(KerasModel):
         Returns:
             array of embedded texts
         """
-        pad = np.zeros(self.opt[mode + '_embedding_size'])
-        if mode == "encoder":
-            text_size = self.opt['src_max_length']
-        elif mode == "decoder":
-            text_size = self.opt['tgt_max_length']
+        if type(sentences[0][0]) is int:
+            pad = 0
+        else:
+            pad = np.zeros(embedding_size)
+
         cutted_batch = [sen[:text_size] for sen in sentences]
         cutted_batch = [[pad] * (text_size - len(tokens)) + list(tokens) for tokens in cutted_batch]
         return np.asarray(cutted_batch)
@@ -261,11 +263,13 @@ class KerasSeq2SeqModel(KerasModel):
 
     def train_on_batch(self, *args, **kwargs):
         K.set_session(self.sess)
-        pad_emb_enc_inputs = self.pad_texts(args[0], mode="encoder")
+        pad_emb_enc_inputs = self.pad_texts(args[0], self.opt["src_max_length"], self.opt["encoder_embedding_size"])
         dec_inputs = [[self.opt["tgt_sos_id"]] + list(sample) + [self.opt["tgt_eos_id"]]
                       for sample in args[1]]  # (bs, ts + 2) of integers (tokens ids)
         pad_emb_dec_inputs = self.texts2decoder_embeddings(dec_inputs)
-        pad_emb_dec_outputs = self._ids2onehot(list(args[1]), self.opt["tgt_vocab_size"])
+
+        pad_dec_outputs = self.pad_texts(args[1], self.opt["tgt_max_length"], self.opt["decoder_embedding_size"])
+        pad_emb_dec_outputs = self._ids2onehot(pad_dec_outputs, self.opt["tgt_vocab_size"])
 
         metrics_values = self.model.train_on_batch([pad_emb_enc_inputs,
                                                     pad_emb_dec_inputs],
@@ -274,12 +278,13 @@ class KerasSeq2SeqModel(KerasModel):
 
     def infer_on_batch(self, *args, **kwargs):
         K.set_session(self.sess)
-        pad_emb_enc_inputs = self.pad_texts(args[0][0], mode="encoder")
+        pad_emb_enc_inputs = self.pad_texts(args[0][0], self.opt["src_max_length"], self.opt["encoder_embedding_size"])
         embedded_eos = self.decoder_embedder([["<EOS>"]])[0][0]
         embedded_sos = self.decoder_embedder([["<SOS>"]])[0][0]
         # TODO: no teacher forcing during infer
         pad_emb_dec_inputs = self.pad_texts([[embedded_eos] + list(sample) + [embedded_sos]
-                                             for sample in args[0][0]], mode="decoder")
+                                             for sample in args[0][0]],
+                                            self.opt["tgt_max_length"], self.opt["decoder_embedding_size"])
 
         _encoder_state_0, _encoder_state_1 = self.encoder_model.predict(pad_emb_enc_inputs)
         predictions = self._probas2ids(self.decoder_model.predict([pad_emb_dec_inputs,
@@ -297,7 +302,7 @@ class KerasSeq2SeqModel(KerasModel):
 
         return ids_data
 
-    def _ids2onehot(self, data: List[List[int]], vocab_size: int) -> np.ndarray:
+    def _ids2onehot(self, data: Union[List[List[int]], Tuple[List[int]]], vocab_size: int) -> np.ndarray:
         onehot = np.eye(vocab_size)
         onehot_data = np.asarray([[onehot[token] for token in sample] for sample in data])
 
