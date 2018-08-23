@@ -47,6 +47,7 @@ class KerasSeq2SeqModel(KerasModel):
                  encoder_embedding_size: int,
                  decoder_embedding_size: int,
                  decoder_embedder: Component,
+                 decoder_vocab: Component,
                  source_max_length: int = None,
                  target_max_length: int = None,
                  model_name: str = "lstm_lstm_model",
@@ -80,6 +81,7 @@ class KerasSeq2SeqModel(KerasModel):
                   "lear_rate_decay": self.opt.get('lear_rate_decay')}
 
         self.decoder_embedder = decoder_embedder
+        self.decoder_vocab = decoder_vocab
 
         self.encoder_model = None
         self.decoder_model = None
@@ -139,8 +141,8 @@ class KerasSeq2SeqModel(KerasModel):
             array of embedded texts
         """
         pad = np.zeros(self.opt['decoder_embedding_size'])
-
-        embeddings_batch = self.decoder_embedder([sen[:self.opt['tgt_max_length']] for sen in sentences])
+        text_sentences = self.decoder_vocab(sentences)
+        embeddings_batch = self.decoder_embedder([sen[:self.opt['tgt_max_length']] for sen in text_sentences])
         embeddings_batch = [[pad] * (self.opt['tgt_max_length'] - len(tokens)) + tokens for tokens in embeddings_batch]
 
         embeddings_batch = np.asarray(embeddings_batch)
@@ -201,29 +203,6 @@ class KerasSeq2SeqModel(KerasModel):
 
         return encoder_decoder_model
 
-    def one_hotter(self, data, vocab_size):
-        """
-        Convert given batch of tokenized samples with indexed tokens
-        to one-hot representation of tokens
-
-        Args:
-            data: list of samples. Each sample is a list of indexes of words in the vocabulary
-            vocab_size: size of the vocabulary. Length of one-hot vector
-
-        Returns:
-            one-hot representation of given batch
-        """
-        vocab_matrix = np.eye(vocab_size)
-
-        if type(data) is int:
-            one_hotted_data = vocab_matrix[data]
-        else:
-            one_hotted_data = []
-            for sample in data:
-                one_hotted_data.append([vocab_matrix[token] for token in sample])
-
-        return np.asarray(one_hotted_data)
-
     def _build_encoder(self,
                        hidden_size,
                        encoder_coef_reg_lstm,
@@ -252,12 +231,6 @@ class KerasSeq2SeqModel(KerasModel):
 
         self._decoder_emb_inp = Input(shape=(self.opt["tgt_max_length"],
                                              self.opt["decoder_embedding_size"]))
-
-        # self._decoder_embedder = Embedding(input_dim=self.opt["decoder_embeddings"].shape[0],
-        #                                    output_dim=self.opt["decoder_embedding_size"],
-        #                                    weights=[self.opt["decoder_embeddings"]],
-        #                                    trainable=False)
-        # _decoder_emb_inp = self._decoder_embedder(self._decoder_inp)
 
         self._decoder_input_state_0 = Input(shape=(hidden_size,))
         self._decoder_input_state_1 = Input(shape=(hidden_size,))
@@ -290,11 +263,9 @@ class KerasSeq2SeqModel(KerasModel):
         K.set_session(self.sess)
         pad_emb_enc_inputs = self.pad_texts(args[0], mode="encoder")
         dec_inputs = [[self.opt["tgt_sos_id"]] + list(sample) + [self.opt["tgt_eos_id"]]
-                      for sample in args[1]]
-        emb_dec_inputs = self.texts2decoder_embeddings(dec_inputs)
-        pad_emb_dec_inputs = self.pad_texts(emb_dec_inputs, mode="decoder")
-        emb_dec_outputs = self.texts2decoder_embeddings(args[1])
-        pad_emb_dec_outputs = self.pad_texts(emb_dec_outputs, mode="decoder")
+                      for sample in args[1]]  # (bs, ts + 2) of integers (tokens ids)
+        pad_emb_dec_inputs = self.texts2decoder_embeddings(dec_inputs)
+        pad_emb_dec_outputs = self._ids2onehot(list(args[1]), self.opt["tgt_vocab_size"])
 
         metrics_values = self.model.train_on_batch([pad_emb_enc_inputs,
                                                     pad_emb_dec_inputs],
@@ -311,9 +282,9 @@ class KerasSeq2SeqModel(KerasModel):
                                              for sample in args[0][0]], mode="decoder")
 
         _encoder_state_0, _encoder_state_1 = self.encoder_model.predict(pad_emb_enc_inputs)
-        predictions = self._probas2onehot(self.decoder_model.predict([pad_emb_dec_inputs,
-                                                                      _encoder_state_0,
-                                                                      _encoder_state_1]))
+        predictions = self._probas2ids(self.decoder_model.predict([pad_emb_dec_inputs,
+                                                                   _encoder_state_0,
+                                                                   _encoder_state_1]))
         return predictions
 
     def __call__(self, *args, **kwargs):
@@ -321,16 +292,16 @@ class KerasSeq2SeqModel(KerasModel):
         predictions = np.array(self.infer_on_batch(args))
         return predictions
 
-    def _probas2onehot(self, data):
-        text_data = []
+    def _probas2ids(self, data: List[List[np.ndarray]]) -> np.ndarray:
+        ids_data = np.asarray([[np.argmax(token) for token in sample] for sample in data])
 
-        for sample in data:
-            text_sample = []
-            for token in sample:
-                text_sample.append(np.argmax(token))
-            text_data.append(text_sample)
+        return ids_data
 
-        return np.asarray(text_data)
+    def _ids2onehot(self, data: List[List[int]], vocab_size: int) -> np.ndarray:
+        onehot = np.eye(vocab_size)
+        onehot_data = np.asarray([[onehot[token] for token in sample] for sample in data])
+
+        return onehot_data
 
     def shutdown(self):
         self.sess.close()
