@@ -281,20 +281,7 @@ class KerasSeq2SeqModel(KerasModel):
         return metrics_values
 
     def infer_on_batch(self, *args, **kwargs):
-        # K.set_session(self.sess)
-        # pad_emb_enc_inputs = self.pad_texts(args[0][0], self.opt["src_max_length"], self.opt["encoder_embedding_size"])
-        # embedded_eos = self.decoder_embedder([["<EOS>"]])[0][0]
-        # embedded_sos = self.decoder_embedder([["<SOS>"]])[0][0]
-        # # TODO: no teacher forcing during infer
-        # pad_emb_dec_inputs = self.pad_texts([[embedded_eos] + list(sample) + [embedded_sos]
-        #                                      for sample in args[0][0]],
-        #                                     self.opt["tgt_max_length"], self.opt["decoder_embedding_size"])
-        #
-        # _encoder_state_0, _encoder_state_1 = self.encoder_model.predict(pad_emb_enc_inputs)
-        # predictions = self._probas2ids(self.decoder_model.predict([pad_emb_dec_inputs,
-        #                                                            _encoder_state_0,
-        #                                                            _encoder_state_1]))
-
+        
         K.set_session(self.sess)
         pad_emb_enc_inputs = self.pad_texts(args[0][0], self.opt["src_max_length"], self.opt["encoder_embedding_size"])
         encoder_state_0, encoder_state_1 = self.encoder_model.predict(pad_emb_enc_inputs)
