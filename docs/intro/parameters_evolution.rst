@@ -29,7 +29,7 @@ Evolution process can be described in the following way:
    ``CUDA_VISIBLE_DEVICES=3,4,5`` and ``--gpus 1,2`` mean running models
    on ``4,5`` original GPUs) or all devices from
    ``CUDA_VISIBLE_DEVICES`` if gpus is not given.
--  ``--train_partition`` - if train file is too big to train (recommeded
+-  ``--train_partition`` - if train file is too big to train (recommended
    to divide train files if train dataset is more than 100 thousands
    examples), one can split it in ``train_partition`` number of files,
    save it calling "any\_name\_{0}.any\_extension", ...,
@@ -44,7 +44,7 @@ Evolution process can be described in the following way:
    "population\_{``start_from_population``\ }". Should be given if
    ``start_from_population`` is not 0 (*Default: ""*).
 -  ``--elitism_with_weights`` - whether to initialize elite models with
-   pre-trained weights from previous population or not (*Default: False
+   pre-trained weights from previous population or not (*Default: not given
    means save elite models without weights. If parameter is given, then
    save elite models with weights*).
 -  ``--iterations`` - number of iterations to conduct (*Default: -1
@@ -66,8 +66,8 @@ Evolution process can be described in the following way:
 -  ``{"evolve_range": [min_value, max_value], "discrete": true}`` -
    discrete values uniformly distributed on the following interval,
 -  ``{"evolve_bool": true}`` - bool values,
--  ``{"evolve_choice": true, "values": [value_0, ..., value_n]}`` -
-   values uniformly taking on of the given values.
+-  ``{"evolve_choice": [value_0, ..., value_n]}`` -
+   values uniformly taking out of the given values.
 
 -  Choose the main model in the pipe being evolved. Find or add extra
    parameter that determines this model (for example, existing
@@ -81,7 +81,7 @@ Evolution process can be described in the following way:
    every time separately for each model and saved to the same directory
    with model and called ``fitted_model_{i}``.
 
-That's all you need to change in the config. Now let's mode on to the
+That's all you need to change in the config. Now let's move on to the
 example.
 
 Example
@@ -97,10 +97,10 @@ Example
    ::
 
        cd deeppavlov
-       python deep.py download configs/intents/intents_snips.json
+       python deep.py download configs/classifiers/intents_snips.json
 
 -  To evolve the model run the following command providing corresponding
-   name of the config file (see above):
+   name of the config file (see above) :config:`intents_dstc2.json <evolution/evolve_intents_snips.json>`:
 
    ::
 

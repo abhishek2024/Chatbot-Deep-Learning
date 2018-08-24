@@ -1,19 +1,32 @@
+# Copyright 2017 Neural Networks and Deep Learning lab, MIPT
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import numpy as np
 from copy import deepcopy
 from pathlib import Path
-import json
-import random
+from typing import List, Generator, Tuple, Any
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.file import read_json
 from deeppavlov.core.common.log import get_logger
-
+from deeppavlov.core.common.params_search import ParamsSearch
 
 log = get_logger(__name__)
 
 
 @register('params_evolution')
-class ParamsEvolution:
+class ParamsEvolution(ParamsSearch):
     """
     Class performs full evolutionary process (task scores -> max):
     1. initializes random population
@@ -23,34 +36,60 @@ class ParamsEvolution:
         c. mutation with given mutation rate p_mutation (probability to mutate)
             according to given mutation power sigma
             (current mutation power is randomly from -sigma to sigma)
+
+    Args:
+        population_size: number of individuums per generation
+        p_crossover: probability to cross over for current replacement
+        crossover_power: part of EVOLVING parents parameters to exchange for offsprings
+        p_mutation: probability of mutation for current replacement
+        mutation_power: allowed percentage of mutation
+        key_model_to_evolve: binary flag that should be inserted into the dictionary
+                    with main model in the basic config (to determine save and load paths that will be changed)
+        seed: random seed for initialization
+        train_partition: integer number of train data parts
+        elitism_with_weights: whether to save elite models with weigths or without
+        prefix: prefix to determine special keys like `PREFIX_range`, `PREFIX_bool`, `PREFIX_choice`
+        **kwargs: basic config with parameters
+
+    Attributes:
+        basic_config: dictionary with initial evolutionary config
+        main_model_path: list of keys and/or integers (for list) with relative path to main model (subdictionary)
+        prefix: prefix to determine special keys like `PREFIX_range`, `PREFIX_bool`, `PREFIX_choice`
+        population_size: number of individuums per generation
+        p_crossover: probability to cross over for current replacement
+        p_mutation: probability of mutation for current replacement
+        mutation_power: allowed percentage of mutation
+        crossover_power: part of EVOLVING parents parameters to exchange for offsprings
+        elitism_with_weights: whether to save elite models with weigths or without
+        n_saved_best_pretrained: number of saved models per current generation
+        train_partition: integer number of train data parts
+        paths_to_params: list of lists of keys and/or integers (for list)
+                with relative paths to evolving parameters
+        n_params: number of evolving parameters
+        evolution_model_id: identity number of model (the same for loaded pre-trained models)
+        eps: EPS value
+        paths_to_fiton_dicts: list of lists of keys and/or integers (for list)
+                with relative paths to dictionaries that can be "fitted on"
+        n_fiton_dicts: number of dictionaries that can be "fitted on"
+        evolve_metric_optimization: whether to maximize or minimize considered metric
+                Set of Values: ``"maximize", "minimize"``
     """
 
     def __init__(self,
-                 population_size,
-                 p_crossover=0.5, crossover_power=0.5,
-                 p_mutation=0.5, mutation_power=0.1,
-                 key_main_model="main",
-                 seed=None,
-                 train_partition=1,
-                 elitism_with_weights=False,
+                 population_size: int,
+                 p_crossover: float = 0.5, crossover_power: float = 0.5,
+                 p_mutation: float = 0.5, mutation_power: float = 0.1,
+                 key_main_model: str = "main",
+                 seed:int = None,
+                 train_partition: int = 1,
+                 elitism_with_weights: bool = False,
+                 prefix="evolve",
                  **kwargs):
         """
         Initialize evolution with random population
-        Args:
-            population_size: number of individuums per generation
-            p_crossover: probability to cross over for current replacement
-            crossover_power: part of EVOLVING parents parameters to exchange for offsprings
-            p_mutation: probability of mutation for current replacement
-            mutation_power: allowed percentage of mutation
-            key_model_to_evolve: binary flag that should be inserted into the dictionary
-                        with main model in the basic config (to determine save and load paths that will be changed)
-            seed: random seed for initialization
-            train_partition: integer number of train data parts
-            elitism_with_weights: whether to save elite models with weigths or without
-            **kwargs: basic config with parameters
         """
+        super().__init__(prefix=prefix, seed=seed,  **kwargs)
 
-        self.basic_config = deepcopy(kwargs)
         self.main_model_path = list(self.find_model_path(self.basic_config, key_main_model))[0]
         log.info("Main model path in config: {}".format(self.main_model_path))
 
@@ -63,20 +102,7 @@ class ParamsEvolution:
 
         self.n_saved_best_pretrained = 0
         self.train_partition = train_partition
-
-        self.paths_to_evolving_params = []
-        for evolve_type in ["evolve_range", "evolve_choice", "evolve_bool"]:
-            for path_ in self.find_model_path(self.basic_config, evolve_type):
-                self.paths_to_evolving_params.append(path_)
-
-        self.n_evolving_params = len(self.paths_to_evolving_params)
         self.evolution_model_id = 0
-        self.eps = 1e-6
-
-        self.paths_to_fiton_dicts = []
-        for path_ in self.find_model_path(self.basic_config, "fit_on"):
-            self.paths_to_fiton_dicts.append(path_)
-        self.n_fiton_dicts = len(self.paths_to_fiton_dicts)
 
         try:
             self.evolve_metric_optimization = self.get_value_from_config(
@@ -85,112 +111,10 @@ class ParamsEvolution:
         except:
             self.evolve_metric_optimization = "maximize"
 
-        if seed is None:
-            pass
-        else:
-            np.random.seed(seed)
-            random.seed(seed)
-
-    def find_model_path(self, config, key_model, path=[]):
-        """
-        Find path to dictionary in config that contains key 'key_model'
-        Args:
-            config: dictionary
-            key_model: key of sub-dictionary to be found
-            path: list of keys and/or integers (for list) with relative path (needed for recursion)
-
-        Returns:
-            path in config -- list of keys (strings and integers)
-        """
-        config_pointer = config
-        if type(config_pointer) is dict and key_model in config_pointer.keys():
-            # main model is an element of chainer.pipe list
-            # main model is a dictionary and has key key_main_model
-            yield path
-        else:
-            if type(config_pointer) is dict:
-                for key in list(config_pointer.keys()):
-                    for path_ in self.find_model_path(config_pointer[key], key_model, path + [key]):
-                        yield path_
-            elif type(config_pointer) is list:
-                for i in range(len(config_pointer)):
-                    for path_ in self.find_model_path(config_pointer[i], key_model, path + [i]):
-                        yield path_
-
-    @staticmethod
-    def insert_value_or_dict_into_config(config, path, value):
-        """
-        Insert value to dictionary determined by path[:-1] in field with key path[-1]
-        Args:
-            config: dictionary
-            path: list of keys and/or integers (for list)
-            value: value to be inserted
-
-        Returns:
-            config with inserted value
-        """
-        config_copy = deepcopy(config)
-        config_pointer = config_copy
-        for el in path[:-1]:
-            if type(config_pointer) is dict:
-                config_pointer = config_pointer.setdefault(el, {})
-            elif type(config_pointer) is list:
-                config_pointer = config_pointer[el]
-            else:
-                pass
-        config_pointer[path[-1]] = value
-        return config_copy
-
-    @staticmethod
-    def get_value_from_config(config, path):
-        """
-        Return value of config element determined by path
-        Args:
-            config: dictionary
-            path: list of keys and/or integers (for list)
-
-        Returns:
-            value
-        """
-        config_copy = deepcopy(config)
-        config_pointer = config_copy
-        for el in path[:-1]:
-            if type(config_pointer) is dict:
-                config_pointer = config_pointer.setdefault(el, {})
-            elif type(config_pointer) is list:
-                config_pointer = config_pointer[el]
-            else:
-                pass
-        return config_pointer[path[-1]]
-
-    def initialize_params_in_config(self, basic_config, paths):
-        """
-        Randomly initialize all the changable parameters in config
-        Args:
-            basic_config: config where changable parameters are dictionaries with keys
-                `evolve_range`, `evolve_bool`, `evolve_choice`
-            paths: paths to changable parameters
-
-        Returns:
-            config
-        """
-        config = deepcopy(basic_config)
-        for path_ in paths:
-            param_name = path_[-1]
-            value = self.get_value_from_config(basic_config, path_)
-            if type(value) is dict:
-                if value.get("evolve_choice") or value.get("evolve_range") or value.get("evolve_bool"):
-                    config = self.insert_value_or_dict_into_config(config,
-                                                                   path_,
-                                                                   self.sample_params(
-                                                                       **{param_name:
-                                                                              deepcopy(value)})[param_name])
-
-        return config
-
-    def first_generation(self, iteration=0):
+    def first_generation(self, iteration: int = 0) -> List[dict]:
         """
         Initialize first generation randomly according to the given constraints is self.params
+
         Args:
             iteration: number of iteration
 
@@ -199,7 +123,7 @@ class ParamsEvolution:
         """
         population = []
         for i in range(self.population_size):
-            population.append(self.initialize_params_in_config(self.basic_config, self.paths_to_evolving_params))
+            population.append(self.initialize_params_in_config(self.basic_config, self.paths_to_params))
             for which_path in ["save_path", "load_path"]:
                 population[-1] = self.insert_value_or_dict_into_config(
                     population[-1], self.main_model_path + [which_path],
@@ -219,9 +143,10 @@ class ParamsEvolution:
 
         return population
 
-    def next_generation(self, generation, scores, iteration):
+    def next_generation(self, generation: List[dict], scores: List[float], iteration: int) -> List[dict]:
         """
         Provide replacement
+
         Args:
             generation: current generation (set of self.population_size configs
             scores: corresponding scores that should be maximized
@@ -329,7 +254,7 @@ class ParamsEvolution:
 
         return next_population
 
-    def selection_of_best_with_weights(self, population, scores):
+    def selection_of_best_with_weights(self, population: List[dict], scores: List[float]) -> List[dict]:
         """
         Select individuums to save with weights for the next generation from given population.
         Range is an order of an individuum within sorted scores (1 range = max-score, self.population_size = min-score)
@@ -338,6 +263,7 @@ class ParamsEvolution:
         Probability of i-th individuum to be selected with weights is (a * range_i + b)
         where a = 1. / (1. - self.population_size), and
         b = self.population_size / (self.population_size - 1.)
+
         Args:
             population: self.population_size individuums
             scores: list of corresponding scores
@@ -358,11 +284,12 @@ class ParamsEvolution:
         self.n_saved_best_pretrained = len(selected)
         return selected
 
-    def range_scores(self, scores):
+    def range_scores(self, scores: List[float]) -> np.ndarray:
         """
         Ranges scores,
         range 1 corresponds to the best score,
         range self.population_size corresponds to the worst score.
+
         Args:
             scores: list of corresponding scores of population
 
@@ -389,12 +316,13 @@ class ParamsEvolution:
                            for i in np.arange(self.population_size)])
         return ranges
 
-    def crossover(self, population, scores):
+    def crossover(self, population: List[dict], scores: List[float]) -> List[dict]:
         """
         Recombine randomly population in pairs and cross over them with given probability.
         Cross over from two parents produces two offsprings
         each of which contains crossover_power portion of the parameter values from one parent,
          and the other (1 - crossover_power portion) from the other parent
+
         Args:
             population: self.population_size individuums
             scores: list of corresponding scores
@@ -415,28 +343,28 @@ class ParamsEvolution:
             parents = population[np.where(rs[0] > intervals)[0][-1]], population[np.where(rs[1] > intervals)[0][-1]]
 
             if self.decision(self.p_crossover):
-                params_perm = np.random.permutation(self.n_evolving_params)
+                params_perm = np.random.permutation(self.n_params)
 
                 curr_offsprings = [deepcopy(parents[0]),
                                    deepcopy(parents[1])]
 
-                part = int(self.crossover_power * self.n_evolving_params)
+                part = int(self.crossover_power * self.n_params)
 
-                for j in range(self.n_evolving_params - part, self.n_evolving_params):
+                for j in range(self.n_params - part, self.n_params):
                     curr_offsprings[0] = self.insert_value_or_dict_into_config(curr_offsprings[0],
-                                                                               self.paths_to_evolving_params[
+                                                                               self.paths_to_params[
                                                                                    params_perm[j]],
                                                                                self.get_value_from_config(
                                                                                    parents[1],
-                                                                                   self.paths_to_evolving_params[
+                                                                                   self.paths_to_params[
                                                                                        params_perm[j]]))
 
                     curr_offsprings[1] = self.insert_value_or_dict_into_config(curr_offsprings[1],
-                                                                               self.paths_to_evolving_params[
+                                                                               self.paths_to_params[
                                                                                    params_perm[j]],
                                                                                self.get_value_from_config(
                                                                                    parents[0],
-                                                                                   self.paths_to_evolving_params[
+                                                                                   self.paths_to_params[
                                                                                        params_perm[j]]))
                 offsprings.append(deepcopy(curr_offsprings[0]))
             else:
@@ -444,9 +372,10 @@ class ParamsEvolution:
 
         return offsprings
 
-    def mutation(self, population):
+    def mutation(self, population: List[dict]) -> List[dict]:
         """
         Mutate each parameter of each individuum in population
+
         Args:
             population: self.population_size individuums
 
@@ -457,7 +386,7 @@ class ParamsEvolution:
 
         for individuum in population:
             mutated_individuum = deepcopy(individuum)
-            for path_ in self.paths_to_evolving_params:
+            for path_ in self.paths_to_params:
                 param_value = self.get_value_from_config(individuum, path_)
                 mutated_individuum = self.insert_value_or_dict_into_config(
                     mutated_individuum, path_,
@@ -466,9 +395,11 @@ class ParamsEvolution:
 
         return mutated
 
-    def mutation_of_param(self, param_path, param_value):
+    def mutation_of_param(self, param_path: list,
+                          param_value: [int, float, str, list, dict, bool, np.ndarray]) -> Any:
         """
         Mutate particular parameter separately
+
         Args:
             param_path: path to parameter in basic config
             param_value: current parameter valuer
@@ -507,9 +438,10 @@ class ParamsEvolution:
 
         return new_mutated_value
 
-    def decision(self, probability):
+    def decision(self, probability: float = 1.) -> bool:
         """
         Make decision whether to do action or not with given probability
+
         Args:
             probability: probability whether to do action or not
 
@@ -521,69 +453,3 @@ class ParamsEvolution:
             return True
         else:
             return False
-
-    def sample_params(self, **params):
-        """
-        Sample parameters according to the given possible values
-        Args:
-            **params: dictionary {"param_0": {"evolve_range": [0, 10]},
-                                  "param_1": {"evolve_range": [0, 10], "discrete": true},
-                                  "param_2": {"evolve_range": [0, 1], "scale": "log"},
-                                  "param_3": {"evolve_bool": true},
-                                  "param_4": [0, 1, 2, 3]}
-
-        Returns:
-            random parameter value
-        """
-        if not params:
-            return {}
-        else:
-            params_copy = deepcopy(params)
-        params_sample = dict()
-        for param, param_val in params_copy.items():
-            if isinstance(param_val, dict):
-                if 'evolve_bool' in param_val and param_val['evolve_bool']:
-                    sample = bool(random.choice([True, False]))
-                elif 'evolve_range' in param_val:
-                    sample = self._sample_from_ranges(param_val)
-                elif 'evolve_choice' in param_val:
-                    sample = random.choice(param_val['values'])
-                params_sample[param] = sample
-            else:
-                params_sample[param] = params_copy[param]
-        return params_sample
-
-    def _sample_from_ranges(self, opts):
-        """
-        Sample parameters from ranges
-        Args:
-            opts: dictionary {"param_0": {"evolve_range": [0, 10]},
-                              "param_1": {"evolve_range": [0, 10], "discrete": true},
-                              "param_2": {"evolve_range": [0, 1], "scale": "log"}}
-
-        Returns:
-            random parameter value from range
-        """
-        from_ = opts['evolve_range'][0]
-        to_ = opts['evolve_range'][1]
-        if opts.get('scale', None) == 'log':
-            sample = self._sample_log(from_, to_)
-        else:
-            sample = np.random.uniform(from_, to_)
-        if opts.get('discrete', False):
-            sample = int(np.round(sample))
-        return sample
-
-    @staticmethod
-    def _sample_log(from_, to_):
-        """
-        Sample parameters from ranges with log scale
-        Args:
-            from_: lower boundary of values
-            to_:  upper boundary of values
-
-        Returns:
-            random parameters value from range with log scale
-        """
-        sample = np.exp(np.random.uniform(np.log(from_), np.log(to_)))
-        return float(sample)
