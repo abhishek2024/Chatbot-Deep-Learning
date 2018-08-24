@@ -72,6 +72,7 @@ class SquadModel(TFModel):
         self.multihop_cell_size = self.opt.get('multihop_cell_size', 128)
         self.num_encoder_layers = self.opt.get('num_encoder_layers', 3)
         self.use_focal_loss = self.opt.get('use_focal_loss', False)
+        self.share_layers = self.opt.get('share_layers', False)
 
         assert self.number_of_hops > 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
 
@@ -262,7 +263,7 @@ class SquadModel(TFModel):
         with tf.variable_scope("encoding"):
             rnn = self.GRU(num_layers=self.num_encoder_layers, num_units=self.hidden_size, batch_size=bs,
                            input_size=c_emb.get_shape().as_list()[-1],
-                           keep_prob=self.keep_prob_ph)
+                           keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
             c = rnn(c_emb, seq_len=self.c_len)
             q = rnn(q_emb, seq_len=self.q_len)
 
@@ -273,7 +274,8 @@ class SquadModel(TFModel):
 
             if self.use_birnn_after_qc_att:
                 rnn = self.GRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
-                               input_size=qc_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
+                               input_size=qc_att.get_shape().as_list()[-1],
+                               keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
                 qc_att = rnn(qc_att, seq_len=self.c_len)
 
         if self.predict_ans:
@@ -282,7 +284,8 @@ class SquadModel(TFModel):
                                          keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
                                          drop_diag=self.drop_diag_self_att, use_transpose_att=False)
                 rnn = self.GRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
-                               input_size=self_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
+                               input_size=self_att.get_shape().as_list()[-1],
+                               keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
                 match = rnn(self_att, seq_len=self.c_len)
 
             with tf.variable_scope("pointer"):

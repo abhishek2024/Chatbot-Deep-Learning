@@ -18,15 +18,14 @@ import tensorflow as tf
 
 
 class CudnnGRU:
-    def __init__(self, num_layers, num_units, batch_size, input_size, keep_prob=1.0):
+    def __init__(self, num_layers, num_units, batch_size, input_size, keep_prob=1.0, share_layers=False):
         self.num_layers = num_layers
+        self.share_layers = share_layers
         self.grus = []
         self.inits = []
         self.dropout_mask = []
         for layer in range(num_layers):
             input_size_ = input_size if layer == 0 else 2 * num_units
-            gru_fw = tf.contrib.cudnn_rnn.CudnnGRU(num_layers=1, num_units=num_units)
-            gru_bw = tf.contrib.cudnn_rnn.CudnnGRU(num_layers=1, num_units=num_units)
 
             init_fw = tf.Variable(tf.zeros([num_units]))
             init_fw = tf.expand_dims(tf.tile(tf.expand_dims(init_fw, axis=0), [batch_size, 1]), axis=0)
@@ -38,19 +37,26 @@ class CudnnGRU:
             mask_bw = tf.nn.dropout(tf.ones([1, batch_size, input_size_], dtype=tf.float32),
                                     keep_prob=keep_prob)
 
-            self.grus.append((gru_fw, gru_bw,))
+            if (share_layers and layer == 0) or not share_layers:
+                gru_fw = tf.contrib.cudnn_rnn.CudnnGRU(num_layers=1, num_units=num_units)
+                gru_bw = tf.contrib.cudnn_rnn.CudnnGRU(num_layers=1, num_units=num_units)
+                self.grus.append((gru_fw, gru_bw,))
+
             self.inits.append((init_fw, init_bw,))
             self.dropout_mask.append((mask_fw, mask_bw,))
 
     def __call__(self, inputs, seq_len, keep_prob=1.0, is_train=None, concat_layers=True):
         outputs = [tf.transpose(inputs, [1, 0, 2])]
         for layer in range(self.num_layers):
-            gru_fw, gru_bw = self.grus[layer]
+            if self.share_layers:
+                gru_fw, gru_bw = self.grus[0]
+            else:
+                gru_fw, gru_bw = self.grus[layer]
             init_fw, init_bw = self.inits[layer]
             mask_fw, mask_bw = self.dropout_mask[layer]
-            with tf.variable_scope('fw_{}'.format(layer), reuse=tf.AUTO_REUSE):
+            with tf.variable_scope('fw_{}'.format(layer if not self.share_layers else 0), reuse=tf.AUTO_REUSE):
                 out_fw, _ = gru_fw(outputs[-1] * mask_fw, (init_fw, ))
-            with tf.variable_scope('bw_{}'.format(layer), reuse=tf.AUTO_REUSE):
+            with tf.variable_scope('bw_{}'.format(layer if not self.share_layers else 0), reuse=tf.AUTO_REUSE):
                 inputs_bw = tf.reverse_sequence(
                     outputs[-1] * mask_bw, seq_lengths=seq_len, seq_dim=0, batch_dim=1)
                 out_bw, _ = gru_bw(inputs_bw, (init_bw, ))
@@ -114,18 +120,14 @@ class CudnnGRULegacy:
 
 
 class CudnnCompatibleGRU:
-    def __init__(self, num_layers, num_units, batch_size, input_size, keep_prob=1.0):
+    def __init__(self, num_layers, num_units, batch_size, input_size, keep_prob=1.0, share_layers=False):
         self.num_layers = num_layers
+        self.share_layers = share_layers
         self.grus = []
         self.inits = []
         self.dropout_mask = []
         for layer in range(num_layers):
             input_size_ = input_size if layer == 0 else 2 * num_units
-            gru_fw = tf.nn.rnn_cell.MultiRNNCell([
-                tf.contrib.cudnn_rnn.CudnnCompatibleGRUCell(num_units=num_units)])
-
-            gru_bw = tf.nn.rnn_cell.MultiRNNCell([
-                tf.contrib.cudnn_rnn.CudnnCompatibleGRUCell(num_units=num_units)])
 
             init_fw = tf.Variable(tf.zeros([num_units]))
             init_fw = tf.expand_dims(tf.tile(tf.expand_dims(init_fw, axis=0), [batch_size, 1]), axis=0)
@@ -137,23 +139,33 @@ class CudnnCompatibleGRU:
             mask_bw = tf.nn.dropout(tf.ones([1, batch_size, input_size_], dtype=tf.float32),
                                     keep_prob=keep_prob)
 
-            self.grus.append((gru_fw, gru_bw,))
+            if (share_layers and layer == 0) or not share_layers:
+                gru_fw = tf.nn.rnn_cell.MultiRNNCell([
+                    tf.contrib.cudnn_rnn.CudnnCompatibleGRUCell(num_units=num_units)])
+
+                gru_bw = tf.nn.rnn_cell.MultiRNNCell([
+                    tf.contrib.cudnn_rnn.CudnnCompatibleGRUCell(num_units=num_units)])
+
+                self.grus.append((gru_fw, gru_bw,))
+
             self.inits.append((init_fw, init_bw,))
             self.dropout_mask.append((mask_fw, mask_bw,))
 
     def __call__(self, inputs, seq_len, keep_prob=1.0, is_train=None, concat_layers=True):
         outputs = [tf.transpose(inputs, [1, 0, 2])]
         for layer in range(self.num_layers):
-            gru_fw, gru_bw = self.grus[layer]
+            if self.share_layers:
+                gru_fw, gru_bw = self.grus[0]
+            else:
+                gru_fw, gru_bw = self.grus[layer]
             init_fw, init_bw = self.inits[layer]
             mask_fw, mask_bw = self.dropout_mask[layer]
-            print(outputs)
-            with tf.variable_scope('fw_{}'.format(layer), reuse=tf.AUTO_REUSE):
+            with tf.variable_scope('fw_{}'.format(layer if not self.share_layers else 0), reuse=tf.AUTO_REUSE):
                 with tf.variable_scope('cudnn_gru', reuse=tf.AUTO_REUSE):
                     out_fw, _ = tf.nn.dynamic_rnn(cell=gru_fw, inputs=outputs[-1] * mask_fw, time_major=True,
                                                   initial_state=tuple(tf.unstack(init_fw, axis=0)))
 
-            with tf.variable_scope('bw_{}'.format(layer), reuse=tf.AUTO_REUSE):
+            with tf.variable_scope('bw_{}'.format(layer if not self.share_layers else 0), reuse=tf.AUTO_REUSE):
                 with tf.variable_scope('cudnn_gru', reuse=tf.AUTO_REUSE):
                     inputs_bw = tf.reverse_sequence(
                         outputs[-1] * mask_bw, seq_lengths=seq_len, seq_dim=0, batch_dim=1)
