@@ -37,10 +37,9 @@ class CudnnGRU:
             mask_bw = tf.nn.dropout(tf.ones([1, batch_size, input_size_], dtype=tf.float32),
                                     keep_prob=keep_prob)
 
-            if (share_layers and layer == 0) or not share_layers:
-                gru_fw = tf.contrib.cudnn_rnn.CudnnGRU(num_layers=1, num_units=num_units)
-                gru_bw = tf.contrib.cudnn_rnn.CudnnGRU(num_layers=1, num_units=num_units)
-                self.grus.append((gru_fw, gru_bw,))
+            gru_fw = tf.contrib.cudnn_rnn.CudnnGRU(num_layers=1, num_units=num_units)
+            gru_bw = tf.contrib.cudnn_rnn.CudnnGRU(num_layers=1, num_units=num_units)
+            self.grus.append((gru_fw, gru_bw,))
 
             self.inits.append((init_fw, init_bw,))
             self.dropout_mask.append((mask_fw, mask_bw,))
@@ -48,10 +47,7 @@ class CudnnGRU:
     def __call__(self, inputs, seq_len, keep_prob=1.0, is_train=None, concat_layers=True):
         outputs = [tf.transpose(inputs, [1, 0, 2])]
         for layer in range(self.num_layers):
-            if self.share_layers:
-                gru_fw, gru_bw = self.grus[0]
-            else:
-                gru_fw, gru_bw = self.grus[layer]
+            gru_fw, gru_bw = self.grus[layer]
             init_fw, init_bw = self.inits[layer]
             mask_fw, mask_bw = self.dropout_mask[layer]
             with tf.variable_scope('fw_{}'.format(layer if not self.share_layers else 0), reuse=tf.AUTO_REUSE):
@@ -139,14 +135,13 @@ class CudnnCompatibleGRU:
             mask_bw = tf.nn.dropout(tf.ones([1, batch_size, input_size_], dtype=tf.float32),
                                     keep_prob=keep_prob)
 
-            if (share_layers and layer == 0) or not share_layers:
-                gru_fw = tf.nn.rnn_cell.MultiRNNCell([
-                    tf.contrib.cudnn_rnn.CudnnCompatibleGRUCell(num_units=num_units)])
+            gru_fw = tf.nn.rnn_cell.MultiRNNCell([
+                tf.contrib.cudnn_rnn.CudnnCompatibleGRUCell(num_units=num_units)])
 
-                gru_bw = tf.nn.rnn_cell.MultiRNNCell([
-                    tf.contrib.cudnn_rnn.CudnnCompatibleGRUCell(num_units=num_units)])
+            gru_bw = tf.nn.rnn_cell.MultiRNNCell([
+                tf.contrib.cudnn_rnn.CudnnCompatibleGRUCell(num_units=num_units)])
 
-                self.grus.append((gru_fw, gru_bw,))
+            self.grus.append((gru_fw, gru_bw,))
 
             self.inits.append((init_fw, init_bw,))
             self.dropout_mask.append((mask_fw, mask_bw,))
@@ -154,10 +149,7 @@ class CudnnCompatibleGRU:
     def __call__(self, inputs, seq_len, keep_prob=1.0, is_train=None, concat_layers=True):
         outputs = [tf.transpose(inputs, [1, 0, 2])]
         for layer in range(self.num_layers):
-            if self.share_layers:
-                gru_fw, gru_bw = self.grus[0]
-            else:
-                gru_fw, gru_bw = self.grus[layer]
+            gru_fw, gru_bw = self.grus[layer]
             init_fw, init_bw = self.inits[layer]
             mask_fw, mask_bw = self.dropout_mask[layer]
             with tf.variable_scope('fw_{}'.format(layer if not self.share_layers else 0), reuse=tf.AUTO_REUSE):
