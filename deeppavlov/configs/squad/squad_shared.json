@@ -78,7 +78,7 @@
         "grad_clip": 5.0,
         "weight_decay": 1.0,
         "legacy": false,
-        "shared_layers": true,
+        "share_layers": true,
         "save_path": "squad_model/model",
         "load_path": "squad_model/model",
         "in": {
