@@ -57,13 +57,13 @@ import deeppavlov.models.classifiers.keras_classification_model
 import deeppavlov.models.supplementary.sentence_splitter
 import deeppavlov.models.supplementary.query_paragraph_tuplifier
 import deeppavlov.models.supplementary.rank_doc_score_tuplifier
-import deeppavlov.models.commutators.random_commutator
+#import deeppavlov.models.commutators.random_commutator
 import deeppavlov.models.embedders.fasttext_embedder
-import deeppavlov.models.embedders.dict_embedder
+#import deeppavlov.models.embedders.dict_embedder
 import deeppavlov.models.embedders.glove_embedder
 import deeppavlov.models.embedders.bow_embedder
 import deeppavlov.models.spelling_correction.brillmoore.error_model
-import deeppavlov.models.spelling_correction.levenstein.searcher_component
+#import deeppavlov.models.spelling_correction.levenstein.searcher_component
 import deeppavlov.models.spelling_correction.electors.kenlm_elector
 import deeppavlov.models.spelling_correction.electors.top1_elector
 import deeppavlov.models.preprocessors.str_lower
@@ -93,17 +93,17 @@ import deeppavlov.models.ranking.ranking_model
 import deeppavlov.models.ranking.metrics
 import deeppavlov.models.preprocessors.char_splitter
 import deeppavlov.models.preprocessors.mask
-import deeppavlov.models.preprocessors.assemble_embeddins_matrix
+#import deeppavlov.models.preprocessors.assemble_embeddins_matrix
 import deeppavlov.models.preprocessors.capitalization
-import deeppavlov.models.preprocessors.field_getter
+#import deeppavlov.models.preprocessors.field_getter
 import deeppavlov.models.preprocessors.sanitizer
-import deeppavlov.models.preprocessors.lazy_tokenizer
+#import deeppavlov.models.preprocessors.lazy_tokenizer
 import deeppavlov.models.slotfill.slotfill_raw
 import deeppavlov.models.slotfill.slotfill
 import deeppavlov.models.preprocessors.one_hotter
 import deeppavlov.dataset_readers.ontonotes_reader
 
-import deeppavlov.models.classifiers.tokens_matcher.tokens_matcher
+#import deeppavlov.models.classifiers.tokens_matcher.tokens_matcher
 
 
 import deeppavlov.metrics.accuracy
