@@ -281,13 +281,12 @@ class KerasSeq2SeqModel(KerasModel):
         return metrics_values
 
     def infer_on_batch(self, *args, **kwargs):
-
         K.set_session(self.sess)
         pad_emb_enc_inputs = self.pad_texts(args[0][0], self.opt["src_max_length"], self.opt["encoder_embedding_size"])
         encoder_state_0, encoder_state_1 = self.encoder_model.predict(pad_emb_enc_inputs)
 
         predicted_batch = []
-        for i in range(len(args[0])):  # batch size
+        for i in range(len(args[0][0])):  # batch size
             predicted_sample = []
 
             current_token = self.decoder_embedder([["<SOS>"]])[0][0]
