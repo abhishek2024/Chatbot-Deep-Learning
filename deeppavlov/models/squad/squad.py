@@ -375,17 +375,22 @@ class SquadModel(TFModel):
                 predict_probas = tf.nn.softmax(layer_2_logits)
                 self.yp = predict_probas[:,1]
                 yt_prob = tf.reduce_sum(predict_probas * self.y_ohe, axis=-1)
-                # focal loss
-                scorer_loss = tf.pow(1 - yt_prob, self.focal_loss_exp) * \
-                    tf.nn.softmax_cross_entropy_with_logits(logits=layer_2_logits, labels=self.y_ohe)
+                # focal loss, check bug?
+                #scorer_loss = tf.pow(1 - yt_prob, self.focal_loss_exp) * \
+                #    tf.nn.softmax_cross_entropy_with_logits(logits=layer_2_logits, labels=self.y_ohe)
+                scorer_loss = tf.nn.softmax_cross_entropy_with_logits(logits=layer_2_logits, labels=self.y_ohe)
 
-                no_ans_rate = 1 - tf.cast(bs, tf.float32) / (tf.reduce_sum(tf.cast(self.y, tf.float32)) + eps)
+                no_ans_rate = 1 - tf.reduce_sum(tf.cast(self.y, tf.float32)) / tf.cast(bs, tf.float32)
 
                 if self.predict_ans and not self.noans_token:
                     # skip examples without answer when calculate squad_loss
                     # normalize to number of examples with answer?
                     squad_loss = squad_loss * tf.expand_dims(tf.expand_dims(tf.cast(self.y, tf.float32), axis=-1), axis=-1)
-                    squad_loss = squad_loss * (1 - no_ans_rate)
+                    squad_loss = tf.cond(
+                        tf.equal(1 - no_ans_rate, 0.0),
+                        lambda: squad_loss * 0.0,
+                        lambda: squad_loss / (1 - no_ans_rate)
+                    )
 
             if self.predict_ans and self.scorer:
                 self.loss = self.squad_loss_weight * squad_loss + (1 - self.squad_loss_weight) * scorer_loss
