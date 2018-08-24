@@ -201,7 +201,9 @@ class KerasSeq2SeqModel(KerasModel):
         self.decoder_model = Model(inputs=[self._decoder_emb_inp,
                                            self._decoder_input_state_0,
                                            self._decoder_input_state_1],
-                                   outputs=self._infer_decoder_outputs)
+                                   outputs=[self._infer_decoder_outputs,
+                                            self._infer_decoder_state_0,
+                                            self._infer_decoder_state_1])
 
         return encoder_decoder_model
 
@@ -231,8 +233,10 @@ class KerasSeq2SeqModel(KerasModel):
                        decoder_dropout_rate,
                        decoder_rec_dropout_rate):
 
-        self._decoder_emb_inp = Input(shape=(self.opt["tgt_max_length"],
+        self._decoder_emb_inp = Input(shape=(None,
                                              self.opt["decoder_embedding_size"]))
+        # self._decoder_emb_inp = Input(shape=(self.opt["tgt_max_length"],
+        #                                      self.opt["decoder_embedding_size"]))
 
         self._decoder_input_state_0 = Input(shape=(hidden_size,))
         self._decoder_input_state_1 = Input(shape=(hidden_size,))
@@ -277,20 +281,46 @@ class KerasSeq2SeqModel(KerasModel):
         return metrics_values
 
     def infer_on_batch(self, *args, **kwargs):
+        # K.set_session(self.sess)
+        # pad_emb_enc_inputs = self.pad_texts(args[0][0], self.opt["src_max_length"], self.opt["encoder_embedding_size"])
+        # embedded_eos = self.decoder_embedder([["<EOS>"]])[0][0]
+        # embedded_sos = self.decoder_embedder([["<SOS>"]])[0][0]
+        # # TODO: no teacher forcing during infer
+        # pad_emb_dec_inputs = self.pad_texts([[embedded_eos] + list(sample) + [embedded_sos]
+        #                                      for sample in args[0][0]],
+        #                                     self.opt["tgt_max_length"], self.opt["decoder_embedding_size"])
+        #
+        # _encoder_state_0, _encoder_state_1 = self.encoder_model.predict(pad_emb_enc_inputs)
+        # predictions = self._probas2ids(self.decoder_model.predict([pad_emb_dec_inputs,
+        #                                                            _encoder_state_0,
+        #                                                            _encoder_state_1]))
+
         K.set_session(self.sess)
         pad_emb_enc_inputs = self.pad_texts(args[0][0], self.opt["src_max_length"], self.opt["encoder_embedding_size"])
-        embedded_eos = self.decoder_embedder([["<EOS>"]])[0][0]
-        embedded_sos = self.decoder_embedder([["<SOS>"]])[0][0]
-        # TODO: no teacher forcing during infer
-        pad_emb_dec_inputs = self.pad_texts([[embedded_eos] + list(sample) + [embedded_sos]
-                                             for sample in args[0][0]],
-                                            self.opt["tgt_max_length"], self.opt["decoder_embedding_size"])
+        encoder_state_0, encoder_state_1 = self.encoder_model.predict(pad_emb_enc_inputs)
 
-        _encoder_state_0, _encoder_state_1 = self.encoder_model.predict(pad_emb_enc_inputs)
-        predictions = self._probas2ids(self.decoder_model.predict([pad_emb_dec_inputs,
-                                                                   _encoder_state_0,
-                                                                   _encoder_state_1]))
-        return predictions
+        predicted_batch = []
+        for i in range(len(args[0])):  # batch size
+            predicted_sample = []
+
+            current_token = self.decoder_embedder([["<SOS>"]])[0][0]
+            end_of_sequence = False
+            state_0 = encoder_state_0[i].reshape((1, -1))
+            state_1 = encoder_state_1[i].reshape((1, -1))
+
+            while not end_of_sequence:
+                token_probas, state_0, state_1 = self.decoder_model.predict([np.array([[current_token]]),
+                                                                             state_0,
+                                                                             state_1])
+                current_token_id = self._probas2ids(token_probas)[0][0]
+                current_token = self.decoder_embedder(self.decoder_vocab([[current_token_id]]))[0][0]
+                predicted_sample.append(current_token_id)
+                if current_token_id == self.opt["tgt_eos_id"] or len(predicted_sample) == self.opt["tgt_max_length"]:
+                    end_of_sequence = True
+
+            predicted_batch.append(predicted_sample)
+
+        return predicted_batch
 
     def __call__(self, *args, **kwargs):
         K.set_session(self.sess)
