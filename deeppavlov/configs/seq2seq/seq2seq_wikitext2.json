@@ -52,8 +52,8 @@
           "x_tok"
         ],
         "level": "token",
-        "save_path": "seq2seq/wikitext2/tokens.dict",
-        "load_path": "seq2seq/wikitext2/tokens.dict",
+        "save_path": "seq2seq/snips/tokens.dict",
+        "load_path": "seq2seq/snips/tokens.dict",
         "out": "x_tok_ind",
         "min_freq": 2
       },
@@ -77,8 +77,8 @@
         "out": "y_tok_ind",
         "main": true,
         "name": "keras_seq2seq_model",
-        "save_path": "seq2seq/wikitext2/lstm_lstm_model_v0",
-        "load_path": "seq2seq/wikitext2/lstm_lstm_model_v0",
+        "save_path": "seq2seq/snips/lstm_lstm_model_v0",
+        "load_path": "seq2seq/snips/lstm_lstm_model_v0",
         "encoder_embedding_size": "#my_embedder.dim",
         "decoder_embedding_size": "#my_embedder.dim",
         "source_vocab_size": "#tokens_vocab.__len__()",
@@ -110,7 +110,7 @@
     "out": "y_text"
   },
   "train": {
-    "epochs": 13,
+    "epochs": 10,
     "batch_size": 64,
     "metrics": [
       "bleu",
