@@ -1,0 +1,82 @@
+{
+  "dataset_reader": {
+    "class": "deeppavlov.dataset_readers.odqa_reader:ODQADataReader",
+    "data_path": "/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki_chunk.db",
+    "save_path": "/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki_chunk.db",
+    "dataset_format": "sqlite"
+  },
+  "dataset_iterator": {
+    "name": "sqlite_iterator",
+    "data_dir": "odqa",
+    "shuffle": false,
+    "load_path": "/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki_chunk.db"
+  },
+  "chainer": {
+    "in": [
+      "question_raw"
+    ],
+    "out": [
+      "context_raw"
+    ],
+    "pipe": [
+      {
+        "name": "tfidf_ranker",
+        "top_n": 6,
+        "active": true,
+        "in": [
+          "question_raw"
+        ],
+        "out": [
+          "doc_ids",
+          "doc_scores"
+        ],
+        "fit_on_batch": true,
+        "vectorizer": {
+          "name": "hashing_tfidf_vectorizer",
+          "fit_on_batch": [
+            "questions_raw"
+          ],
+          "save_path": "odqa/en_chunk_neg_tfidf.npz",
+          "load_path": "odqa/en_chunk_neg_tfidf.npz",
+          "tokenizer": {
+            "name": "stream_spacy_tokenizer",
+            "lemmas": true,
+            "ngram_range": [
+              1,
+              2
+            ],
+            "stopwords": "sklearn"
+          }
+        }
+      },
+      {
+        "name": "wiki_sqlite_vocab",
+        "in": [
+          "doc_ids"
+        ],
+        "out": [
+          "context_raw",
+          "doc_ids"
+        ],
+        "data_dir": "odqa",
+        "shuffle": false,
+        "join_docs": false,
+        "load_path": "/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki_chunk.db"
+      },
+      {
+        "name": "rank_doc_score_tuplifier",
+        "in": ["context_raw", "doc_scores", "doc_ids"],
+        "out": ["rank_text_score_id"]
+      }
+    ]
+  },
+  "train": {
+    "validate_best": false,
+    "test_best": false,
+    "batch_size": 1000
+  },
+  "metadata": {
+    "download": [
+    ]
+  }
+}
