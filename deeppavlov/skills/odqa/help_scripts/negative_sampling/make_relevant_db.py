@@ -17,7 +17,7 @@ parser.add_argument("-input_db_path",
                     type=str,
                     default="/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki_cut_irrelevant.db")
 parser.add_argument("-ids_path", help="path to a JSON dataset with ids", type=str,
-                    default="/media/olga/Data/projects/DeepPavlov/deeppavlov/skills/odqa/help_scripts/db_scripts/relevant_ids.json")
+                    default="/media/olga/Data/projects/DeepPavlov/deeppavlov/skills/odqa/help_scripts/negative_sampling/relevant_ids.json")
 parser.add_argument("-iterator_db", help="path to a JSON dataset with ids", type=str,
                     default="/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki_cut_truth.db")
 

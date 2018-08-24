@@ -13,9 +13,9 @@ parser.add_argument("-input_db_path",
                     help="path to an input db with wikipedia articles \
                     (BETTER MAKE A COPY SINCE IT WILL BE CHANGED IN RUNTIME)",
                     type=str,
-                    default="/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki_cut_irrelevant.db")
+                    default="/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki.db")
 parser.add_argument("-new_db_path", help="path to a SQuAD dataset preprocessed for ranker", type=str,
-                    default="/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki_chunk.db")
+                    default="/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki_full_chunk.db")
 
 
 def make_chunks(batch_docs: List[Union[str, List[str]]], keep_sentences=True, tokens_limit=500,
@@ -70,7 +70,7 @@ def main():
 
     conn = sqlite3.connect(new_db_path)
     cursor = conn.cursor()
-    sql_table = "CREATE TABLE documents (id PRIMARY KEY, text);"
+    sql_table = "CREATE TABLE documents (id PRIMARY KEY, title, text);"
     cursor.execute(sql_table)
 
     chunk_id = 0
@@ -79,7 +79,7 @@ def main():
         content = iterator.get_doc_content(i)
         chunks = make_chunks([content])
         for chunk in chain.from_iterable(chunks):
-            cursor.execute("INSERT INTO documents VALUES (?,?)", (chunk_id, chunk))
+            cursor.execute("INSERT INTO documents VALUES (?,?,?)", (chunk_id, i, chunk))
             chunk_id += 1
 
     conn.commit()
