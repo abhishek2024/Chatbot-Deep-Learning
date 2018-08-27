@@ -110,7 +110,7 @@
     "out": "y_text"
   },
   "train": {
-    "epochs": 10,
+    "epochs": 100,
     "batch_size": 64,
     "metrics": [
       "bleu",
