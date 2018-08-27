@@ -18,6 +18,7 @@ from typing import List
 
 import numpy as np
 from scipy.sparse import csr_matrix
+# from sklearn.metrics.pairwise import cosine_similarity
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.log import get_logger
@@ -84,6 +85,11 @@ class TfidfRanker(Estimator):
             scores = np.squeeze(
                 scores.toarray() + 0.0001)  # add a small value to eliminate zero scores
 
+            # For cosine distance:
+            # scores = cosine_similarity(q_tfidf, self.tfidf_matrix.T)
+            # scores = scores + 0.0001
+            # scores = scores[0]
+
             if self.active:
                 thresh = self.top_n
             else:
@@ -91,12 +97,19 @@ class TfidfRanker(Estimator):
 
             if thresh >= len(scores):
                 o = np.argpartition(-scores, len(scores) - 1)[0:thresh]
+                neg = np.argpartition(-scores, len(scores) - 1)[-1]
             else:
                 o = np.argpartition(-scores, thresh)[0:thresh]
+                neg = np.argpartition(-scores, thresh)[-1]
             o_sort = o[np.argsort(-scores[o])]
 
             doc_scores = scores[o_sort]
             doc_ids = [self.index2doc[i] for i in o_sort]
+
+            neg = self.index2doc[neg]
+            doc_ids.append(neg)
+            doc_scores = np.append(doc_scores, 0.0001)
+
             batch_doc_ids.append(doc_ids)
             batch_docs_scores.append(doc_scores)
 

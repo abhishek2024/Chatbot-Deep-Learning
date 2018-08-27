@@ -16,12 +16,12 @@
       "question_raw"
     ],
     "out": [
-      "context_raw"
+      "rank_text_score_id"
     ],
     "pipe": [
       {
         "name": "tfidf_ranker",
-        "top_n": 6,
+        "top_n": 4,
         "active": true,
         "in": [
           "question_raw"
