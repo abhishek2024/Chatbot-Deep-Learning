@@ -3,7 +3,8 @@
     "name": "basic_lang_model_reader",
     "x": "text",
     "y": "text",
-    "data_path": "snips"
+    "data_path": "snips",
+    "train": "train_short.csv"
   },
   "dataset_iterator": {
     "name": "basic_classification_iterator",
@@ -66,10 +67,9 @@
         "in": "x_spec_tokens",
         "out": "x_emb",
         "id": "my_embedder",
-        "name": "fasttext",
-        "save_path": "embeddings/wiki.en.bin",
-        "load_path": "embeddings/wiki.en.bin",
-        "dim": 300
+        "name": "glove",
+        "pad_zero": true,
+        "load_path": "embeddings/glove.6B.100d.txt"
       },
       {
         "in": "x_emb",
