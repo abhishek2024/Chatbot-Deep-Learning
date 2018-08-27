@@ -1,8 +1,21 @@
+import logging
 import argparse
 import json
+import sys
+from pathlib import Path
+
+root_path = (Path(__file__) / ".." / ".." / ".." / ".." / ".." / "..").resolve()
+sys.path.append(str(root_path))
 
 from deeppavlov.core.common.file import read_json
 from deeppavlov.core.commands.infer import build_model_from_config
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+fmt = logging.Formatter('%(asctime)s: [ %(message)s ]', '%m/%d/%Y %I:%M:%S %p')
+file = logging.FileHandler('neg_sampling.log')
+file.setFormatter(fmt)
+logger.addHandler(file)
 
 parser = argparse.ArgumentParser()
 
@@ -18,12 +31,11 @@ parser.add_argument("-ranker_config_path", help="path to a tfidf ranker config",
 def answer_found(question, answers, context):
     for a in answers:
         if a in context:
-            print()
-            print("Found answer for the following data:")
-            print(question)
-            print(answers)
-            print(context)
-            return True
+            logger.info("Found answer for the following data:")
+            logger.info(question)
+            logger.info(answers)
+            logger.info(context)
+            return False
     return False
 
 
@@ -48,6 +60,8 @@ def main():
         new_dataset.append({"question": question,
                             "answers": answers,
                             "contexts": [context, *retrieved_contexts]})
+
+        logger.info(f"Processed instance {i}")
 
     with open(args.new_dataset_path, 'w') as fin:
         json.dump(new_dataset, fin)
