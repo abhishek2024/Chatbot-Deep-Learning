@@ -387,27 +387,17 @@ class SquadModel(TFModel):
                 else:
                     scorer_loss = tf.nn.softmax_cross_entropy_with_logits(logits=layer_2_logits, labels=self.y_ohe)
 
-                no_ans_rate = 1 - tf.reduce_sum(tf.cast(self.y, tf.float32)) / tf.cast(bs, tf.float32)
-                # TODO: check loss computation!
-
                 if self.predict_ans and not self.noans_token:
                     # skip examples without answer when calculate squad_loss
-                    # normalize to number of examples with answer?
-                    squad_loss = squad_loss * tf.expand_dims(tf.expand_dims(tf.cast(self.y, tf.float32), axis=-1), axis=-1)
-                    squad_loss = tf.cond(
-                        tf.equal(1 - no_ans_rate, 0.0),
-                        lambda: squad_loss * 0.0,
-                        lambda: squad_loss / (1 - no_ans_rate)
-                    )
+                    squad_loss = tf.boolean_mask(squad_loss, self.y)
 
             if self.predict_ans and self.scorer:
-                self.loss = self.squad_loss_weight * squad_loss + (1 - self.squad_loss_weight) * scorer_loss
+                self.loss = self.squad_loss_weight * tf.reduce_mean(squad_loss) \
+                            + (1 - self.squad_loss_weight) * tf.reduce_mean(scorer_loss)
             elif self.scorer:
-                self.loss = scorer_loss
+                self.loss = tf.reduce_mean(scorer_loss)
             else:
-                self.loss = squad_loss
-
-            self.loss = tf.reduce_mean(self.loss)
+                self.loss = tf.reduce_mean(squad_loss)
 
         if self.weight_decay < 1.0:
             self.var_ema = tf.train.ExponentialMovingAverage(self.weight_decay)
@@ -457,9 +447,16 @@ class SquadModel(TFModel):
             self.global_step = tf.get_variable('global_step', shape=[], dtype=tf.int32,
                                                initializer=tf.constant_initializer(0), trainable=False)
             self.opt = tf.train.AdadeltaOptimizer(learning_rate=self.lr_ph, epsilon=1e-6)
+
+            if self.predict_ans and self.scorer:
+                # TODO: check if it moved from contrib
+                self.opt = tf.contrib.opt.MultitaskOptimizerWrapper(self.opt)
+
             grads = self.opt.compute_gradients(self.loss)
             gradients, variables = zip(*grads)
+
             capped_grads = [tf.clip_by_norm(g, self.grad_clip) for g in gradients]
+
             self.train_op = self.opt.apply_gradients(zip(capped_grads, variables), global_step=self.global_step)
 
     def _build_feed_dict(self, c_tokens, c_chars, q_tokens, q_chars,
