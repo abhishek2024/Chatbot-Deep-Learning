@@ -68,7 +68,7 @@ class CudnnGRU:
 
 
 class CudnnGRULegacy:
-    def __init__(self, num_layers, num_units, batch_size, input_size, keep_prob=1.0):
+    def __init__(self, num_layers, num_units, batch_size, input_size, keep_prob=1.0, share_layers=None):
         self.num_layers = num_layers
         self.grus = []
         self.inits = []
