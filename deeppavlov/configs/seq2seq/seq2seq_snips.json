@@ -1,10 +1,10 @@
 {
   "dataset_reader": {
-    "name": "wikitext2_reader",
-    "data_path": "wikitext-2",
-    "train": "wiki.train.tokens",
-    "valid": "wiki.valid.tokens",
-    "test": "wiki.test.tokens"
+    "name": "basic_dataset_reader",
+    "x": "text",
+    "y": "text",
+    "data_path": "snips",
+    "train": "train_short.csv"
   },
   "dataset_iterator": {
     "name": "basic_classification_iterator",
@@ -24,7 +24,7 @@
       "x"
     ],
     "in_y": [
-      "y"
+      "x"
     ],
     "pipe": [
       {
@@ -53,10 +53,10 @@
           "x_tok"
         ],
         "level": "token",
-        "save_path": "seq2seq/wikitext2/tokens.dict",
-        "load_path": "seq2seq/wikitext2/tokens.dict",
+        "save_path": "seq2seq/snips/tokens.dict",
+        "load_path": "seq2seq/snips/tokens.dict",
         "out": "x_tok_ind",
-        "min_freq": 1
+        "min_freq": 2
       },
       {
         "ref": "tokens_vocab",
@@ -77,15 +77,15 @@
         "out": "y_tok_ind",
         "main": true,
         "name": "keras_seq2seq_model",
-        "save_path": "seq2seq/wikitext2/lstm_lstm_model_v0",
-        "load_path": "seq2seq/wikitext2/lstm_lstm_model_v0",
+        "save_path": "seq2seq/snips/lstm_lstm_model_v0",
+        "load_path": "seq2seq/snips/lstm_lstm_model_v0",
         "encoder_embedding_size": "#my_embedder.dim",
         "decoder_embedding_size": "#my_embedder.dim",
         "source_vocab_size": "#tokens_vocab.__len__()",
         "target_vocab_size": "#tokens_vocab.__len__()",
         "target_start_of_sequence_index": "#tokens_vocab.__getitem__('<SOS>')",
         "target_end_of_sequence_index": "#tokens_vocab.__getitem__('<EOS>')",
-        "source_max_length": 500,
+        "source_max_length": 10,
         "target_max_length": 10,
         "decoder_embedder": "#my_embedder",
         "decoder_vocab": "#tokens_vocab",
@@ -110,7 +110,7 @@
     "out": "y_text"
   },
   "train": {
-    "epochs": 10,
+    "epochs": 100,
     "batch_size": 64,
     "metrics": [
       "bleu",
@@ -129,11 +129,15 @@
       "../dp_requirements/fasttext.txt"
     ],
     "download": [
-      "http://files.deeppavlov.ai/datasets/wikitext-2-v1.tar.gz",
+      "http://files.deeppavlov.ai/deeppavlov_data/classifiers.tar.gz",
+      "http://files.deeppavlov.ai/deeppavlov_data/vocabs.tar.gz",
       {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/embeddings/wiki.en.bin",
-        "subdir": "embeddings"
-      }
+        "url": "http://files.deeppavlov.ai/datasets/snips_intents/train.csv",
+        "subdir": "snips"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/embeddings/dstc2_fastText_model.bin",
+
     ]
   }
 }

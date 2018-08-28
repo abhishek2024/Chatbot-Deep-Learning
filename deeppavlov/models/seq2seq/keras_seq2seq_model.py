@@ -38,7 +38,36 @@ log = get_logger(__name__)
 
 @register("keras_seq2seq_model")
 class KerasSeq2SeqModel(KerasModel):
+    """
+    Class implements Keras model for seq2seq task
 
+    Args:
+        hidden_size: size of the hidden layer of encoder and decoder
+        source_vocab_size: vocabulary size of source sequences
+        target_vocab_size: vocabulary size of target sequences
+        target_start_of_sequence_index: index of start-of-sequence special token in target vocabulary
+        target_end_of_sequence_index: index of end-of-sequence special token in target vocabulary
+        encoder_embedding_size: embedding size of encoder's embedder
+        decoder_embedder: decoder's embedder component
+        decoder_vocab: decoder's vocab component
+        source_max_length: maximal token length of source sequence
+        target_max_length: maximal token length of target sequence
+        model_name: string name of particular method of this class that builds seq2seq model
+        optimizer: string name of optimizer from keras.optimizers
+        loss: string name of loss from keras.losses
+        lear_rate learning rate for optimizer
+        lear_rate_decay: learning rate decay for optimizer
+        **kwargs: additional arguments
+
+    Attributes:
+        opt: dictionary with model parameters
+        decoder_embedder: decoder's embedder component
+        decoder_vocab: decoder's vocab component
+        encoder_model:
+        decoder_model:
+        model:
+
+    """
     def __init__(self,
                  hidden_size: int,
                  source_vocab_size: int,
@@ -46,7 +75,6 @@ class KerasSeq2SeqModel(KerasModel):
                  target_start_of_sequence_index: int,
                  target_end_of_sequence_index: int,
                  encoder_embedding_size: int,
-                 decoder_embedding_size: int,
                  decoder_embedder: Component,
                  decoder_vocab: Component,
                  source_max_length: int = None,
@@ -57,6 +85,10 @@ class KerasSeq2SeqModel(KerasModel):
                  lear_rate: float = 0.01,
                  lear_rate_decay: float = 0.,
                  **kwargs):
+        """
+        Initialize model using parameters from config.
+        """
+        decoder_embedding_size = kwargs.pop("decoder_embedding_size", decoder_embedder.dim)
 
         super().__init__(hidden_size=hidden_size,
                          src_vocab_size=source_vocab_size,
@@ -132,9 +164,11 @@ class KerasSeq2SeqModel(KerasModel):
                 self.opt[param] = kwargs.get(param)
         return
 
-    def texts2decoder_embeddings(self, sentences):
+    def texts2decoder_embeddings(self, sentences: List[List[str]]) -> np.ndarray:
         """
-        Convert texts to vector representations using decoder_embedder and padding up to self.opt["tgt_max_length"] tokens
+        Convert texts to vector representations using decoder_embedder \
+        and padding up to self.opt["tgt_max_length"] tokens
+
         Args:
             sentences: list of lists of tokens
 
@@ -152,11 +186,13 @@ class KerasSeq2SeqModel(KerasModel):
     def pad_texts(self, sentences: Union[List[List[np.ndarray]], List[List[int]]],
                   text_size: int, embedding_size: int = None) -> np.ndarray:
         """
-        Cut and pad tokenized texts to self.opt["text_size"] tokens
+        Cut and pad tokenized sequences (each sample is a list of indexed tokens or list of embedded tokens) \
+        up to text_size tokens with zeros (or array of zeros of size embedding_size in case of embedded tokens)
 
         Args:
-            sentences: list of lists of tokens
-            mode: whether to use encoder or decoder padding
+            sentences: list of lists of indexed or embedded tokens
+            text_size: number of tokens to pad
+            embedding_size: embedding size if sample is a list of embedded tokens
 
         Returns:
             array of embedded texts
@@ -171,14 +207,30 @@ class KerasSeq2SeqModel(KerasModel):
         return np.asarray(cutted_batch)
 
     def lstm_lstm_model(self,
-                        hidden_size=300,
-                        encoder_coef_reg_lstm=0.,
-                        encoder_dropout_rate=0.,
-                        encoder_rec_dropout_rate=0.,
-                        decoder_coef_reg_lstm=0.,
-                        decoder_dropout_rate=0.,
-                        decoder_rec_dropout_rate=0.,
-                        **kwargs) -> List[Model]:
+                        hidden_size: int = 300,
+                        encoder_coef_reg_lstm: float = 0.,
+                        encoder_dropout_rate: float = 0.,
+                        encoder_rec_dropout_rate: float = 0.,
+                        decoder_coef_reg_lstm: float = 0.,
+                        decoder_dropout_rate: float = 0.,
+                        decoder_rec_dropout_rate: float = 0.,
+                        **kwargs) -> Model:
+        """
+        Build keras models for training and infering
+
+        Args:
+            hidden_size: size of the hidden layer of encoder and decoder
+            encoder_coef_reg_lstm: coefficient for L2 kernel regularizer of encoder LSTM layer
+            encoder_dropout_rate: dropout rate for encoder LSTM layer
+            encoder_rec_dropout_rate: recurrent dropout rate for encoder LSTM layer
+            decoder_coef_reg_lstm: coefficient for L2 kernel regularizer of decoder LSTM layer
+            decoder_dropout_rate: dropout rate for decoder LSTM layer
+            decoder_rec_dropout_rate: recurrent dropout rate for decoder LSTM layer
+            **kwargs: additional arguments
+
+        Returns:
+            keras model for training
+        """
 
         self._build_encoder(hidden_size,
                             encoder_coef_reg_lstm,
@@ -208,10 +260,22 @@ class KerasSeq2SeqModel(KerasModel):
         return encoder_decoder_model
 
     def _build_encoder(self,
-                       hidden_size,
-                       encoder_coef_reg_lstm,
-                       encoder_dropout_rate,
-                       encoder_rec_dropout_rate):
+                       hidden_size: int,
+                       encoder_coef_reg_lstm: float,
+                       encoder_dropout_rate: float,
+                       encoder_rec_dropout_rate: float) -> None:
+        """
+        Initialize encoder layers
+
+        Args:
+            hidden_size: size of the hidden layer of encoder and decoder
+            encoder_coef_reg_lstm: coefficient for L2 kernel regularizer of encoder LSTM layer
+            encoder_dropout_rate: dropout rate for encoder LSTM layer
+            encoder_rec_dropout_rate: recurrent dropout rate for encoder LSTM layer
+
+        Returns:
+            None
+        """
 
         self._encoder_emb_inp = Input(shape=(self.opt["src_max_length"],
                                              self.opt["encoder_embedding_size"]))
@@ -228,10 +292,22 @@ class KerasSeq2SeqModel(KerasModel):
         return None
 
     def _build_decoder(self,
-                       hidden_size,
-                       decoder_coef_reg_lstm,
-                       decoder_dropout_rate,
-                       decoder_rec_dropout_rate):
+                       hidden_size: int,
+                       decoder_coef_reg_lstm: float,
+                       decoder_dropout_rate: float,
+                       decoder_rec_dropout_rate: float) -> None:
+        """
+        Initialize decoder layers
+
+        Args:
+            hidden_size: size of the hidden layer of encoder and decoder
+            decoder_coef_reg_lstm: coefficient for L2 kernel regularizer of decoder LSTM layer
+            decoder_dropout_rate: dropout rate for decoder LSTM layer
+            decoder_rec_dropout_rate: recurrent dropout rate for decoder LSTM layer
+
+        Returns:
+            None
+        """
 
         self._decoder_emb_inp = Input(shape=(None,
                                              self.opt["decoder_embedding_size"]))
@@ -265,7 +341,17 @@ class KerasSeq2SeqModel(KerasModel):
 
         return None
 
-    def train_on_batch(self, *args, **kwargs):
+    def train_on_batch(self, *args: Tuple[List[List[str]]], **kwargs):
+        """
+        Train the self.model on the given batch using teacher forcing
+
+        Args:
+            args: list of tokenized text samples
+            kwargs: additional arguments
+
+        Returns:
+            metrics values on the given batch
+        """
         K.set_session(self.sess)
         pad_emb_enc_inputs = self.pad_texts(args[0], self.opt["src_max_length"], self.opt["encoder_embedding_size"])
         dec_inputs = [[self.opt["tgt_sos_id"]] + list(sample) + [self.opt["tgt_eos_id"]]
@@ -280,7 +366,17 @@ class KerasSeq2SeqModel(KerasModel):
                                                    pad_emb_dec_outputs)
         return metrics_values
 
-    def infer_on_batch(self, *args, **kwargs):
+    def infer_on_batch(self, *args: Tuple[Tuple[np.ndarray]], **kwargs):
+        """
+        Infer self.encoder_model and self.decoder_model (no teacher forcing)
+
+        Args:
+            *args: encoder input sequences
+            **kwargs:
+
+        Returns:
+
+        """
         K.set_session(self.sess)
         pad_emb_enc_inputs = self.pad_texts(args[0][0], self.opt["src_max_length"], self.opt["encoder_embedding_size"])
         encoder_state_0, encoder_state_1 = self.encoder_model.predict(pad_emb_enc_inputs)
