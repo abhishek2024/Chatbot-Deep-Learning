@@ -341,7 +341,7 @@ class KerasSeq2SeqModel(KerasModel):
 
         return None
 
-    def train_on_batch(self, *args: Tuple[List[List[str]]], **kwargs) -> Union[float, List[float]]:
+    def train_on_batch(self, *args: Tuple[List[np.ndarray], List[int]], **kwargs) -> Union[float, List[float]]:
         """
         Train the self.model on the given batch using teacher forcing
 
@@ -405,7 +405,7 @@ class KerasSeq2SeqModel(KerasModel):
 
         return predicted_batch
 
-    def __call__(self, *args: Tuple[Tuple[np.ndarray]], **kwargs) -> np.ndarray[List[int]]:
+    def __call__(self, *args: Tuple[Tuple[np.ndarray]], **kwargs) -> np.ndarray:
         """
         Infer self.encoder_model and self.decoder_model on the given data
 
