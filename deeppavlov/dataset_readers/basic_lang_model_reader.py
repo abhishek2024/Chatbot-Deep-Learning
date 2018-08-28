@@ -30,12 +30,13 @@ log = get_logger(__name__)
 @register('basic_lang_model_reader')
 class BasicLangModelDatasetReader(DatasetReader):
     """
-    Class provides reading dataset in .csv format
+    Class provides reading dataset in .csv format and \
+    assigns columns with given names to `x` and `y` without any changes of data
     """
 
     @overrides
     def read(self, data_path: str, url: str = None,
-             format: str = "csv", class_sep: str = ",",
+             format: str = "csv",
              *args, **kwargs) -> dict:
         """
         Read dataset from data_path directory.
@@ -47,7 +48,6 @@ class BasicLangModelDatasetReader(DatasetReader):
             data_path: directory with files
             url: download data files if data_path not exists or empty
             format: extension of files. Set of Values: ``"csv", "json"``
-            class_sep: string separator of labels in column with labels
             sep (str): delimeter for ``"csv"`` files. Default: ``","``
             header (int): row number to use as the column names
             names (array): list of column names to use
@@ -87,7 +87,7 @@ class BasicLangModelDatasetReader(DatasetReader):
                     raise Exception('Unsupported file format: {}'.format(format))
 
                 x = kwargs.get("x", "text")
-                y = kwargs.get('y', 'text')
+                y = kwargs.get('y', "text")
 
                 if isinstance(x, list):
                     data[data_type] = [([row[x_] for x_ in x], [row[y_] for y_ in y]) for _, row in df.iterrows()]
