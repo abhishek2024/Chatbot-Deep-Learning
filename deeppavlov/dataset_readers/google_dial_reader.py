@@ -29,7 +29,7 @@ from deeppavlov.core.common.log import get_logger
 log = get_logger(__name__)
 
 
-class GoogleDatasetReader(DatasetReader):
+class GoogleDialogsDatasetReader(DatasetReader):
 
     url = 'http://files.deeppavlov.ai/datasets/google_simulated_dialogues.tar.gz'
 
@@ -85,6 +85,40 @@ class GoogleDatasetReader(DatasetReader):
             act_tokens.append(act['slot'])
         return '_'.join(act_tokens)
 
+    @staticmethod
+    def _format_acts(acts, state):
+        new_acts = []
+        for a in acts:
+            new_acts.append({'act': a['type'].lower(), 'slots': []})
+            if 'slot' in a:
+                if a['slot'] in state:
+                    new_acts[-1]['slots'] = [(a['slot'], state[a['slot']])]
+                else:
+                    new_acts[-1]['slots'] = [('slot', a['slot'])]
+        return new_acts
+
+    @staticmethod
+    def _format_acts2(acts):
+        new_acts = {}
+        for a in acts:
+            slot = a['type'].lower()
+            if 'slot' in a:
+                new_acts[slot] = new_acts.get(slot, []) + [a['slot']]
+            else:
+                new_acts[slot] = new_acts.get(slot, [])
+        return [{'act': a, 'slots': v} for a, v in new_acts.items()]
+
+    @staticmethod
+    def _get_bio_markup(tokens, slots):
+        markup = ['O'] * len(tokens)
+        for s in slots:
+            if any(m != 'O' for m in markup[s['start']:s['exclusive_end']]):
+                raise RuntimeError('Mentions of different slots shouldn\'t intersect')
+            markup[s['start']] = 'B-{}'.format(s['slot'])
+            for i in range(s['start'] + 1, s['exclusive_end']):
+                markup[i] = 'I-{}'.format(s['slot'])
+        return markup
+
     @classmethod
     def _get_turns(cls, dialogs: List[Dict]) -> List[Tuple[Dict, Dict]]:
         utterances = []
@@ -94,19 +128,29 @@ class GoogleDatasetReader(DatasetReader):
             for i, turn in enumerate(dialog['turns']):
                 # Format response
                 if 'system_acts' in turn:
-                    acts = sorted(set(map(cls._format_act, turn['system_acts'])))
+                    str_acts = sorted(set(map(cls._format_act, turn['system_acts'])))
+                    slots = cls._get_bio_markup(turn['system_utterance']['tokens'],
+                                                turn['system_utterance']['slots'])
+                    # slot_state = {i['slot']: i['value'] for i in turn['dialogue_state']}
+                    acts = cls._format_acts2(turn['system_acts'])
                     r = {'text': turn['system_utterance']['text'],
+                         'slots': slots,
                          'acts': acts,
-                         'act': '+'.join(acts)}
+                         'act': '+'.join(str_acts)}
                 # If u and r are nonnull, add them to overall list of turns
                 if u and r:
                     utterances.append(u)
                     responses.append(r)
                     u, r = {}, {}
                 # Format utterance
+                goals = {item['slot']: item['value'] for item in turn['dialogue_state']}
+                intents = cls._format_acts2(turn['user_acts'])
+                slots = cls._get_bio_markup(turn['user_utterance']['tokens'],
+                                            turn['user_utterance']['slots'])
                 u = {'text': turn['user_utterance']['text'],
-                     'intents': turn['user_acts'],
-                     'slots': turn['user_utterance']['slots']}
+                     'intents': intents,
+                     'goals': goals,
+                     'slots': slots}
                 if i == 0:
                     u['episode_done'] = True
 
@@ -117,7 +161,7 @@ class GoogleDatasetReader(DatasetReader):
 
 
 @register('sim_r_reader')
-class GoogleSimRDatasetReader(GoogleDatasetReader):
+class GoogleSimRDatasetReader(GoogleDialogsDatasetReader):
 
     @staticmethod
     @overrides
@@ -127,7 +171,7 @@ class GoogleSimRDatasetReader(GoogleDatasetReader):
 
 
 @register('sim_m_reader')
-class GoogleSimMDatasetReader(GoogleDatasetReader):
+class GoogleSimMDatasetReader(GoogleDialogsDatasetReader):
 
     @staticmethod
     @overrides
