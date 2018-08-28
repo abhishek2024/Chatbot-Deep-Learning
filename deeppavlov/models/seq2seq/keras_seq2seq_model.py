@@ -341,7 +341,7 @@ class KerasSeq2SeqModel(KerasModel):
 
         return None
 
-    def train_on_batch(self, *args: Tuple[List[List[str]]], **kwargs):
+    def train_on_batch(self, *args: Tuple[List[List[str]]], **kwargs) -> Union[float, List[float]]:
         """
         Train the self.model on the given batch using teacher forcing
 
@@ -366,23 +366,24 @@ class KerasSeq2SeqModel(KerasModel):
                                                    pad_emb_dec_outputs)
         return metrics_values
 
-    def infer_on_batch(self, *args: Tuple[Tuple[np.ndarray]], **kwargs):
+    def infer_on_batch(self, *args: Tuple[Tuple[np.ndarray]], **kwargs) -> List[List[int]]:
         """
-        Infer self.encoder_model and self.decoder_model (no teacher forcing)
+        Infer self.encoder_model and self.decoder_model  on the given data (no teacher forcing)
 
         Args:
-            *args: encoder input sequences
-            **kwargs:
+            *args: encoder inputs (tokenized embedded sentences)
+            **kwargs: additional arguments
 
         Returns:
-
+            tokenized indexed decoder predictions
         """
+        batch = args[0][0]
         K.set_session(self.sess)
-        pad_emb_enc_inputs = self.pad_texts(args[0][0], self.opt["src_max_length"], self.opt["encoder_embedding_size"])
+        pad_emb_enc_inputs = self.pad_texts(batch, self.opt["src_max_length"], self.opt["encoder_embedding_size"])
         encoder_state_0, encoder_state_1 = self.encoder_model.predict(pad_emb_enc_inputs)
 
         predicted_batch = []
-        for i in range(len(args[0][0])):  # batch size
+        for i in range(len(batch)):  # batch size
             predicted_sample = []
 
             current_token = self.decoder_embedder([["<SOS>"]])[0][0]
@@ -404,17 +405,48 @@ class KerasSeq2SeqModel(KerasModel):
 
         return predicted_batch
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args: Tuple[Tuple[np.ndarray]], **kwargs) -> np.ndarray[List[int]]:
+        """
+        Infer self.encoder_model and self.decoder_model on the given data
+
+        Args:
+            *args: encoder inputs (tokenized embedded sentences)
+            **kwargs: additional arguments
+
+        Returns:
+            tokenized indexed decoder predictions
+        """
         K.set_session(self.sess)
         predictions = np.array(self.infer_on_batch(args))
         return predictions
 
     def _probas2ids(self, data: List[List[np.ndarray]]) -> np.ndarray:
+        """
+        Convert vectors of probabilities distribution of tokens in the vocabulary \
+        or one-hot token representations in the vocabulary  \
+        to corresponding token ids
+
+        Args:
+            data: list of tokenized samples where each sample is a list of np.ndarray of vocabulary size
+
+        Returns:
+            tokenized samples where each sample is a list of token's id
+        """
         ids_data = np.asarray([[np.argmax(token) for token in sample] for sample in data])
 
         return ids_data
 
     def _ids2onehot(self, data: Union[List[List[int]], Tuple[List[int]]], vocab_size: int) -> np.ndarray:
+        """
+        Convert token ids to one-hot representations in vocabulary of size vocab_size
+
+        Args:
+            data: list of tokenized samples where each sample is a list of token's id
+            vocab_size: size of the vocabulary
+
+        Returns:
+            tokenized samples where each sample is a list of np.ndarrat of vocabulary size
+        """
         onehot = np.eye(vocab_size)
         onehot_data = np.asarray([[onehot[token] for token in sample] for sample in data])
 
