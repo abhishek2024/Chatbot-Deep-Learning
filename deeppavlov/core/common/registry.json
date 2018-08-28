@@ -3,7 +3,7 @@
   "api_router": "deeppavlov.models.api_requester.api_router:ApiRouter",
   "basic_classification_iterator": "deeppavlov.dataset_iterators.basic_classification_iterator:BasicClassificationDatasetIterator",
   "basic_classification_reader": "deeppavlov.dataset_readers.basic_classification_reader:BasicClassificationDatasetReader",
-  "basic_lang_model_reader": "deeppavlov.dataset_readers.basic_lang_model_reader:BasicLangModelDatasetReader",
+  "basic_dataset_reader": "deeppavlov.dataset_readers.basic_lang_model_reader:BasicDatasetReader",
   "bow": "deeppavlov.models.embedders.bow_embedder:BoWEmbedder",
   "capitalization_featurizer": "deeppavlov.models.preprocessors.capitalization:CapitalizationPreprocessor",
   "char_splitter": "deeppavlov.models.preprocessors.char_splitter:CharSplitter",

@@ -27,8 +27,8 @@ from deeppavlov.core.common.log import get_logger
 log = get_logger(__name__)
 
 
-@register('basic_lang_model_reader')
-class BasicLangModelDatasetReader(DatasetReader):
+@register('basic_dataset_reader')
+class BasicDatasetReader(DatasetReader):
     """
     Class provides reading dataset in .csv format and \
     assigns columns with given names to `x` and `y` without any changes of data
