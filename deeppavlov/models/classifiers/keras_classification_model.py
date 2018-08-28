@@ -86,8 +86,7 @@ class KerasClassificationModel(KerasModel):
                  confident_threshold: float = 0.5,
                  **kwargs):
         """
-        Initialize and train vocabularies, initializes embedder, tokenizer, and then initialize model using parameters
-        from opt dictionary (from config), if model is being initialized from saved.
+        Initialize model using parameters from config.
         """
         super().__init__(text_size=text_size, embedding_size=embedding_size, model_name=model_name,
                          optimizer=optimizer, loss=loss,
