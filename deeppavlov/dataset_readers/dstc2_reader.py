@@ -124,7 +124,8 @@ class DSTC2DatasetReader(DatasetReader):
     @staticmethod
     def _format_turn(turn):
         x = {'text': turn[0]['text'],
-             'intents': turn[0]['dialog_acts']}
+             'intents': turn[0]['dialog_acts'],
+             'goals': turn[0]['goals']}
         if turn[0].get('db_result') is not None:
             x['db_result'] = turn[0]['db_result']
         if turn[0].get('episode_done'):
@@ -176,6 +177,7 @@ class DSTC2DatasetReader(DatasetReader):
                             utterances.append({
                                 "text": "",
                                 "dialog_acts": [],
+                                "goals": {},
                                 "episode_done": True}
                             )
                         else:
