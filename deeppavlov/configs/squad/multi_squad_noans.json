@@ -122,7 +122,7 @@
       "server_utils": "SquadModel"
     },
     "download": [
-      "http://TODO",
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/multi_squad_model_noans.tar.gz",
       {
         "url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M.vec",
         "subdir": "embeddings"
