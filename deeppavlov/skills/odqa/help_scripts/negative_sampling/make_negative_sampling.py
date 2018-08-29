@@ -35,7 +35,7 @@ def answer_found(question, answers, context):
             logger.info(question)
             logger.info(answers)
             logger.info(context)
-            return False
+            return True
     return False
 
 
@@ -55,7 +55,7 @@ def main():
         context = instance['context']
 
         retrieved_contexts = ranker([question])[0]
-        retrieved_contexts = [rc for rc in retrieved_contexts if not answer_found(question, answers, rc)]
+        # retrieved_contexts = [rc for rc in retrieved_contexts if not answer_found(question, answers, rc)]
 
         new_dataset.append({"question": question,
                             "answers": answers,
