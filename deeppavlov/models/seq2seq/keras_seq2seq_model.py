@@ -183,6 +183,14 @@ class KerasSeq2SeqModel(KerasModel):
         embeddings_batch = np.asarray(embeddings_batch)
         return embeddings_batch
 
+    # pad = np.zeros(self.opt['embedding_size'])
+    #
+    # embeddings_batch = self.fasttext_model([sen[:self.opt['text_size']] for sen in sentences])
+    # embeddings_batch = [[pad] * (self.opt['text_size'] - len(tokens)) + tokens for tokens in embeddings_batch]
+    #
+    # embeddings_batch = np.asarray(embeddings_batch)
+    # return embeddings_batch
+
     def pad_texts(self, sentences: Union[List[List[np.ndarray]], List[List[int]]],
                   text_size: int, embedding_size: int = None) -> np.ndarray:
         """
