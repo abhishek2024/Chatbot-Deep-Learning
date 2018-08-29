@@ -15,6 +15,7 @@ limitations under the License.
 """
 
 from typing import List
+# import random
 
 import numpy as np
 from scipy.sparse import csr_matrix
@@ -90,6 +91,8 @@ class TfidfRanker(Estimator):
             # scores = scores + 0.0001
             # scores = scores[0]
 
+            #neg_idx = random.randint(1000, 969792)
+
             if self.active:
                 thresh = self.top_n
             else:
@@ -97,10 +100,10 @@ class TfidfRanker(Estimator):
 
             if thresh >= len(scores):
                 o = np.argpartition(-scores, len(scores) - 1)[0:thresh]
-                # neg = np.argpartition(-scores, len(scores) - 1)[-1]
+                # neg = np.argpartition(-scores, len(scores) - 1)[neg_idx]
             else:
                 o = np.argpartition(-scores, thresh)[0:thresh]
-                # neg = np.argpartition(-scores, thresh)[-1]
+                # neg = np.argpartition(-scores, thresh)[neg_idx]
             o_sort = o[np.argsort(-scores[o])]
 
             doc_scores = scores[o_sort]
