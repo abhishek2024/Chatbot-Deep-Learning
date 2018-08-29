@@ -78,47 +78,6 @@ class GoogleDialogsDatasetReader(DatasetReader):
         for dialogue in json.load(open(file_path, 'rt', encoding='utf8')):
             yield dialogue
 
-    @staticmethod
-    def _format_act(act):
-        act_tokens = [act['type'].lower()]
-        if 'slot' in act:
-            act_tokens.append(act['slot'])
-        return '_'.join(act_tokens)
-
-    @staticmethod
-    def _format_acts(acts, state):
-        new_acts = []
-        for a in acts:
-            new_acts.append({'act': a['type'].lower(), 'slots': []})
-            if 'slot' in a:
-                if a['slot'] in state:
-                    new_acts[-1]['slots'] = [(a['slot'], state[a['slot']])]
-                else:
-                    new_acts[-1]['slots'] = [('slot', a['slot'])]
-        return new_acts
-
-    @staticmethod
-    def _format_acts2(acts):
-        new_acts = {}
-        for a in acts:
-            slot = a['type'].lower()
-            if 'slot' in a:
-                new_acts[slot] = new_acts.get(slot, []) + [a['slot']]
-            else:
-                new_acts[slot] = new_acts.get(slot, [])
-        return [{'act': a, 'slots': v} for a, v in new_acts.items()]
-
-    @staticmethod
-    def _get_bio_markup(tokens, slots):
-        markup = ['O'] * len(tokens)
-        for s in slots:
-            if any(m != 'O' for m in markup[s['start']:s['exclusive_end']]):
-                raise RuntimeError('Mentions of different slots shouldn\'t intersect')
-            markup[s['start']] = 'B-{}'.format(s['slot'])
-            for i in range(s['start'] + 1, s['exclusive_end']):
-                markup[i] = 'I-{}'.format(s['slot'])
-        return markup
-
     @classmethod
     def _get_turns(cls, dialogs: List[Dict]) -> List[Tuple[Dict, Dict]]:
         utterances = []
@@ -158,6 +117,48 @@ class GoogleDialogsDatasetReader(DatasetReader):
             responses.append(r)
 
         return utterances, responses
+
+    @staticmethod
+    def _format_act(act):
+        act_tokens = [act['type'].lower()]
+        if 'slot' in act:
+            act_tokens.append(act['slot'])
+        return '_'.join(act_tokens)
+
+    @staticmethod
+    def _format_acts(acts, state):
+        new_acts = []
+        for a in acts:
+            new_acts.append({'act': a['type'].lower(), 'slots': []})
+            if 'slot' in a:
+                if a['slot'] in state:
+                    new_acts[-1]['slots'] = [(a['slot'], state[a['slot']])]
+                else:
+                    new_acts[-1]['slots'] = [('slot', a['slot'])]
+        return new_acts
+
+    @staticmethod
+    def _format_acts2(acts):
+        new_acts = {}
+        for a in acts:
+            slot = a['type'].lower()
+            if ('slot' in a) and (a['slot'] not in new_acts.get(slot, [])):
+                new_acts[slot] = new_acts.get(slot, []) + [a['slot']]
+            else:
+                new_acts[slot] = new_acts.get(slot, [])
+        return [{'act': a, 'slots': v} for a, v in new_acts.items()]
+
+    @staticmethod
+    def _get_bio_markup(tokens, slots):
+        markup = ['O'] * len(tokens)
+        for s in slots:
+            if any(m != 'O' for m in markup[s['start']:s['exclusive_end']]):
+                raise RuntimeError('Mentions of different slots shouldn\'t intersect')
+            markup[s['start']] = 'B-{}'.format(s['slot'])
+            for i in range(s['start'] + 1, s['exclusive_end']):
+                markup[i] = 'I-{}'.format(s['slot'])
+        return markup
+
 
 
 @register('sim_r_reader')
