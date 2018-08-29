@@ -72,9 +72,34 @@
         "load_path": "embeddings/glove.6B.100d.txt"
       },
       {
+        "in": "y",
+        "out": "y_prep",
+        "ref": "my_preprocessor"
+      },
+      {
+        "in": "y_prep",
+        "out": "y_tok",
+        "ref": "my_tokenizer"
+      },
+      {
+        "in": "y_tok",
+        "ref": "tokens_vocab",
+        "out": "y_tok_ind"
+      },
+      {
+        "ref": "tokens_vocab",
+        "in": "y_tok_ind",
+        "out": "y_spec_tokens"
+      },
+      {
+        "in": "y_spec_tokens",
+        "out": "y_emb",
+        "ref": "my_embedder"
+      },
+      {
         "in": "x_emb",
-        "in_y": "x_tok_ind",
-        "out": "y_tok_ind",
+        "in_y": "y_tok_ind",
+        "out": "y_tok_ind_pred",
         "main": true,
         "name": "keras_seq2seq_model",
         "save_path": "seq2seq/wikitext2/lstm_lstm_model_v0",
@@ -93,12 +118,12 @@
         "lear_rate": 0.01,
         "lear_rate_decay": 0.1,
         "loss": "categorical_crossentropy",
-        "hidden_size": 128,
+        "hidden_size": 256,
         "model_name": "lstm_lstm_model"
       },
       {
         "ref": "tokens_vocab",
-        "in": "y_tok_ind",
+        "in": "y_tok_ind_pred",
         "out": "y_spec_tokens"
       },
       {
@@ -119,7 +144,7 @@
     "validation_patience": 5,
     "val_every_n_epochs": 1,
     "log_every_n_epochs": 1,
-    "show_examples": false,
+    "show_examples": true,
     "validate_best": true,
     "test_best": false
   },
