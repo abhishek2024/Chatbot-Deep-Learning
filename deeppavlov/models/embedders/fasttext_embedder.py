@@ -49,7 +49,7 @@ class FasttextEmbedder(Component, Serializable):
         load_path: path with pre-trained fastText binary model
     """
     def __init__(self, load_path: [str, Path], save_path: [str, Path] = None, dim: int = 100, pad_zero: bool = False,
-                 **kwargs) -> None:
+                 mean: bool = False, **kwargs) -> None:
         """
         Initialize embedder with given parameters
         """
@@ -58,6 +58,7 @@ class FasttextEmbedder(Component, Serializable):
         self.dim = dim
         self.pad_zero = pad_zero
         self.model = self.load()
+        self.mean = mean
 
     def save(self, *args, **kwargs) -> None:
         """
@@ -146,7 +147,7 @@ class FasttextEmbedder(Component, Serializable):
                 self.tok2emb[t] = emb
             embedded_tokens.append(emb)
 
-        if mean:
+        if mean or self.mean:
             filtered = [et for et in embedded_tokens if np.any(et)]
             if filtered:
                 return np.mean(filtered, axis=0)
