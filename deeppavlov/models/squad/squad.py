@@ -71,8 +71,10 @@ class SquadModel(TFModel):
         self.legacy = self.opt.get('legacy', True)  # support old checkpoints
         self.multihop_cell_size = self.opt.get('multihop_cell_size', 128)
         self.num_encoder_layers = self.opt.get('num_encoder_layers', 3)
+        self.num_match_layers = self.opt.get('num_match_layers', 1)
         self.use_focal_loss = self.opt.get('use_focal_loss', False)
         self.share_layers = self.opt.get('share_layers', False)
+        self.concat_bigru_outputs = self.opt.get('concat_bigru_outputs', True)
 
         assert self.number_of_hops > 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
 
@@ -240,6 +242,7 @@ class SquadModel(TFModel):
                     )
 
             if self.use_elmo:
+                # TODO: also add elmo after encoding layer
                 import tensorflow_hub as tfhub
                 elmo = tfhub.Module("https://tfhub.dev/google/elmo/2", trainable=True)
                 c_elmo = elmo(
@@ -264,8 +267,8 @@ class SquadModel(TFModel):
             rnn = self.GRU(num_layers=self.num_encoder_layers, num_units=self.hidden_size, batch_size=bs,
                            input_size=c_emb.get_shape().as_list()[-1],
                            keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
-            c = rnn(c_emb, seq_len=self.c_len)
-            q = rnn(q_emb, seq_len=self.q_len)
+            c = rnn(c_emb, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
+            q = rnn(q_emb, seq_len=self.q_len, concat_layers=self.concat_bigru_outputs)
 
         with tf.variable_scope("attention"):
             qc_att = dot_attention(c, q, mask=self.q_mask, att_size=self.attention_hidden_size,
@@ -276,17 +279,17 @@ class SquadModel(TFModel):
                 rnn = self.GRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
                                input_size=qc_att.get_shape().as_list()[-1],
                                keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
-                qc_att = rnn(qc_att, seq_len=self.c_len)
+                qc_att = rnn(qc_att, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
 
         if self.predict_ans:
             with tf.variable_scope("match"):
                 self_att = dot_attention(qc_att, qc_att, mask=self.c_mask, att_size=self.attention_hidden_size,
                                          keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
                                          drop_diag=self.drop_diag_self_att, use_transpose_att=False)
-                rnn = self.GRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
+                rnn = self.GRU(num_layers=self.num_match_layers, num_units=self.hidden_size, batch_size=bs,
                                input_size=self_att.get_shape().as_list()[-1],
                                keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
-                match = rnn(self_att, seq_len=self.c_len)
+                match = rnn(self_att, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
 
             with tf.variable_scope("pointer"):
                 init = simple_attention(q, self.attention_hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph)
