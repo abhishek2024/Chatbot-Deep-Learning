@@ -3,8 +3,7 @@
     "name": "basic_dataset_reader",
     "x": "text",
     "y": "text",
-    "data_path": "snips",
-    "train": "train_short.csv"
+    "data_path": "snips"
   },
   "dataset_iterator": {
     "name": "basic_classification_iterator",
