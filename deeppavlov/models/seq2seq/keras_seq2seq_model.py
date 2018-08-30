@@ -178,7 +178,8 @@ class KerasSeq2SeqModel(KerasModel):
         pad = np.zeros(self.opt['decoder_embedding_size'])
         text_sentences = self.decoder_vocab(sentences)
         embeddings_batch = self.decoder_embedder([sen[:self.opt['tgt_max_length']] for sen in text_sentences])
-        embeddings_batch = [[pad] * (self.opt['tgt_max_length'] - len(tokens)) + list(tokens)
+        # embeddings_batch = [[pad] * (self.opt['tgt_max_length'] - len(tokens)) + list(tokens)
+        embeddings_batch = [[pad] * (self.opt['tgt_max_length'] - len(tokens)) + tokens
                             for tokens in embeddings_batch]
 
         embeddings_batch = np.asarray(embeddings_batch)
