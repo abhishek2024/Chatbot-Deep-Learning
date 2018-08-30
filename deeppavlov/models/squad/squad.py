@@ -276,7 +276,7 @@ class SquadModel(TFModel):
                                    use_transpose_att=self.use_transpose_att)
 
             if self.use_birnn_after_qc_att:
-                rnn = self.GRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
+                rnn = self.GRU(num_layers=self.num_match_layers, num_units=self.hidden_size, batch_size=bs,
                                input_size=qc_att.get_shape().as_list()[-1],
                                keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
                 qc_att = rnn(qc_att, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)

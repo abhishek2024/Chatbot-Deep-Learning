@@ -84,7 +84,7 @@
         "use_birnn_after_qc_att": true,
         "use_transpose_att": true,
         "num_encoder_layers": 3,
-        "num_match_layers": 2,
+        "num_match_layers": 1,
         "concat_bigru_outputs": false,
         "legacy": false,
         "save_path": "squad_qanet_attention_no_gates/model",
