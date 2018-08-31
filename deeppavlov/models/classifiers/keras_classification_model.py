@@ -283,57 +283,14 @@ class KerasClassificationModel(KerasModel):
         """
         inp = Input(shape=(self.opt['text_size'], self.opt['embedding_size']))
 
-        outputs = []
-        for i in range(len(kernel_sizes_cnn)):
-            output_i = Conv1D(filters_cnn, kernel_size=kernel_sizes_cnn[i],
-                              activation=None,
-                              kernel_regularizer=l2(coef_reg_cnn),
-                              padding='same')(inp)
-            output_i = BatchNormalization()(output_i)
-            output_i = Activation('relu')(output_i)
-            output_i = GlobalMaxPooling1D()(output_i)
-            outputs.append(output_i)
-
-        output = concatenate(outputs, axis=1)
-
-        output = Dropout(rate=dropout_rate)(output)
-        output = Dense(dense_size, activation=None,
-                       kernel_regularizer=l2(coef_reg_den))(output)
-        output = BatchNormalization()(output)
-        output = Activation('relu')(output)
-        output = Dropout(rate=dropout_rate)(output)
-        output = Dense(self.n_classes, activation=None,
-                       kernel_regularizer=l2(coef_reg_den))(output)
-        output = BatchNormalization()(output)
-        act_output = Activation(self.opt.get("last_layer_activation", "sigmoid"))(output)
-        model = Model(inputs=inp, outputs=act_output)
-        return model
-
-    def cnn_with_add_inputs_model(self, kernel_sizes_cnn: List[int], filters_cnn: int, dense_size: int,
-                                  coef_reg_cnn: float = 0., coef_reg_den: float = 0., dropout_rate: float = 0.,
-                                  **kwargs) -> Model:
-        """
-        Build un-compiled model of shallow-and-wide CNN.
-
-        Args:
-            kernel_sizes_cnn: list of kernel sizes of convolutions.
-            filters_cnn: number of filters for convolutions.
-            dense_size: number of units for dense layer.
-            coef_reg_cnn: l2-regularization coefficient for convolutions.
-            coef_reg_den: l2-regularization coefficient for dense layers.
-            dropout_rate: dropout rate used after convolutions and between dense layers.
-            kwargs: other non-used parameters
-
-        Returns:
-            keras.models.Model: uncompiled instance of Keras Model
-        """
-        inp = Input(shape=(self.opt['text_size'], self.opt['embedding_size']))
         add_inps = []
-        if type(self.opt["additional_feature_sizes"]) is list:
-            for add_feat_size in self.opt["additional_feature_sizes"]:
-                add_inps.append(Input(shape=(add_feat_size,)))
-        elif type(self.opt["additional_feature_sizes"]) is int:
-            add_inps.append(Input(shape=(self.opt["additional_feature_sizes"],)))
+        if type(self.opt["in"]) is list:
+            for i in range(1, len(self.opt["in"])):
+                if type(self.opt["additional_feature_sizes"]) is list:
+                    for add_feat_size in self.opt["additional_feature_sizes"]:
+                        add_inps.append(Input(shape=(add_feat_size,)))
+                elif type(self.opt["additional_feature_sizes"]) is int:
+                    add_inps.append(Input(shape=(self.opt["additional_feature_sizes"],)))
 
         outputs = []
         for i in range(len(kernel_sizes_cnn)):
@@ -346,7 +303,10 @@ class KerasClassificationModel(KerasModel):
             output_i = GlobalMaxPooling1D()(output_i)
             outputs.append(output_i)
 
-        output = concatenate(outputs + add_inps, axis=1)
+        if add_inps:
+            output = concatenate(outputs + add_inps, axis=1)
+        else:
+            output = concatenate(outputs, axis=1)
 
         output = Dropout(rate=dropout_rate)(output)
         output = Dense(dense_size, activation=None,
@@ -358,7 +318,10 @@ class KerasClassificationModel(KerasModel):
                        kernel_regularizer=l2(coef_reg_den))(output)
         output = BatchNormalization()(output)
         act_output = Activation(self.opt.get("last_layer_activation", "sigmoid"))(output)
-        model = Model(inputs=[inp] + add_inps, outputs=act_output)
+        if add_inps:
+            model = Model(inputs=[inp] + add_inps, outputs=act_output)
+        else:
+            model = Model(inputs=inp, outputs=act_output)
         return model
 
     def dcnn_model(self, kernel_sizes_cnn: List[int], filters_cnn: int, dense_size: int,
