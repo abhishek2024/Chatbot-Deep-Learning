@@ -164,36 +164,45 @@ class KerasClassificationModel(KerasModel):
         cutted_batch = [[pad] * (self.opt['text_size'] - len(tokens)) + list(tokens) for tokens in cutted_batch]
         return np.asarray(cutted_batch)
 
-    def train_on_batch(self, texts: List[List[np.ndarray]], labels: list, *args, **kwargs) -> [float, List[float]]:
+    def train_on_batch(self, *args, **kwargs) -> [float, List[float]]:
         """
         Train the model on the given batch
 
         Args:
-            texts: list of tokenized text samples
-            labels: list of labels
+            args: tuple of list of tokenized text samples, lists with additional inputs, list of labels
 
         Returns:
             metrics values on the given batch
         """
         K.set_session(self.sess)
 
-        additional_inputs = args
+        if type(self.opt["in"]) is list:
+            texts = args[0]
+            additional_inputs = []
+            for i in range(1, len(self.opt["in"])):
+                additional_inputs.append(np.array(args[i]))
+            labels = args[-1]
+            # labels = args[-len(self.opt["in_y"]):]
+        else:
+            texts = args[0]
+            labels = args[-1]
+            # labels = args[-len(self.opt["in_y"]):]
 
         features = self.pad_texts(texts)
         onehot_labels = labels2onehot(labels, classes=self.classes)
         if additional_inputs:
-            metrics_values = self.model.train_on_batch([features] + list(additional_inputs), onehot_labels)
+            metrics_values = self.model.train_on_batch([features] + additional_inputs, onehot_labels)
         else:
             metrics_values = self.model.train_on_batch(features, onehot_labels)
         return metrics_values
 
-    def infer_on_batch(self, texts: List[List[np.ndarray]], labels: list = None, *args, **kwargs) -> [float, List[float], np.ndarray]:
+    def infer_on_batch(self, *args, **kwargs) -> [float, List[float], np.ndarray]:
         """
         Infer the model on the given batch
 
         Args:
-            texts: list of tokenized text samples
-            labels: list of labels
+            args: tuple of list of tokenized text samples, lists with additional inputs, \
+            list of label
 
         Returns:
             metrics values on the given batch, if labels are given
@@ -201,27 +210,39 @@ class KerasClassificationModel(KerasModel):
         """
         K.set_session(self.sess)
 
-        additional_inputs = kwargs.get("additional_data", None)
-        for i in range(len(additional_inputs)):
-            additional_inputs[i] = np.array(additional_inputs[i])
+        if type(self.opt["in"]) is list:
+            texts = args[0]
+            additional_inputs = []
+            for i in range(1, len(self.opt["in"])):
+                additional_inputs.append(np.array(args[i]))
+            if len(args) > len(self.opt["in"]):
+                labels = args[-len(self.opt["in_y"]):]
+            else:
+                labels = None
+        else:
+            texts = args[0]
+            if len(args) > 1:
+                labels = args[-len(self.opt["in_y"]):]
+            else:
+                labels = None
 
         if labels:
             features = self.pad_texts(texts)
             onehot_labels = labels2onehot(labels, classes=self.classes)
             if additional_inputs:
-                metrics_values = self.model.test_on_batch([features] + list(additional_inputs), onehot_labels)
+                metrics_values = self.model.test_on_batch([features] + additional_inputs, onehot_labels)
             else:
                 metrics_values = self.model.test_on_batch(features, onehot_labels)
             return metrics_values
         else:
             features = self.pad_texts(texts)
             if additional_inputs:
-                predictions = self.model.predict([features] + list(additional_inputs))
+                predictions = self.model.predict([features] + additional_inputs)
             else:
                 predictions = self.model.predict(features)
             return predictions
 
-    def __call__(self, data: List[List[str]], *args, **kwargs) -> Tuple[List[list], List[dict]]:
+    def __call__(self, *args, **kwargs) -> Tuple[List[list], List[dict]]:
         """
         Infer on the given data
 
@@ -234,7 +255,7 @@ class KerasClassificationModel(KerasModel):
                 vector of probabilities to belong with each class
                 or list of labels sentence belongs with
         """
-        preds = np.array(self.infer_on_batch(data, additional_data=args), dtype="float64")
+        preds = np.array(self.infer_on_batch(*args), dtype="float64")
 
         labels = proba2labels(preds, confident_threshold=self.opt['confident_threshold'], classes=self.classes)
         return labels, [dict(zip(self.classes, preds[i])) for i in range(preds.shape[0])]
