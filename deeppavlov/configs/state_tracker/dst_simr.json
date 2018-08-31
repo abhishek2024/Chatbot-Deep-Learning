@@ -1,0 +1,93 @@
+{
+  "dataset_reader": {
+    "name": "sim_r_reader",
+    "data_path": "google-dialogues"
+  },
+  "dataset_iterator": {
+    "name": "dialog_state_iterator"
+  },
+  "chainer": {
+    "in": ["utter", "u_slots", "s_slots", "prev_state", "slots_bio"],
+    "in_y": ["state"],
+    "out": ["slot_candidates"],
+    "pipe": [
+      {
+        "name": "lazy_tokenizer",
+        "in": ["utter"],
+        "out": ["u_tokens"]
+      },
+      {
+        "name": "slot_value_filter",
+        "max_num": 7,
+        "in": ["u_slots", "s_slots", "prev_state"],
+        "out": ["slot_candidates"]
+      },
+      {
+        "name": "simple_vocab",
+        "id": "word_vocab",
+        "save_path": "dst/word.dict",
+        "load_path": "dst/word.dict",
+        "fit_on": ["u_tokens"],
+        "special_tokens": ["<unk>"],
+        "in": ["u_tokens"],
+        "out": ["u_tok_idx"]
+      },
+      {
+        "name": "emb_mat_assembler",
+        "id": "embeddings",
+        "embedder": {
+           "name": "glove",
+           "load_path": "embeddings/glove.6B.100d.txt"
+        },
+        "vocab": "#word_vocab" 
+      },
+      {
+        "name": "simple_vocab",
+        "id": "slot_vocab",
+        "save_path": "dst/slot_names.dict",
+        "fit_on": ["state"]
+      },
+      {
+        "class": "deeppavlov.models.state_tracker.preprocessors:BioMarkupToMatrix",
+        "slot_vocab": "#slot_vocab",
+        "in": ["slots_bio"],
+        "out": ["utt_tok_slot_idx_matr"]
+      },
+      {
+        "name": "dst_network",
+        "load_path": "dst/model",
+        "save_path": "dst/model",
+        "in": ["u_tok_idx", "utt_tok_slot_idx_matr"],
+        "in_y": ["state"],
+        "out": ["state_pred"],
+        "hidden_size": 128,
+        "num_slot_values": 7,
+        "embedding_matrix": "#embeddings.emb_mat",
+        "learning_rate": 0.0031
+      }
+    ]
+  },
+  "train": {
+    "epochs": 100,
+    "batch_size": 1,
+
+    "metrics": ["accuracy"],
+    "validation_patience": 10,
+    "val_every_n_epochs": 1,
+
+    "log_every_n_epochs": 1
+  },
+  "metadata": {
+    "requirements": [
+      "../dp_requirements/tf.txt"
+    ],
+    "labels": {
+    },
+    "download": [
+      {
+        "url": "http://files.deeppavlov.ai/embeddings/glove.6B.100d.txt",
+        "subdir": "embeddings"
+      }
+    ]
+  }
+}
