@@ -84,6 +84,7 @@ class KerasSeq2SeqModel(KerasModel):
                  loss: str = "binary_crossentropy",
                  lear_rate: float = 0.01,
                  lear_rate_decay: float = 0.,
+                 reinit_lr_with_final_lr: bool = False,
                  **kwargs):
         """
         Initialize model using parameters from config.
@@ -104,6 +105,7 @@ class KerasSeq2SeqModel(KerasModel):
                          loss=loss,
                          lear_rate=lear_rate,
                          lear_rate_decay=lear_rate_decay,
+                         reinit_lr_with_final_lr=reinit_lr_with_final_lr,
                          **kwargs)
 
         # Parameters required to init model
@@ -118,7 +120,18 @@ class KerasSeq2SeqModel(KerasModel):
 
         self.encoder_model = None
         self.decoder_model = None
-        self.model = self.load(**params)
+
+        self.model = self.load(model_name=model_name)
+
+        if reinit_lr_with_final_lr:
+            lear_rate = self.opt.get("final_lear_rate", lear_rate)
+
+        self.model = self.compile(self.model, optimizer=optimizer, loss=loss,
+                                  lear_rate=lear_rate, lear_rate_decay=lear_rate_decay)
+        self.encoder_model = self.compile(self.encoder_model, optimizer=optimizer, loss=loss,
+                                          lear_rate=lear_rate, lear_rate_decay=lear_rate_decay)
+        self.decoder_model = self.compile(self.decoder_model, optimizer=optimizer, loss=loss,
+                                          lear_rate=lear_rate, lear_rate_decay=lear_rate_decay)
 
         self._change_not_fixed_params(hidden_size=hidden_size,
                                       src_vocab_size=source_vocab_size,
@@ -134,6 +147,7 @@ class KerasSeq2SeqModel(KerasModel):
                                       loss=loss,
                                       lear_rate=lear_rate,
                                       lear_rate_decay=lear_rate_decay,
+                                      reinit_lr_with_final_lr=reinit_lr_with_final_lr,
                                       **kwargs)
         return
 
