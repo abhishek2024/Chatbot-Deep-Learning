@@ -128,7 +128,7 @@ class KerasSeq2SeqModel(KerasModel):
 
         self.model = self.compile(self.model, optimizer_name=optimizer, loss_name=loss,
                                   lear_rate=lear_rate, lear_rate_decay=lear_rate_decay)
-        
+
         self.encoder_model = self.compile(self.encoder_model, optimizer_name=optimizer, loss_name=loss,
                                           lear_rate=lear_rate, lear_rate_decay=lear_rate_decay)
         self.decoder_model = self.compile(self.decoder_model, optimizer_name=optimizer, loss_name=loss,
