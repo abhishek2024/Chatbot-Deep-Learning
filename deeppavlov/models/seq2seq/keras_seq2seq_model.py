@@ -360,7 +360,7 @@ class KerasSeq2SeqModel(KerasModel):
             self._decoder_emb_inp,
             initial_state=[self._decoder_input_state_0, self._decoder_input_state_1])
 
-        decoder_dense = Dense(self.opt["tgt_vocab_size"], name="dense_lstm", activation="softmax") 
+        decoder_dense = Dense(self.opt["tgt_vocab_size"], name="dense_lstm", activation="softmax")
         self._train_decoder_outputs = decoder_dense(_train_decoder_outputs)
         self._infer_decoder_outputs = decoder_dense(_infer_decoder_outputs)
 
