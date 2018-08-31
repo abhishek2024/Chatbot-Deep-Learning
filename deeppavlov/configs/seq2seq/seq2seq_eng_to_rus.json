@@ -1,0 +1,177 @@
+{
+  "dataset_reader": {
+    "name": "basic_classification_reader",
+    "data_path": "./rus-eng",
+    "train": "rus.txt",
+    "sep": "\t",
+    "header": null,
+    "x": 0,
+    "y": 1
+  },
+  "dataset_iterator": {
+    "name": "basic_classification_iterator",
+    "seed": 42,
+    "field_to_split": "train",
+    "split_fields": [
+      "train",
+      "valid"
+    ],
+    "split_proportions": [
+      0.9,
+      0.1
+    ]
+  },
+  "chainer": {
+    "in": [
+      "x"
+    ],
+    "in_y": [
+      "y"
+    ],
+    "pipe": [
+      {
+        "in": "x",
+        "out": "x_prep",
+        "id": "my_preprocessor",
+        "name": "str_lower"
+      },
+      {
+        "in": "x_prep",
+        "out": "x_tok",
+        "id": "my_tokenizer",
+        "name": "nltk_moses_tokenizer"
+      },
+      {
+        "in": "x_tok",
+        "id": "x_tokens_vocab",
+        "name": "simple_vocab",
+        "pad_with_zeros": false,
+        "fit_on": [
+          "x_tok"
+        ],
+        "level": "token",
+        "save_path": "seq2seq/rus-eng/x_tokens.dict",
+        "load_path": "seq2seq/rus-eng/x_tokens.dict",
+        "special_tokens": ["<UNK>"],
+        "min_freq": 2,
+        "out": "x_tok_ind"
+      },
+      {
+        "ref": "x_tokens_vocab",
+        "in": "x_tok_ind",
+        "out": "x_spec_tokens"
+      },
+      {
+        "in": "x_spec_tokens",
+        "out": "x_emb",
+        "id": "my_embedder",
+        "name": "glove",
+        "pad_zero": false,
+        "load_path": "embeddings/glove.6B.100d.txt"
+      },
+      {
+        "in": "y",
+        "out": "y_prep",
+        "ref": "my_preprocessor"
+      },
+      {
+        "in": "y_prep",
+        "out": "y_tok",
+        "ref": "my_tokenizer"
+      },
+      {
+        "in": "y_tok",
+        "id": "y_tokens_vocab",
+        "name": "simple_vocab",
+        "pad_with_zeros": false,
+        "special_tokens": [
+          "<UNK>",
+          "<SOS>",
+          "<EOS>"
+        ],
+        "fit_on": [
+          "y_tok"
+        ],
+        "level": "token",
+        "save_path": "seq2seq/rus-eng/y_tokens.dict",
+        "load_path": "seq2seq/rus-eng/y_tokens.dict",
+        "min_freq": 2,
+        "out": "y_tok_ind"
+      },
+      {
+        "ref": "y_tokens_vocab",
+        "in": "y_tok_ind",
+        "out": "y_spec_tokens"
+      },
+      {
+        "id": "dec_embedder",
+        "name": "fasttext",
+        "load_path": "embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
+        "dim": 300
+      },
+      {
+        "in": "x_emb",
+        "in_y": "y_tok_ind",
+        "out": "y_tok_ind_pred",
+        "main": true,
+        "name": "keras_seq2seq_model",
+        "save_path": "seq2seq/rus-eng/lstm_lstm_model_v0",
+        "load_path": "seq2seq/rus-eng/lstm_lstm_model_v0",
+        "encoder_embedding_size": "#my_embedder.dim",
+        "decoder_embedding_size": "#dec_embedder.dim",
+        "source_vocab_size": "#x_tokens_vocab.__len__()",
+        "target_vocab_size": "#y_tokens_vocab.__len__()",
+        "target_start_of_sequence_index": "#y_tokens_vocab.__getitem__('<SOS>')",
+        "target_end_of_sequence_index": "#y_tokens_vocab.__getitem__('<EOS>')",
+        "source_max_length": 10,
+        "target_max_length": 10,
+        "decoder_embedder": "#dec_embedder",
+        "decoder_vocab": "#y_tokens_vocab",
+        "optimizer": "RMSprop",
+        "lear_rate": 0.0001,
+        "lear_rate_decay": 0.1,
+        "loss": "categorical_crossentropy",
+        "hidden_size": 256,
+        "model_name": "lstm_lstm_model"
+      },
+      {
+        "ref": "y_tokens_vocab",
+        "in": "y_tok_ind_pred",
+        "out": "y_spec_tokens"
+      },
+      {
+        "ref": "my_tokenizer",
+        "in": "y_spec_tokens",
+        "out": "y_text"
+      }
+    ],
+    "out": "y_text"
+  },
+  "train": {
+    "epochs": 10,
+    "batch_size": 64,
+    "metrics": [
+      "bleu",
+      "per_token_accuracy"
+    ],
+    "validation_patience": 5,
+    "val_every_n_epochs": 1,
+    "log_every_n_epochs": 1,
+    "show_examples": true,
+    "validate_best": true,
+    "test_best": false
+  },
+  "metadata": {
+    "requirements": [
+      "../dp_requirements/tf.txt",
+      "../dp_requirements/fasttext.txt"
+    ],
+    "download": [
+      "http://files.deeppavlov.ai/datasets/rus-eng.tar.gz",
+      {
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/embeddings/wiki.en.bin",
+        "subdir": "embeddings"
+      }
+    ]
+  }
+}
