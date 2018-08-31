@@ -202,10 +202,10 @@ class KerasClassificationModel(KerasModel):
 
         Args:
             args: tuple of list of tokenized text samples, lists with additional inputs, \
-            list of label
+            list of labels (optionally)
 
         Returns:
-            metrics values on the given batch, if labels are given
+            metrics values on the given batch, if list of labels is given
             predictions, otherwise
         """
         K.set_session(self.sess)
@@ -247,8 +247,8 @@ class KerasClassificationModel(KerasModel):
         Infer on the given data
 
         Args:
-            data: list of tokenized text samples
-            *args: additional arguments
+            args: tuple of list of tokenized text samples, lists with additional inputs, \
+            list of labels (optionally)
 
         Returns:
             for each sentence:
