@@ -53,18 +53,8 @@
         "dim": 100
       },
       {
-        "in": "x_tok",
-        "out": "x_mean_emb",
-        "id": "my_mean_embedder",
-        "name": "fasttext",
-        "mean": true,
-        "save_path": "embeddings/dstc2_fastText_model.bin",
-        "load_path": "embeddings/dstc2_fastText_model.bin",
-        "dim": 100
-      },
-      {
         "in": [
-          "x_emb", "x_mean_emb"
+          "x_emb"
         ],
         "in_y": [
           "y"
@@ -75,8 +65,8 @@
         ],
         "main": true,
         "name": "keras_classification_model",
-        "save_path": "classifiers/intents_snips_v6",
-        "load_path": "classifiers/intents_snips_v6",
+        "save_path": "classifiers/intents_snips_v4",
+        "load_path": "classifiers/intents_snips_v4",
         "embedding_size": "#my_embedder.dim",
         "classes": "#classes_vocab.keys()",
         "kernel_sizes_cnn": [
@@ -95,8 +85,7 @@
         "coef_reg_den": 1e-4,
         "dropout_rate": 0.5,
         "dense_size": 100,
-        "model_name": "cnn_with_add_inputs_model",
-        "additional_feature_sizes": 100
+        "model_name": "cnn_model"
       }
     ],
     "out": [
@@ -115,7 +104,7 @@
     "validation_patience": 5,
     "val_every_n_epochs": 5,
     "log_every_n_epochs": 5,
-    "show_examples": true,
+    "show_examples": false,
     "validate_best": true,
     "test_best": false
   },
