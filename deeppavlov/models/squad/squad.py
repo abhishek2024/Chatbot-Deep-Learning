@@ -71,7 +71,10 @@ class SquadModel(TFModel):
         self.legacy = self.opt.get('legacy', True)  # support old checkpoints
         self.multihop_cell_size = self.opt.get('multihop_cell_size', 128)
         self.num_encoder_layers = self.opt.get('num_encoder_layers', 3)
+        self.num_match_layers = self.opt.get('num_match_layers', 1)
         self.use_focal_loss = self.opt.get('use_focal_loss', False)
+        self.share_layers = self.opt.get('share_layers', False)
+        self.concat_bigru_outputs = self.opt.get('concat_bigru_outputs', True)
 
         assert self.number_of_hops > 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
 
@@ -239,6 +242,7 @@ class SquadModel(TFModel):
                     )
 
             if self.use_elmo:
+                # TODO: also add elmo after encoding layer
                 import tensorflow_hub as tfhub
                 elmo = tfhub.Module("https://tfhub.dev/google/elmo/2", trainable=True)
                 c_elmo = elmo(
@@ -262,9 +266,9 @@ class SquadModel(TFModel):
         with tf.variable_scope("encoding"):
             rnn = self.GRU(num_layers=self.num_encoder_layers, num_units=self.hidden_size, batch_size=bs,
                            input_size=c_emb.get_shape().as_list()[-1],
-                           keep_prob=self.keep_prob_ph)
-            c = rnn(c_emb, seq_len=self.c_len)
-            q = rnn(q_emb, seq_len=self.q_len)
+                           keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
+            c = rnn(c_emb, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
+            q = rnn(q_emb, seq_len=self.q_len, concat_layers=self.concat_bigru_outputs)
 
         with tf.variable_scope("attention"):
             qc_att = dot_attention(c, q, mask=self.q_mask, att_size=self.attention_hidden_size,
@@ -272,18 +276,20 @@ class SquadModel(TFModel):
                                    use_transpose_att=self.use_transpose_att)
 
             if self.use_birnn_after_qc_att:
-                rnn = self.GRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
-                               input_size=qc_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
-                qc_att = rnn(qc_att, seq_len=self.c_len)
+                rnn = self.GRU(num_layers=self.num_match_layers, num_units=self.hidden_size, batch_size=bs,
+                               input_size=qc_att.get_shape().as_list()[-1],
+                               keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
+                qc_att = rnn(qc_att, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
 
         if self.predict_ans:
             with tf.variable_scope("match"):
                 self_att = dot_attention(qc_att, qc_att, mask=self.c_mask, att_size=self.attention_hidden_size,
                                          keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
                                          drop_diag=self.drop_diag_self_att, use_transpose_att=False)
-                rnn = self.GRU(num_layers=1, num_units=self.hidden_size, batch_size=bs,
-                               input_size=self_att.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
-                match = rnn(self_att, seq_len=self.c_len)
+                rnn = self.GRU(num_layers=self.num_match_layers, num_units=self.hidden_size, batch_size=bs,
+                               input_size=self_att.get_shape().as_list()[-1],
+                               keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
+                match = rnn(self_att, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
 
             with tf.variable_scope("pointer"):
                 init = simple_attention(q, self.attention_hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph)
@@ -378,27 +384,23 @@ class SquadModel(TFModel):
                 yt_prob = tf.reduce_sum(predict_probas * self.y_ohe, axis=-1)
                 # focal loss
                 if self.use_focal_loss:
+                    # check bug?
                     scorer_loss = tf.pow(1 - yt_prob, self.focal_loss_exp) * \
                         tf.nn.softmax_cross_entropy_with_logits(logits=layer_2_logits, labels=self.y_ohe)
                 else:
                     scorer_loss = tf.nn.softmax_cross_entropy_with_logits(logits=layer_2_logits, labels=self.y_ohe)
 
-                no_ans_rate = 1 - tf.cast(bs, tf.float32) / (tf.reduce_sum(tf.cast(self.y, tf.float32)) + eps)
-                # TODO: check loss computation!
                 if self.predict_ans and not self.noans_token:
                     # skip examples without answer when calculate squad_loss
-                    # normalize to number of examples with answer?
-                    squad_loss = squad_loss * tf.expand_dims(tf.expand_dims(tf.cast(self.y, tf.float32), axis=-1), axis=-1)
-                    squad_loss = squad_loss / (1 - no_ans_rate)
+                    squad_loss = tf.boolean_mask(squad_loss, self.y)
 
             if self.predict_ans and self.scorer:
-                self.loss = self.squad_loss_weight * squad_loss + (1 - self.squad_loss_weight) * scorer_loss
+                self.loss = self.squad_loss_weight * tf.reduce_mean(squad_loss) \
+                            + (1 - self.squad_loss_weight) * tf.reduce_mean(scorer_loss)
             elif self.scorer:
-                self.loss = scorer_loss
+                self.loss = tf.reduce_mean(scorer_loss)
             else:
-                self.loss = squad_loss
-
-            self.loss = tf.reduce_mean(self.loss)
+                self.loss = tf.reduce_mean(squad_loss)
 
         if self.weight_decay < 1.0:
             self.var_ema = tf.train.ExponentialMovingAverage(self.weight_decay)
@@ -448,10 +450,16 @@ class SquadModel(TFModel):
             self.global_step = tf.get_variable('global_step', shape=[], dtype=tf.int32,
                                                initializer=tf.constant_initializer(0), trainable=False)
             self.opt = tf.train.AdadeltaOptimizer(learning_rate=self.lr_ph, epsilon=1e-6)
+
+            if self.predict_ans and self.scorer:
+                # TODO: check if it moved from contrib
+                self.opt = tf.contrib.opt.MultitaskOptimizerWrapper(self.opt)
+
             grads = self.opt.compute_gradients(self.loss)
             gradients, variables = zip(*grads)
 
-            capped_grads, _ = tf.clip_by_global_norm(gradients, self.grad_clip)
+            capped_grads = [tf.clip_by_norm(g, self.grad_clip) for g in gradients]
+
             self.train_op = self.opt.apply_gradients(zip(capped_grads, variables), global_step=self.global_step)
 
     def _build_feed_dict(self, c_tokens, c_chars, q_tokens, q_chars,
