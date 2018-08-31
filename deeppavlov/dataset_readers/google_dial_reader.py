@@ -142,9 +142,10 @@ class GoogleDialogsDatasetReader(DatasetReader):
         new_acts = {}
         for a in acts:
             slot = a['type'].lower()
-            if ('slot' in a) and (a['slot'] not in new_acts.get(slot, [])):
-                new_acts[slot] = new_acts.get(slot, []) + [a['slot']]
-            else:
+            if 'slot' in a:
+                if a['slot'] not in new_acts.get(slot, []):
+                    new_acts[slot] = new_acts.get(slot, []) + [a['slot']]
+            elif slot not in new_acts:
                 new_acts[slot] = new_acts.get(slot, [])
         return [{'act': a, 'slots': v} for a, v in new_acts.items()]
 

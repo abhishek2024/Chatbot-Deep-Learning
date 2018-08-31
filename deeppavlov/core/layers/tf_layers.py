@@ -189,7 +189,7 @@ def stacked_bi_rnn(units: tf.Tensor,
                    seq_lengths=None,
                    use_peepholes=False,
                    name='RNN_layer'):
-    """ Stackted recurrent neural networks GRU or LSTM
+    """ Stacked recurrent neural networks GRU or LSTM
 
         Args:
             units: a tensorflow tensor with dimensionality [None, n_tokens, n_features]
