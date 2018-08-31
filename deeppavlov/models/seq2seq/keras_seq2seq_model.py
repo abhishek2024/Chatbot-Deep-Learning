@@ -126,11 +126,12 @@ class KerasSeq2SeqModel(KerasModel):
         if reinit_lr_with_final_lr:
             lear_rate = self.opt.get("final_lear_rate", lear_rate)
 
-        self.model = self.compile(self.model, optimizer=optimizer, loss=loss,
+        self.model = self.compile(self.model, optimizer_name=optimizer, loss_name=loss,
                                   lear_rate=lear_rate, lear_rate_decay=lear_rate_decay)
-        self.encoder_model = self.compile(self.encoder_model, optimizer=optimizer, loss=loss,
+        
+        self.encoder_model = self.compile(self.encoder_model, optimizer_name=optimizer, loss_name=loss,
                                           lear_rate=lear_rate, lear_rate_decay=lear_rate_decay)
-        self.decoder_model = self.compile(self.decoder_model, optimizer=optimizer, loss=loss,
+        self.decoder_model = self.compile(self.decoder_model, optimizer_name=optimizer, loss_name=loss,
                                           lear_rate=lear_rate, lear_rate_decay=lear_rate_decay)
 
         self._change_not_fixed_params(hidden_size=hidden_size,
@@ -359,7 +360,7 @@ class KerasSeq2SeqModel(KerasModel):
             self._decoder_emb_inp,
             initial_state=[self._decoder_input_state_0, self._decoder_input_state_1])
 
-        decoder_dense = Dense(self.opt["tgt_vocab_size"], name="dense_lstm")  # (batch_size, text_size, tgt_vocab_size)
+        decoder_dense = Dense(self.opt["tgt_vocab_size"], name="dense_lstm", activation="softmax")  # (batch_size, text_size, tgt_vocab_size)
         self._train_decoder_outputs = decoder_dense(_train_decoder_outputs)
         self._infer_decoder_outputs = decoder_dense(_infer_decoder_outputs)
 
