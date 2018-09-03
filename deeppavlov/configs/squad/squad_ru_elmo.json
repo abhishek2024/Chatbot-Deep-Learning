@@ -16,7 +16,7 @@
       {
         "name": "squad_preprocessor",
         "id": "squad_prepr",
-        "context_limit": 400,
+        "context_limit": 450,
         "question_limit": 50,
         "char_limit": 16,
         "in": ["context_raw", "question_raw"],
@@ -41,7 +41,7 @@
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.char_limit",
-        "fit_on": ["context_tokens", "question_tokens"],
+        "fit_lol": ["context_tokens", "question_tokens"],
         "in": ["context_tokens", "question_tokens"],
         "out": ["context_tokens_idxs", "question_tokens_idxs"]
       },
@@ -56,7 +56,7 @@
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.char_limit",
-        "fit_on": ["context_chars", "question_chars"],
+        "fit_lol": ["context_chars", "question_chars"],
         "in": ["context_chars", "question_chars"],
         "out": ["context_chars_idxs", "question_chars_idxs"]
       },
