@@ -76,6 +76,7 @@ class SquadModel(TFModel):
         self.share_layers = self.opt.get('share_layers', False)
         self.concat_bigru_outputs = self.opt.get('concat_bigru_outputs', True)
         self.shared_loss = self.opt.get('shared_loss', False)
+        self.elmo_link = self.opt.get('elmo_link', 'https://tfhub.dev/google/elmo/2')
 
         assert self.number_of_hops > 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
 
@@ -245,7 +246,7 @@ class SquadModel(TFModel):
             if self.use_elmo:
                 # TODO: also add elmo after encoding layer
                 import tensorflow_hub as tfhub
-                elmo = tfhub.Module("https://tfhub.dev/google/elmo/2", trainable=True)
+                elmo = tfhub.Module(self.elmo_link, trainable=True)
                 c_elmo = elmo(
                     inputs={
                         "tokens": self.c_str,
