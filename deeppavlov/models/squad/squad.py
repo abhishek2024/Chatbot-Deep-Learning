@@ -383,7 +383,7 @@ class SquadModel(TFModel):
                 yt_prob = tf.reduce_sum(predict_probas * self.y_ohe, axis=-1)
 
             if self.scorer and self.predict_ans and self.shared_loss:
-                # TODO: prepare predictions for answer positions, answer probs and no_ans scores (logits)
+                # TODO: change source of zs
                 logits = tf.reshape(tf.expand_dims(logits1, 1) + tf.expand_dims(logits2, 2), (bs, -1))
                 zs = scorer_logits[:, 1]
                 all_logits = tf.concat([tf.expand_dims(zs, axis=-1), logits], axis=-1)
@@ -393,12 +393,17 @@ class SquadModel(TFModel):
                                               tf.expand_dims(tf.cast(self.y1, tf.bool), 2)), (bs, -1)), tf.float32)
                 # self.y 1 if answer is present, 0 otherwise
                 all_labels = tf.concat([tf.expand_dims(1-tf.cast(self.y, tf.float32), axis=-1), labels], axis=-1)
-                # TODO: define
-                self.yp1 = None
-                self.yp2 = None
-                self.yp_prob = None  # prob shared with noans
-                self.yp_logits = None
-                self.yp = None  # prob noans (its better to return logit here, to make noans score comparable)
+                all_sum = tf.reduce_logsumexp(all_logits, axis=-1)
+
+                outer_logits = tf.exp(tf.expand_dims(logits1, axis=2) + tf.expand_dims(logits2, axis=1))
+                outer_logits = tf.matrix_band_part(outer_logits, 0, tf.cast(tf.minimum(15, self.c_maxlen), tf.int64))
+                self.yp1 = tf.argmax(tf.reduce_max(outer_logits, axis=2), axis=1)
+                self.yp2 = tf.argmax(tf.reduce_max(outer_logits, axis=1), axis=1)
+                self.yp_logits = tf.reduce_max(tf.reduce_max(outer_logits, axis=2), axis=1)
+                self.yp_prob = self.yp_logits / tf.exp(all_sum)
+
+                # if zs large - no ans, if zs small answer exist
+                self.yp = -zs  # prob noans (its better to return logit here, to make noans score comparable)
 
             # loss part
             if self.predict_ans and not self.shared_loss:
@@ -424,7 +429,6 @@ class SquadModel(TFModel):
                     squad_loss = tf.boolean_mask(squad_loss, self.y)
 
             if self.predict_ans and self.scorer and self.shared_loss:
-                all_sum = tf.reduce_logsumexp(all_logits, axis=-1)
                 correct_sum = tf.reduce_logsumexp(softmax_mask(all_logits, all_labels), axis=-1)
                 shared_loss = -(correct_sum - all_sum)
 
