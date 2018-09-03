@@ -22,7 +22,7 @@ import numpy as np
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
 from deeppavlov.models.squad.utils import dot_attention, simple_attention, PtrNet, attention, mult_attention
-from deeppavlov.models.squad.utils import CudnnGRU, CudnnCompatibleGRU, CudnnGRULegacy
+from deeppavlov.models.squad.utils import CudnnGRU, CudnnCompatibleGRU, CudnnGRULegacy, softmax_mask
 from deeppavlov.core.common.check_gpu import GPU_AVAILABLE
 from deeppavlov.core.layers.tf_layers import cudnn_bi_gru, variational_dropout
 from deeppavlov.core.common.log import get_logger
@@ -75,6 +75,7 @@ class SquadModel(TFModel):
         self.use_focal_loss = self.opt.get('use_focal_loss', False)
         self.share_layers = self.opt.get('share_layers', False)
         self.concat_bigru_outputs = self.opt.get('concat_bigru_outputs', True)
+        self.shared_loss = self.opt.get('shared_loss', False)
 
         assert self.number_of_hops > 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
 
@@ -339,7 +340,7 @@ class SquadModel(TFModel):
                                              axis=1)
 
         with tf.variable_scope("predict"):
-            if self.predict_ans:
+            if self.predict_ans and not self.shared_loss:
                 outer_logits = tf.exp(tf.expand_dims(logits1, axis=2) + tf.expand_dims(logits2, axis=1))
                 outer = tf.matmul(tf.expand_dims(tf.nn.softmax(logits1), axis=2),
                                   tf.expand_dims(tf.nn.softmax(logits2), axis=1))
@@ -350,9 +351,6 @@ class SquadModel(TFModel):
                 self.yp_logits = tf.reduce_max(tf.reduce_max(outer_logits, axis=2), axis=1)
                 if self.noans_token:
                     self.yp_score = 1 - tf.nn.softmax(logits1)[:,0] * tf.nn.softmax(logits2)[:,0]
-                loss_p1 = tf.nn.softmax_cross_entropy_with_logits(logits=logits1, labels=self.y1)
-                loss_p2 = tf.nn.softmax_cross_entropy_with_logits(logits=logits2, labels=self.y2)
-                squad_loss = loss_p1 + loss_p2
 
             if self.scorer:
                 q_att = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph,
@@ -374,34 +372,73 @@ class SquadModel(TFModel):
                                                     kernel_initializer=tf.contrib.layers.xavier_initializer(),
                                                     name='noans_dense_1'),
                                     keep_prob=self.keep_prob_ph)
-                layer_2_logits = tf.layers.dense(layer_1_logits,
+                scorer_logits = tf.layers.dense(layer_1_logits,
                                                  activation=tf.nn.relu,
                                                  units=2,
                                                  name='noans_dense_2')
                 self.y_ohe = tf.one_hot(self.y, depth=2)
-                predict_probas = tf.nn.softmax(layer_2_logits)
+                predict_probas = tf.nn.softmax(scorer_logits)
                 self.yp = predict_probas[:,1]
                 yt_prob = tf.reduce_sum(predict_probas * self.y_ohe, axis=-1)
-                # focal loss
+
+            if self.scorer and self.predict_ans and self.shared_loss:
+                # TODO: prepare predictions for answer positions, answer probs and no_ans scores (logits)
+                logits = tf.reshape(tf.expand_dims(logits1, 1) + tf.expand_dims(logits2, 2), (bs, -1))
+                zs = scorer_logits[:, 1]
+                all_logits = tf.concat([tf.expand_dims(zs, axis=-1), logits], axis=-1)
+
+                labels = tf.cast(
+                    tf.reshape(tf.logical_and(tf.expand_dims(tf.cast(self.y1, tf.bool), 1),
+                                              tf.expand_dims(tf.cast(self.y1, tf.bool), 2)), (bs, -1)), tf.float32)
+                # self.y 1 if answer is present, 0 otherwise
+                all_labels = tf.concat([tf.expand_dims(1-tf.cast(self.y, tf.float32), axis=-1), labels], axis=-1)
+                # TODO: define
+                self.yp1 = None
+                self.yp2 = None
+                self.yp_prob = None  # prob shared with noans
+                self.yp_logits = None
+                self.yp = None  # prob noans (its better to return logit here, to make noans score comparable)
+
+            # loss part
+            if self.predict_ans and not self.shared_loss:
+                # SQuAD loss
+                loss_p1 = tf.nn.softmax_cross_entropy_with_logits(logits=logits1, labels=self.y1)
+                loss_p2 = tf.nn.softmax_cross_entropy_with_logits(logits=logits2, labels=self.y2)
+                squad_loss = loss_p1 + loss_p2
+
+            if self.scorer and not self.shared_loss:
+                # scorer loss
+                """
                 if self.use_focal_loss:
+                    # focal loss
                     # check bug?
                     scorer_loss = tf.pow(1 - yt_prob, self.focal_loss_exp) * \
-                        tf.nn.softmax_cross_entropy_with_logits(logits=layer_2_logits, labels=self.y_ohe)
+                                  tf.nn.softmax_cross_entropy_with_logits(logits=scorer_logits, labels=self.y_ohe)
                 else:
-                    scorer_loss = tf.nn.softmax_cross_entropy_with_logits(logits=layer_2_logits, labels=self.y_ohe)
+                """
+                scorer_loss = tf.nn.softmax_cross_entropy_with_logits(logits=scorer_logits, labels=self.y_ohe)
 
                 if self.predict_ans and not self.noans_token:
                     # skip examples without answer when calculate squad_loss
                     squad_loss = tf.boolean_mask(squad_loss, self.y)
 
-            if self.predict_ans and self.scorer:
+            if self.predict_ans and self.scorer and self.shared_loss:
+                all_sum = tf.reduce_logsumexp(all_logits, axis=-1)
+                correct_sum = tf.reduce_logsumexp(softmax_mask(all_logits, all_labels), axis=-1)
+                shared_loss = -(correct_sum - all_sum)
+
+            if self.predict_ans and self.scorer and not self.shared_loss:
                 self.loss = self.squad_loss_weight * tf.reduce_mean(squad_loss) \
                             + (1 - self.squad_loss_weight) * tf.reduce_mean(scorer_loss)
+            elif self.predict_ans and self.scorer and self.shared_loss:
+                # TODO: use additional losses on qa task and noans task
+                self.loss = tf.reduce_mean(shared_loss)
             elif self.scorer:
                 self.loss = tf.reduce_mean(scorer_loss)
             else:
                 self.loss = tf.reduce_mean(squad_loss)
 
+        # TODO: remove or check
         if self.weight_decay < 1.0:
             self.var_ema = tf.train.ExponentialMovingAverage(self.weight_decay)
             ema_op = self.var_ema.apply(tf.trainable_variables())

@@ -83,7 +83,7 @@
         "drop_diag_self_att": false,
         "use_birnn_after_qc_att": true,
         "use_transpose_att": true,
-        "num_encoder_layers": 3,
+        "num_encoder_layers": 2,
         "num_match_layers": 1,
         "concat_bigru_outputs": false,
         "legacy": false,
