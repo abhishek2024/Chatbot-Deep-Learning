@@ -152,6 +152,7 @@ class SquadModel(TFModel):
         elif self.scorer:
             # we don't need to predict answer position
             self.y = self.y_ph
+            self.y_ohe = tf.one_hot(self.y, depth=2)
 
         if self.predict_ans:
             self.y1 = tf.one_hot(self.y1_ph, depth=self.context_limit)
@@ -353,7 +354,7 @@ class SquadModel(TFModel):
                 if self.noans_token:
                     self.yp_score = 1 - tf.nn.softmax(logits1)[:,0] * tf.nn.softmax(logits2)[:,0]
 
-            if self.scorer:
+            if self.scorer and not self.shared_loss:
                 q_att = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph,
                                          scope='q_att')
                 c_att = simple_attention(match, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph,
@@ -377,20 +378,44 @@ class SquadModel(TFModel):
                                                  activation=tf.nn.relu,
                                                  units=2,
                                                  name='noans_dense_2')
-                self.y_ohe = tf.one_hot(self.y, depth=2)
                 predict_probas = tf.nn.softmax(scorer_logits)
                 self.yp = predict_probas[:,1]
                 yt_prob = tf.reduce_sum(predict_probas * self.y_ohe, axis=-1)
 
+            if self.scorer and self.shared_loss:
+                start_att_weights = tf.expand_dims(tf.nn.softmax(logits1, axis=-1), axis=-1)
+                end_att_weights = tf.expand_dims(tf.nn.softmax(logits2, axis=-1), axis=-1)
+                start_att = tf.reduce_sum(start_att_weights * match, axis=1)
+                end_att = tf.reduce_sum(end_att_weights * match, axis=1)
+                c_att = simple_attention(match, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph,
+                                         scope='c_att')
+
+                dense_input = tf.concat([start_att, end_att, c_att], -1)
+                layer_1_logits = tf.nn.dropout(
+                    tf.layers.dense(dense_input,
+                                    units=self.hidden_size,
+                                    activation=tf.nn.relu,
+                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                    name='scorer_dense_1'),
+                    keep_prob=self.keep_prob_ph)
+
+                layer_2_logits = tf.nn.dropout(
+                    tf.layers.dense(layer_1_logits,
+                                    units=self.hidden_size // 2,
+                                    activation=tf.nn.relu,
+                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                    name='scorer_dense_2'),
+                    keep_prob=self.keep_prob_ph)
+
+                zs = tf.squeeze(tf.layers.dense(layer_2_logits, units=1, name='scorer_logits'), axis=-1)
+
             if self.scorer and self.predict_ans and self.shared_loss:
-                # TODO: change source of zs
                 logits = tf.reshape(tf.expand_dims(logits1, 1) + tf.expand_dims(logits2, 2), (bs, -1))
-                zs = scorer_logits[:, 1]
                 all_logits = tf.concat([tf.expand_dims(zs, axis=-1), logits], axis=-1)
 
                 labels = tf.cast(
                     tf.reshape(tf.logical_and(tf.expand_dims(tf.cast(self.y1, tf.bool), 1),
-                                              tf.expand_dims(tf.cast(self.y1, tf.bool), 2)), (bs, -1)), tf.float32)
+                                              tf.expand_dims(tf.cast(self.y2, tf.bool), 2)), (bs, -1)), tf.float32)
                 # self.y 1 if answer is present, 0 otherwise
                 all_labels = tf.concat([tf.expand_dims(1-tf.cast(self.y, tf.float32), axis=-1), labels], axis=-1)
                 all_sum = tf.reduce_logsumexp(all_logits, axis=-1)
@@ -403,7 +428,7 @@ class SquadModel(TFModel):
                 self.yp_prob = self.yp_logits / tf.exp(all_sum)
 
                 # if zs large - no ans, if zs small answer exist
-                self.yp = -zs  # prob noans (its better to return logit here, to make noans score comparable)
+                self.yp = -tf.exp(zs)  # prob noans (its better to return logit here, to make noans score comparable)
 
             # loss part
             if self.predict_ans and not self.shared_loss:
