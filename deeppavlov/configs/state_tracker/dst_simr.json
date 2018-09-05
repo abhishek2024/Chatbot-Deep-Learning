@@ -7,13 +7,13 @@
     "name": "dialog_state_iterator"
   },
   "chainer": {
-    "in": ["utter", "u_slots", "s_slots", "prev_state", "slots_bio"],
+    "in": ["u_utter", "u_slots", "u_slots_bio", "s_tokens", "s_slots", "s_slots_bio", "prev_state"],
     "in_y": ["state"],
     "out": ["slot_candidates"],
     "pipe": [
       {
         "name": "lazy_tokenizer",
-        "in": ["utter"],
+        "in": ["u_utter"],
         "out": ["u_tokens"]
       },
       {
@@ -27,17 +27,22 @@
         "id": "word_vocab",
         "save_path": "dst/word.dict",
         "load_path": "dst/word.dict",
-        "fit_on": ["u_tokens"],
+        "fit_on": ["u_tokens", "s_tokens"],
         "special_tokens": ["<unk>"],
         "in": ["u_tokens"],
         "out": ["u_tok_idx"]
       },
       {
+        "ref": "word_vocab",
+        "in": ["s_tokens"],
+        "out": ["s_tok_idx"]
+      },
+      {
         "name": "emb_mat_assembler",
         "id": "embeddings",
         "embedder": {
-           "name": "glove",
-           "load_path": "embeddings/glove.6B.100d.txt"
+          "name": "glove",
+          "load_path": "embeddings/glove.6B.100d.txt"
         },
         "vocab": "#word_vocab" 
       },
@@ -50,14 +55,20 @@
       {
         "class": "deeppavlov.models.state_tracker.preprocessors:BioMarkupToMatrix",
         "slot_vocab": "#slot_vocab",
-        "in": ["slots_bio"],
-        "out": ["utt_tok_slot_idx_matr"]
+        "in": ["u_slots_bio"],
+        "out": ["u_tok_slot_idx_matr"]
+      },
+      {
+        "class": "deeppavlov.models.state_tracker.preprocessors:BioMarkupToMatrix",
+        "slot_vocab": "#slot_vocab",
+        "in": ["s_slots_bio"],
+        "out": ["s_tok_slot_idx_matr"]
       },
       {
         "name": "dst_network",
         "load_path": "dst/model",
         "save_path": "dst/model",
-        "in": ["u_tok_idx", "utt_tok_slot_idx_matr"],
+        "in": ["u_tok_idx", "u_tok_slot_idx_matr", "s_tok_idx", "s_tok_slot_idx_matr"],
         "in_y": ["state"],
         "out": ["state_pred"],
         "hidden_size": 128,

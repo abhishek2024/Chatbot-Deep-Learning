@@ -120,14 +120,18 @@ class StateTrackerNetwork(TFModel):
         #self._loss = tf.reduce_sum(_loss_tensor) / tf.cast(self._batch_size, tf.float32)
         #self._train_op = \
         #    self.get_train_op(self._loss, self.learning_rate, clip_norm=10.)
-        self._loss, self._train_op = _logits, self._predictions
+        self._train_op, self._loss = _logits, self._predictions
 
     def _add_placeholders(self):
-        # _utt_token_idx: [1, num_tokens]
+        # _utt_token_idx: [2, num_tokens]
         self._utt_token_idx = tf.placeholder(tf.int32,
-                                             [1, None],
+                                             [2, None],
                                              name='utterance_token_indeces')
-        # _utt_slot_idx: [num_slots, num_tokens]
+        # _utt_seq_length: [2]
+        self._utt_seq_length = tf.placeholder(tf.int32,
+                                              [2],
+                                              name='utterance_lengths')
+        # _utt_slot_idx: [num_slots, 2 * num_tokens]
         self._utt_slot_idx = tf.placeholder(tf.int32,
                                             [None, None],
                                             name='utterance_slot_token_indeces')
@@ -159,7 +163,7 @@ class StateTrackerNetwork(TFModel):
                                           trainable=False)
 
     @staticmethod
-    def _stacked_bi_gru(units, n_hidden_list, name='rnn_layer'):
+    def _stacked_bi_gru(units, n_hidden_list, seq_length=None, name='rnn_layer'):
         outputs = []
         for n, n_hidden in enumerate(n_hidden_list):
             with tf.variable_scope(name + '_' + str(n)):
@@ -170,7 +174,8 @@ class StateTrackerNetwork(TFModel):
                     tf.nn.bidirectional_dynamic_rnn(forward_cell,
                                                     backward_cell,
                                                     units,
-                                                    dtype=tf.float32)
+                                                    dtype=tf.float32,
+                                                    sequence_length=seq_length)
                 units = tf.concat([rnn_output_fw, rnn_output_bw], axis=-1)
                 outputs.append(units)
                 last_units = tf.concat([fw, bw], axis=-1)
@@ -182,29 +187,75 @@ class StateTrackerNetwork(TFModel):
                                                 self._utt_token_idx)
 
         with tf.variable_scope("stacked_biGRU"):
-            # _units1, _units2: [1, num_tokens, 2 * hidden_size]
-            # _last_units: [1, 2 * hidden_size]
+            # _units1, _units2: [2, num_tokens, 2 * hidden_size]
+            # _last_units: [2, 2 * hidden_size]
             (_units1, _units2), _last_units = \
                 self._stacked_bi_gru(_utt_token_emb,
-                                     [self.hidden_size, self.hidden_size])
-            # _utt_repr_tiled: [num_slots, 1, 2 * hidden_size]
-            _utt_repr_tiled = tf.tile(tf.expand_dims(_last_units, 0),
-                                      (self._num_slots, 1, 1))
-            # _token_repr: [num_tokens, 4 * hidden_size]
-            _token_repr = tf.squeeze(tf.concat([_units1, _units2], axis=-1))
+                                     [self.hidden_size, self.hidden_size],
+                                     seq_length=self._utt_seq_length)
+            # _utt_repr_tiled: [num_slots, 2 * 2 * hidden_size]
+            _utt_repr_tiled = tf.tile(tf.reshape(_last_units, shape=(1, -1)),
+                                      (self._num_slots, 1))
+            # _token_repr: [2 * num_tokens, 4 * hidden_size]
+            _token_repr = tf.reshape(tf.concat([_units1, _units2], axis=-1),
+                                     shape=(-1, 4 * self.hidden_size))
             # _slot_repr: [num_slots, 4 * hidden_size]
             _slot_repr = tf.nn.embedding_lookup(_token_repr,
                                                 self._utt_slot_idx)
         return _utt_repr_tiled, _slot_repr
 
-    def __call__(self, utt_token_idx, utt_slot_idx_mat, prob=False, *args, **kwargs):
-        # print(f"utt_token_idx: {utt_token_idx}")
-        # print(f"utt_slot_idx_mat: {utt_slot_idx_mat}")
+    @staticmethod
+    def _concat_and_pad(arrays, axis, pad_axis, pad_value=0, pad_length=None):
+        """Concatenate arrays along `axis`, reshape and padd along `pad_axis`."""
+        # ensure that arrays are np.array objects
+        if not isinstance(arrays[0], np.ndarray):
+            arrays = [np.array(arr) for arr in arrays]
+        # calculate sequence length along padding axis-of-interest
+        seq_length = [arr.shape[pad_axis] for arr in arrays]
+        # calculate maximum of sequence lengths and check pad_length
+        max_seq_length = max(seq_length)
+        if (pad_length is not None) and (max_seq_length > pad_length):
+            raise RuntimeError(f"padding length {pad_length} is too small.")
+        if pad_length is None:
+            pad_length = max_seq_length
+        # take memory for concatenation result
+        result_shape = list(arrays[0].shape)
+        result_shape[pad_axis] = pad_length
+        result_shape[axis] *= len(arrays)
+        result_dtype = max(arr.dtype for arr in arrays)
+        result = np.ones(result_shape, dtype=result_dtype) * pad_value
+        # put arrays into result using advanced slicing indeces
+        slicing = [slice(None)] * len(result_shape)
+        for i, (arr, arr_len) in enumerate(zip(arrays, seq_length)):
+            if axis != pad_axis:
+                slicing[axis] = i
+                slicing[pad_axis] = slice(arr_len)
+            else:
+                slicing[axis] = slice(i * pad_length, i * pad_length + arr_len)
+            result[slicing] = arr
+        return result, seq_length
+
+    def __call__(self, u_utt_token_idx, u_utt_slot_idx_mat,
+                 s_utt_token_idx, s_utt_slot_idx_mat, prob=False, *args, **kwargs):
+        print(f"u_utt_token_idx: {u_utt_token_idx}")
+        print(f"u_utt_slot_idx_mat: {u_utt_slot_idx_mat[0]}")
+        print(f"s_utt_token_idx: {s_utt_token_idx}")
+        print(f"s_utt_slot_idx_mat: {s_utt_slot_idx_mat[0]}")
+        utt_token_idx, utt_seq_length = self._concat_and_pad([u_utt_token_idx,
+                                                              s_utt_token_idx],
+                                                             axis=0, pad_axis=1)
+        utt_slot_idx, _ = self._concat_and_pad([u_utt_slot_idx_mat[0],
+                                                s_utt_slot_idx_mat[0]],
+                                               pad_length=max(utt_seq_length),
+                                               axis=1, pad_axis=1)
+        print(f"utt_token_idx: {utt_token_idx}")
+        print(f"utt_slot_idx_mat: {utt_slot_idx}")
         predictions = self.sess.run(
             self._predictions,
             feed_dict={
                 self._utt_token_idx: utt_token_idx,
-                self._utt_slot_idx: utt_slot_idx_mat[0]
+                self._utt_seq_length: utt_seq_length,
+                self._utt_slot_idx: utt_slot_idx
             }
         )
 # TODO: implement infer probabilities
@@ -212,14 +263,21 @@ class StateTrackerNetwork(TFModel):
             raise NotImplementedError("Probs not available for now.")
         return predictions
 
-    def train_on_batch(self, utt_token_idx, utt_slot_idx_mat, *args, **kwargs):
-        print(f"utt_token_idx: {utt_token_idx}")
-        print(f"utt_slot_idx_mat: {utt_slot_idx_mat}")
+    def train_on_batch(self, u_utt_token_idx, u_utt_slot_idx_mat,
+                       s_utt_token_idx, s_utt_slot_idx_mat, *args, **kwargs):
+        utt_token_idx, utt_seq_length = self._concat_and_pad([u_utt_token_idx,
+                                                              s_utt_token_idx],
+                                                             axis=0, pad_axis=1)
+        utt_slot_idx, _ = self._concat_and_pad([u_utt_slot_idx_mat[0],
+                                                s_utt_slot_idx_mat[0]],
+                                               pad_length=max(utt_seq_length),
+                                               axis=1, pad_axis=1)
         _tr, loss_value = self.sess.run(
             [self._train_op, self._loss],
             feed_dict={
                 self._utt_token_idx: utt_token_idx,
-                self._utt_slot_idx: utt_slot_idx_mat[0]
+                self._utt_seq_length: utt_seq_length,
+                self._utt_slot_idx: utt_slot_idx
             }
         )
         print(f"utt_repr.shape: {_tr.shape}")
