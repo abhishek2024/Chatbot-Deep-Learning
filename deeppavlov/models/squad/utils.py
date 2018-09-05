@@ -256,7 +256,7 @@ def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0,
         if use_gate:
             with tf.variable_scope("gate"):
                 dim = res.get_shape().as_list()[-1]
-                d_res = tf.nn.dropout(res, keep_prob=keep_prob, noise_shape=[BS, 1, IH + MH])
+                d_res = tf.nn.dropout(res, keep_prob=keep_prob, noise_shape=[BS, 1, dim])
                 gate = tf.layers.dense(d_res, dim, use_bias=False, activation=tf.nn.sigmoid)
                 return res * gate
 

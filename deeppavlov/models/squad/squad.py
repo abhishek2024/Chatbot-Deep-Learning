@@ -407,11 +407,11 @@ class SquadModel(TFModel):
                                     name='scorer_dense_2'),
                     keep_prob=self.keep_prob_ph)
 
-                zs = tf.squeeze(tf.layers.dense(layer_2_logits, units=1, name='scorer_logits'), axis=-1)
+                scorer_logits = tf.squeeze(tf.layers.dense(layer_2_logits, units=1, name='scorer_logits'), axis=-1)
 
             if self.scorer and self.predict_ans and self.shared_loss:
                 logits = tf.reshape(tf.expand_dims(logits1, 1) + tf.expand_dims(logits2, 2), (bs, -1))
-                all_logits = tf.concat([tf.expand_dims(zs, axis=-1), logits], axis=-1)
+                all_logits = tf.concat([tf.expand_dims(scorer_logits, axis=-1), logits], axis=-1)
 
                 labels = tf.cast(
                     tf.reshape(tf.logical_and(tf.expand_dims(tf.cast(self.y1, tf.bool), 1),
@@ -427,8 +427,8 @@ class SquadModel(TFModel):
                 self.yp_logits = tf.reduce_max(tf.reduce_max(outer_logits, axis=2), axis=1)
                 self.yp_prob = self.yp_logits / tf.exp(all_sum)
 
-                # if zs large - no ans, if zs small answer exist
-                self.yp = -tf.exp(zs)  # prob noans (its better to return logit here, to make noans score comparable)
+                # if scorer_logits large - no ans, if zs small answer exist
+                self.yp = -tf.exp(scorer_logits)  # prob noans (its better to return logit here, to make noans score comparable)
 
             # loss part
             if self.predict_ans and not self.shared_loss:
