@@ -27,7 +27,7 @@ class SlotValueFilter:
     keeping the order, and outputs top n candidates for each slot.
 
     Example:
-        >>> f = SlotValueFilter(max_num=2)
+        >>> f = SlotValueFilter(max_num_values=2)
 
         >>> f([('eyes', 'blue'), ('eyes', 'green'), ('eyes', 'red')])
         [('eyes', 'blue'), ('eyes', 'green')]
@@ -39,11 +39,11 @@ class SlotValueFilter:
         [('eyes', 'blue'), ('eyes', 'green'), ('hair', 'long')
 
     Parameters:
-        max_num: maximum number of values for each slot.
+        max_num_values: maximum number of values for each slot.
     """
 
-    def __init__(self, max_num: int = None, **kwargs):
-        self.max_num = max_num
+    def __init__(self, max_num_values: int = None, **kwargs):
+        self.max_num = max_num_values
 
     def __call__(self, *batch: List[Union[List[Tuple[str, Any]], Dict[str, Any]]])\
             -> List[Tuple[str, Any]]:
@@ -84,11 +84,11 @@ class SlotValueFilterComponent(Component):
          [('eyes', 'blue'), ('eyes', 'green'), ('hair', 'long')]]
 
     Parameters:
-        max_num: maximum number of values for each slot.
+        max_num_values: maximum number of values for each slot.
     """
 
-    def __init__(self, max_num: int = None, **kwargs) -> None:
-        self.filter = SlotValueFilter(max_num)
+    def __init__(self, max_num_values: int = None, **kwargs) -> None:
+        self.filter = SlotValueFilter(max_num_values)
 
     @overrides
     def __call__(self, *batch: List[List[Any]]) -> List[List[Any]]:

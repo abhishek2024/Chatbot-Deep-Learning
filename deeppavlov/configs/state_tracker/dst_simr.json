@@ -17,6 +17,16 @@
         "out": ["u_tokens"]
       },
       {
+        "name": "deeppavlov.models.state_tracker.preprocessors:Delexicalizator",
+        "in": ["u_tokens", "u_slots_bio"],
+        "out": ["u_norm_tokens"]
+      },
+      {
+        "name": "deeppavlov.models.state_tracker.preprocessors:Delexicalizator",
+        "in": ["s_tokens", "s_slots_bio"],
+        "out": ["s_norm_tokens"]
+      },
+      {
         "name": "slot_value_filter",
         "max_num": 7,
         "in": ["u_slots", "s_slots", "prev_state"],
@@ -27,14 +37,14 @@
         "id": "word_vocab",
         "save_path": "dst/word.dict",
         "load_path": "dst/word.dict",
-        "fit_on": ["u_tokens", "s_tokens"],
+        "fit_on": ["u_norm_tokens", "s_norm_tokens"],
         "special_tokens": ["<unk>"],
-        "in": ["u_tokens"],
+        "in": ["u_norm_tokens"],
         "out": ["u_tok_idx"]
       },
       {
         "ref": "word_vocab",
-        "in": ["s_tokens"],
+        "in": ["s_norm_tokens"],
         "out": ["s_tok_idx"]
       },
       {

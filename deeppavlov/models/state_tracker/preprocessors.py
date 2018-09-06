@@ -21,6 +21,25 @@ from deeppavlov.core.common.log import get_logger
 log = get_logger(__name__)
 
 
+def tag2slot(tag):
+    if tag != 'O':
+        if (not tag.startswith('I-')) and (not tag.startswith('B-')):
+            raise RuntimeError(f"Wrong tag format: {tag}")
+        return tag[2:]
+
+
+class Delexicalizator(Component):
+    """Given an utterance replaces mentions of slots with #slot"""
+    def __call__(self, utterances: List[List[str]], tags: List[List[str]])\
+            -> List[List[str]]:
+        norm_utterances = []
+        for utt_words, utt_tags in zip(utterances, tags):
+            utt_norm = [w if t == 'O' else '#' + tag2slot(t)
+                        for w, t in zip(utt_words, utt_tags)]
+            norm_utterances.append(utt_norm)
+        return norm_utterances
+
+
 class BioMarkupToMatrix(Component):
     """
     Assembles one-hot encoded slot value matrix of shape [num_slots, num_tokens].
@@ -30,13 +49,6 @@ class BioMarkupToMatrix(Component):
         log.info("Found vocabulary with the following slot names: {}"
                  .format(list(slot_vocab.keys())))
         self.slot_vocab = slot_vocab
-
-    @staticmethod
-    def _tag2slot(tag):
-        if tag != 'O':
-            if (not tag.startswith('I-')) and (not tag.startswith('B-')):
-                raise RuntimeError(f"Wrong tag format: {tag}")
-            return tag[2:]
 
     def _slot2idx(self, slot):
         if slot not in self.slot_vocab:
@@ -52,7 +64,7 @@ class BioMarkupToMatrix(Component):
         for utt_tags in tagged_utterances:
             mat = np.zeros((len(self.slot_vocab), len(utt_tags)), dtype=int)
             for i, tag in enumerate(utt_tags):
-                slot = self._tag2slot(tag)
+                slot = tag2slot(tag)
                 if slot is not None:
                     mat[self._slot2idx(slot), i] = 1
             utt_matrices.append(mat)
