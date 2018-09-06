@@ -210,7 +210,10 @@ def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0,
         mask: inputs mask
         att_size: hidden size of attention
         keep_prob: dropout keep_prob
-        scope:
+        use_gate: use output sigmoid gate or not
+        drop_diag: set attention weights to zero on diagonal (could be useful for self-attention)
+        use_transpose_att: additionally compute memory to inputs attention
+        scope: variable scope to use
 
     Returns:
         attention vectors [batch_size x input_len x (feature_size + feature_size)]
