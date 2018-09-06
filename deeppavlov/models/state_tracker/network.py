@@ -197,11 +197,13 @@ class StateTrackerNetwork(TFModel):
             _utt_repr_tiled = tf.tile(tf.reshape(_last_units, shape=(1, -1)),
                                       (self._num_slots, 1))
             # _token_repr: [2 * num_tokens, 4 * hidden_size]
+            # TODO: lost 4 * hidden_size somewhere
             _token_repr = tf.reshape(tf.concat([_units1, _units2], axis=-1),
                                      shape=(-1, 4 * self.hidden_size))
+            # _utt_slot_val_mask: [num_slots, 2 * num_tokens, num_values]
+            _utt_slot_val_mask = tf.one_hot(self._utt_slot_idx, self.num_slot_vals)
             # _slot_repr: [num_slots, 4 * hidden_size]
-            _slot_repr = tf.nn.embedding_lookup(_token_repr,
-                                                self._utt_slot_idx)
+            _slot_repr = tf.tensordot(_utt_slot_val_mask, _token_repr, [[1], [0]])
         return _utt_repr_tiled, _slot_repr
 
     @staticmethod
@@ -232,7 +234,7 @@ class StateTrackerNetwork(TFModel):
                 slicing[pad_axis] = slice(arr_len)
             else:
                 slicing[axis] = slice(i * pad_length, i * pad_length + arr_len)
-            result[slicing] = arr
+            result[tuple(slicing)] = arr
         return result, seq_length
 
     def __call__(self, u_utt_token_idx, u_utt_slot_idx_mat,
