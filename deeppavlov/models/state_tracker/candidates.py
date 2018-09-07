@@ -19,6 +19,7 @@ from typing import Any, Union, List, Dict, Tuple
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.component import Component
+from deeppavlov.core.models.estimator import Estimator
 
 
 class SlotValueFilter:
@@ -94,3 +95,19 @@ class SlotValueFilterComponent(Component):
     def __call__(self, *batch: List[List[Any]]) -> List[List[Any]]:
         # batch is a list of batches for different variables
         return [self.filter(*sample) for sample in zip(*batch)]
+
+
+class Candidates2Dict(Component):
+    """"""
+    def __init__(self, **kwargs):
+        pass
+
+    def __call__(self, candidates: List[List[Tuple[str, str]]])\
+            -> List[Dict[str, List[str]]]:
+        result = []
+        for cands in candidates:
+            slot_cands = {}
+            for slot, value in cands:
+                slot_cands[slot] = slot_cands.get(slot, []) + [value]
+            result.append(slot_cands)
+        return result

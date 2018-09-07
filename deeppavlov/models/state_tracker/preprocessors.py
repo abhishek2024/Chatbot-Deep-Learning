@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List
+from typing import List, Dict
 import numpy as np
 
 from deeppavlov.core.models.component import Component
@@ -30,6 +30,9 @@ def tag2slot(tag):
 
 class Delexicalizator(Component):
     """Given an utterance replaces mentions of slots with #slot"""
+    def __init__(self, **kwargs):
+        pass
+
     def __call__(self, utterances: List[List[str]], tags: List[List[str]])\
             -> List[List[str]]:
         norm_utterances = []
@@ -40,10 +43,10 @@ class Delexicalizator(Component):
         return norm_utterances
 
 
-class BioMarkupToMatrix(Component):
+class SlotMatrixAssembler(Component):
     """
     Assembles one-hot encoded slot value matrix of shape [num_slots, num_tokens].
-    Inputs bit-markuped utterance and vocabulary of slot names.
+    Inputs bio-markuped utterance and vocabulary of slot names.
     """
     def __init__(self, slot_vocab, **kwargs):
         log.info("Found vocabulary with the following slot names: {}"
@@ -59,13 +62,37 @@ class BioMarkupToMatrix(Component):
             print(f"returning idx =", self.slot_vocab([[slot]])[0][0])
             return self.slot_vocab([[slot]])[0][0]
 
-    def __call__(self, tagged_utterances: List[List[str]]) -> List[np.ndarray]:
+    def __call__(self, utterances: List[List[str]], tags: List[List[str]],
+                 candidates: List[Dict[str, List[str]]] = None) -> List[np.ndarray]:
+        candidates = candidates[0]
         utt_matrices = []
-        for utt_tags in tagged_utterances:
+        for utt, utt_tags in zip(utterances, tags):
             mat = np.zeros((len(self.slot_vocab), len(utt_tags)), dtype=int)
-            for i, tag in enumerate(utt_tags):
-                slot = tag2slot(tag)
+            i = 0
+            while (i < len(utt_tags)):
+                slot = tag2slot(utt_tags[i])
                 if slot is not None:
-                    mat[self._slot2idx(slot), i] = 1
+                    slot_len = 1
+                    while (i + slot_len < len(utt_tags)) and\
+                            (utt_tags[i + slot_len] == 'I-' + slot):
+                        slot_len += 1
+                    if candidates is not None:
+                        # resulting matrix contains indeces of slot values
+                        slot_value = ' '.join(utt[i:i + slot_len])
+                        if slot not in candidates:
+                            print(candidates)
+                            raise RuntimeError(f"slot `{slot}` is not in candidates")
+                        if slot_value not in candidates[slot]:
+                            print(candidates)
+                            raise RuntimeError(f"value `{slot_value}` of slot `{slot}`"
+                                               " is not in candidates")
+                        slot_value_idx = candidates[slot].index(slot_value)
+                        mat[self._slot2idx(slot), i: i + slot_len] = slot_value_idx + 1
+                    else:
+                        # resulting matrix is a mask of slots
+                        mat[self._slot2idx(slot), i] = 1
+                    i += slot_len
+                else:
+                    i += 1
             utt_matrices.append(mat)
         return utt_matrices

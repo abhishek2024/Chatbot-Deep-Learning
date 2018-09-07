@@ -201,10 +201,11 @@ class StateTrackerNetwork(TFModel):
             _token_repr = tf.reshape(tf.concat([_units1, _units2], axis=-1),
                                      shape=(-1, 4 * self.hidden_size))
             # _utt_slot_val_mask: [num_slots, 2 * num_tokens, num_values]
-            _utt_slot_val_mask = tf.one_hot(self._utt_slot_idx, self.num_slot_vals)
+            _utt_slot_val_mask = tf.one_hot(self._utt_slot_idx - 1, self.num_slot_vals)
             # _slot_repr: [num_slots, 4 * hidden_size]
             _slot_repr = tf.tensordot(_utt_slot_val_mask, _token_repr, [[1], [0]])
-        return _utt_repr_tiled, _slot_repr
+        # return _utt_repr_tiled, _slot_repr
+        return _utt_slot_val_mask, _slot_repr
 
     @staticmethod
     def _concat_and_pad(arrays, axis, pad_axis, pad_value=0, pad_length=None):
@@ -239,10 +240,10 @@ class StateTrackerNetwork(TFModel):
 
     def __call__(self, u_utt_token_idx, u_utt_slot_idx_mat,
                  s_utt_token_idx, s_utt_slot_idx_mat, prob=False, *args, **kwargs):
-        print(f"u_utt_token_idx: {u_utt_token_idx}")
-        print(f"u_utt_slot_idx_mat: {u_utt_slot_idx_mat[0]}")
-        print(f"s_utt_token_idx: {s_utt_token_idx}")
-        print(f"s_utt_slot_idx_mat: {s_utt_slot_idx_mat[0]}")
+        # print(f"u_utt_token_idx: {u_utt_token_idx}")
+        # print(f"u_utt_slot_idx_mat: {u_utt_slot_idx_mat[0]}")
+        # print(f"s_utt_token_idx: {s_utt_token_idx}")
+        # print(f"s_utt_slot_idx_mat: {s_utt_slot_idx_mat[0]}")
         utt_token_idx, utt_seq_length = self._concat_and_pad([u_utt_token_idx,
                                                               s_utt_token_idx],
                                                              axis=0, pad_axis=1)
@@ -283,6 +284,7 @@ class StateTrackerNetwork(TFModel):
             }
         )
         print(f"utt_repr.shape: {_tr.shape}")
+        print(f"where(utt_repr): {np.where(_tr)}")
         print(f"slot_repr.shape: {loss_value.shape}")
         return loss_value
 

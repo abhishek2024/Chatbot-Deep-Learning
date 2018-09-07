@@ -12,25 +12,25 @@
     "out": ["slot_candidates"],
     "pipe": [
       {
+        "name": "slot_value_filter",
+        "max_num_values": 7,
+        "in": ["u_slots", "s_slots", "prev_state"],
+        "out": ["slot_candidates"]
+      },
+      {
         "name": "lazy_tokenizer",
         "in": ["u_utter"],
         "out": ["u_tokens"]
       },
       {
-        "name": "deeppavlov.models.state_tracker.preprocessors:Delexicalizator",
+        "class": "deeppavlov.models.state_tracker.preprocessors:Delexicalizator",
         "in": ["u_tokens", "u_slots_bio"],
         "out": ["u_norm_tokens"]
       },
       {
-        "name": "deeppavlov.models.state_tracker.preprocessors:Delexicalizator",
+        "class": "deeppavlov.models.state_tracker.preprocessors:Delexicalizator",
         "in": ["s_tokens", "s_slots_bio"],
         "out": ["s_norm_tokens"]
-      },
-      {
-        "name": "slot_value_filter",
-        "max_num": 7,
-        "in": ["u_slots", "s_slots", "prev_state"],
-        "out": ["slot_candidates"]
       },
       {
         "name": "simple_vocab",
@@ -63,15 +63,20 @@
         "fit_on": ["state"]
       },
       {
-        "class": "deeppavlov.models.state_tracker.preprocessors:BioMarkupToMatrix",
+        "class": "deeppavlov.models.state_tracker.candidates:Candidates2Dict",
+        "in": ["slot_candidates"],
+        "out": ["slot_cands_dict"]
+      },
+      {
+        "class": "deeppavlov.models.state_tracker.preprocessors:SlotMatrixAssembler",
         "slot_vocab": "#slot_vocab",
-        "in": ["u_slots_bio"],
+        "in": ["u_tokens", "u_slots_bio", "slot_cands_dict"],
         "out": ["u_tok_slot_idx_matr"]
       },
       {
-        "class": "deeppavlov.models.state_tracker.preprocessors:BioMarkupToMatrix",
+        "class": "deeppavlov.models.state_tracker.preprocessors:SlotMatrixAssembler",
         "slot_vocab": "#slot_vocab",
-        "in": ["s_slots_bio"],
+        "in": ["s_tokens", "s_slots_bio", "slot_cands_dict"],
         "out": ["s_tok_slot_idx_matr"]
       },
       {
