@@ -15,6 +15,7 @@
 import itertools
 import operator
 from overrides import overrides
+from collections import defaultdict
 from typing import Any, Union, List, Dict, Tuple
 
 from deeppavlov.core.common.registry import register
@@ -43,8 +44,10 @@ class SlotValueFilter:
         max_num_values: maximum number of values for each slot.
     """
 
-    def __init__(self, max_num_values: int = None, **kwargs):
+    def __init__(self, max_num_values: int = None,
+                 exclude_values: List[str] = [], **kwargs):
         self.max_num = max_num_values
+        self.exclude_vals = exclude_values
 
     def __call__(self, *batch: List[Union[List[Dict[str, Any]], Dict[str, Any]]])\
             -> List[Tuple[str, Any]]:
@@ -54,7 +57,8 @@ class SlotValueFilter:
         _slot = operator.itemgetter('slot')
         for slot, slot_pairs in itertools.groupby(sorted(pairs, key=_slot), _slot):
             uniq_pairs = map(operator.itemgetter(0), itertools.groupby(slot_pairs))
-            pairs_filtered.extend(p for _, p in zip(range(self.max_num), uniq_pairs))
+            pairs_filtered.extend(p for _, p in zip(range(self.max_num), uniq_pairs)
+                                  if p['value'] not in self.exclude_vals)
         return pairs_filtered
 
     @staticmethod
@@ -99,16 +103,16 @@ class SlotValueFilterComponent(Component):
 
 class CandidateIndexerBuilder(Component):
     """"""
-    def __init__(self, **kwargs):
-        pass
+    def __init__(self, special_values: List[str], **kwargs):
+        self.special_vals = special_values
 
     def __call__(self, candidates: List[List[Dict[str, Any]]])\
             -> List[Dict[str, List[str]]]:
         result = []
         for cands in candidates:
-            slot_cands = {}
+            slot_cands = defaultdict(lambda: self.special_vals)
             for cand in cands:
                 slot, value = cand['slot'], cand['value']
-                slot_cands[slot] = slot_cands.get(slot, []) + [value]
+                slot_cands[slot] = slot_cands[slot] + [value]
             result.append(slot_cands)
         return result

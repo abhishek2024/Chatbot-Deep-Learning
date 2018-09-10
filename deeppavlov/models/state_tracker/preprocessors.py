@@ -101,11 +101,9 @@ class SlotsValuesMatrixBuilder(Component):
     Builds matrix with slot values' scores of shape [num_slots, max_num_values].
     Inputs slot values with scores, if score is missing, a score equal to 1.0 is set.
     """
-    def __init__(self, slot_vocab: callable, max_num_values: int,
-                 dontcare_value: str = None, **kwargs):
+    def __init__(self, slot_vocab: callable, max_num_values: int, **kwargs):
         self.slot_vocab = slot_vocab
         self.max_num_values = max_num_values
-        self.dontcare_value = dontcare_value
 
     def _slot2idx(self, slot):
         if slot not in self.slot_vocab:
@@ -114,10 +112,9 @@ class SlotsValuesMatrixBuilder(Component):
         return self.slot_vocab([[slot]])[0][0]
 
     def _value2idx(self, slot, value, candidates):
-        if self.dontcare_value is not None and (value == self.dontcare_value):
-            return -2
-        if value not in candidates.get(slot, []):
-            return -1
+        if value not in candidates[slot]:
+            raise RuntimeError(f"'{slot}' slot's value '{value}' doesn't match"
+                               " any value from candidates {candidates}.")
         return candidates[slot].index(value)
 
     @staticmethod
@@ -136,7 +133,7 @@ class SlotsValuesMatrixBuilder(Component):
             for s in utt_slots:
                 slot_idx = self._slot2idx(s['slot'])
                 value_idx = self._value2idx(s['slot'], s['value'], candidates)
-                mat[slot_idx, value_idx] = s.get('score', 1)
+                mat[slot_idx, value_idx] = s.get('score', 1.)
             utt_matrices.append(mat)
         return utt_matrices
 

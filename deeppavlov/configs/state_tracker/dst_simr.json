@@ -14,6 +14,7 @@
       {
         "name": "slot_value_filter",
         "max_num_values": 7,
+        "exclude_values": ["dontcare"],
         "in": ["u_slots", "s_slots", "prev_state"],
         "out": ["slot_candidates"]
       },
@@ -64,6 +65,7 @@
       },
       {
         "class": "deeppavlov.models.state_tracker.candidates:CandidateIndexerBuilder",
+        "special_values": ["null", "dontcare"],
         "in": ["slot_candidates"],
         "out": ["slot_cand_indexer"]
       },
@@ -83,7 +85,6 @@
         "class": "deeppavlov.models.state_tracker.preprocessors:SlotsValuesMatrixBuilder",
         "slot_vocab": "#slot_vocab",
         "max_num_values": 7,
-        "dontcare_value": "dontcare",
         "in": ["state", "slot_cand_indexer"],
         "out": ["state_matr"]
       },
@@ -91,7 +92,6 @@
         "class": "deeppavlov.models.state_tracker.preprocessors:SlotsValuesMatrixBuilder",
         "slot_vocab": "#slot_vocab",
         "max_num_values": 7,
-        "dontcare_value": "dontcare",
         "in": ["prev_state", "slot_cand_indexer"],
         "out": ["prev_state_matr"]
       },
