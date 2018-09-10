@@ -63,20 +63,20 @@
         "fit_on": ["state"]
       },
       {
-        "class": "deeppavlov.models.state_tracker.candidates:Candidates2Dict",
+        "class": "deeppavlov.models.state_tracker.candidates:CandidateIndexerBuilder",
         "in": ["slot_candidates"],
-        "out": ["slot_cands_dict"]
+        "out": ["slot_cand_indexer"]
       },
       {
-        "class": "deeppavlov.models.state_tracker.preprocessors:SlotMatrixAssembler",
+        "class": "deeppavlov.models.state_tracker.preprocessors:SlotsTokensMatrixBuilder",
         "slot_vocab": "#slot_vocab",
-        "in": ["u_tokens", "u_slots_bio", "slot_cands_dict"],
+        "in": ["u_tokens", "u_slots_bio", "slot_cand_indexer"],
         "out": ["u_tok_slot_idx_matr"]
       },
       {
-        "class": "deeppavlov.models.state_tracker.preprocessors:SlotMatrixAssembler",
+        "class": "deeppavlov.models.state_tracker.preprocessors:SlotsTokensMatrixBuilder",
         "slot_vocab": "#slot_vocab",
-        "in": ["s_tokens", "s_slots_bio", "slot_cands_dict"],
+        "in": ["s_tokens", "s_slots_bio", "slot_cand_indexer"],
         "out": ["s_tok_slot_idx_matr"]
       },
       {

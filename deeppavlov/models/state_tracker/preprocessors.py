@@ -43,7 +43,7 @@ class Delexicalizator(Component):
         return norm_utterances
 
 
-class SlotMatrixAssembler(Component):
+class SlotsTokensMatrixBuilder(Component):
     """
     Assembles one-hot encoded slot value matrix of shape [num_slots, num_tokens].
     Inputs bio-markuped utterance and vocabulary of slot names.
@@ -80,10 +80,8 @@ class SlotMatrixAssembler(Component):
                         # resulting matrix contains indeces of slot values
                         slot_value = ' '.join(utt[i:i + slot_len])
                         if slot not in candidates:
-                            print(candidates)
                             raise RuntimeError(f"slot `{slot}` is not in candidates")
                         if slot_value not in candidates[slot]:
-                            print(candidates)
                             raise RuntimeError(f"value `{slot_value}` of slot `{slot}`"
                                                " is not in candidates")
                         slot_value_idx = candidates[slot].index(slot_value)

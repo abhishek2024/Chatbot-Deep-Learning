@@ -19,7 +19,6 @@ from typing import Any, Union, List, Dict, Tuple
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.component import Component
-from deeppavlov.core.models.estimator import Estimator
 
 
 class SlotValueFilter:
@@ -46,21 +45,21 @@ class SlotValueFilter:
     def __init__(self, max_num_values: int = None, **kwargs):
         self.max_num = max_num_values
 
-    def __call__(self, *batch: List[Union[List[Tuple[str, Any]], Dict[str, Any]]])\
+    def __call__(self, *batch: List[Union[List[Dict[str, Any]], Dict[str, Any]]])\
             -> List[Tuple[str, Any]]:
         # slot value pairs as generator of tuples
-        pairs = itertools.chain(*map(self._dict2list, batch))
+        pairs = itertools.chain(*map(self._format_dict, batch))
         pairs_filtered = []
-        _slot = operator.itemgetter(0)
+        _slot = operator.itemgetter('slot')
         for slot, slot_pairs in itertools.groupby(sorted(pairs, key=_slot), _slot):
             uniq_pairs = map(operator.itemgetter(0), itertools.groupby(slot_pairs))
             pairs_filtered.extend(p for _, p in zip(range(self.max_num), uniq_pairs))
         return pairs_filtered
 
     @staticmethod
-    def _dict2list(x):
+    def _format_dict(x):
         if isinstance(x, Dict):
-            return x.items()
+            return ({'slot': k, 'value': v} for k, v in x.items())
         return x
 
 
@@ -97,17 +96,18 @@ class SlotValueFilterComponent(Component):
         return [self.filter(*sample) for sample in zip(*batch)]
 
 
-class Candidates2Dict(Component):
+class CandidateIndexerBuilder(Component):
     """"""
     def __init__(self, **kwargs):
         pass
 
-    def __call__(self, candidates: List[List[Tuple[str, str]]])\
+    def __call__(self, candidates: List[List[Dict[str, Any]]])\
             -> List[Dict[str, List[str]]]:
         result = []
         for cands in candidates:
             slot_cands = {}
-            for slot, value in cands:
+            for cand in cands:
+                slot, value = cand['slot'], cand['value']
                 slot_cands[slot] = slot_cands.get(slot, []) + [value]
             result.append(slot_cands)
         return result

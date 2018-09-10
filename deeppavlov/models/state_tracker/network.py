@@ -202,7 +202,7 @@ class StateTrackerNetwork(TFModel):
                                      shape=(-1, 4 * self.hidden_size))
             # _utt_slot_val_mask: [num_slots, 2 * num_tokens, num_values]
             _utt_slot_val_mask = tf.one_hot(self._utt_slot_idx - 1, self.num_slot_vals)
-            # _slot_repr: [num_slots, 4 * hidden_size]
+            # _slot_repr: [num_slots, num_values, 4 * hidden_size]
             _slot_repr = tf.tensordot(_utt_slot_val_mask, _token_repr, [[1], [0]])
         # return _utt_repr_tiled, _slot_repr
         return _utt_slot_val_mask, _slot_repr
