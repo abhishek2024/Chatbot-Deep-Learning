@@ -66,16 +66,17 @@ class BaseNeuralRankerEncoder(TFModel):
         self._init_hub_modules()
 
         batch_size = tf.shape(self.c_ph)[0]
+        # batch_size = 2
         c_embs = tf.reshape(self.c_ph, [-1])
-        q_embs = tf.reshape(self.q_ph, [-1])
+        # q_embs = tf.reshape(self.q_ph, [-1])
         c_embs = self.embedder(c_embs)
-        q_embs = self.embedder(q_embs)
+        q_embs = self.embedder(self.q_ph)
         # emb_size = tf.shape(c_embs)[1]
 
         c_embs = tf.stack(c_embs)
         q_embs = tf.stack(q_embs)
         c_embs = tf.reshape(c_embs, shape=[batch_size, self.context_pad_size, self.emb_size])
-        q_embs = tf.reshape(q_embs, shape=[batch_size, self.question_pad_size, self.emb_size])
+        # q_embs = tf.reshape(q_embs, shape=[batch_size, self.question_pad_size, self.emb_size])
 
         print(f"c_embs shape: {c_embs}")
         print(f"q_embs shape: {q_embs}")
@@ -97,13 +98,13 @@ class BaseNeuralRankerEncoder(TFModel):
         print(f"q_embs shape: {q_embs}")
 
         c_div = tf.expand_dims(tf.expand_dims(tf.cast(self.c_len_ph, dtype=tf.float32), -1), -1)
-        q_div = tf.expand_dims(tf.expand_dims(tf.cast(self.c_len_ph, dtype=tf.float32), -1), -1)
+        q_div = tf.expand_dims(tf.cast(self.q_len_ph, dtype=tf.float32), -1)
 
         c_norm_emb = tf.reduce_sum(c_embs, axis=1, keepdims=True) / tf.sqrt(c_div)
-        q_norm_emb = tf.reduce_sum(q_embs, axis=1, keepdims=True) / tf.sqrt(q_div)
+        q_norm_emb = tf.reduce_sum(q_embs, axis=0, keepdims=True) / tf.sqrt(q_div)
 
         c_norm_emb = tf.squeeze(c_norm_emb)
-        q_norm_emb = tf.squeeze(q_norm_emb)
+        # q_norm_emb = tf.squeeze(q_norm_emb)
 
         print("Normalized shapes: ")
         print(f"c_norm shape: {c_norm_emb}")
@@ -116,69 +117,70 @@ class BaseNeuralRankerEncoder(TFModel):
                                   kernel_initializer=tf.contrib.layers.xavier_initializer())
         dense_3 = tf.layers.dense(dense_2, units=self.hidden_size_dense_3, activation=tf.tanh,
                                   kernel_initializer=tf.contrib.layers.xavier_initializer())
-        dot_product = tf.reduce_sum(tf.matmul(q_norm_emb, dense_3, transpose_b=True), axis=1)
+        dot_product = tf.squeeze(tf.matmul(q_norm_emb, tf.transpose(dense_3)))
 
         # if self.mode == 'infer':
         self.prob = tf.nn.softmax(logits=dot_product)
 
-        self.loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=dot_product, labels=self.y_ph)
+        labels = tf.sequence_mask(1, maxlen=batch_size, dtype=tf.uint8)
+
+        self.loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=dot_product, labels=labels)
 
         self.sess.run([tf.global_variables_initializer(), tf.tables_initializer()])
 
     def _init_placeholders(self):
         self.c_ph = tf.placeholder(shape=(None, None), dtype=tf.string, name='c_ph')
-        self.q_ph = tf.placeholder(shape=(None, None), dtype=tf.string, name='q_ph')
+        self.q_ph = tf.placeholder(shape=(None, ), dtype=tf.string, name='q_ph')
         self.c_len_ph = tf.placeholder(shape=(None, ), dtype=tf.uint8,
                                        name='c_len_ph')
-        self.q_len_ph = tf.placeholder(shape=(None, ), dtype=tf.uint8,
+        self.q_len_ph = tf.placeholder(shape=(), dtype=tf.uint8,
                                        name='q_len_ph')
-        self.y_ph = tf.placeholder(shape=(None, ), dtype=tf.uint8, name='y_ph')
 
     def _init_optimizer(self):
         with tf.variable_scope('Optimizer'):
             extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
             with tf.control_dependencies(extra_update_ops):
-                opt = tf.train.MomentumOptimizer(self.learning_rate, momentum=0)
+                opt = tf.train.GradientDescentOptimizer(self.learning_rate)
                 grads_and_vars = opt.compute_gradients(self.loss)
                 self.train_op = opt.apply_gradients(grads_and_vars)
 
         # self.train_op = tf.train.MomentumOptimizer(self.learning_rate, 0).minimize(self.loss)
 
-    def _build_feed_dict(self, query, chunk, label=None):
-        assert len(query) == len(chunk)
-        q_len = [len(el) for el in query]
+    def _build_feed_dict(self, query, chunk):
+        # assert len(query) == len(chunk)
+        q_len = len(query)
         c_len = [len(el) for el in chunk]
         q_pad = self._pad_sentences(query, self.question_pad_size)
         c_pad = self._pad_sentences(chunk, self.context_pad_size)
         feed_dict = {self.q_ph: q_pad, self.c_ph: c_pad, self.q_len_ph: q_len, self.c_len_ph: c_len}
-        if label is not None:
-            feed_dict[self.y_ph] = label
         return feed_dict
 
-    def train_on_batch(self, query: List[List[str]], chunk: List[List[str]], label: List[int]):
-        feed_dict = self._build_feed_dict(query, chunk, label)
+    def train_on_batch(self, query: List[str], chunk: List[List[str]]):
+        feed_dict = self._build_feed_dict(query, chunk)
         loss, _ = self.sess.run([self.loss, self.train_op], feed_dict)
         return loss
 
-    def __call__(self, query: List[List[str]], chunk: List[List[str]]):
+    def __call__(self, query: List[str], chunk: List[List[str]]):
         feed_dict = self._build_feed_dict(query, chunk)
         return self.sess.run(self.prob, feed_dict)
 
     @staticmethod
     def _pad_sentences(batch, limit):
         pad_batch = copy.deepcopy(batch)
-        for sentences in pad_batch:
-            sentences += [''] * (limit - len(sentences))
+        if isinstance(batch[0], list):
+            for sentences in pad_batch:
+                sentences += [''] * (limit - len(sentences))
+        elif isinstance(batch[0], str):
+            pad_batch += [''] * (limit - len(pad_batch))
         return pad_batch
 
 
-q = [["Question 1?"], ["This is question 2?"], ["Who are all these people"]]
+q = ["Question 1?", "Sentence 2"]
 c = [["Doc 1 sentence 1.", "Doc second sentence second."],
-     ["Doc 2 sentence 1.", "Doc second sentence second.", "Third."],
-     ["Why would I make a test sample"]]
-y = [0, 1, 1]
+     ["Doc 2 sentence 1.", "Doc second sentence second.", "Third."]]
+# y = [0, 1, 1]
 encoder = BaseNeuralRankerEncoder()
 prob = encoder(q, c)
 print(prob)
-_loss = encoder.train_on_batch(q, c, y)
+_loss = encoder.train_on_batch(q, c)
 print(_loss)
