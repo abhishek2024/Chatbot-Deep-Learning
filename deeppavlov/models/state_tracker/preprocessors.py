@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Dict
+from typing import List, Dict, Any, Union
 import numpy as np
 
 from deeppavlov.core.models.component import Component
@@ -45,7 +45,7 @@ class Delexicalizator(Component):
 
 class SlotsTokensMatrixBuilder(Component):
     """
-    Assembles one-hot encoded slot value matrix of shape [num_slots, num_tokens].
+    Builds one-hot encoded slot value matrix of shape [num_slots, num_tokens].
     Inputs bio-markuped utterance and vocabulary of slot names.
     """
     def __init__(self, slot_vocab, **kwargs):
@@ -57,13 +57,13 @@ class SlotsTokensMatrixBuilder(Component):
         if slot not in self.slot_vocab:
             raise RuntimeError(f"Utterance slot {slot} doesn't match any slot"
                                " from slot_vocab.")
-        else:
-            print(f"slot '{slot}' has idx =", list(self.slot_vocab.keys()).index(slot))
-            print(f"returning idx =", self.slot_vocab([[slot]])[0][0])
-            return self.slot_vocab([[slot]])[0][0]
+        print(f"slot '{slot}' has idx =", list(self.slot_vocab.keys()).index(slot))
+        print(f"returning idx =", self.slot_vocab([[slot]])[0][0])
+        return self.slot_vocab([[slot]])[0][0]
 
     def __call__(self, utterances: List[List[str]], tags: List[List[str]],
                  candidates: List[Dict[str, List[str]]] = None) -> List[np.ndarray]:
+        # dirty hack to fix that everything must be a batch
         candidates = candidates[0]
         utt_matrices = []
         for utt, utt_tags in zip(utterances, tags):
@@ -94,3 +94,71 @@ class SlotsTokensMatrixBuilder(Component):
                     i += 1
             utt_matrices.append(mat)
         return utt_matrices
+
+
+class SlotsValuesMatrixBuilder(Component):
+    """
+    Builds matrix with slot values' scores of shape [num_slots, max_num_values].
+    Inputs slot values with scores, if score is missing, a score equal to 1.0 is set.
+    """
+    def __init__(self, slot_vocab: callable, max_num_values: int,
+                 dontcare_value: str = None, **kwargs):
+        self.slot_vocab = slot_vocab
+        self.max_num_values = max_num_values
+        self.dontcare_value = dontcare_value
+
+    def _slot2idx(self, slot):
+        if slot not in self.slot_vocab:
+            raise RuntimeError(f"Utterance slot '{slot}' doesn't match any slot"
+                               " from slot_vocab.")
+        return self.slot_vocab([[slot]])[0][0]
+
+    def _value2idx(self, slot, value, candidates):
+        if self.dontcare_value is not None and (value == self.dontcare_value):
+            return -2
+        if value not in candidates.get(slot, []):
+            return -1
+        return candidates[slot].index(value)
+
+    @staticmethod
+    def _format_slot_dict(x):
+        if isinstance(x, Dict):
+            return ({'slot': k, 'value': v} for k, v in x.items())
+        return x
+
+    def __call__(self, slots: Union[List[Dict[str, Any]], Dict[str, Any]],
+                 candidates: List[Dict[str, List[str]]]) -> List[np.ndarray]:
+        # dirty hack to fix that everything must be a batch
+        candidates = candidates[0]
+        utt_matrices = []
+        for utt_slots in map(self._format_slot_dict, slots):
+            mat = np.zeros((len(self.slot_vocab), self.max_num_values + 2), dtype=float)
+            for s in utt_slots:
+                slot_idx = self._slot2idx(s['slot'])
+                value_idx = self._value2idx(s['slot'], s['value'], candidates)
+                mat[slot_idx, value_idx] = s.get('score', 1)
+            utt_matrices.append(mat)
+        return utt_matrices
+
+
+class SlotsValuesMatrix2Dict(Component):
+    """
+    Converts matrix of slot values of shape [num_slots, max_num_values]
+    to dictionary with slots as keys and values as dictionary values.
+    """
+    def __init__(self, slot_vocab: callable, **kwargs):
+        self.slot_vocab = slot_vocab
+
+    def __call__(self, slots_masks: List[np.ndarray],
+                 candidates: List[Dict[str, List[str]]]) -> List[Dict[str, str]]:
+        # dirty hack to fix that everything must be a batch
+        candidates = candidates[0]
+        dict_batch = []
+        for slots in slots_masks:
+            slot_dict = {}
+            for slot_idx, value_idx in zip(*np.where(slots_masks)):
+                slot = self.slot_vocab(slot_idx)
+                value = candidates[slot][value_idx]
+                slot_dict[slot] = value
+            dict_batch.append(slot_dict)
+        return dict_batch

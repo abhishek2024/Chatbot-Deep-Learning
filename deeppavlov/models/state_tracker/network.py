@@ -149,9 +149,13 @@ class StateTrackerNetwork(TFModel):
                                                   [None, None, self.num_slot_vals],
                                                   name='slot_value_action_features')
         # _prev_preds: [num_slots, max_num_slot_values + 2]
-        self._prev_preds = tf.placeholder(tf.float32,
+        self._prev_pred = tf.placeholder(tf.float32,
+                                         [None, self.num_slot_vals + 2],
+                                         name='previous_predictions')
+        # _true_state: [num_slots, max_max_slot_values + 2]
+        self._true_state = tf.placeholder(tf.float32,
                                           [None, self.num_slot_vals + 2],
-                                          name='previous_predictions')
+                                          name='true_state')
 
         # TODO: try training embeddings
         # TODO: try weighting embeddings with tf-idf
@@ -239,7 +243,8 @@ class StateTrackerNetwork(TFModel):
         return result, seq_length
 
     def __call__(self, u_utt_token_idx, u_utt_slot_idx_mat,
-                 s_utt_token_idx, s_utt_slot_idx_mat, prob=False, *args, **kwargs):
+                 s_utt_token_idx, s_utt_slot_idx_mat,
+                 prev_pred_mat, prob=False, *args, **kwargs):
         # print(f"u_utt_token_idx: {u_utt_token_idx}")
         # print(f"u_utt_slot_idx_mat: {u_utt_slot_idx_mat[0]}")
         # print(f"s_utt_token_idx: {s_utt_token_idx}")
@@ -258,7 +263,8 @@ class StateTrackerNetwork(TFModel):
             feed_dict={
                 self._utt_token_idx: utt_token_idx,
                 self._utt_seq_length: utt_seq_length,
-                self._utt_slot_idx: utt_slot_idx
+                self._utt_slot_idx: utt_slot_idx,
+                self._prev_pred: prev_pred_mat[0]
             }
         )
 # TODO: implement infer probabilities
@@ -267,7 +273,8 @@ class StateTrackerNetwork(TFModel):
         return predictions
 
     def train_on_batch(self, u_utt_token_idx, u_utt_slot_idx_mat,
-                       s_utt_token_idx, s_utt_slot_idx_mat, *args, **kwargs):
+                       s_utt_token_idx, s_utt_slot_idx_mat,
+                       prev_pred_mat, true_state_mat, *args, **kwargs):
         utt_token_idx, utt_seq_length = self._concat_and_pad([u_utt_token_idx,
                                                               s_utt_token_idx],
                                                              axis=0, pad_axis=1)
@@ -280,7 +287,9 @@ class StateTrackerNetwork(TFModel):
             feed_dict={
                 self._utt_token_idx: utt_token_idx,
                 self._utt_seq_length: utt_seq_length,
-                self._utt_slot_idx: utt_slot_idx
+                self._utt_slot_idx: utt_slot_idx,
+                self._prev_pred: prev_pred_mat[0],
+                self._true_state: true_state_mat[0]
             }
         )
         print(f"utt_repr.shape: {_tr.shape}")

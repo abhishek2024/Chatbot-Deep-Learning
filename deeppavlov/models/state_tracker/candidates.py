@@ -25,6 +25,7 @@ class SlotValueFilter:
     """
     Inputs lists of (slot, it's value) pairs in descending by score order, combines them
     keeping the order, and outputs top n candidates for each slot.
+    TODO: update example!
 
     Example:
         >>> f = SlotValueFilter(max_num_values=2)
@@ -48,7 +49,7 @@ class SlotValueFilter:
     def __call__(self, *batch: List[Union[List[Dict[str, Any]], Dict[str, Any]]])\
             -> List[Tuple[str, Any]]:
         # slot value pairs as generator of tuples
-        pairs = itertools.chain(*map(self._format_dict, batch))
+        pairs = itertools.chain(*map(self._format_slot_dict, batch))
         pairs_filtered = []
         _slot = operator.itemgetter('slot')
         for slot, slot_pairs in itertools.groupby(sorted(pairs, key=_slot), _slot):
@@ -57,7 +58,7 @@ class SlotValueFilter:
         return pairs_filtered
 
     @staticmethod
-    def _format_dict(x):
+    def _format_slot_dict(x):
         if isinstance(x, Dict):
             return ({'slot': k, 'value': v} for k, v in x.items())
         return x
