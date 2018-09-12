@@ -14,6 +14,7 @@
 
 import json
 import tensorflow as tf
+from tensorflow.contrib.layers import xavier_initializer as xav
 import numpy as np
 
 from deeppavlov.core.common.registry import register
@@ -30,6 +31,7 @@ class StateTrackerNetwork(TFModel):
     """
     Parameters:
         hidden_size: RNN hidden layer size.
+        dense_size:
         num_slot_values:
         embedding_matrix:
         learning_rate: training learning rate.
@@ -46,6 +48,7 @@ class StateTrackerNetwork(TFModel):
 
     def __init__(self,
                  hidden_size: int,
+                 dense_size: int,
                  num_slot_values: int,
                  embedding_matrix: np.ndarray,
                  learning_rate: float,
@@ -61,6 +64,7 @@ class StateTrackerNetwork(TFModel):
         # specify model options
         self.opt = {
             'hidden_size': hidden_size,
+            'dense_size': dense_size,
             'num_slot_values': num_slot_values,
             'num_tokens': embedding_matrix.shape[0],
             'embedding_size': embedding_matrix.shape[1],
@@ -89,6 +93,7 @@ class StateTrackerNetwork(TFModel):
 
     def _init_params(self):
         self.hidden_size = self.opt['hidden_size']
+        self.dense_size = self.opt['dense_size']
         self.num_slot_vals = self.opt['num_slot_values']
         self.num_tokens = self.opt['num_tokens']
         self.embedding_size = self.opt['embedding_size']
@@ -108,19 +113,24 @@ class StateTrackerNetwork(TFModel):
 
         self._add_placeholders()
 
-        _logits, self._predictions = self._build_body()
+        # _logits: [num_slots, max_num_slot_values + 2]
+        _logits = self._build_body()
 
-        #_weights = tf.expand_dims(self._tgt_weights, -1)
-        #_loss_tensor = \
-        #    tf.losses.sparse_softmax_cross_entropy(logits=_logits,
-        #                                           labels=self._decoder_outputs,
-        #                                           weights=_weights,
-        #                                           reduction=tf.losses.Reduction.NONE)
+        # _prediction: [num_slots, max_num_slot_values + 2]
+        self._prediction = tf.nn.softmax(_logits)
+        # tf.argmax(_logits, axis=-1, name='prediction')
+
+        # _weights = tf.expand_dims(self._tgt_weights, -1)
+        _loss_tensor = \
+            tf.losses.softmax_cross_entropy(_logits,
+                                            self._true_state)
+                                            # reduction=tf.losses.Reduction.NONE)
+                                            # weights=_weights,
         # normalize loss by batch_size
-        #self._loss = tf.reduce_sum(_loss_tensor) / tf.cast(self._batch_size, tf.float32)
-        #self._train_op = \
-        #    self.get_train_op(self._loss, self.learning_rate, clip_norm=10.)
-        self._train_op, self._loss = _logits, self._predictions
+        self._loss = _loss_tensor
+        #self._loss = tf.reduce_sum(_loss_tensor) / tf.cast(self._num_slots, tf.float32)
+        self._train_op = \
+            self.get_train_op(self._loss, self.learning_rate, clip_norm=10.)
 
     def _add_placeholders(self):
         # _utt_token_idx: [2, num_tokens]
@@ -197,19 +207,65 @@ class StateTrackerNetwork(TFModel):
                 self._stacked_bi_gru(_utt_token_emb,
                                      [self.hidden_size, self.hidden_size],
                                      seq_length=self._utt_seq_length)
-            # _utt_repr_tiled: [num_slots, 2 * 2 * hidden_size]
-            _utt_repr_tiled = tf.tile(tf.reshape(_last_units, shape=(1, -1)),
-                                      (self._num_slots, 1))
+            # _utt_repr: [2 * 2 * hidden_size]
+            _utt_repr = tf.reshape(_last_units, shape=[-1])
             # _token_repr: [2 * num_tokens, 4 * hidden_size]
             # TODO: lost 4 * hidden_size somewhere
             _token_repr = tf.reshape(tf.concat([_units1, _units2], axis=-1),
                                      shape=(-1, 4 * self.hidden_size))
-            # _utt_slot_val_mask: [num_slots, 2 * num_tokens, num_values]
+            # _utt_slot_val_mask: [num_slots, 2 * num_tokens, max_num_slot_values]
             _utt_slot_val_mask = tf.one_hot(self._utt_slot_idx - 1, self.num_slot_vals)
-            # _slot_repr: [num_slots, num_values, 4 * hidden_size]
-            _slot_repr = tf.tensordot(_utt_slot_val_mask, _token_repr, [[1], [0]])
-        # return _utt_repr_tiled, _slot_repr
-        return _utt_slot_val_mask, _slot_repr
+            # _slot_val_repr: [num_slots, max_num_slot_values, 4 * hidden_size]
+            _slot_val_repr = tf.tensordot(_utt_slot_val_mask, _token_repr, [[1], [0]])
+
+        # _utt_repr_tiled: [num_slots, max_num_slot_values, 2 * 2 * hidden_size]
+        _utt_repr_tiled = tf.tile(tf.reshape(_utt_repr, shape=[1, 1, -1]),
+                                  (self._num_slots, self.num_slot_vals, 1))
+
+        # _prev_pred_special_logits: [num_slots, 2]
+        _prev_pred_special_logits = tf.slice(self._prev_pred, [0, 0], [-1, 2])
+        # _slot_repr: [num_slots, 2]
+        _slot_repr = _prev_pred_special_logits
+        # _slot_repr_tiled: [num_slots, max_num_slot_values, 2]
+        _slot_repr_tiled = tf.tile(tf.reshape(_slot_repr, [-1, 1, 2]),
+                                   (1, self.num_slot_vals, 1))
+
+        # _prev_pred_wo_special_logits: [num_slots, max_num_slot_values]
+        _prev_pred_wo_special_logits = tf.slice(self._prev_pred, [0, 2], [-1, -1])
+        # _slot_val_repr: [num_slots, max_num_slot_values, 4 * hidden_size + 1]
+        _slot_val_repr = tf.concat([_slot_val_repr,
+                                    tf.expand_dims(_prev_pred_wo_special_logits, -1)], -1)
+
+        with tf.variable_scope("CandidateScorer"):
+            # _cand_feats: [num_slots, max_num_slot_values, 8 * hidden_size + 3]
+            _cand_feats = tf.concat([_utt_repr_tiled, _slot_repr_tiled, _slot_val_repr],
+                                    -1)
+            # _proj: [num_slots, max_num_slot_values, dense_size]
+            _proj = tf.layers.dense(_cand_feats, self.dense_size,
+                                    activation=tf.nn.sigmoid,
+                                    kernel_initializer=xav())
+            # _logits: [num_slots, max_num_slot_values]
+            _logits = tf.squeeze(tf.layers.dense(_proj, 1, kernel_initializer=xav()),
+                                 axis=[-1])
+
+            with tf.variable_scope("DontcareScorer"):
+                # _utt_repr_slot_tiled: [num_slots, 4 * hidden_size]
+                _utt_repr_slot_tiled = tf.tile(tf.reshape(_utt_repr, [1, -1]),
+                                               (self._num_slots, 1))
+                # _dontcare_feats: [num_slots, 4 * hidden_size + 2]
+                _dontcare_feats = tf.concat([_utt_repr_slot_tiled, _slot_repr], -1)
+                # _dontcare_proj: [num_slots, dense_size]
+                _dontcare_proj = tf.layers.dense(_dontcare_feats, self.dense_size,
+                                                 activation=tf.nn.sigmoid,
+                                                 kernel_initializer=xav())
+                # _dontcare_logit: [num_slots, 1]
+                _dontcare_logit = tf.layers.dense(_dontcare_proj, 1,
+                                                  kernel_initializer=xav())
+        _null_bias = tf.get_variable("null_bias", shape=(1, 1), trainable=True)
+        # _logits: [num_slots, max_num_slot_values + 2]
+        _logits = tf.concat([_null_bias, _dontcare_logit, _logits], -1)
+
+        return _logits
 
     @staticmethod
     def _concat_and_pad(arrays, axis, pad_axis, pad_value=0, pad_length=None):

@@ -104,6 +104,7 @@
         "in_y": ["state_matr"],
         "out": ["state_pred_matr"],
         "hidden_size": 128,
+        "dense_size": 32,
         "num_slot_values": 7,
         "embedding_matrix": "#embeddings.emb_mat",
         "learning_rate": 0.0031
