@@ -9,8 +9,8 @@ from deeppavlov.core.common.file import read_json
 class BasicNeuralRankerReader(DatasetReader):
 
     def read(self, data_path):
-        train_fname = Path(data_path) / 'train-sample--v1.1_negative_samples.json'
-        valid_fname = Path(data_path) / 'dev-sample--v1.1_negative_samples.json'
+        train_fname = Path(data_path) / 'train-v1.1_negative_samples.json'
+        valid_fname = Path(data_path) / 'dev-v1.1_negative_samples.json'
 
         data = {"train": read_json(train_fname),
                 "valid": read_json(valid_fname)}
