@@ -17,7 +17,7 @@
       {
         "name": "squad_preprocessor",
         "id": "squad_prepr",
-        "context_limit": 400,
+        "context_limit": 4000,
         "question_limit": 150,
         "char_limit": 16,
         "in": ["context_raw", "question_raw"],
