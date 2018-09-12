@@ -93,6 +93,9 @@ import deeppavlov.models.slotfill.slotfill_raw
 import deeppavlov.models.slotfill.slotfill
 import deeppavlov.models.preprocessors.one_hotter
 import deeppavlov.dataset_readers.ontonotes_reader
+import deeppavlov.dataset_readers.basic_neural_ranker_reader
+import deeppavlov.dataset_iterators.basic_neural_ranker_iterator
+import deeppavlov.skills.odqa.basic_neural_ranker
 
 import deeppavlov.metrics.accuracy
 import deeppavlov.metrics.fmeasure
@@ -100,7 +103,7 @@ import deeppavlov.metrics.bleu
 import deeppavlov.metrics.squad_metrics
 import deeppavlov.metrics.roc_auc_score
 import deeppavlov.metrics.fmeasure_classification
-
+import deeppavlov.metrics.ranker_metrics
 import deeppavlov.core.common.log
 
 import deeppavlov.download

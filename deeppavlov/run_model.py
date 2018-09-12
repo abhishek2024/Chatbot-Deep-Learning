@@ -15,7 +15,7 @@ limitations under the License.
 """
 import json
 
-from deeppavlov.core.commands.train import train_evaluate_model_from_config, build_model_from_config
+from deeppavlov.core.commands.train import train_evaluate_model_from_config, build_model_from_config, _train_batches
 from deeppavlov.core.commands.infer import interact_model
 from deeppavlov.core.commands.utils import expand_path
 from deeppavlov.core.common.file import read_json
@@ -33,18 +33,8 @@ from deeppavlov.core.common.file import read_json
 
 # config_path = '/home/gureenkova/tmp/pycharm_project_196/deeppavlov/configs/odqa/en_ranker_ensemble_drones.json'
 # config_path = '/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ranker_tfidf_drones.json'
-config_path = '/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ranker_ensemble_drones.json'
+config_path = '/media/olga/Data/projects/DeepPavlov/deeppavlov/configs/odqa/en_basic_neural_ranker.json'
 
 # interact_model(config_path)
 #
-model = build_model_from_config(read_json(config_path))
-data = ["What corporation manufactures drones in Russia?", "Maximum speed of drones?", "What parts are the most significant?"]
-result = model(data)
-print(result)
-print('Done!')
-
-
-
-
-
-
+model = train_evaluate_model_from_config(read_json(config_path))

@@ -12,12 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from itertools import chain
-from typing import List
+from typing import Union, List
 import copy
 import tensorflow as tf
 import tensorflow_hub as hub
-import numpy as np
+from nltk.tokenize import sent_tokenize
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
@@ -26,32 +25,31 @@ from deeppavlov.core.common.log import get_logger
 logger = get_logger(__name__)
 
 
-# @register('ranker_encoder')
-class BaseNeuralRankerEncoder(TFModel):
-    def __init__(self, **kwargs):
+@register('ranker_encoder')
+class BasicNeuralRankerEncoder(TFModel):
+    def __init__(self, save_path, **kwargs):
         self.hidden_size_dense_1 = 300
         self.hidden_size_dense_2 = 300
         self.hidden_size_dense_3 = 512
         self.learning_rate = 0.01
         self.question_pad_size = 3
-        self.context_pad_size = 30
+        self.context_pad_size = 40
         self.emb_size = 512
-        self.n_epochs = 0
-        # self.batch_size = 2
+        self.n_epochs = 1000
 
-        self.mode = kwargs.get('mode', None)
+        # self.mode = kwargs.get('mode', None)
 
         self.sess = tf.Session(config=tf.ConfigProto(
             allow_soft_placement=True,
             gpu_options=tf.GPUOptions(
                 allow_growth=True
             )))
-
+        self._init_hub_modules()
         self._init_graph()
         self._init_optimizer()
         self.sess.run(tf.global_variables_initializer())
 
-        super().__init__(save_path='/home/olga/ololo')
+        super().__init__(save_path=save_path)
 
         # load model if exists:
         # super().__init__(**kwargs)
@@ -63,7 +61,6 @@ class BaseNeuralRankerEncoder(TFModel):
 
     def _init_graph(self):
         self._init_placeholders()
-        self._init_hub_modules()
 
         batch_size = tf.shape(self.c_ph)[0]
         # batch_size = 2
@@ -78,8 +75,8 @@ class BaseNeuralRankerEncoder(TFModel):
         c_embs = tf.reshape(c_embs, shape=[batch_size, self.context_pad_size, self.emb_size])
         # q_embs = tf.reshape(q_embs, shape=[batch_size, self.question_pad_size, self.emb_size])
 
-        print(f"c_embs shape: {c_embs}")
-        print(f"q_embs shape: {q_embs}")
+        # print(f"c_embs shape: {c_embs}")
+        # print(f"q_embs shape: {q_embs}")
 
         q_mask = tf.sequence_mask(self.q_len_ph, maxlen=self.question_pad_size, dtype=tf.float32)
         c_mask = tf.sequence_mask(self.c_len_ph, maxlen=self.context_pad_size, dtype=tf.float32)
@@ -87,15 +84,15 @@ class BaseNeuralRankerEncoder(TFModel):
         q_mask = tf.expand_dims(q_mask, -1)
         c_mask = tf.expand_dims(c_mask, -1)
 
-        print(f"q_mask shape: {q_mask}")
-        print(f"c mask shape: {c_mask}")
+        # print(f"q_mask shape: {q_mask}")
+        # print(f"c mask shape: {c_mask}")
 
         q_embs = tf.multiply(q_embs, q_mask)
         c_embs = tf.multiply(c_embs, c_mask)
 
-        print("Shapes after masking:")
-        print(f"c_embs shape: {c_embs}")
-        print(f"q_embs shape: {q_embs}")
+        # print("Shapes after masking:")
+        # print(f"c_embs shape: {c_embs}")
+        # print(f"q_embs shape: {q_embs}")
 
         c_div = tf.expand_dims(tf.expand_dims(tf.cast(self.c_len_ph, dtype=tf.float32), -1), -1)
         q_div = tf.expand_dims(tf.cast(self.q_len_ph, dtype=tf.float32), -1)
@@ -106,9 +103,9 @@ class BaseNeuralRankerEncoder(TFModel):
         c_norm_emb = tf.squeeze(c_norm_emb)
         # q_norm_emb = tf.squeeze(q_norm_emb)
 
-        print("Normalized shapes: ")
-        print(f"c_norm shape: {c_norm_emb}")
-        print(f"q_norm shape: {q_norm_emb}")
+        # print("Normalized shapes: ")
+        # print(f"c_norm shape: {c_norm_emb}")
+        # print(f"q_norm shape: {q_norm_emb}")
 
         dense_1 = tf.layers.dense(tf.reshape(c_norm_emb, [-1, self.emb_size]), units=self.hidden_size_dense_1,
                                   activation=tf.tanh,
@@ -124,7 +121,7 @@ class BaseNeuralRankerEncoder(TFModel):
 
         labels = tf.sequence_mask(1, maxlen=batch_size, dtype=tf.uint8)
 
-        self.loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=dot_product, labels=labels)
+        self.loss = tf.reduce_sum(tf.nn.softmax_cross_entropy_with_logits_v2(logits=dot_product, labels=labels))
 
         self.sess.run([tf.global_variables_initializer(), tf.tables_initializer()])
 
@@ -148,39 +145,73 @@ class BaseNeuralRankerEncoder(TFModel):
 
     def _build_feed_dict(self, query, chunk):
         # assert len(query) == len(chunk)
+        query = list(filter(lambda x: x != '', sent_tokenize(query)))
+        chunk = [list(filter(lambda x: x != '', sent_tokenize(ch))) for ch in chunk]
         q_len = len(query)
         c_len = [len(el) for el in chunk]
         q_pad = self._pad_sentences(query, self.question_pad_size)
         c_pad = self._pad_sentences(chunk, self.context_pad_size)
+        # print(c_pad)
+        # print(type(c_pad))
+        # print(type(c_pad[0]))
+        # print([len(c) for c in c_pad])
         feed_dict = {self.q_ph: q_pad, self.c_ph: c_pad, self.q_len_ph: q_len, self.c_len_ph: c_len}
         return feed_dict
 
-    def train_on_batch(self, query: List[str], chunk: List[List[str]]):
+    def train_on_batch(self, x, *args, **kwargs):
+        query = x[0]['question']
+        chunk = x[0]['contexts']
+        chunk = [ch if isinstance(ch, str) else ch[1] for ch in chunk]
         feed_dict = self._build_feed_dict(query, chunk)
         loss, _ = self.sess.run([self.loss, self.train_op], feed_dict)
         return loss
 
-    def __call__(self, query: List[str], chunk: List[List[str]]):
+    # def __call__(self, query: List[str], chunk: List[List[str]]):
+    #     feed_dict = self._build_feed_dict(query, chunk)
+    #     return self.sess.run(self.prob, feed_dict)
+
+    def __call__(self, x):
+        query = x[0]['question']
+        chunk = x[0]['contexts']
+        chunk = [ch if isinstance(ch, str) else ch[1] for ch in chunk]
         feed_dict = self._build_feed_dict(query, chunk)
-        return self.sess.run(self.prob, feed_dict)
+        res = self.sess.run(self.prob, feed_dict)
+        # print(res)
+        return res
 
     @staticmethod
-    def _pad_sentences(batch, limit):
+    def _pad_sentences(batch: Union[List[str], List[List[str]]], limit: int) -> Union[List[str], List[List[str]]]:
+        """Pad a batch with empty string and cut batch if it exceeds the limit.
+
+        Args:
+            batch: data to be padded
+            limit: pad size in integer value
+
+        Returns:
+            padded data
+
+        """
         pad_batch = copy.deepcopy(batch)
         if isinstance(batch[0], list):
-            for sentences in pad_batch:
-                sentences += [''] * (limit - len(sentences))
+            for i in range(len(pad_batch)):
+                if len(pad_batch[i]) >= limit:
+                    pad_batch[i] = pad_batch[i][:limit]
+                else:
+                    pad_batch[i] += [''] * (limit - len(pad_batch[i]))
         elif isinstance(batch[0], str):
-            pad_batch += [''] * (limit - len(pad_batch))
+            if len(pad_batch) >= limit:
+                pad_batch = pad_batch[:limit]
+            else:
+                pad_batch += [''] * (limit - len(pad_batch))
         return pad_batch
 
 
-q = ["Question 1?", "Sentence 2"]
-c = [["Doc 1 sentence 1.", "Doc second sentence second."],
-     ["Doc 2 sentence 1.", "Doc second sentence second.", "Third."]]
-# y = [0, 1, 1]
-encoder = BaseNeuralRankerEncoder()
-prob = encoder(q, c)
-print(prob)
-_loss = encoder.train_on_batch(q, c)
-print(_loss)
+# q = ["Question 1?", "Sentence 2"]
+# c = [["Doc 1 sentence 1.", "Doc second sentence second."],
+#      ["Doc 2 sentence 1.", "Doc second sentence second.", "Third."]]
+# # y = [0, 1, 1]
+# encoder = BasicNeuralRankerEncoder()
+# prob = encoder(q, c)
+# print(prob)
+# _loss = encoder.train_on_batch(q, c)
+# print(_loss)
