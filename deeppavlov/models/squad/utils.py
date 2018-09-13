@@ -288,7 +288,6 @@ def attention(inputs, state, att_size, mask, scope="attention", reuse=False):
         Additive form of attention:
         a_i = v^T * tanh(W * [state, m_i] + b)
     """
-
     with tf.variable_scope(scope, reuse=reuse):
         u = tf.concat([tf.tile(tf.expand_dims(state, axis=1), [1, tf.shape(inputs)[1], 1]), inputs], axis=2)
         logits = tf.layers.dense(tf.layers.dense(u, att_size, activation=tf.nn.tanh), 1, use_bias=False)

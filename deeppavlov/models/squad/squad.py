@@ -106,7 +106,7 @@ class SquadModel(TFModel):
         if self.load_path is not None:
             self.load()
             if self.weight_decay < 1.0:
-                 self.sess.run(self.assign_vars)
+                self.sess.run(self.assign_vars)
 
     def _init_graph(self):
         self._init_placeholders()
@@ -385,6 +385,8 @@ class SquadModel(TFModel):
             if self.scorer and self.shared_loss:
                 start_att_weights = tf.expand_dims(tf.nn.softmax(logits1, axis=-1), axis=-1)
                 end_att_weights = tf.expand_dims(tf.nn.softmax(logits2, axis=-1), axis=-1)
+                # not really good idea to sum only start and end tokens
+                # need some kind of sigmoid layer here
                 start_att = tf.reduce_sum(start_att_weights * match, axis=1)
                 end_att = tf.reduce_sum(end_att_weights * match, axis=1)
                 c_att = simple_attention(match, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph,

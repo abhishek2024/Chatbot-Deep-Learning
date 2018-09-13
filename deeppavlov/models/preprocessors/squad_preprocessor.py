@@ -191,24 +191,24 @@ class SquadVocabEmbedder(Estimator):
             c_idxs = np.zeros([len(contexts), self.context_limit], dtype=np.int32)
             q_idxs = np.zeros([len(questions), self.question_limit], dtype=np.int32)
             for i, context in enumerate(contexts):
-                for j, token in enumerate(context):
+                for j, token in enumerate(context[:self.context_limit]):
                     c_idxs[i, j] = self._get_idx(token)
 
             for i, question in enumerate(questions):
-                for j, token in enumerate(question):
+                for j, token in enumerate(question[:self.question_limit]):
                     q_idxs[i, j] = self._get_idx(token)
 
         elif self.level == 'char':
             c_idxs = np.zeros([len(contexts), self.context_limit, self.char_limit], dtype=np.int32)
             q_idxs = np.zeros([len(questions), self.question_limit, self.char_limit], dtype=np.int32)
             for i, context in enumerate(contexts):
-                for j, token in enumerate(context):
-                    for k, char in enumerate(token):
+                for j, token in enumerate(context[:self.context_limit]):
+                    for k, char in enumerate(token[:self.char_limit]):
                         c_idxs[i, j, k] = self._get_idx(char)
 
             for i, question in enumerate(questions):
-                for j, token in enumerate(question):
-                    for k, char in enumerate(token):
+                for j, token in enumerate(question[:self.question_limit]):
+                    for k, char in enumerate(token[:self.char_limit]):
                         q_idxs[i, j, k] = self._get_idx(char)
 
         return c_idxs, q_idxs
@@ -345,6 +345,9 @@ class SquadLGBMScorer(Estimator):
 
 @register('squad_features_extractor')
 class SquadFeaturesExtractor(Component):
+    """
+    Extracts exact match and token frequency features from context and question.
+    """
     def __init__(self, context_limit, question_limit, *args, **kwargs):
         self.context_limit = context_limit
         self.question_limit = question_limit
