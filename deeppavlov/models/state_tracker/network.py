@@ -116,19 +116,18 @@ class StateTrackerNetwork(TFModel):
         # _logits: [num_slots, max_num_slot_values + 2]
         _logits = self._build_body()
 
-        # _prediction: [num_slots, max_num_slot_values + 2]
-        self._prediction = tf.nn.softmax(_logits)
-        # tf.argmax(_logits, axis=-1, name='prediction')
+        # _prediction: [num_slots]
+        self._prediction = tf.argmax(_logits, axis=-1, name='prediction')
 
         # _weights = tf.expand_dims(self._tgt_weights, -1)
         _loss_tensor = \
             tf.losses.softmax_cross_entropy(_logits,
-                                            self._true_state)
-                                            # reduction=tf.losses.Reduction.NONE)
+                                            self._true_state,
+                                            reduction=tf.losses.Reduction.NONE)
                                             # weights=_weights,
         # normalize loss by batch_size
-        self._loss = _loss_tensor
-        #self._loss = tf.reduce_sum(_loss_tensor) / tf.cast(self._num_slots, tf.float32)
+        # self._loss = _loss_tensor
+        self._loss = tf.reduce_sum(_loss_tensor) / tf.cast(self._num_slots, tf.float32)
         self._train_op = \
             self.get_train_op(self._loss, self.learning_rate, clip_norm=10.)
 
@@ -210,7 +209,6 @@ class StateTrackerNetwork(TFModel):
             # _utt_repr: [2 * 2 * hidden_size]
             _utt_repr = tf.reshape(_last_units, shape=[-1])
             # _token_repr: [2 * num_tokens, 4 * hidden_size]
-            # TODO: lost 4 * hidden_size somewhere
             _token_repr = tf.reshape(tf.concat([_units1, _units2], axis=-1),
                                      shape=(-1, 4 * self.hidden_size))
             # _utt_slot_val_mask: [num_slots, 2 * num_tokens, max_num_slot_values]
@@ -261,10 +259,13 @@ class StateTrackerNetwork(TFModel):
                 # _dontcare_logit: [num_slots, 1]
                 _dontcare_logit = tf.layers.dense(_dontcare_proj, 1,
                                                   kernel_initializer=xav())
-        _null_bias = tf.get_variable("null_bias", shape=(1, 1), trainable=True)
-        # _logits: [num_slots, max_num_slot_values + 2]
-        _logits = tf.concat([_null_bias, _dontcare_logit, _logits], -1)
 
+        _null_bias = tf.get_variable("null_bias", shape=(1, 1), dtype=tf.float32,
+                                     trainable=True)
+        # _null_bias_tiled: [num_slots, 1]
+        _null_bias_tiled = tf.tile(_null_bias, (self._num_slots, 1))
+        # _logits: [num_slots, max_num_slot_values + 2]
+        _logits = tf.concat([_null_bias_tiled, _dontcare_logit, _logits], -1)
         return _logits
 
     @staticmethod
