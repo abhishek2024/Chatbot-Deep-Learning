@@ -74,6 +74,7 @@ import deeppavlov.skills.odqa.use_sentence_ranker
 import deeppavlov.skills.odqa.elmo_ranker
 import deeppavlov.skills.odqa.tfhub_paragraph_ranker
 import deeppavlov.skills.odqa.ensemble_ranker
+import deeppavlov.skills.odqa.ensemble_ranker_via_api
 import deeppavlov.skills.odqa.squad_paragraph_ranker
 import deeppavlov.vocabs.typos
 import deeppavlov.vocabs.wiki_sqlite

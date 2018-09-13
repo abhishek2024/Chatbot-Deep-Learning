@@ -56,7 +56,7 @@
         ]
       },
       {
-        "name": "ensemble_ranker",
+        "name": "ensemble_ranker_via_api",
         "top_n": 20,
         "in": [
           "rank_text_score_id_tfidf",
