@@ -165,8 +165,8 @@
         "ref": "my_rank_doc_score_tuplifier",
         "in": [
           "context_raw",
-          "doc_scores_500",
-          "doc_ids_500"
+          "doc_scores",
+          "doc_ids"
         ],
         "out": [
           "rank_text_score_id_tfidf"
