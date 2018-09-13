@@ -16,6 +16,7 @@ import json
 import tensorflow as tf
 from tensorflow.contrib.layers import xavier_initializer as xav
 import numpy as np
+from time import time
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.errors import ConfigError
@@ -90,6 +91,7 @@ class StateTrackerNetwork(TFModel):
             self.load()
         else:
             log.info("[initializing `{}` from scratch]".format(self.__class__.__name__))
+        self.batch_no = 0
 
     def _init_params(self):
         self.hidden_size = self.opt['hidden_size']
@@ -121,13 +123,19 @@ class StateTrackerNetwork(TFModel):
 
         # _weights = tf.expand_dims(self._tgt_weights, -1)
         _loss_tensor = \
-            tf.losses.softmax_cross_entropy(_logits,
-                                            self._true_state,
+            tf.losses.softmax_cross_entropy(logits=_logits,
+                                            onehot_labels=self._true_state,
                                             reduction=tf.losses.Reduction.NONE)
                                             # weights=_weights,
         # normalize loss by batch_size
         # self._loss = _loss_tensor
         self._loss = tf.reduce_sum(_loss_tensor) / tf.cast(self._num_slots, tf.float32)
+
+        tf.summary.scalar('loss', self._loss)
+        self._summary = tf.summary.merge_all()
+        self._train_writer = tf.summary.FileWriter(f"logs/train_{time()}", self.graph)
+        self._test_writer = tf.summary.FileWriter(f"logs/test_{time()}")
+        #self._train_op = _logits
         self._train_op = \
             self.get_train_op(self._loss, self.learning_rate, clip_norm=10.)
 
@@ -146,17 +154,17 @@ class StateTrackerNetwork(TFModel):
                                             name='utterance_slot_token_indeces')
         self._num_slots = tf.shape(self._utt_slot_idx)[0]
         # _utt_act_feats: [1, 2 * num_dialog_actions]
-        self._utt_act_feats = tf.placeholder(tf.float32,
-                                             [1, None],
-                                             name='utterance_action_features')
+        #self._utt_act_feats = tf.placeholder(tf.float32,
+        #                                     [1, None],
+        #                                     name='utterance_action_features')
         # _slot_act_feats: [num_slots, 2 * num_dialog_actions]
-        self._slot_act_feats = tf.placeholder(tf.float32,
-                                              [None, None],
-                                              name='slot_action_features')
+        #self._slot_act_feats = tf.placeholder(tf.float32,
+        #                                      [None, None],
+        #                                      name='slot_action_features')
         # _slot_val_act_feats: [num_slots, 2 * num_dialog_actions, max_num_slot_values]
-        self._slot_val_act_feats = tf.placeholder(tf.float32,
-                                                  [None, None, self.num_slot_vals],
-                                                  name='slot_value_action_features')
+        #self._slot_val_act_feats = tf.placeholder(tf.float32,
+        #                                          [None, None, self.num_slot_vals],
+        #                                          name='slot_value_action_features')
         # _prev_preds: [num_slots, max_num_slot_values + 2]
         self._prev_pred = tf.placeholder(tf.float32,
                                          [None, self.num_slot_vals + 2],
@@ -316,7 +324,7 @@ class StateTrackerNetwork(TFModel):
         print(f"utt_token_idx: {utt_token_idx}")
         print(f"utt_slot_idx_mat: {utt_slot_idx}")
         predictions = self.sess.run(
-            self._predictions,
+            self._prediction,
             feed_dict={
                 self._utt_token_idx: utt_token_idx,
                 self._utt_seq_length: utt_seq_length,
@@ -339,8 +347,8 @@ class StateTrackerNetwork(TFModel):
                                                 s_utt_slot_idx_mat[0]],
                                                pad_length=max(utt_seq_length),
                                                axis=1, pad_axis=1)
-        _tr, loss_value = self.sess.run(
-            [self._train_op, self._loss],
+        _tr, loss_value, summary = self.sess.run(
+            [self._train_op, self._loss, self._summary],
             feed_dict={
                 self._utt_token_idx: utt_token_idx,
                 self._utt_seq_length: utt_seq_length,
@@ -349,9 +357,13 @@ class StateTrackerNetwork(TFModel):
                 self._true_state: true_state_mat[0]
             }
         )
-        print(f"utt_repr.shape: {_tr.shape}")
-        print(f"where(utt_repr): {np.where(_tr)}")
-        print(f"slot_repr.shape: {loss_value.shape}")
+        self.batch_no += 1
+        self._train_writer.add_summary(summary, self.batch_no)
+        #print(f"_tr.shape: {_tr.shape}")
+        print(f"_tr: {_tr}")
+        #print(f"where(_tr): {np.where(_tr)}")
+        #print(f"loss_value.shape: {loss_value.shape}")
+        print(f"loss_value: {loss_value}")
         return loss_value
 
     def load(self, *args, **kwargs):
