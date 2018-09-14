@@ -48,7 +48,7 @@ def main():
     reader = build_model_from_config(reader_config)
     # print(reader([("Deep Pavlov killed Kenny.", "Who killed Kenny?")]))
     dataset = read_json(args.dataset_path)
-    dataset = dataset[:3]
+    # dataset = dataset[:3]
 
     qa_dataset_size = len(dataset)
     logger.info('QA dataset size: {}'.format(qa_dataset_size))
