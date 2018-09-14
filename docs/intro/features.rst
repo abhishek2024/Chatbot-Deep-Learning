@@ -10,11 +10,27 @@ Based on neural Named Entity Recognition network. The NER component reproduces a
 of a Hybrid Bi-LSTM-CRF model to the task of Russian Named Entity Recognition <https://arxiv.org/pdf/1709.09686.pdf>`__
 which is inspired by Bi-LSTM+CRF architecture from https://arxiv.org/pdf/1603.01360.pdf.
 
++---------------------------------------------------------------------------------------------------------------------------+------------------+
+| Dataset                                                                                                                   |     Test F1      |
++---------------------------------------------------------------------------------------------------------------------------+------------------+
+| :config:`Persons-1000 dataset with additional LOC and ORG markup <ner/ner_rus.json>`                                      |       95.25      |
++---------------------------------------------------------------------------------------------------------------------------+------------------+
+| :config:`DSTC 2 <ner/ner_dstc2.json>`                                                                                     |       98.40      |
++---------------------------------------------------------------------------------------------------------------------------+------------------+
+| :config:`OntoNotes  <ner/ner_ontonotes.json>`                                                                             |       87.07      |
++---------------------------------------------------------------------------------------------------------------------------+------------------+
+
 
 - :doc:`Slot filling components </components/slot_filling>`
 
 Based on fuzzy Levenshtein search to extract normalized slot values from text. The components either rely on NER results
 or perform needle in haystack search.
+
++---------------------------------------------------------------------------------------------------------------------------+------------------+
+| Dataset                                                                                                                   |  Slots Accuracy  |
++---------------------------------------------------------------------------------------------------------------------------+------------------+
+| :config:`DSTC 2 <ner/slotfill_dstc2.json>`                                                                                |       98.85      |
++---------------------------------------------------------------------------------------------------------------------------+------------------+
 
 
 - :doc:`Classification component </components/classifiers>`
@@ -23,27 +39,27 @@ Component for classification tasks (intents, sentiment, etc) on word-level. Shal
 BiLSTM with self-attention and other models are presented. The model also allows multilabel classification of texts.
 Several pre-trained models are available and presented in Table below.
 
-+-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------------+---------------+
-| Dataset           | Model                                                                                                        | Task             | Lang | Valid accuracy | Test accuracy |
-+-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------------+---------------+
-| `DSTC 2`_         | :config:`DSTC 2 on DSTC 2 embeddings <classifiers/intents_dstc2.json>`                                       | 28 intents       | En   | 0.8554         | 0.8658        |
-+-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------------+---------------+
-| `DSTC 2`_         | :config:`DSTC 2 on Wiki embeddings <classifiers/intents_dstc2_big.json>`                                     | 28 intents       | En   | 0.9659         | 0.9659        |
-+-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------------+---------------+
-| `SNIPS-2017`_     | :config:`SNIPS on DSTC 2 embeddings <classifiers/intents_snips.json>`                                        | 7 intents        | En   | 0.8829         |    --         |
-+-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------------+---------------+
-| `SNIPS-2017`_     | :config:`SNIPS on Wiki embeddings <classifiers/intents_snips_big.json>`                                      | 7 intents        | En   | 0.9868         |    --         |
-+-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------------+---------------+
-| `Insults`_        | :config:`InsultsKaggle on Reddit embeddings <classifiers/insults_kaggle.json>`                               | Insult detection | En   | 0.8757         | 0.7503        |
-+-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------------+---------------+
-| `AG News`_        | :config:`AG News on Wiki embeddings <classifiers/topic_ag_news.json>`                                        | 5 topics         | En   | 0.8735         | 0.8859        |
-+-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------------+---------------+
-|`Twitter mokoron`_ | :config:`Twitter on RuWiki+Lenta embeddings without any preprocessing <classifiers/sentiment_twitter.json>`  | Sentiment        | Ru   | 0.9968         | 0.9971        |
-+-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------------+---------------+
-|`Twitter mokoron`_ | :config:`Twitter on RuWiki+Lenta embeddings with preprocessing <classifiers/sentiment_twitter_preproc.json>` | Sentiment        | Ru   | 0.7944         | 0.7879        |
-+-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------------+---------------+
-|`RuSentiment`_     | :config:`RuSentiment on RuWiki+Lenta embeddings <classifiers/rusentiment_cnn.json>`                          | Sentiment        | Ru   | 0.6822         | 0.7095        |
-+-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------------+---------------+
++-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------+--------+--------+
+| Dataset           | Model                                                                                                        | Task             | Lang | Metric   | Valid  | Test   |
++-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------+--------+--------+
+| `DSTC 2`_         | :config:`DSTC 2 on DSTC 2 embeddings <classifiers/intents_dstc2.json>`                                       | 28 intents       | En   | Accuracy | 0.8554 | 0.8658 |
++-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------+--------+--------+
+| `DSTC 2`_         | :config:`DSTC 2 on Wiki embeddings <classifiers/intents_dstc2_big.json>`                                     | 28 intents       | En   | Accuracy | 0.9659 | 0.9659 |
++-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------+--------+--------+
+| `SNIPS-2017`_     | :config:`SNIPS on DSTC 2 embeddings <classifiers/intents_snips.json>`                                        | 7 intents        | En   | F1       | 0.8821 |    --  |
++-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------+--------+--------+
+| `SNIPS-2017`_     | :config:`SNIPS on Wiki embeddings <classifiers/intents_snips_big.json>`                                      | 7 intents        | En   | F1       | 0.9852 |    --  |
++-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------+--------+--------+
+| `Insults`_        | :config:`InsultsKaggle on Reddit embeddings <classifiers/insults_kaggle.json>`                               | Insult detection | En   | ROC-AUC  | 0.9287 | 0.8602 |
++-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------+--------+--------+
+| `AG News`_        | :config:`AG News on Wiki embeddings <classifiers/topic_ag_news.json>`                                        | 5 topics         | En   | Accuracy | 0.8735 | 0.8859 |
++-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------+--------+--------+
+|`Twitter mokoron`_ | :config:`Twitter on RuWiki+Lenta embeddings without any preprocessing <classifiers/sentiment_twitter.json>`  | Sentiment        | Ru   | Accuracy | 0.9968 | 0.9971 |
++-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------+--------+--------+
+|`Twitter mokoron`_ | :config:`Twitter on RuWiki+Lenta embeddings with preprocessing <classifiers/sentiment_twitter_preproc.json>` | Sentiment        | Ru   | Accuracy | 0.7944 | 0.7879 |
++-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------+--------+--------+
+|`RuSentiment`_     | :config:`RuSentiment on RuWiki+Lenta embeddings <classifiers/rusentiment_cnn.json>`                          | Sentiment        | Ru   | F1       | 0.7843 | 0.6556 |
++-------------------+--------------------------------------------------------------------------------------------------------------+------------------+------+----------+--------+--------+
 
 .. _`DSTC 2`: http://camdial.org/~mh521/dstc/
 .. _`SNIPS-2017`: https://github.com/snipsco/nlu-benchmark/tree/master/2017-06-custom-intent-engines
@@ -80,6 +96,7 @@ trained on Reddit dataset.
 +------------------------+-----------------+------------------+---------------+--------------+--------------+----------------------+------------------------+
 | Shallow-and-wide CNN   | **0.9956**      | **0.9973**       | **0.9968**    | **0.9871**   | **0.9998**   | **0.9752**           | **0.9854**             |
 +------------------------+-----------------+------------------+---------------+--------------+--------------+----------------------+------------------------+
+
 
 
 - :doc:`Goal-oriented bot </skills/go_bot>`
@@ -141,11 +158,59 @@ Comparison of deeppavlov pretrained model with others:
 
 Pipelines that use candidates search in a static dictionary and an ARPA language model to correct spelling errors.
 
+Compariosn on the `test set <http://www.dialog-21.ru/media/3838/test_sample_testset.txt>`__ for the `SpellRuEval
+competition <http://www.dialog-21.ru/en/evaluation/2016/spelling_correction/>`__
+on Automatic Spelling Correction for Russian:
+
++-----------------------------------------------------------------------------------------+-----------+--------+-----------+---------------------+
+| Correction method                                                                       | Precision | Recall | F-measure | Speed (sentences/s) |
++=========================================================================================+===========+========+===========+=====================+
+| Yandex.Speller                                                                          | 83.09     | 59.86  | 69.59     | 5.                  |
++-----------------------------------------------------------------------------------------+-----------+--------+-----------+---------------------+
+| :config:`Damerau Levenshtein 1 + lm<spelling_correction/levenshtein_corrector_ru.json>` | 53.26     | 53.74  | 53.50     | 29.3                |
++-----------------------------------------------------------------------------------------+-----------+--------+-----------+---------------------+
+| :config:`Brill Moore top 4 + lm<spelling_correction/brillmoore_kartaslov_ru.json>`      | 51.92     | 53.94  | 52.91     | 0.6                 |
++-----------------------------------------------------------------------------------------+-----------+--------+-----------+---------------------+
+| Hunspell + lm                                                                           | 41.03     | 48.89  | 44.61     | 2.1                 |
++-----------------------------------------------------------------------------------------+-----------+--------+-----------+---------------------+
+| JamSpell                                                                                | 44.57     | 35.69  | 39.64     | 136.2               |
++-----------------------------------------------------------------------------------------+-----------+--------+-----------+---------------------+
+| :config:`Brill Moore top 1 <spelling_correction/brillmoore_kartaslov_ru_nolm.json>`     | 41.29     | 37.26  | 39.17     | 2.4                 |
++-----------------------------------------------------------------------------------------+-----------+--------+-----------+---------------------+
+| Hunspell                                                                                | 30.30     | 34.02  | 32.06     | 20.3                |
++-----------------------------------------------------------------------------------------+-----------+--------+-----------+---------------------+
+
+
 
 - :doc:`Ranking component </components/neural_ranking>`
 
 Based on `LSTM-based deep learning models for non-factoid answer selection <https://arxiv.org/abs/1511.04108>`__. The
 model performs ranking of responses or contexts from some database by their relevance for the given context.
+
+Available pre-trained model(s):
+
++-------------------+-------------------------------------------------------------+-----------------------+------------------+
+|    Dataset        | Model config                                                | Validation (Recall@1) | Test1 (Recall@1) |
++-------------------+-------------------------------------------------------------+-----------------------+------------------+
+| `InsuranceQA V1`_ | :config:`ranking_insurance <ranking/ranking_insurance.json>`|   67.6                |   67.6           |
++-------------------+-------------------------------------------------------------+-----------------------+------------------+
+
+.. _`InsuranceQA V1`: https://github.com/shuzi/insuranceQA
+
+Comparison with other models on the `InsuranceQA V1 <https://github.com/shuzi/insuranceQA>`__:
+
++---------------------------------------------------------------+-------------------------+--------------------+
+| Model                                                         | Validation (Recall@1)   | Test1 (Recall@1)   |
++===============================================================+=========================+====================+
+| `Architecture II (HLQA(200) CNNQA(4000) 1-MaxPooling Tanh)`_  | 61.8                    | 62.8               |
++---------------------------------------------------------------+-------------------------+--------------------+
+| `QA-LSTM basic-model(max pooling)`_                           | 64.3                    | 63.1               |
++---------------------------------------------------------------+-------------------------+--------------------+
+| :config:`ranking_insurance <ranking/ranking_insurance.json>`  | **67.6**                | **67.6**           |
++---------------------------------------------------------------+-------------------------+--------------------+
+
+.. _`Architecture II (HLQA(200) CNNQA(4000) 1-MaxPooling Tanh)`: https://arxiv.org/pdf/1508.01585.pdf
+.. _`QA-LSTM basic-model(max pooling)`: https://arxiv.org/pdf/1511.04108.pdf
 
 
 - :doc:`Question Answering component </components/squad>`
@@ -187,7 +252,7 @@ contains word and sentence accuracy on UD2.0 datasets.
 .. _`Basic model`: :config:<morpho_tagger/UD2.0/ru_syntagrus/morpho_ru_syntagrus_predict.json>
 .. _`Pymorphy-enhanced model`: :config:<morpho_tagger/UD2.0/ru_syntagrus/morpho_ru_syntagrus_predict_pymorphy.json>
 
-- :doc:`Frequently Asked Questions (FAQ) component </components/faq>`
+- :doc:`Frequently Asked Questions (FAQ) component </skills/faq>`
 
 Set of pipelines for FAQ task: classifying incoming question into set of known questions and return prepared answer.
 You can build different pipelines based on: tf-idf, weighted fasttext, cosine similarity, logistic regression.
