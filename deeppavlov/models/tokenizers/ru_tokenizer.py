@@ -57,7 +57,7 @@ class RussianTokenizer(Component):
         if ngram_range is None:
             ngram_range = [1, 1]
 
-        if stopwords == 'NLTK_STOPWORDS':
+        if stopwords == 'nltk' or 'NLTK_STOPWORDS':
             stopwords = set(nltk_stopwords.words('russian'))
 
         self.stopwords = stopwords or []

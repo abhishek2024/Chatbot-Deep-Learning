@@ -63,12 +63,15 @@ class StreamSpacyTokenizer(Component):
         if replacers is None:
             replacers = {}
 
-        if stopwords == 'sklearn':
+        if stopwords is None:
+            pass
+        elif stopwords == 'sklearn':
             stopwords = SKLEARN_STOPWORDS
         elif stopwords == 'nltk':
             stopwords = set(nltk_stopwords.words('english'))
         else:
-            raise ValueError(f"There is no {stopwords} option for stopwords. Select from [\"sklearn\", \"nltk\"].")
+            raise ValueError(
+                f"There is no {stopwords} option for stopwords in English tokenizer. Select from [\"sklearn\", \"nltk\"].")
 
         self.stopwords = stopwords or []
         self.model = spacy.load('en', disable=disable)
