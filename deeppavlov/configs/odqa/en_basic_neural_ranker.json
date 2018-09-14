@@ -31,7 +31,8 @@
     "epochs": 1000,
     "batch_size": 1,
     "metrics": [
-      "ranker_recall"
+      "ranker_recall",
+      "accuracy"
     ],
     "validation_patience": 5,
     "val_every_n_epochs": 5,
