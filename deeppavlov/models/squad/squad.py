@@ -56,7 +56,10 @@ class SquadModel(TFModel):
         self.noans_token = self.opt.get('noans_token', False)
         self.scorer = self.opt.get('scorer', False)
         self.use_features = self.opt.get('use_features', False)
+        self.use_ner_features = self.opt.get('use_ner_features', False)
         self.features_dim = self.opt.get('features_dim', 2)
+        self.ner_features_dim = self.opt.get('ner_features_dim', 8)
+        self.ner_vocab_size = self.opt.get('ner_vocab_size', 20)
         self.use_elmo = self.opt.get('use_elmo', False)
         self.soft_labels = self.opt.get('soft_labels', False)
         self.true_label_weight = self.opt.get('true_label_weight', 0.7)
@@ -86,6 +89,7 @@ class SquadModel(TFModel):
         self.last_impatience = 0
         self.lr_impatience = 0
 
+        # TODO: model is saved and loaded only with trainable variables (not saveable!)
         if GPU_AVAILABLE:
             self.GRU = CudnnGRU if not self.legacy else CudnnGRULegacy
         else:
@@ -111,6 +115,7 @@ class SquadModel(TFModel):
     def _init_graph(self):
         self._init_placeholders()
 
+        # TODO: make optional and get already embedded tokens
         self.word_emb = tf.get_variable("word_emb", initializer=tf.constant(self.init_word_emb, dtype=tf.float32),
                                         trainable=False)
         self.char_emb = tf.get_variable("char_emb", initializer=tf.constant(self.init_char_emb, dtype=tf.float32),
@@ -138,6 +143,17 @@ class SquadModel(TFModel):
             self.c_f = tf.reshape(self.c_f, shape=(bs, self.c_maxlen, self.features_dim))
             self.q_f = tf.slice(self.q_f_ph, [0, 0, 0], [bs, self.q_maxlen, self.features_dim])
             self.q_f = tf.reshape(self.q_f, shape=(bs, self.q_maxlen, self.features_dim))
+
+        if self.use_ner_features:
+            self.c_ner = tf.slice(self.c_ner_ph, [0, 0], [bs, self.c_maxlen])
+            self.c_ner = tf.reshape(self.c_ner, shape=(bs, self.c_maxlen))
+            self.q_ner = tf.slice(self.q_ner_ph, [0, 0], [bs, self.q_maxlen])
+            self.q_ner = tf.reshape(self.q_ner, shape=(bs, self.q_maxlen))
+
+            self.ner_emb = tf.get_variable("ner_emb",
+                                           initializer=tf.random_uniform(
+                                               (self.ner_vocab_size, self.ner_features_dim), -0.1, 0.1),
+                                           trainable=True)
 
         if self.use_elmo:
             self.c_str = tf.slice(self.c_str_ph, [0, 0], [bs, self.c_maxlen])
@@ -225,6 +241,12 @@ class SquadModel(TFModel):
             if self.use_features:
                 c_emb = tf.concat([c_emb, self.c_f], axis=2)
                 q_emb = tf.concat([q_emb, self.q_f], axis=2)
+
+            if self.use_ner_features:
+                c_ner_emb = tf.nn.embedding_lookup(self.ner_emb, self.c_ner)
+                q_ner_emb = tf.nn.embedding_lookup(self.ner_emb, self.q_ner)
+                c_emb = tf.concat([c_emb, c_ner_emb], axis=2)
+                q_emb = tf.concat([q_emb, q_ner_emb], axis=2)
 
             if self.transform_word_emb != 0:
                 c_emb = tf.layers.dense(
@@ -498,6 +520,10 @@ class SquadModel(TFModel):
             self.c_f_ph = tf.placeholder(shape=(None, None, self.features_dim), dtype=tf.float32, name='c_f_ph')
             self.q_f_ph = tf.placeholder(shape=(None, None, self.features_dim), dtype=tf.float32, name='q_f_ph')
 
+        if self.use_ner_features:
+            self.c_ner_ph = tf.placeholder(shape=(None, None), dtype=tf.int32, name='c_ner_ph')
+            self.q_ner_ph = tf.placeholder(shape=(None, None), dtype=tf.int32, name='q_ner_ph')
+
         if self.use_elmo:
             self.c_str_ph = tf.placeholder(shape=(None, None), dtype=tf.string, name='c_str_ph')
             self.q_str_ph = tf.placeholder(shape=(None, None), dtype=tf.string, name='q_str_ph')
@@ -532,7 +558,8 @@ class SquadModel(TFModel):
             self.train_op = self.opt.apply_gradients(zip(capped_grads, variables), global_step=self.global_step)
 
     def _build_feed_dict(self, c_tokens, c_chars, q_tokens, q_chars,
-                         c_features=None, q_features=None, c_str=None, q_str=None, y1=None, y2=None, y=None):
+                         c_features=None, q_features=None, c_str=None, q_str=None, c_ner=None, q_ner=None,
+                         y1=None, y2=None, y=None):
 
         if self.use_elmo:
             c_str = self._pad_strings(c_str, self.context_limit)
@@ -549,6 +576,12 @@ class SquadModel(TFModel):
             feed_dict.update({
                 self.c_f_ph: c_features,
                 self.q_f_ph: q_features,
+            })
+        if self.use_ner_features:
+            assert c_ner is not None and q_ner is not None
+            feed_dict.update({
+                self.c_ner_ph: c_ner,
+                self.q_ner_ph: q_ner,
             })
         if self.predict_ans and y1 is not None and y2 is not None:
             feed_dict.update({
@@ -576,7 +609,7 @@ class SquadModel(TFModel):
         return feed_dict
 
     def train_on_batch(self, c_tokens, c_chars, q_tokens, q_chars,
-                       c_features=None, q_features=None, c_str=None, q_str=None,
+                       c_features=None, q_features=None, c_str=None, q_str=None, c_ner=None, q_ner=None,
                        y1s=None, y2s=None):
         # TODO: filter examples in batches with answer position greater self.context_limit
         # select one answer from list of correct answers
@@ -597,12 +630,12 @@ class SquadModel(TFModel):
                     y2s_noans.append(y2 + 1)
             y1s, y2s = y1s_noans, y2s_noans
         feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars,
-                                          c_features, q_features, c_str, q_str, y1s, y2s, ys)
+                                          c_features, q_features, c_str, q_str, c_ner, q_ner, y1s, y2s, ys)
         loss, _ = self.sess.run([self.loss, self.train_op], feed_dict=feed_dict)
         return loss
 
     def __call__(self, c_tokens, c_chars, q_tokens, q_chars,
-                 c_features=None, q_features=None, c_str=None, q_str=None, *args, **kwargs):
+                 c_features=None, q_features=None, c_str=None, q_str=None, c_ner=None, q_ner=None, *args, **kwargs):
 
         if any(np.sum(c_tokens, axis=-1) == 0) or any(np.sum(q_tokens, axis=-1) == 0):
             logger.info('SQuAD model: Warning! Empty question or context was found.')
@@ -615,7 +648,7 @@ class SquadModel(TFModel):
             return noanswers, noanswers, zero_probs, zero_probs
 
         feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars,
-                                          c_features, q_features, c_str, q_str)
+                                          c_features, q_features, c_str, q_str, c_ner, q_ner)
         if self.scorer and not self.predict_ans:
             score = self.sess.run(self.yp, feed_dict=feed_dict)
             return [float(score) for score in score]
