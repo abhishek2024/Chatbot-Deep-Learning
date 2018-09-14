@@ -25,8 +25,10 @@ from nltk import word_tokenize
 from tqdm import tqdm
 import lightgbm as lgbm
 import pandas as pd
+import json
 
 from deeppavlov.core.commands.utils import expand_path
+from deeppavlov.core.commands.infer import build_model_from_config
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.utils import download
@@ -359,6 +361,8 @@ class SquadFeaturesExtractor(Component):
         q_em = np.zeros([len(questions_tokens), self.question_limit], dtype=np.float32)
         q_tf = np.zeros([len(questions_tokens), self.question_limit], dtype=np.float32)
         for i, (context_tokens, question_tokens) in enumerate(zip(contexts_tokens, questions_tokens)):
+            context_tokens = context_tokens[:self.context_limit]
+            question_tokens = question_tokens[:self.question_limit]
             context_tokens = list(map(lambda x: x.lower(), context_tokens))
             question_tokens = list(map(lambda x: x.lower(), question_tokens))
             context_len = len(contexts_tokens)
@@ -387,3 +391,37 @@ class SquadDummyFeatures(Component):
 
     def __call__(self, batch):
         return [None] * len(batch)
+
+
+@register('squad_ner_tags_preprocessor')
+class SquadNerTagsPreprocessor(Component):
+    """
+    O -> O
+    B-LOC -> LOC
+    """
+    def __init__(self, tokens_limit, *args, **kwargs):
+        self.tokens_limit = tokens_limit
+        self.PAD = '<PAD>'
+
+    def __call__(self, ner_tags_batch, **kwargs):
+        processed_batch = []
+        for ner_tags in ner_tags_batch:
+            ner_tags = [ner_tag.split('-')[-1] for ner_tag in ner_tags[:self.tokens_limit]]
+            ner_tags = ner_tags + (self.tokens_limit - len(ner_tags)) * [self.PAD]
+            processed_batch.append(ner_tags)
+        return processed_batch
+
+
+@register('squad_ner_tags_extractor')
+class SquadNerTagsExtractor(Component):
+    def __init__(self, ner_config, *args, **kwargs):
+        config = json.load(open(expand_path(ner_config)))
+        # remove tokenizer from ner pipeline
+        config['chainer']['in'] = ['x_tokens']
+        config['chainer']['pipe'] = config['chainer']['pipe'][1:]
+
+        self.ner = build_model_from_config(config)
+
+    def __call__(self, tokens_batch, **kwargs):
+        batch_tags = [tags for tokens, tags in self.ner(tokens_batch)]
+        return batch_tags
