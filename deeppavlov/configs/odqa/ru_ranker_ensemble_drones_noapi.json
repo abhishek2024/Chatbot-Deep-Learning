@@ -1,0 +1,183 @@
+{
+  "chainer": {
+    "in": [
+      "question_raw"
+    ],
+    "out": [
+      "rank_text_score_id_ensemble"
+    ],
+    "pipe": [
+      {
+        "name": "tfidf_ranker",
+        "top_n": 500,
+        "active": true,
+        "in": [
+          "question_raw"
+        ],
+        "out": [
+          "doc_ids_500",
+          "doc_scores_500"
+        ],
+        "fit_on_batch": [
+          "questions_raw"
+        ],
+        "vectorizer": {
+          "name": "hashing_tfidf_vectorizer",
+          "fit_on_batch": [
+            "questions_raw"
+          ],
+          "save_path": "pmef/ru_drones_tfidf.npz",
+          "load_path": "pmef/ru_drones_tfidf.npz",
+          "tokenizer": {
+            "name": "ru_tokenizer",
+            "lemmas": true,
+            "ngram_range": [
+              1,
+              2
+            ],
+            "stopwords": "nltk"
+          }
+        }
+      },
+      {
+        "name": "tfidf_ranker",
+        "top_n": 20,
+        "active": true,
+        "in": [
+          "question_raw"
+        ],
+        "out": [
+          "doc_ids",
+          "doc_scores"
+        ],
+        "fit_on_batch": [
+          "questions_raw"
+        ],
+        "vectorizer": {
+          "name": "hashing_tfidf_vectorizer",
+          "fit_on_batch": [
+            "questions_raw"
+          ],
+          "save_path": "pmef/ru_drones_tfidf.npz",
+          "load_path": "pmef/ru_drones_tfidf.npz",
+          "tokenizer": {
+            "name": "ru_tokenizer",
+            "lemmas": true,
+            "ngram_range": [
+              1,
+              2
+            ],
+            "stopwords": "nltk"
+          }
+        }
+      },
+      {
+        "name": "wiki_sqlite_vocab",
+        "id": "my_wiki_sqlite_vocab",
+        "in": [
+          "doc_ids"
+        ],
+        "out": [
+          "context_raw",
+          "doc_ids"
+        ],
+        "shuffle": false,
+        "join_docs": false,
+        "load_path": "pmef/ru_drones.db"
+      },
+      {
+        "ref": "my_wiki_sqlite_vocab",
+        "in": [
+          "doc_ids_500"
+        ],
+        "out": [
+          "context_raw_500",
+          "doc_ids_500"
+        ]
+      },
+      {
+        "name": "query_paragraph_tuplifier",
+        "in": [
+          "question_raw",
+          "context_raw_500",
+          "doc_ids_500"
+        ],
+        "out": [
+          "question_paragraph_tuples"
+        ]
+      },
+      {
+        "name": "squad_paragraph_ranker",
+        "active": true,
+        "top_n": 20,
+        "ranker_config": "../deeppavlov/configs/squad/squad_ru_noans.json",
+        "type": "paragraph",
+        "in": [
+          "question_paragraph_tuples"
+        ],
+        "out": [
+          "docs_squad",
+          "doc_scores_squad",
+          "doc_ids_squad"
+        ]
+      },
+      {
+        "name": "rank_doc_score_tuplifier",
+        "id": "my_rank_doc_score_tuplifier",
+        "in": [
+          "docs_squad",
+          "doc_scores_squad",
+          "doc_ids_squad"
+        ],
+        "out": [
+          "rank_text_score_id_rnet"
+        ]
+      },
+      {
+        "ref": "my_rank_doc_score_tuplifier",
+        "in": [
+          "context_raw",
+          "doc_scores",
+          "doc_ids"
+        ],
+        "out": [
+          "rank_text_score_id_tfidf"
+        ]
+      },
+      {
+        "name": "ensemble_ranker",
+        "top_n": 5,
+        "in": [
+          "rank_text_score_id_tfidf",
+          "rank_text_score_id_rnet"
+        ],
+        "out": [
+          "rank_text_score_id_ensemble"
+        ]
+      }
+    ]
+  },
+  "train": {
+    "validate_best": false,
+    "test_best": false,
+    "batch_size": 10000
+  },
+  "metadata": {
+    "download": [
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/pmef.tar.gz",
+      {
+        "url": "http://lnsigo.mipt.ru/export/datasets/pmef/ru_drones.db",
+        "subdir": "pmef"
+      },
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/squad_model_ru_noans_tf1.8.tar.gz",
+      {
+        "url": "http://lnsigo.mipt.ru/export/embeddings/ft_native_300_ru_wiki_lenta_nltk_word_tokenize/ft_native_300_ru_wiki_lenta_nltk_word_tokenize.vec",
+        "subdir": "embeddings"
+      },
+      {
+        "url": "http://lnsigo.mipt.ru/export/embeddings/ft_native_300_ru_wiki_lenta_nltk_word_tokenize-char.vec",
+        "subdir": "embeddings"
+      }
+    ]
+  }
+}
