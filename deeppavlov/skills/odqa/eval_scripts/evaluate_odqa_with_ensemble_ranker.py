@@ -33,7 +33,7 @@ logger.addHandler(file)
 parser = argparse.ArgumentParser()
 
 parser.add_argument("-ranker_config_path", help="path to a JSON ranker config", type=str,
-                    default='../../../../deeppavlov/configs/odqa/en_ranker_tfidf_wiki.json')
+                    default='../../../../deeppavlov/configs/odqa/en_ranker_ensemble_wiki_noapi.json')
 parser.add_argument("-dataset_path", help="path to SQuAD dataset", type=str,
                     default='/media/olga/Data/datasets/squad/preproc/dev-v1.1_prep_4odqa.json')
 parser.add_argument("-reader_config_path", help="path to squad reader config", type=str,
