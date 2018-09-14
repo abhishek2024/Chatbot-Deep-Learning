@@ -188,3 +188,48 @@ class MultiSquadIterator(DataLearningIterator):
                 answer_start = list(map(lambda x: x['answer_start'], context['answer']))
                 data_examples.append(((context['context'], question), (answer_text, answer_start)))
         return tuple(zip(*data_examples))
+
+
+@register('ner_squad_iterator')
+class NerSquadIterator(DataLearningIterator):
+
+    def split(self, *args, **kwargs) -> None:
+        for dt in ['train', 'valid', 'test']:
+            setattr(self, dt, self._extract_cqas(getattr(self, dt)))
+
+    @staticmethod
+    def _extract_cqas(data: Dict[str, Any]) -> List[Tuple[Tuple[str, str], Tuple[List[str], List[int]]]]:
+        cqas = []
+        if data:
+            for article in data['data']:
+                for par in article['paragraphs']:
+                    context = par['context']
+                    c_processed = par['context_clean']
+                    c_tokens = par['context_tokens']
+                    c_chars = par['context_chars']
+                    spans = par['spans']
+                    r2p = par['r2p']
+                    p2r = par['p2r']
+                    ner_tags = par['ner_tags']
+                    for qa in par['qas']:
+                        q = qa['question']
+                        q_processed = qa['question_clean']
+                        q_tokens = qa['question_tokens']
+                        q_chars = qa['question_chars']
+                        q_ner_tags = qa['ner_tags']
+
+                        x = (context, c_processed, c_tokens, c_chars, ner_tags,
+                             q, q_processed, q_tokens, q_chars, q_ner_tags,
+                             spans, r2p, p2r)
+
+                        ans_text = []
+                        ans_start = []
+                        if len(qa['answers']) == 0:
+                            # squad 2.0 has questions without an answer
+                            cqas.append((x, ([''], [-1])))
+                        else:
+                            for answer in qa['answers']:
+                                ans_text.append(answer['text'])
+                                ans_start.append(answer['answer_start'])
+                            cqas.append((x, (ans_text, ans_start)))
+        return cqas
