@@ -117,14 +117,16 @@ class DialogStateDatasetIterator(DataLearningIterator):
             u_slots = cls._biomarkup2dict(u_tokens, u['slots'])
             r_slots = cls._biomarkup2dict(r_tokens, r.get('slots', []))
 
-            x_tuple = (u_tokens, u_slots, u['slots'],
+            x_tuple = (u_tokens, u_slots, u['slots'], u['intents'],
                        prev_turn.get('system_tokens', []),
                        prev_turn.get('system_slots', {}),
                        prev_turn.get('system_slots_bio', []),
+                       prev_turn.get('system_acts', []),
                        prev_turn.get('goals', {}))
             y_tuple = (u['goals'])
             prev_turn = {'goals': u['goals'], 'system_tokens': r_tokens,
-                         'system_slots': r_slots, 'system_slots_bio': r.get('slots', [])}
+                         'system_slots': r_slots, 'system_slots_bio': r.get('slots', []),
+                         'system_acts': r.get('acts', [])}
 
             data.append((x_tuple, y_tuple))
         return data

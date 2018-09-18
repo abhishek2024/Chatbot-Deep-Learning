@@ -13,9 +13,12 @@
 # limitations under the License.
 
 from typing import List, Dict, Any, Union
+from itertools import chain
 import numpy as np
 
 from deeppavlov.core.models.component import Component
+from deeppavlov.core.common.registry import register
+from deeppavlov.core.data.simple_vocab import SimpleVocabulary
 from deeppavlov.core.common.log import get_logger
 
 log = get_logger(__name__)
@@ -65,6 +68,7 @@ class SlotsTokensMatrixBuilder(Component):
                  candidates: List[Dict[str, List[str]]] = None) -> List[np.ndarray]:
         # dirty hack to fix that everything must be a batch
         candidates = candidates[0]
+        print("candidates =", candidates)
         utt_matrices = []
         for utt, utt_tags in zip(utterances, tags):
             mat = np.zeros((len(self.slot_vocab), len(utt_tags)), dtype=int)
@@ -165,3 +169,21 @@ class SlotsValuesMatrix2Dict(Component):
             if value not in self.exclude_values:
                 slot_dict[slot] = value
         return [slot_dict]
+
+
+@register('action_vocab')
+class ActionVocabulary(SimpleVocabulary):
+    """Implements action vocabulary."""
+
+    @staticmethod
+    def _format_action(a):
+        if isinstance(a, Dict):
+            return a['act']
+        return a
+
+    def fit(self, *args):
+        actions = map(self._format_action, chain(*args))
+        super().fit([actions])
+
+    def __call__(self, batch, **kwargs):
+        return super().__call__([map(self._format_action, batch)])
