@@ -2,10 +2,10 @@
   "dataset_reader": {
     "name": "squad_dataset_reader",
     "data_path": "squad/",
-    "dataset": "NERSQuAD"
+    "dataset": "SQuAD"
   },
   "dataset_iterator": {
-    "name": "ner_squad_iterator",
+    "name": "squad_iterator",
     "seed": 1337,
     "shuffle": true
   },
