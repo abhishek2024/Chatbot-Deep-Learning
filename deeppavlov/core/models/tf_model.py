@@ -35,9 +35,11 @@ class TFModel(NNModel, metaclass=TfModelMeta):
                                ' have sess attribute!'.format(self.__class__.__name__))
         super().__init__(*args, **kwargs)
 
-    def load(self, exclude_scopes: Optional[Iterable] = ('Optimizer',)) -> None:
+    def load(self, path=None, exclude_scopes: Optional[Iterable] = ('Optimizer',)) -> None:
         """Load model parameters from self.load_path"""
-        path = str(self.load_path.resolve())
+        if path is None:
+            path = self.load_path
+        path = str(path.resolve())
         # Check presence of the model files
         if tf.train.checkpoint_exists(path):
             log.info('[loading model from {}]'.format(path))
@@ -46,9 +48,11 @@ class TFModel(NNModel, metaclass=TfModelMeta):
             saver = tf.train.Saver(var_list)
             saver.restore(self.sess, path)
 
-    def save(self, exclude_scopes: Optional[Iterable] = ('Optimizer',)) -> None:
+    def save(self, path=None, exclude_scopes: Optional[Iterable] = ('Optimizer',)) -> None:
         """Save model parameters to self.save_path"""
-        path = str(self.save_path.resolve())
+        if path is None:
+            path = self.save_path
+        path = str(path.resolve())
         log.info('[saving model to {}]'.format(path))
         var_list = self._get_saveable_variables(exclude_scopes)
         saver = tf.train.Saver(var_list)

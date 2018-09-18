@@ -323,10 +323,8 @@ class SquadModel(TFModel):
 
             if self.weight_decay < 1.0:
                 # load from tmp weights and do not call _load_ema_weigts
-                load_path = self.load_path
-                self.load_path = self.tmp_model_path
-                self.load()
-                self.load_path = load_path
+                self.load(path=self.tmp_model_path)
+                # TODO: remove tmp files
 
             # learning rate decay
             if data['impatience'] > self.last_impatience:
@@ -346,12 +344,9 @@ class SquadModel(TFModel):
                 # validate model with EMA weights
 
                 # save weights to tmp path
-                save_path = self.save_path
-                self.save_path = self.tmp_model_path
                 # warning: TFModel does not save optimizer params.
                 # In our case, we do this save/load operation in one session so we do not lose optimizer params.
-                self.save()
-                self.save_path = save_path
+                self.save(path=self.tmp_model_path)
                 # load ema weights
                 self._load_ema_weights()
 
