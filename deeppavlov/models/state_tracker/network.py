@@ -321,9 +321,9 @@ class StateTrackerNetwork(TFModel):
                                                 s_utt_slot_idx_mat[0]],
                                                pad_length=max(utt_seq_length),
                                                axis=1, pad_axis=1)
-        print(f"utt_token_idx: {utt_token_idx}")
-        print(f"utt_slot_idx_mat: {utt_slot_idx}")
-        predictions = self.sess.run(
+        #print(f"utt_token_idx: {utt_token_idx}")
+        #print(f"utt_slot_idx_mat: {utt_slot_idx}")
+        prediction = self.sess.run(
             self._prediction,
             feed_dict={
                 self._utt_token_idx: utt_token_idx,
@@ -335,7 +335,7 @@ class StateTrackerNetwork(TFModel):
 # TODO: implement infer probabilities
         if prob:
             raise NotImplementedError("Probs not available for now.")
-        return predictions
+        return prediction
 
     def train_on_batch(self, u_utt_token_idx, u_utt_slot_idx_mat,
                        s_utt_token_idx, s_utt_slot_idx_mat,
@@ -360,10 +360,10 @@ class StateTrackerNetwork(TFModel):
         self.batch_no += 1
         self._train_writer.add_summary(summary, self.batch_no)
         #print(f"_tr.shape: {_tr.shape}")
-        print(f"_tr: {_tr}")
+        #print(f"_tr: {_tr}")
         #print(f"where(_tr): {np.where(_tr)}")
         #print(f"loss_value.shape: {loss_value.shape}")
-        print(f"loss_value: {loss_value}")
+        #print(f"loss_value: {loss_value}")
         return loss_value
 
     def load(self, *args, **kwargs):

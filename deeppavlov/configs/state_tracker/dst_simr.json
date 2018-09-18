@@ -9,7 +9,7 @@
   "chainer": {
     "in": ["u_utter", "u_slots", "u_slots_bio", "s_tokens", "s_slots", "s_slots_bio", "prev_state"],
     "in_y": ["state"],
-    "out": ["slot_candidates"],
+    "out": ["state_pred"],
     "pipe": [
       {
         "name": "slot_value_filter",
@@ -111,7 +111,9 @@
       },
       {
         "class": "deeppavlov.models.state_tracker.preprocessors:SlotsValuesMatrix2Dict",
-        "slot_vocab": "#slot_vocab"
+        "slot_vocab": "#slot_vocab",
+        "in": ["state_pred_matr", "slot_cand_indexer"],
+        "out": ["state_pred"]
       }
     ]
   },
@@ -123,7 +125,8 @@
     "validation_patience": 10,
     "val_every_n_epochs": 1,
 
-    "log_every_n_epochs": 1
+    "log_every_n_epochs": 1,
+    "tensorboard_log_dir": "logs"
   },
   "metadata": {
     "requirements": [

@@ -57,8 +57,8 @@ class SlotsTokensMatrixBuilder(Component):
         if slot not in self.slot_vocab:
             raise RuntimeError(f"Utterance slot {slot} doesn't match any slot"
                                " from slot_vocab.")
-        print(f"slot '{slot}' has idx =", list(self.slot_vocab.keys()).index(slot))
-        print(f"returning idx =", self.slot_vocab([[slot]])[0][0])
+        #print(f"slot '{slot}' has idx =", list(self.slot_vocab.keys()).index(slot))
+        #print(f"returning idx =", self.slot_vocab([[slot]])[0][0])
         return self.slot_vocab([[slot]])[0][0]
 
     def __call__(self, utterances: List[List[str]], tags: List[List[str]],
@@ -146,16 +146,19 @@ class SlotsValuesMatrix2Dict(Component):
     def __init__(self, slot_vocab: callable, **kwargs):
         self.slot_vocab = slot_vocab
 
-    def __call__(self, slots_masks: List[np.ndarray],
+    def __call__(self, slots_values: np.ndarray,
                  candidates: List[Dict[str, List[str]]]) -> List[Dict[str, str]]:
         # dirty hack to fix that everything must be a batch
         candidates = candidates[0]
         dict_batch = []
-        for slots in slots_masks:
-            slot_dict = {}
-            for slot_idx, value_idx in zip(*np.where(slots_masks)):
-                slot = self.slot_vocab(slot_idx)
-                value = candidates[slot][value_idx]
-                slot_dict[slot] = value
-            dict_batch.append(slot_dict)
+        print(slots_values)
+        slot_dict = {}
+        # for slot_idx in range(len(slots_values)):
+        #    value_idx = slots[slot_idx]
+        # for slot_idx, value_idx in zip(*np.where(slots)):
+        for slot_idx, value_idx in enumerate(slots_values):
+            slot = self.slot_vocab([slot_idx])[0]
+            value = candidates[slot][value_idx]
+            slot_dict[slot] = value
+        dict_batch.append(slot_dict)
         return dict_batch
