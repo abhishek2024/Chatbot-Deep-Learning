@@ -465,6 +465,7 @@ def _train_batches(model: NNModel, iterator: DataLearningIterator, train_config:
                 train_y_predicted.clear()
 
             if train_config['val_every_n_epochs'] > 0 and epochs % train_config['val_every_n_epochs'] == 0:
+                model.process_event(event_name='before_validation', data=None)
                 report = _test_model(model, metrics_functions, iterator,
                                      train_config['batch_size'], 'valid', start_time, train_config['show_examples'])
                 report['epochs_done'] = epochs

@@ -105,7 +105,8 @@ class SquadModel(TFModel):
         if self.load_path is not None:
             self.load()
             if self.weight_decay < 1.0:
-                self._load_ema_weights()
+                # TODO: it is redundant because best model is saved with assigned ema weights
+                self._assign_ema_weights()
 
     def _init_graph(self):
         self._init_placeholders()
@@ -242,7 +243,7 @@ class SquadModel(TFModel):
         for g, v in zip(global_vars, shadow_vars):
             self.assign_vars.append(tf.assign(g, v))
 
-    def _load_ema_weights(self):
+    def _assign_ema_weights(self):
         logger.info('SQuAD model: Using EMA weights.')
         self.sess.run(self.assign_vars)
 
@@ -348,7 +349,7 @@ class SquadModel(TFModel):
                 # In our case, we do this save/load operation in one session so we do not lose optimizer params.
                 self.save(path=self.tmp_model_path)
                 # load ema weights
-                self._load_ema_weights()
+                self._assign_ema_weights()
 
     def shutdown(self):
         pass
