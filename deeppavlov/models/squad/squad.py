@@ -321,11 +321,12 @@ class SquadModel(TFModel):
         """
         if event_name == "after_validation":
 
-            # load from tmp weights and do not call _load_ema_weigts
-            load_path = self.load_path
-            self.load_path = self.tmp_model_path
-            self.load()
-            self.load_path = load_path
+            if self.weight_decay < 1.0:
+                # load from tmp weights and do not call _load_ema_weigts
+                load_path = self.load_path
+                self.load_path = self.tmp_model_path
+                self.load()
+                self.load_path = load_path
 
             # learning rate decay
             if data['impatience'] > self.last_impatience:
