@@ -365,14 +365,14 @@ class SquadFeaturesExtractor(Component):
             question_tokens = question_tokens[:self.question_limit]
             context_tokens = list(map(lambda x: x.lower(), context_tokens))
             question_tokens = list(map(lambda x: x.lower(), question_tokens))
-            context_len = len(contexts_tokens)
+            context_len = len(context_tokens)
             question_len = len(question_tokens)
 
             if context_len == 0 or question_len == 0:
                 raise RuntimeError('Context or question is empty.')
 
             context_unique_tokens = Counter(context_tokens)
-            question_unique_tokens = Counter(context_tokens)
+            question_unique_tokens = Counter(question_tokens)
             for j, c_token in enumerate(context_tokens):
                 c_em[i][j] = 1 if c_token in question_unique_tokens and c_token not in self.punkt else 0
                 c_tf[i][j] = context_unique_tokens[c_token] / context_len if c_token not in self.punkt else 0
