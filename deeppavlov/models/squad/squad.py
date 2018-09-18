@@ -49,7 +49,7 @@ class SquadModel(TFModel):
         min_learning_rate: min learning rate, is used in learning rate decay
         learning_rate_patience: number of epochs without score improvements to decay learning rate
         grad_clip: gradient clipping value
-        weight_decay: weight decay value
+        weight_decay: exponential moving average weight decay value
     """
     def __init__(self, word_emb: np.ndarray, char_emb: np.ndarray, context_limit: int = 450, question_limit: int = 150,
                  char_limit: int = 16, train_char_emb: bool = True, char_hidden_size: int = 100,
@@ -92,14 +92,20 @@ class SquadModel(TFModel):
 
         self._init_optimizer()
 
+        if self.weight_decay < 1.0:
+            self._init_ema()
+
         self.sess.run(tf.global_variables_initializer())
 
         super().__init__(**kwargs)
+
+        self.tmp_model_path = self.load_path.with_suffix('.tmp')
+
         # Try to load the model (if there are some model files the model will be loaded from them)
         if self.load_path is not None:
             self.load()
             if self.weight_decay < 1.0:
-                 self.sess.run(self.assign_vars)
+                self._load_ema_weights()
 
     def _init_graph(self):
         self._init_placeholders()
@@ -197,23 +203,6 @@ class SquadModel(TFModel):
             loss_2 = tf.nn.softmax_cross_entropy_with_logits(logits=logits2, labels=self.y2)
             self.loss = tf.reduce_mean(loss_1 + loss_2)
 
-        if self.weight_decay < 1.0:
-            self.var_ema = tf.train.ExponentialMovingAverage(self.weight_decay)
-            ema_op = self.var_ema.apply(tf.trainable_variables())
-            with tf.control_dependencies([ema_op]):
-                self.loss = tf.identity(self.loss)
-
-                self.shadow_vars = []
-                self.global_vars = []
-                for var in tf.global_variables():
-                    v = self.var_ema.average(var)
-                    if v:
-                        self.shadow_vars.append(v)
-                        self.global_vars.append(var)
-                self.assign_vars = []
-                for g, v in zip(self.global_vars, self.shadow_vars):
-                    self.assign_vars.append(tf.assign(g, v))
-
     def _init_placeholders(self):
         self.c_ph = tf.placeholder(shape=(None, None), dtype=tf.int32, name='c_ph')
         self.cc_ph = tf.placeholder(shape=(None, None, self.char_limit), dtype=tf.int32, name='cc_ph')
@@ -235,6 +224,27 @@ class SquadModel(TFModel):
             gradients, variables = zip(*grads)
             capped_grads = [tf.clip_by_norm(g, self.grad_clip) for g in gradients]
             self.train_op = self.opt.apply_gradients(zip(capped_grads, variables), global_step=self.global_step)
+
+    def _init_ema(self):
+        var_ema = tf.train.ExponentialMovingAverage(self.weight_decay)
+        with tf.control_dependencies([self.train_op]):
+            self.train_op = var_ema.apply(tf.trainable_variables())
+
+        shadow_vars = []
+        global_vars = []
+        for var in tf.trainable_variables():
+            v = var_ema.average(var)
+            if v:
+                shadow_vars.append(v)
+                global_vars.append(var)
+
+        self.assign_vars = []
+        for g, v in zip(global_vars, shadow_vars):
+            self.assign_vars.append(tf.assign(g, v))
+
+    def _load_ema_weights(self):
+        logger.info('SQuAD model: Using EMA weights.')
+        self.sess.run(self.assign_vars)
 
     def _build_feed_dict(self, c_tokens, c_chars, q_tokens, q_chars, y1=None, y2=None):
         feed_dict = {
@@ -303,13 +313,21 @@ class SquadModel(TFModel):
 
     def process_event(self, event_name: str, data) -> None:
         """
-        Processes events sent by trainer. Implements learning rate decay.
+        Processes events sent by trainer.
 
         Args:
             event_name: event_name sent by trainer
             data: number of examples, epochs, metrics sent by trainer
         """
         if event_name == "after_validation":
+
+            # load from tmp weights and do not call _load_ema_weigts
+            load_path = self.load_path
+            self.load_path = self.tmp_model_path
+            self.load()
+            self.load_path = load_path
+
+            # learning rate decay
             if data['impatience'] > self.last_impatience:
                 self.lr_impatience += 1
             else:
@@ -322,6 +340,19 @@ class SquadModel(TFModel):
                 self.learning_rate = max(self.learning_rate / 2, self.min_learning_rate)
                 logger.info('SQuAD model: learning_rate changed to {}'.format(self.learning_rate))
             logger.info('SQuAD model: lr_impatience: {}, learning_rate: {}'.format(self.lr_impatience, self.learning_rate))
+        elif event_name == "before_validation":
+            if self.weight_decay < 1.0:
+                # validate model with EMA weights
+
+                # save weights to tmp path
+                save_path = self.save_path
+                self.save_path = self.tmp_model_path
+                # warning: TFModel does not save optimizer params.
+                # In our case, we do this save/load operation in one session so we do not lose optimizer params.
+                self.save()
+                self.save_path = save_path
+                # load ema weights
+                self._load_ema_weights()
 
     def shutdown(self):
         pass
