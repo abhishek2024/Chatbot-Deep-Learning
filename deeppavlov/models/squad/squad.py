@@ -103,6 +103,10 @@ class SquadModel(TFModel):
 
         self._init_optimizer()
 
+        if self.weight_decay < 1.0:
+            # TODO make callbacks to save/load on valid to compute metrics with ema weightsq
+            self._init_ema()
+
         self.sess.run(tf.global_variables_initializer())
 
         super().__init__(**kwargs)
@@ -110,6 +114,7 @@ class SquadModel(TFModel):
         if self.load_path is not None:
             self.load()
             if self.weight_decay < 1.0:
+                logger.info('SQuAD model: Using EMA weights.')
                 self.sess.run(self.assign_vars)
 
     def _init_graph(self):
@@ -492,23 +497,6 @@ class SquadModel(TFModel):
             else:
                 self.loss = tf.reduce_mean(squad_loss)
 
-        # TODO: remove or check
-        if self.weight_decay < 1.0:
-            self.var_ema = tf.train.ExponentialMovingAverage(self.weight_decay)
-            ema_op = self.var_ema.apply(tf.trainable_variables())
-            with tf.control_dependencies([ema_op]):
-                self.loss = tf.identity(self.loss)
-
-                self.shadow_vars = []
-                self.global_vars = []
-                for var in tf.global_variables():
-                    v = self.var_ema.average(var)
-                    if v:
-                        self.shadow_vars.append(v)
-                        self.global_vars.append(var)
-                self.assign_vars = []
-                for g, v in zip(self.global_vars, self.shadow_vars):
-                    self.assign_vars.append(tf.assign(g, v))
 
     def _init_placeholders(self):
         self.c_ph = tf.placeholder(shape=(None, None), dtype=tf.int32, name='c_ph')
@@ -556,6 +544,23 @@ class SquadModel(TFModel):
             capped_grads = [tf.clip_by_norm(g, self.grad_clip) for g in gradients]
 
             self.train_op = self.opt.apply_gradients(zip(capped_grads, variables), global_step=self.global_step)
+
+    def _init_ema(self):
+        var_ema = tf.train.ExponentialMovingAverage(self.weight_decay)
+        with tf.control_dependencies([self.train_op]):
+            self.train_op = var_ema.apply(tf.trainable_variables())
+
+        shadow_vars = []
+        global_vars = []
+        for var in tf.trainable_variables():
+            v = var_ema.average(var)
+            if v:
+                shadow_vars.append(v)
+                global_vars.append(var)
+
+        self.assign_vars = []
+        for g, v in zip(global_vars, shadow_vars):
+            self.assign_vars.append(tf.assign(g, v))
 
     def _build_feed_dict(self, c_tokens, c_chars, q_tokens, q_chars,
                          c_features=None, q_features=None, c_str=None, q_str=None, c_ner=None, q_ner=None,
