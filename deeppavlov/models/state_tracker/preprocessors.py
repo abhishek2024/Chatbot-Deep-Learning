@@ -111,7 +111,8 @@ class SlotsValuesMatrixBuilder(Component):
                                " from slot_vocab.")
         return self.slot_vocab([[slot]])[0][0]
 
-    def _value2idx(self, slot, value, candidates):
+    @staticmethod
+    def _value2idx(slot, value, candidates):
         if value not in candidates[slot]:
             raise RuntimeError(f"'{slot}' slot's value '{value}' doesn't match"
                                " any value from candidates {candidates}.")
@@ -143,22 +144,24 @@ class SlotsValuesMatrix2Dict(Component):
     Converts matrix of slot values of shape [num_slots, max_num_values]
     to dictionary with slots as keys and values as dictionary values.
     """
-    def __init__(self, slot_vocab: callable, **kwargs):
+    def __init__(self, slot_vocab: callable, exclude_values: List = [], **kwargs) -> None:
         self.slot_vocab = slot_vocab
+        self.exclude_values = exclude_values
+
+    @staticmethod
+    def _idx2value(slot, idx, candidates):
+        idx = idx if idx < len(candidates[slot]) else 0
+        return candidates[slot][idx]
 
     def __call__(self, slots_values: np.ndarray,
                  candidates: List[Dict[str, List[str]]]) -> List[Dict[str, str]]:
         # dirty hack to fix that everything must be a batch
         candidates = candidates[0]
-        dict_batch = []
-        print(slots_values)
         slot_dict = {}
-        # for slot_idx in range(len(slots_values)):
-        #    value_idx = slots[slot_idx]
         # for slot_idx, value_idx in zip(*np.where(slots)):
         for slot_idx, value_idx in enumerate(slots_values):
-            slot = self.slot_vocab([slot_idx])[0]
-            value = candidates[slot][value_idx]
-            slot_dict[slot] = value
-        dict_batch.append(slot_dict)
-        return dict_batch
+            slot = self.slot_vocab([[slot_idx]])[0][0]
+            value = self._idx2value(slot, value_idx, candidates)
+            if value not in self.exclude_values:
+                slot_dict[slot] = value
+        return [slot_dict]

@@ -13,6 +13,7 @@
     "pipe": [
       {
         "name": "slot_value_filter",
+        "id": "slot_filter",
         "max_num_values": 7,
         "exclude_values": ["dontcare"],
         "in": ["u_slots", "s_slots", "prev_state"],
@@ -84,14 +85,14 @@
       {
         "class": "deeppavlov.models.state_tracker.preprocessors:SlotsValuesMatrixBuilder",
         "slot_vocab": "#slot_vocab",
-        "max_num_values": 7,
+        "max_num_values": "#slot_filter.max_num_values",
         "in": ["state", "slot_cand_indexer"],
         "out": ["state_matr"]
       },
       {
         "class": "deeppavlov.models.state_tracker.preprocessors:SlotsValuesMatrixBuilder",
         "slot_vocab": "#slot_vocab",
-        "max_num_values": 7,
+        "max_num_values": "#slot_filter.max_num_values",
         "in": ["prev_state", "slot_cand_indexer"],
         "out": ["prev_state_matr"]
       },
@@ -105,13 +106,14 @@
         "out": ["state_pred_matr"],
         "hidden_size": 128,
         "dense_size": 32,
-        "num_slot_values": 7,
+        "num_slot_values": "#slot_filter.max_num_values",
         "embedding_matrix": "#embeddings.emb_mat",
         "learning_rate": 0.0031
       },
       {
         "class": "deeppavlov.models.state_tracker.preprocessors:SlotsValuesMatrix2Dict",
         "slot_vocab": "#slot_vocab",
+        "exclude_values": ["null"],
         "in": ["state_pred_matr", "slot_cand_indexer"],
         "out": ["state_pred"]
       }

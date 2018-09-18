@@ -44,7 +44,7 @@ class SlotValueFilter:
         max_num_values: maximum number of values for each slot.
     """
 
-    def __init__(self, max_num_values: int = None,
+    def __init__(self, max_num_values: int,
                  exclude_values: List[str] = [], **kwargs):
         self.max_num = max_num_values
         self.exclude_vals = exclude_values
@@ -92,7 +92,8 @@ class SlotValueFilterComponent(Component):
         max_num_values: maximum number of values for each slot.
     """
 
-    def __init__(self, max_num_values: int = None, **kwargs) -> None:
+    def __init__(self, max_num_values: int, **kwargs) -> None:
+        self.max_num_values = max_num_values
         self.filter = SlotValueFilter(max_num_values)
 
     @overrides
