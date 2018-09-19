@@ -65,10 +65,11 @@ class SlotsTokensMatrixBuilder(Component):
         return self.slot_vocab([[slot]])[0][0]
 
     def __call__(self, utterances: List[List[str]], tags: List[List[str]],
-                 candidates: List[Dict[str, List[str]]] = None) -> List[np.ndarray]:
+                 candidates: List[Dict[str, List[str]]] = [[]]) -> List[np.ndarray]:
         # dirty hack to fix that everything must be a batch
+        if len(candidates) != 1:
+            raise NotImplementedError("not implemented for candidates with length > 1")
         candidates = candidates[0]
-        print("candidates =", candidates)
         utt_matrices = []
         for utt, utt_tags in zip(utterances, tags):
             mat = np.zeros((len(self.slot_vocab), len(utt_tags)), dtype=int)
@@ -108,6 +109,7 @@ class SlotsValuesMatrixBuilder(Component):
     def __init__(self, slot_vocab: callable, max_num_values: int, **kwargs):
         self.slot_vocab = slot_vocab
         self.max_num_values = max_num_values
+        print(f"max_num_values = {max_num_values}")
 
     def _slot2idx(self, slot):
         if slot not in self.slot_vocab:
@@ -182,8 +184,8 @@ class ActionVocabulary(SimpleVocabulary):
         return a
 
     def fit(self, *args):
-        actions = map(self._format_action, chain(*args))
+        actions = map(self._format_action, chain(*chain(*args)))
         super().fit([actions])
 
     def __call__(self, batch, **kwargs):
-        return super().__call__([map(self._format_action, batch)])
+        return super().__call__([map(self._format_action, chain(*batch))])

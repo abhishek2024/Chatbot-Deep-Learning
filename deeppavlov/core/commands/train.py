@@ -313,6 +313,7 @@ def _train_batches(model: NNModel, iterator: DataLearningIterator, train_config:
 
         tb_train_writer = tf.summary.FileWriter(str(tb_log_dir / 'train_log'))
         tb_valid_writer = tf.summary.FileWriter(str(tb_log_dir / 'valid_log'))
+        print(f"Writing tensorboard summary to {tb_log_dir.resolve()}")
 
     # validate first (important if model is pre-trained)
     if train_config['val_every_n_epochs'] > 0 and epochs % train_config['val_every_n_epochs'] == 0:

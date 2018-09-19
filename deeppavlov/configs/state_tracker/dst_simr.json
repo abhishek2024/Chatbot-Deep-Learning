@@ -7,18 +7,37 @@
     "name": "dialog_state_iterator"
   },
   "chainer": {
-    "in": ["u_utter", "u_slots", "u_slots_bio", "u_acts",
-      "s_tokens", "s_slots", "s_slots_bio", "s_acts", "prev_state"],
+    "in": ["u_utter", "u_slots", "u_slots_bio", "u_acts", "s_tokens", "s_slots", "s_slots_bio", "s_acts", "prev_state"],
     "in_y": ["state"],
-    "out": ["state_pred", "u_act_idx", "s_act_idx"],
+    "out": ["state_pred"],
     "pipe": [
       {
-        "name": "slot_value_filter",
-        "id": "slot_filter",
-        "max_num_values": 7,
-        "exclude_values": ["dontcare"],
-        "in": ["u_slots", "s_slots", "prev_state"],
-        "out": ["slot_candidates"]
+        "name": "action_vocab",
+        "id": "system_action_vocab",
+        "load_path": "dst/system_actions.dict",
+        "save_path": "dst/system_actions.dict",
+        "special_tokens": ["unknown"],
+        "default_token": "unknown",
+        "fit_on": ["s_acts"],
+        "in": ["s_acts"],
+        "out": ["s_act_idx"]
+      },
+      {
+        "name": "action_vocab",
+        "id": "user_action_vocab",
+        "load_path": "dst/user_actions.dict",
+        "save_path": "dst/user_actions.dict",
+        "special_tokens": ["unknown"],
+        "default_token": "unknown",
+        "fit_on": ["u_acts"],
+        "in": ["u_acts"],
+        "out": ["u_act_idx"]
+      },
+      {
+        "name": "simple_vocab",
+        "id": "slot_vocab",
+        "save_path": "dst/slot_names.dict",
+        "fit_on": ["state"]
       },
       {
         "name": "lazy_tokenizer",
@@ -60,10 +79,12 @@
         "vocab": "#word_vocab" 
       },
       {
-        "name": "simple_vocab",
-        "id": "slot_vocab",
-        "save_path": "dst/slot_names.dict",
-        "fit_on": ["state"]
+        "name": "slot_value_filter",
+        "id": "slot_filter",
+        "max_num_values": 7,
+        "exclude_values": ["dontcare"],
+        "in": ["u_slots", "s_slots", "prev_state"],
+        "out": ["slot_candidates"]
       },
       {
         "class": "deeppavlov.models.state_tracker.candidates:CandidateIndexerBuilder",
@@ -96,28 +117,6 @@
         "max_num_values": "#slot_filter.max_num_values",
         "in": ["prev_state", "slot_cand_indexer"],
         "out": ["prev_state_matr"]
-      },
-      {
-        "name": "action_vocab",
-        "id": "user_action_vocab",
-        "load_path": "dst/user_actions.dict",
-        "save_path": "dst/user_actions.dict",
-        "special_tokens": ["unknown"],
-        "default_token": "unknown",
-        "fit_on": ["u_acts"],
-        "in": ["u_acts"],
-        "out": ["u_act_idx"]
-      },
-      {
-        "name": "action_vocab",
-        "id": "system_action_vocab",
-        "load_path": "dst/system_actions.dict",
-        "save_path": "dst/system_actions.dict",
-        "special_tokens": ["unknown"],
-        "default_token": "unknown",
-        "fit_on": ["s_acts"],
-        "in": ["s_acts"],
-        "out": ["s_act_idx"]
       },
       {
         "name": "dst_network",
