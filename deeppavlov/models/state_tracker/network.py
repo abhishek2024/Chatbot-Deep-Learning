@@ -51,6 +51,8 @@ class StateTrackerNetwork(TFModel):
                  hidden_size: int,
                  dense_size: int,
                  num_slot_values: int,
+                 num_user_actions: int,
+                 num_system_actions: int,
                  embedding_matrix: np.ndarray,
                  learning_rate: float,
                  end_learning_rate: float = None,
@@ -67,6 +69,8 @@ class StateTrackerNetwork(TFModel):
             'hidden_size': hidden_size,
             'dense_size': dense_size,
             'num_slot_values': num_slot_values,
+            'num_user_actions': num_user_actions,
+            'num_system_actions': num_system_actions,
             'num_tokens': embedding_matrix.shape[0],
             'embedding_size': embedding_matrix.shape[1],
             'learning_rate': learning_rate,
@@ -97,6 +101,8 @@ class StateTrackerNetwork(TFModel):
         self.hidden_size = self.opt['hidden_size']
         self.dense_size = self.opt['dense_size']
         self.num_slot_vals = self.opt['num_slot_values']
+        self.num_user_acts = self.opt['num_user_actions']
+        self.num_sys_acts = self.opt['num_system_actions']
         self.num_tokens = self.opt['num_tokens']
         self.embedding_size = self.opt['embedding_size']
         self.learning_rate = self.opt['learning_rate']
@@ -153,10 +159,13 @@ class StateTrackerNetwork(TFModel):
                                                     [2, None, None],
                                                     name='utterance_slot_value_indeces')
         self._num_slots = tf.shape(self._utt_slot_tok_val_idx)[1]
-        # _utt_action_mask: [2, num_actions]
-        self._utt_action_mask = tf.placeholder(tf.int32,
-                                               [2, None],
-                                               name='utterance_action_mask')
+        # _u_utt_action_idx, _s_utt_action_idx: [num_user_acts], [num_sys_acts]
+        self._u_utt_action_idx = tf.placeholder(tf.int32,
+                                                [None],
+                                                name='user_utterance_action_indeces')
+        self._s_utt_action_idx = tf.placeholder(tf.int32,
+                                                [None],
+                                                name='system_utterance_action_indeces')
         # _slot_action_mask: [2, num_slots, num_actions]
         self._slot_action_mask = tf.placeholder(tf.int32,
                                                 [2, None, None],
@@ -204,18 +213,27 @@ class StateTrackerNetwork(TFModel):
                                                 self._utt_token_idx)
 
         with tf.variable_scope("action_features"):
+            # _u_utt_action_mask, _s_utt_action_mask: [1,num_user_acts], [1,num_sys_acts]
+            _u_utt_action_mask = tf.reduce_sum(tf.one_hot(self._u_utt_action_idx,
+                                                          self.num_user_acts),
+                                               axis=0, keep_dims=True)
+            _s_utt_action_mask = tf.reduce_sum(tf.one_hot(self._s_utt_action_idx,
+                                                          self.num_sys_acts),
+                                               axis=0, keep_dims=True)
+            # _utt_action_mask: [1, num_user_acts + num_sys_acts]
+            _utt_action_mask = tf.concat([_u_utt_action_mask, _s_utt_action_mask], axis=1)
             # _no_slot_action_mask: [2, num_actions]
             _no_slot_action_mask = tf.cast(tf.reduce_sum(self._slot_action_mask,
                                                          axis=1)
                                            > 0,
-                                           tf.int32)
+                                           tf.float32)
             # (1) _utt_no_slot_action_mask: [1, 2 * num_actions]
             _utt_no_slot_action_mask = tf.reshape(_no_slot_action_mask *
-                                                  self._utt_action_mask,
+                                                  _utt_action_mask,
                                                   shape=(1, -1))
             # (2) _utt_slot_action_mask: [num_slots, 2 * num_actions]
             _utt_slot_action_mask = tf.reshape(self._slot_action_mask *
-                                               tf.reshape(self._utt_action_mask,
+                                               tf.reshape(_utt_action_mask,
                                                           shape=(2, 1, -1)),
                                                shape=(self._num_slots, -1))
             # _utt_slot_val_idx: [2 * num_slots, 1]
@@ -331,8 +349,8 @@ class StateTrackerNetwork(TFModel):
             result[tuple(slicing)] = arr
         return result, seq_length
 
-    def __call__(self, u_utt_token_idx, u_utt_slot_tok_val_idx,
-                 s_utt_token_idx, s_utt_slot_tok_val_idx,
+    def __call__(self, u_utt_token_idx, u_utt_slot_tok_val_idx, u_act_idx,
+                 s_utt_token_idx, s_utt_slot_tok_val_idx, s_act_idx,
                  prev_pred_mat, prob=False, *args, **kwargs):
         # print(f"u_utt_token_idx: {u_utt_token_idx}")
         # print(f"s_utt_token_idx: {s_utt_token_idx}")
@@ -352,6 +370,8 @@ class StateTrackerNetwork(TFModel):
         prediction = self.sess.run(
             self._prediction,
             feed_dict={
+                self._u_utt_action_mask: u_act_idx,
+                self._s_utt_action_mask: s_act_idx,
                 self._utt_token_idx: utt_token_idx,
                 self._utt_seq_length: utt_seq_length,
                 self._utt_slot_tok_val_idx: utt_slot_tok_val_idx,
@@ -363,8 +383,8 @@ class StateTrackerNetwork(TFModel):
             raise NotImplementedError("Probs not available for now.")
         return prediction
 
-    def train_on_batch(self, u_utt_token_idx, u_utt_slot_tok_val_idx,
-                       s_utt_token_idx, s_utt_slot_tok_val_idx,
+    def train_on_batch(self, u_utt_token_idx, u_utt_slot_tok_val_idx, u_act_idx,
+                       s_utt_token_idx, s_utt_slot_tok_val_idx, s_act_idx,
                        prev_pred_mat, true_state_mat, *args, **kwargs):
         utt_token_idx, utt_seq_length = self._concat_and_pad([u_utt_token_idx,
                                                               s_utt_token_idx],
@@ -378,6 +398,8 @@ class StateTrackerNetwork(TFModel):
         _tr, loss_value, summary = self.sess.run(
             [self._train_op, self._loss, self._summary],
             feed_dict={
+                self._u_utt_action_mask: u_act_idx,
+                self._s_utt_action_mask: s_act_idx,
                 self._utt_token_idx: utt_token_idx,
                 self._utt_seq_length: utt_seq_length,
                 self._utt_slot_tok_val_idx: utt_slot_tok_val_idx,
