@@ -166,10 +166,13 @@ class StateTrackerNetwork(TFModel):
         self._s_utt_action_idx = tf.placeholder(tf.int32,
                                                 [None],
                                                 name='system_utterance_action_indeces')
-        # _slot_action_mask: [2, num_slots, num_actions]
-        self._slot_action_mask = tf.placeholder(tf.int32,
-                                                [2, None, None],
-                                                name='slot_action_static_mask')
+        # _u_utt_slot_action_mask, _s_utt_slot_action_mask: [num_slots, num_u/s_acts]
+        self._u_utt_slot_action_mask = tf.placeholder(tf.float32,
+                                                      [None, self.num_user_acts],
+                                                      name='user_utter_slot_action_mask')
+        self._s_utt_slot_action_mask = tf.placeholder(tf.float32,
+                                                      [None, self.num_sys_acts],
+                                                      name='sys_utter_slot_action_mask')
         # _prev_preds: [num_slots, max_num_slot_values + 2]
         self._prev_pred = tf.placeholder(tf.float32,
                                          [None, self.num_slot_vals + 2],
@@ -222,29 +225,36 @@ class StateTrackerNetwork(TFModel):
                                                axis=0, keep_dims=True)
             # _utt_action_mask: [1, num_user_acts + num_sys_acts]
             _utt_action_mask = tf.concat([_u_utt_action_mask, _s_utt_action_mask], axis=1)
-            # _no_slot_action_mask: [2, num_actions]
-            _no_slot_action_mask = tf.cast(tf.reduce_sum(self._slot_action_mask,
-                                                         axis=1)
-                                           > 0,
+            # _utt_slot_action_mask: [num_slots, num_user_acts + num_sys_acts]
+            _utt_slot_action_mask = tf.concat([self._u_utt_slot_action_mask,
+                                               self._s_utt_slot_action_mask], axis=1)
+            # _no_slot_action_mask: [1, num_user_acts + num_sys_acts]
+            _no_slot_action_mask = tf.cast(tf.equal(tf.reduce_sum(_utt_slot_action_mask,
+                                                                  axis=0, keep_dims=True),
+                                                    0),
                                            tf.float32)
-            # (1) _utt_no_slot_action_mask: [1, 2 * num_actions]
-            _utt_no_slot_action_mask = tf.reshape(_no_slot_action_mask *
-                                                  _utt_action_mask,
-                                                  shape=(1, -1))
-            # (2) _utt_slot_action_mask: [num_slots, 2 * num_actions]
-            _utt_slot_action_mask = tf.reshape(self._slot_action_mask *
-                                               tf.reshape(_utt_action_mask,
-                                                          shape=(2, 1, -1)),
-                                               shape=(self._num_slots, -1))
-            # _utt_slot_val_idx: [2 * num_slots, 1]
-            _utt_slot_val_idx = tf.reshape(tf.reduce_max(self._utt_slot_tok_val_idx,
-                                                         axis=-1),
-                                           shape=(-1, 1))
-            # _utt_slot_act_val_idx: [num_slots, 2 * num_actions]
-            _utt_slot_act_val_idx = _utt_slot_action_mask * _utt_slot_val_idx
-            # (3) _utt_slot_act_val_mask: [num_slots, 2 * num_actions,max_nam_slot_values]
-            _utt_slot_act_val_mask = tf.one_hot(_utt_slot_act_val_idx - 1,
-                                                self.num_slot_vals)
+            # (1) _utt_no_slot_action_mask: [1, num_user_acts + num_sys_acts]
+            _utt_no_slot_action_mask = _no_slot_action_mask * _utt_action_mask
+            # (2) _utt_slot_action_mask: [num_slots, num_user_acts + num_sys_acts]
+            _utt_slot_action_mask = _utt_slot_action_mask * _utt_action_mask
+            # _utt_slot_val_mask: [2, num_slots, max_num_slot_vals]
+            _utt_slot_val_mask = tf.reduce_max(tf.one_hot(self._utt_slot_tok_val_idx - 1,
+                                                          self.num_slot_vals),
+                                               axis=2)
+            # _u_utt_slot_act_val_mask: [num_slots, num_user_acts, max_num_slot_vals]
+            _u_utt_sl_act_val_mask = tf.tile(tf.expand_dims(self._u_utt_slot_action_mask,
+                                                            axis=-1),
+                                             [1, 1, self.num_slot_vals]) *\
+                tf.expand_dims(_utt_slot_val_mask[0], axis=1)
+            # _s_utt_slot_act_val_mask: [num_slots, num_sys_acts, max_num_slot_vals]
+            _s_utt_sl_act_val_mask = tf.tile(tf.expand_dims(self._s_utt_slot_action_mask,
+                                                            axis=-1),
+                                             [1, 1, self.num_slot_vals]) *\
+                tf.expand_dims(_utt_slot_val_mask[1], axis=1)
+            # (3) _utt_slot_act_val_mask:
+            #     [num_slots, num_user_acts + num_sys_acts, max_nam_slot_values]
+            _utt_slot_act_val_mask = tf.concat([_u_utt_sl_act_val_mask,
+                                                _s_utt_sl_act_val_mask], axis=1)
 
         with tf.variable_scope("stacked_biGRU"):
             # _units1, _units2: [2, num_tokens, 2 * hidden_size]
@@ -370,8 +380,8 @@ class StateTrackerNetwork(TFModel):
         prediction = self.sess.run(
             self._prediction,
             feed_dict={
-                self._u_utt_action_mask: u_act_idx,
-                self._s_utt_action_mask: s_act_idx,
+                self._u_utt_action_idx: u_act_idx[0],
+                self._s_utt_action_idx: s_act_idx[0],
                 self._utt_token_idx: utt_token_idx,
                 self._utt_seq_length: utt_seq_length,
                 self._utt_slot_tok_val_idx: utt_slot_tok_val_idx,
@@ -398,8 +408,8 @@ class StateTrackerNetwork(TFModel):
         _tr, loss_value, summary = self.sess.run(
             [self._train_op, self._loss, self._summary],
             feed_dict={
-                self._u_utt_action_mask: u_act_idx,
-                self._s_utt_action_mask: s_act_idx,
+                self._u_utt_action_idx: u_act_idx[0],
+                self._s_utt_action_idx: s_act_idx[0],
                 self._utt_token_idx: utt_token_idx,
                 self._utt_seq_length: utt_seq_length,
                 self._utt_slot_tok_val_idx: utt_slot_tok_val_idx,

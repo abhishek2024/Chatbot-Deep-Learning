@@ -106,10 +106,9 @@ class SlotsValuesMatrixBuilder(Component):
     Builds matrix with slot values' scores of shape [num_slots, max_num_values].
     Inputs slot values with scores, if score is missing, a score equal to 1.0 is set.
     """
-    def __init__(self, slot_vocab: callable, max_num_values: int, **kwargs):
+    def __init__(self, slot_vocab: callable, max_num_values: int, **kwargs) -> None:
         self.slot_vocab = slot_vocab
         self.max_num_values = max_num_values
-        print(f"max_num_values = {max_num_values}")
 
     def _slot2idx(self, slot):
         if slot not in self.slot_vocab:
@@ -133,6 +132,8 @@ class SlotsValuesMatrixBuilder(Component):
     def __call__(self, slots: Union[List[Dict[str, Any]], Dict[str, Any]],
                  candidates: List[Dict[str, List[str]]]) -> List[np.ndarray]:
         # dirty hack to fix that everything must be a batch
+        if len(candidates) != 1:
+            raise NotImplementedError("not implemented for candidates with length > 1")
         candidates = candidates[0]
         utt_matrices = []
         for utt_slots in map(self._format_slot_dict, slots):
@@ -141,6 +142,29 @@ class SlotsValuesMatrixBuilder(Component):
                 slot_idx = self._slot2idx(s['slot'])
                 value_idx = self._value2idx(s['slot'], s['value'], candidates)
                 mat[slot_idx, value_idx] = s.get('score', 1.)
+            utt_matrices.append(mat)
+        return utt_matrices
+
+
+class SlotsActionsMatrixBuilder(Component):
+    """
+    Builds matrics with mask of actions and corresponding slots of shape
+    [num_slots, num_actions].
+    Inputs actions as a list of dicts in the format
+    {'action': act, 'slots': [slot1, slot2]}.
+    """
+    def __init__(self, slot_vocab: callable, action_vocab: callable, **kwargs) -> None:
+        self.slot_vocab = slot_vocab
+        self.action_vocab = action_vocab
+
+    def __call__(self, actions: List[List[Dict]]) -> List[np.ndarray]:
+        utt_matrices = []
+        for utt_acts in actions:
+            mat = np.zeros((len(self.slot_vocab), len(self.action_vocab)), dtype=float)
+            for a in utt_acts:
+                act_idx = self.action_vocab([[a['act']]])[0][0]
+                slot_idxs = self.slot_vocab([a.get('slots', [])])[0]
+                mat[slot_idxs, act_idx] = 1.
             utt_matrices.append(mat)
         return utt_matrices
 
@@ -162,6 +186,8 @@ class SlotsValuesMatrix2Dict(Component):
     def __call__(self, slots_values: np.ndarray,
                  candidates: List[Dict[str, List[str]]]) -> List[Dict[str, str]]:
         # dirty hack to fix that everything must be a batch
+        if len(candidates) != 1:
+            raise NotImplementedError("not implemented for candidates with length > 1")
         candidates = candidates[0]
         slot_dict = {}
         # for slot_idx, value_idx in zip(*np.where(slots)):
@@ -187,5 +213,6 @@ class ActionVocabulary(SimpleVocabulary):
         actions = map(self._format_action, chain(*chain(*args)))
         super().fit([actions])
 
-    def __call__(self, batch, **kwargs):
+    def __call__(self, batch: List[List[Union[Dict, int]]], **kwargs) ->\
+                 List[List[Union[Dict, int]]]:
         return super().__call__([map(self._format_action, chain(*batch))])
