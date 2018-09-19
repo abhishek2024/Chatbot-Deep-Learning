@@ -66,6 +66,7 @@ def main():
         y_true = list(zip(y_true_text, y_true_start))
 
         ranker_answers = ranker([i['question'] for i in dataset])
+        del ranker
         returned_db_size = len(ranker_answers[0])
         logger.info("Returned DB size: {}".format(returned_db_size))
 
