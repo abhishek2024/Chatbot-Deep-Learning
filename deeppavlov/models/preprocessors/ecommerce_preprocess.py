@@ -104,7 +104,7 @@ class EcommercePreprocess(Component):
 
     def filter_nlp_title(self, doc: Iterable) -> List[Any]:
         """Filter item titles according to the POS tags"""
-        return [w for w in doc if w.tag_ in ['NNP', 'NN', 'PROPN', 'JJ'] and not w.like_num]
+        return [w for w in doc if w.tag_ in ['NNP', 'NN', 'PROPN', 'JJ', 'NNS'] and not w.like_num]
 
     def lemmas(self, doc: Iterable) -> List[str]:
         """Return lemma of `doc`"""
