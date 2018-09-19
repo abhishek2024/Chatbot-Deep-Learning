@@ -17,6 +17,8 @@ from typing import List, Tuple
 import tensorflow as tf
 import numpy as np
 
+import shutil
+
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
 from deeppavlov.models.squad.utils import dot_attention, simple_attention, PtrNet, CudnnGRU, CudnnCompatibleGRU
@@ -99,7 +101,7 @@ class SquadModel(TFModel):
 
         super().__init__(**kwargs)
 
-        self.tmp_model_path = self.load_path.with_suffix('.tmp')
+        self.tmp_model_path = self.load_path.parent / 'tmp_dir' / self.load_path.name
 
         # Try to load the model (if there are some model files the model will be loaded from them)
         if self.load_path is not None:
@@ -321,12 +323,6 @@ class SquadModel(TFModel):
             data: number of examples, epochs, metrics sent by trainer
         """
         if event_name == "after_validation":
-
-            if self.weight_decay < 1.0:
-                # load from tmp weights and do not call _load_ema_weigts
-                self.load(path=self.tmp_model_path)
-                # TODO: remove tmp files
-
             # learning rate decay
             if data['impatience'] > self.last_impatience:
                 self.lr_impatience += 1
@@ -344,12 +340,17 @@ class SquadModel(TFModel):
             if self.weight_decay < 1.0:
                 # validate model with EMA weights
 
-                # save weights to tmp path
+                # save current weights to tmp path
                 # warning: TFModel does not save optimizer params.
                 # In our case, we do this save/load operation in one session so we do not lose optimizer params.
                 self.save(path=self.tmp_model_path)
                 # load ema weights
                 self._assign_ema_weights()
+        elif event_name == "before_saving_improved_model":
+            if self.weight_decay < 1.0:
+                # load from tmp weights and do not call _assign_ema_weigts
+                self.load(path=self.tmp_model_path)
+                shutil.rmtree(self.tmp_model_path.parent)
 
     def shutdown(self):
         pass

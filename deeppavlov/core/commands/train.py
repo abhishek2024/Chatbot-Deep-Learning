@@ -326,6 +326,7 @@ def _train_batches(model: NNModel, iterator: DataLearningIterator, train_config:
         metrics = list(report['metrics'].items())
 
         m_name, score = metrics[0]
+        model.process_event(event_name='before_saving_improved_model', data=None)
         if improved(score, best):
             patience = 0
             log.info('New best {} of {}'.format(m_name, score))
@@ -481,6 +482,7 @@ def _train_batches(model: NNModel, iterator: DataLearningIterator, train_config:
                         tb_valid_writer.add_summary(metric_sum, epochs)
 
                 m_name, score = metrics[0]
+                model.process_event(event_name='before_saving_improved_model', data=None)
                 if improved(score, best):
                     patience = 0
                     log.info('New best {} of {}'.format(m_name, score))
