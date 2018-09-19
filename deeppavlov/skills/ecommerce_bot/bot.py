@@ -92,7 +92,8 @@ class EcommerceBot(Component):
             if is_file_exist(path):
                 self.ec_data += load_pickle(path)
             else:
-                log.info(f"File {path} does not exist")
+                raise Exception(f"File {path} does not exist")
+                # log.info(f"File {path} does not exist")
 
         log.info(f"Loaded items {len(self.ec_data)}")
 
@@ -119,9 +120,14 @@ class EcommerceBot(Component):
 
         log.debug(f"queries: {queries} states: {states}")
 
-        for item_idx, query in enumerate(queries):
-
+        for item_idx, query_or in enumerate(queries):
+           
             state = states[item_idx]
+            log.debug(f"type {type(state)}")
+
+            if not isinstance(state, dict):
+                log.debug(f"error type {type(state)}")
+                state = json.loads(states[item_idx])
 
             if isinstance(state, str):
                 try:
@@ -132,10 +138,20 @@ class EcommerceBot(Component):
             start = state['start'] if 'start' in state else 0
             stop = state['stop'] if 'stop' in state else 5
 
-            state['start'] = start
-            state['stop'] = stop
+            query = self.preprocess.analyze(query_or)
 
-            query = self.preprocess.analyze(query)
+            if 'history' not in state:
+                state['history'] = []
+
+            if len(state['history'])>0:
+                cur_prev = self.preprocess.analyze(state['history'][-1] + " " + query_or)
+                query = self._choose_context(cur_prev, query)
+                print(query.text)
+                state['history'].append(query.text)
+            else:
+                state['history'].append(query.text)
+
+            log.debug(f"query: {query}")
 
             query, money_range = self.preprocess.extract_money(query)
             log.debug(f"money detected: {query} {money_range}")
@@ -143,16 +159,18 @@ class EcommerceBot(Component):
             if len(money_range) == 2:
                 state['Price'] = money_range
 
-            score_title = [bleu_advanced(self.preprocess.lemmas(item['title_nlped']),
-                           self.preprocess.lemmas(self.preprocess.filter_nlp_title(query)),
-                           weights=(1,), penalty=False) for item in self.ec_data]
+            # score_title = [bleu_advanced(self.preprocess.lemmas(item['title_nlped']),
+            #                self.preprocess.lemmas(self.preprocess.filter_nlp_title(query)),
+            #                weights=(1,), penalty=False) for item in self.ec_data]
 
-            score_feat = [bleu_advanced(self.preprocess.lemmas(item['feat_nlped']),
-                          self.preprocess.lemmas(self.preprocess.filter_nlp(query)),
-                          weights=(0.3, 0.7), penalty=False) for idx, item in enumerate(self.ec_data)]
+            # score_feat = [bleu_advanced(self.preprocess.lemmas(item['feat_nlped']),
+            #               self.preprocess.lemmas(self.preprocess.filter_nlp(query)),
+            #               weights=(0.3, 0.7), penalty=True) for idx, item in enumerate(self.ec_data)]
 
-            scores = np.mean(
-                [score_feat, score_title], axis=0).tolist()
+            # scores = np.mean(
+            #     [score_feat, score_title], axis=0).tolist()
+
+            scores, confidence = self._similarity(query)
 
             scores_title = [(score, -len(self.ec_data[idx]['Title']))
                             for idx, score in enumerate(scores)]
@@ -181,7 +199,7 @@ class EcommerceBot(Component):
                                         self.preprocess.price(self.ec_data[idx]) != 0]
                     log.debug(f"Items after price filtering {len(results_args_sim)}")
 
-                elif key in ['query', 'start', 'stop']:
+                elif key in ['query', 'start', 'stop', 'history']:
                     continue
 
                 else:
@@ -196,12 +214,56 @@ class EcommerceBot(Component):
                 del temp['feat_nlped']
                 response.append(temp)
 
-            confidence = [(score_title[idx], score_feat[idx])
-                          for idx in results_args_sim[start:stop]]
+            confidence = [confidence[idx] for idx in results_args_sim[start:stop]]
+
             entropies = self._entropy_subquery(results_args_sim)
+
+            state['start'] = start
+            state['stop'] = stop
+            if 'history' not in state:
+                state['history'] = []
+
             log.debug(f"Total number of relevant answers {len(results_args_sim)}")
 
+            print(confidence)
+
         return (response, entropies, len(results_args_sim)), confidence, state
+
+    def _choose_context(self, previous, current) -> str:
+        coef = 0.05      
+
+        log.debug(f"num of long query {previous} {len(previous)}")
+        log.debug(f"num of short query {current} {len(current)}")
+
+        prev_sim = [score*len(previous)*coef for score in self._similarity(previous)[0]]
+        cur_sim = [score*len(current)*coef for score in self._similarity(current)[0]]
+
+        prev_sim_sum = np.sum([score for score in prev_sim])
+        cur_sim_sum = np.sum([score for score in cur_sim])
+
+        log.debug(f"num of long query {prev_sim_sum}")
+        log.debug(f"num of short query {cur_sim_sum}")
+
+        if prev_sim_sum>cur_sim_sum:
+            return previous
+
+        return current
+
+    def _similarity(self, query: List[Any]) -> List[float]:
+        score_title = [bleu_advanced(self.preprocess.lemmas(item['title_nlped']),
+                           self.preprocess.lemmas(self.preprocess.filter_nlp_title(query)),
+                           weights=(1,), penalty=False) for item in self.ec_data]
+
+        score_feat = [bleu_advanced(self.preprocess.lemmas(item['feat_nlped']),
+                          self.preprocess.lemmas(self.preprocess.filter_nlp(query)),
+                          weights=(0.3, 0.7), penalty=False) for idx, item in enumerate(self.ec_data)]
+        
+        confidence = list(zip(score_title, score_feat))
+
+        scores = np.mean(
+                [score_feat, score_title], axis=0).tolist()
+
+        return scores, confidence
 
     def _entropy_subquery(self, results_args: List[int]) -> List[Tuple[float, str, List[Tuple[str, int]]]]:
         """Calculate entropy of selected attributes for items from the catalog.
