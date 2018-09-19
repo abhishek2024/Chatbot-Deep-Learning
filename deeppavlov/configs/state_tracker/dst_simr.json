@@ -124,21 +124,22 @@
         "slot_vocab": "#slot_vocab",
         "action_vocab": "#user_action_vocab",
         "in": ["u_acts"],
-        "out": ["u_act_slot_mask_matr"]
+        "out": ["u_slot_act_mask_matr"]
       },
       {
         "class": "deeppavlov.models.state_tracker.preprocessors:SlotsActionsMatrixBuilder",
         "slot_vocab": "#slot_vocab",
         "action_vocab": "#system_action_vocab",
         "in": ["s_acts"],
-        "out": ["s_act_slot_mask_matr"]
+        "out": ["s_slot_act_mask_matr"]
       },
       {
         "name": "dst_network",
         "load_path": "dst/model",
         "save_path": "dst/model",
-        "in": ["u_tok_idx", "u_tok_slot_idx_matr", "u_act_idx",
-          "s_tok_idx", "s_tok_slot_idx_matr", "s_act_idx", "prev_state_matr"],
+        "in": ["u_tok_idx", "u_tok_slot_idx_matr", "u_act_idx", "u_slot_act_mask_matr",
+          "s_tok_idx", "s_tok_slot_idx_matr", "s_act_idx", "s_slot_act_mask_matr",
+          "prev_state_matr"],
         "in_y": ["state_matr"],
         "out": ["state_pred_matr"],
         "hidden_size": 128,

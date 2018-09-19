@@ -159,7 +159,7 @@ class StateTrackerNetwork(TFModel):
                                                     [2, None, None],
                                                     name='utterance_slot_value_indeces')
         self._num_slots = tf.shape(self._utt_slot_tok_val_idx)[1]
-        # _u_utt_action_idx, _s_utt_action_idx: [num_user_acts], [num_sys_acts]
+        # _u_utt_action_idx, _s_utt_action_idx: [utt_num_user_acts], [utt_num_sys_acts]
         self._u_utt_action_idx = tf.placeholder(tf.int32,
                                                 [None],
                                                 name='user_utterance_action_indeces')
@@ -241,20 +241,20 @@ class StateTrackerNetwork(TFModel):
             _utt_slot_val_mask = tf.reduce_max(tf.one_hot(self._utt_slot_tok_val_idx - 1,
                                                           self.num_slot_vals),
                                                axis=2)
-            # _u_utt_slot_act_val_mask: [num_slots, num_user_acts, max_num_slot_vals]
+            # _u_utt_slot_act_val_mask: [num_slots, max_num_slot_vals, num_user_acts]
             _u_utt_sl_act_val_mask = tf.tile(tf.expand_dims(self._u_utt_slot_action_mask,
-                                                            axis=-1),
-                                             [1, 1, self.num_slot_vals]) *\
-                tf.expand_dims(_utt_slot_val_mask[0], axis=1)
-            # _s_utt_slot_act_val_mask: [num_slots, num_sys_acts, max_num_slot_vals]
+                                                            axis=1),
+                                             [1, self.num_slot_vals, 1]) *\
+                tf.expand_dims(_utt_slot_val_mask[0], axis=-1)
+            # _s_utt_slot_act_val_mask: [num_slots, max_num_slot_vals, num_sys_acts]
             _s_utt_sl_act_val_mask = tf.tile(tf.expand_dims(self._s_utt_slot_action_mask,
-                                                            axis=-1),
-                                             [1, 1, self.num_slot_vals]) *\
-                tf.expand_dims(_utt_slot_val_mask[1], axis=1)
+                                                            axis=1),
+                                             [1, self.num_slot_vals, 1]) *\
+                tf.expand_dims(_utt_slot_val_mask[1], axis=-1)
             # (3) _utt_slot_act_val_mask:
-            #     [num_slots, num_user_acts + num_sys_acts, max_nam_slot_values]
+            #     [num_slots, max_num_slot_values, num_user_acts + num_sys_acts]
             _utt_slot_act_val_mask = tf.concat([_u_utt_sl_act_val_mask,
-                                                _s_utt_sl_act_val_mask], axis=1)
+                                                _s_utt_sl_act_val_mask], axis=-1)
 
         with tf.variable_scope("stacked_biGRU"):
             # _units1, _units2: [2, num_tokens, 2 * hidden_size]
@@ -263,39 +263,48 @@ class StateTrackerNetwork(TFModel):
                 self._stacked_bi_gru(_utt_token_emb,
                                      [self.hidden_size, self.hidden_size],
                                      seq_length=self._utt_seq_length)
-            # _utt_repr: [2 * 2 * hidden_size]
-            _utt_repr = tf.reshape(_last_units, shape=[-1])
-            # _token_repr: [2 * num_tokens, 4 * hidden_size]
-            _token_repr = tf.reshape(tf.concat([_units1, _units2], axis=-1),
-                                     shape=(-1, 4 * self.hidden_size))
+            # _utt_birnn_repr: [2 * 2 * hidden_size]
+            _utt_birnn_repr = tf.reshape(_last_units, shape=[-1])
+            # _token_birnn_repr: [2 * num_tokens, 4 * hidden_size]
+            _token_birnn_repr = tf.reshape(tf.concat([_units1, _units2], axis=-1),
+                                           shape=(-1, 4 * self.hidden_size))
             # _utt_slot_tok_val_mask: [num_slots, 2 * num_tokens, max_num_slot_values]
             _utt_slot_tok_val_mask = tf.reshape(tf.one_hot(self._utt_slot_tok_val_idx - 1,
                                                            self.num_slot_vals),
                                                 shape=(self._num_slots, -1,
                                                        self.num_slot_vals))
-            # _slot_val_repr: [num_slots, max_num_slot_values, 4 * hidden_size]
-            _slot_val_repr = tf.tensordot(_utt_slot_tok_val_mask, _token_repr, [[1], [0]])
+            # _slot_val_birnn_repr: [num_slots, max_num_slot_values, 4 * hidden_size]
+            _slot_val_birnn_repr = tf.tensordot(_utt_slot_tok_val_mask, _token_birnn_repr,
+                                                [[1], [0]])
 
-        # _utt_repr_tiled: [num_slots, max_num_slot_values, 2 * 2 * hidden_size]
+        # _utt_repr: [1, 4 * hidden_size + num_user_acts + num_sys_acts]
+        _utt_repr = tf.concat([tf.expand_dims(_utt_birnn_repr, axis=0),
+                               _utt_no_slot_action_mask], axis=1)
+
+        # _utt_repr_tiled: [num_slots, max_num_slot_values, 4*hidden_size + num_all_acts]
         _utt_repr_tiled = tf.tile(tf.reshape(_utt_repr, shape=[1, 1, -1]),
                                   (self._num_slots, self.num_slot_vals, 1))
 
         # _prev_pred_special_logits: [num_slots, 2]
         _prev_pred_special_logits = tf.slice(self._prev_pred, [0, 0], [-1, 2])
-        # _slot_repr: [num_slots, 2]
-        _slot_repr = _prev_pred_special_logits
-        # _slot_repr_tiled: [num_slots, max_num_slot_values, 2]
-        _slot_repr_tiled = tf.tile(tf.reshape(_slot_repr, [-1, 1, 2]),
+        # _slot_repr: [num_slots, 2 + num_all_acts]
+        _slot_repr = tf.concat([_prev_pred_special_logits, _utt_slot_action_mask],
+                               axis=1)
+        # _slot_repr_tiled: [num_slots, max_num_slot_values, 2 + num_all_acts]
+        _slot_repr_tiled = tf.tile(tf.expand_dims(_slot_repr, axis=1),
                                    (1, self.num_slot_vals, 1))
 
         # _prev_pred_wo_special_logits: [num_slots, max_num_slot_values]
         _prev_pred_wo_special_logits = tf.slice(self._prev_pred, [0, 2], [-1, -1])
-        # _slot_val_repr: [num_slots, max_num_slot_values, 4 * hidden_size + 1]
-        _slot_val_repr = tf.concat([_slot_val_repr,
-                                    tf.expand_dims(_prev_pred_wo_special_logits, -1)], -1)
+        # _slot_val_repr: [num_slots, max_num_slot_values, 4*hidden_size + num_all_acts+1]
+        _slot_val_repr = tf.concat([_slot_val_birnn_repr,
+                                    tf.expand_dims(_prev_pred_wo_special_logits, -1),
+                                    _utt_slot_act_val_mask],
+                                   axis=-1)
 
         with tf.variable_scope("CandidateScorer"):
-            # _cand_feats: [num_slots, max_num_slot_values, 8 * hidden_size + 3]
+            # _cand_feats:
+            # [num_slots, max_num_slot_values, 8 * hidden_size + 3 * num_all_acts + 3]
             _cand_feats = tf.concat([_utt_repr_tiled, _slot_repr_tiled, _slot_val_repr],
                                     -1)
             # _proj: [num_slots, max_num_slot_values, dense_size]
@@ -307,10 +316,10 @@ class StateTrackerNetwork(TFModel):
                                  axis=[-1])
 
             with tf.variable_scope("DontcareScorer"):
-                # _utt_repr_slot_tiled: [num_slots, 4 * hidden_size]
+                # _utt_repr_slot_tiled: [num_slots, 4 * hidden_size + num_all_acts]
                 _utt_repr_slot_tiled = tf.tile(tf.reshape(_utt_repr, [1, -1]),
                                                (self._num_slots, 1))
-                # _dontcare_feats: [num_slots, 4 * hidden_size + 2]
+                # _dontcare_feats: [num_slots, 4 * hidden_size + 2 * num_all_acts + 2]
                 _dontcare_feats = tf.concat([_utt_repr_slot_tiled, _slot_repr], -1)
                 # _dontcare_proj: [num_slots, dense_size]
                 _dontcare_proj = tf.layers.dense(_dontcare_feats, self.dense_size,
@@ -360,7 +369,8 @@ class StateTrackerNetwork(TFModel):
         return result, seq_length
 
     def __call__(self, u_utt_token_idx, u_utt_slot_tok_val_idx, u_act_idx,
-                 s_utt_token_idx, s_utt_slot_tok_val_idx, s_act_idx,
+                 u_slot_act_mask,
+                 s_utt_token_idx, s_utt_slot_tok_val_idx, s_act_idx, s_slot_act_mask,
                  prev_pred_mat, prob=False, *args, **kwargs):
         # print(f"u_utt_token_idx: {u_utt_token_idx}")
         # print(f"s_utt_token_idx: {s_utt_token_idx}")
@@ -381,7 +391,9 @@ class StateTrackerNetwork(TFModel):
             self._prediction,
             feed_dict={
                 self._u_utt_action_idx: u_act_idx[0],
+                self._u_utt_slot_action_mask: u_slot_act_mask[0],
                 self._s_utt_action_idx: s_act_idx[0],
+                self._s_utt_slot_action_mask: s_slot_act_mask[0],
                 self._utt_token_idx: utt_token_idx,
                 self._utt_seq_length: utt_seq_length,
                 self._utt_slot_tok_val_idx: utt_slot_tok_val_idx,
@@ -394,7 +406,9 @@ class StateTrackerNetwork(TFModel):
         return prediction
 
     def train_on_batch(self, u_utt_token_idx, u_utt_slot_tok_val_idx, u_act_idx,
+                       u_slot_act_mask,
                        s_utt_token_idx, s_utt_slot_tok_val_idx, s_act_idx,
+                       s_slot_act_mask,
                        prev_pred_mat, true_state_mat, *args, **kwargs):
         utt_token_idx, utt_seq_length = self._concat_and_pad([u_utt_token_idx,
                                                               s_utt_token_idx],
@@ -409,7 +423,9 @@ class StateTrackerNetwork(TFModel):
             [self._train_op, self._loss, self._summary],
             feed_dict={
                 self._u_utt_action_idx: u_act_idx[0],
+                self._u_utt_slot_action_mask: u_slot_act_mask[0],
                 self._s_utt_action_idx: s_act_idx[0],
+                self._s_utt_slot_action_mask: s_slot_act_mask[0],
                 self._utt_token_idx: utt_token_idx,
                 self._utt_seq_length: utt_seq_length,
                 self._utt_slot_tok_val_idx: utt_slot_tok_val_idx,
