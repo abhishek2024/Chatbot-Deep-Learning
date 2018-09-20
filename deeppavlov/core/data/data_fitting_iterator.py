@@ -47,7 +47,7 @@ class DataFittingIterator:
         return self.data[doc_id]
 
     def gen_batches(self, batch_size: int, shuffle: bool = None)\
-            -> Generator[Tuple[List[list], List[int]], Any, None]:
+            -> Generator[Tuple[List[str], List[int]], Any, None]:
 
         if shuffle is None:
             shuffle = self.shuffle
