@@ -82,6 +82,7 @@ class SquadModel(TFModel):
         self.elmo_link = self.opt.get('elmo_link', 'https://tfhub.dev/google/elmo/2')
         self.use_soft_match_features = self.opt.get('use_soft_match_features', False)
         self.l2_norm = self.opt.get('l2_norm', None)
+        # TODO: add l2 norm to all dense layers and variables
 
         assert self.number_of_hops > 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
 
@@ -106,7 +107,6 @@ class SquadModel(TFModel):
         self._init_optimizer()
 
         if self.weight_decay < 1.0:
-            # TODO make callbacks to save/load on valid to compute metrics with ema weightsq
             self._init_ema()
 
         self.sess.run(tf.global_variables_initializer())
