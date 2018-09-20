@@ -15,12 +15,12 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument("-squad_data_path",
                     help="path to a SQuAD dataset prepared for ranker", type=str,
-                    default="/media/olga/Data/projects/ODQA/data/squad/original/train-v1.1.json")
+                    default="/media/olga/Data/datasets/squad/original/dev-v1.1.json")
 parser.add_argument("-db_path", help="local path or URL to a SQLite DB with Wikipedia articles",
                     type=str,
-                    default="/media/olga/Data/projects/iPavlov/DeepPavlov/download/odqa/enwiki_newest.db")
+                    default="/media/olga/Data/datasets/drqa/wikipedia.db")
 parser.add_argument("-output_path", help="path to an output JSON file", type=str,
-                    default="/media/olga/Data/projects/ODQA/data/squad/wiki_articles/squad_train_articles.json")
+                    default="/media/olga/Data/datasets/squad/wiki_articles/drqa_squad_dev_articles.json")
 
 NEW2OLD_WIKI_TITLES = {  # new titles are keys, old are values
     'Sky UK': 'Sky (United Kingdom)',
@@ -71,6 +71,24 @@ NEW2OLD_WIKI_TITLES_TRAIN = {  # new titles are keys, old are values
     'Jehovah\'s Witnesses': 'Jehovah%27s_Witnesses'
 }
 
+SQUAD2DRQA_TITLES = {
+    'Kievan_Rus%27': 'Kievan Rus\'',
+    'Jehovah%27s_Witnesses': 'Jehovah\'s Witnesses',
+    'Bill_%26_Melinda_Gates_Foundation': 'Bill & Melinda Gates Foundation',
+    'St._John%27s,_Newfoundland_and_Labrador': 'St. John\'s, Newfoundland and Labrador',
+    'Saint_Barth%C3%A9lemy': 'Saint Barthélemy',
+    'Bras%C3%ADlia': 'Brasília',
+    'Seven_Years%27_War': 'Seven Years\' War',
+    'Molotov%E2%80%93Ribbentrop_Pact': 'Molotov–Ribbentrop Pact',
+    'Sony_Music_Entertainment': 'Sony Music',
+    'Multiracial_American': 'Multiracial Americans',
+    'Cardinal_(Catholicism)': 'Cardinal (Catholic Church)',
+    'Endangered_Species_Act': 'Endangered Species Act of 1973',
+    'Financial_crisis_of_2007%E2%80%9308': 'Financial crisis of 2007–2008',
+    'Mary_(mother_of_Jesus)': 'Mary, mother of Jesus',
+    'Sky_(United_Kingdom)': 'Sky UK'
+}
+
 
 def encode_utf8(s: str):
     return unicodedata.normalize('NFD', s).encode('utf-8')
@@ -100,6 +118,8 @@ def search_titles_in_db(db_path, squad_titles):
 
     for title in squad_titles:
 
+        text = ''
+
         orig_title = copy(title)
 
         if title in NEW2OLD_WIKI_TITLES_TRAIN.values():
@@ -120,8 +140,20 @@ def search_titles_in_db(db_path, squad_titles):
                 [k for k in NEW2OLD_WIKI_TITLES_TRAIN.keys() if NEW2OLD_WIKI_TITLES_TRAIN[k] == title.replace(
                     '_', ' ')][0]
 
+        elif title.replace('_', ' ') in NEW2OLD_WIKI_TITLES_TRAIN.keys():
+            title = NEW2OLD_WIKI_TITLES_TRAIN[title.replace('_', ' ')]
+
         else:
             title = title.replace('_', ' ')
+
+
+        # DrQa
+        # if title in SQUAD2DRQA_TITLES.keys():
+        #     title = SQUAD2DRQA_TITLES[title]
+        #
+        # title = title.replace('_', ' ')
+
+
 
         try:
             c.execute(
@@ -140,9 +172,18 @@ def search_titles_in_db(db_path, squad_titles):
                 result = c.fetchone()
                 text = result[0]
             except Exception:
+                # DrQa
+                # if title != 'List of numbered streets in Manhattan':
                 print(f"Exception while fetching title {title}")
                 print(f"Original title: {orig_title}")
                 text = ''
+
+        # DrQa
+        # if title == 'List of numbered streets in Manhattan':
+        #     new_data = read_json('/media/olga/Data/datasets/squad/wiki_articles/squad_dev_articles.json')
+        #     for article_dict in new_data:
+        #         if article_dict['title'] == 'List_of_numbered_streets_in_Manhattan':
+        #             text = article_dict['text']
 
         assert title
         assert text
