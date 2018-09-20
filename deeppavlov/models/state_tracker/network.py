@@ -124,24 +124,30 @@ class StateTrackerNetwork(TFModel):
         # _logits: [num_slots, max_num_slot_values + 2]
         _logits = self._build_body()
 
+        # _infmask_mask: [num_slots, max_num_slot_values + 2]
+        _inf_mask = (self._slot_val_mask - 1) * tf.float32.max
+        _logits = _logits * self._slot_val_mask + _inf_mask
+
+        # _logits_exp, logits_exp_sum, _probs: [num_slots, max_num_slot_values + 2]
+        # _logits_exp = tf.multiply(tf.exp(_logits), _logits_mask)
+        # _logits_exp_sum = tf.reduce_sum(_logits_exp, axis=-1, keep_dims=True)
+        # self._probs = _logits_exp / _logits_exp_sum
+
         # _prediction: [num_slots]
         self._prediction = tf.argmax(_logits, axis=-1, name='prediction')
 
-        # _weights = tf.expand_dims(self._tgt_weights, -1)
         _loss_tensor = \
             tf.losses.softmax_cross_entropy(logits=_logits,
                                             onehot_labels=self._true_state,
                                             reduction=tf.losses.Reduction.NONE)
-                                            # weights=_weights,
+                                            # weights=self._slot_val_mask)
         # normalize loss by batch_size
-        # self._loss = _loss_tensor
         self._loss = tf.reduce_sum(_loss_tensor) / tf.cast(self._num_slots, tf.float32)
 
         tf.summary.scalar('loss', self._loss)
         self._summary = tf.summary.merge_all()
         self._train_writer = tf.summary.FileWriter(f"logs/train_{time()}", self.graph)
         self._test_writer = tf.summary.FileWriter(f"logs/test_{time()}")
-        #self._train_op = _logits
         self._train_op = \
             self.get_train_op(self._loss, self.learning_rate, clip_norm=10.)
 
@@ -173,6 +179,10 @@ class StateTrackerNetwork(TFModel):
         self._s_utt_slot_action_mask = tf.placeholder(tf.float32,
                                                       [None, self.num_sys_acts],
                                                       name='sys_utter_slot_action_mask')
+        # _slot_val_mask: [num_slots, max_num_slot_values + 2]
+        self._slot_val_mask = tf.placeholder(tf.float32,
+                                             [None, self.num_slot_vals + 2],
+                                             name='slot_value_mask')
         # _prev_preds: [num_slots, max_num_slot_values + 2]
         self._prev_pred = tf.placeholder(tf.float32,
                                          [None, self.num_slot_vals + 2],
@@ -371,7 +381,7 @@ class StateTrackerNetwork(TFModel):
     def __call__(self, u_utt_token_idx, u_utt_slot_tok_val_idx, u_act_idx,
                  u_slot_act_mask,
                  s_utt_token_idx, s_utt_slot_tok_val_idx, s_act_idx, s_slot_act_mask,
-                 prev_pred_mat, prob=False, *args, **kwargs):
+                 slot_val_mask, prev_pred_mat, prob=False, **kwargs):
         # print(f"u_utt_token_idx: {u_utt_token_idx}")
         # print(f"s_utt_token_idx: {s_utt_token_idx}")
         utt_token_idx, utt_seq_length = self._concat_and_pad([u_utt_token_idx,
@@ -397,6 +407,7 @@ class StateTrackerNetwork(TFModel):
                 self._utt_token_idx: utt_token_idx,
                 self._utt_seq_length: utt_seq_length,
                 self._utt_slot_tok_val_idx: utt_slot_tok_val_idx,
+                self._slot_val_mask: slot_val_mask[0],
                 self._prev_pred: prev_pred_mat[0]
             }
         )
@@ -409,7 +420,7 @@ class StateTrackerNetwork(TFModel):
                        u_slot_act_mask,
                        s_utt_token_idx, s_utt_slot_tok_val_idx, s_act_idx,
                        s_slot_act_mask,
-                       prev_pred_mat, true_state_mat, *args, **kwargs):
+                       slot_val_mask, prev_pred_mat, true_state_mat, **kwargs):
         utt_token_idx, utt_seq_length = self._concat_and_pad([u_utt_token_idx,
                                                               s_utt_token_idx],
                                                              axis=0, pad_axis=1)
@@ -430,6 +441,7 @@ class StateTrackerNetwork(TFModel):
                 self._utt_seq_length: utt_seq_length,
                 self._utt_slot_tok_val_idx: utt_slot_tok_val_idx,
                 self._prev_pred: prev_pred_mat[0],
+                self._slot_val_mask: slot_val_mask[0],
                 self._true_state: true_state_mat[0]
             }
         )

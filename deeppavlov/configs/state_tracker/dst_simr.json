@@ -94,6 +94,13 @@
         "out": ["slot_cand_indexer"]
       },
       {
+        "class": "deeppavlov.models.state_tracker.candidates:SlotsValuesMatrixBuilder",
+        "slot_vocab": "#slot_vocab",
+        "max_num_values": "#slot_filter.max_num_values",
+        "in": ["slot_cand_indexer"],
+        "out": ["slot_cand_mask_matr"]
+      },
+      {
         "class": "deeppavlov.models.state_tracker.preprocessors:SlotsTokensMatrixBuilder",
         "slot_vocab": "#slot_vocab",
         "in": ["u_tokens", "u_slots_bio", "slot_cand_indexer"],
@@ -139,7 +146,7 @@
         "save_path": "dst/model",
         "in": ["u_tok_idx", "u_tok_slot_idx_matr", "u_act_idx", "u_slot_act_mask_matr",
           "s_tok_idx", "s_tok_slot_idx_matr", "s_act_idx", "s_slot_act_mask_matr",
-          "prev_state_matr"],
+          "slot_cand_mask_matr", "prev_state_matr"],
         "in_y": ["state_matr"],
         "out": ["state_pred_matr"],
         "hidden_size": 128,
@@ -148,7 +155,7 @@
         "embedding_matrix": "#embeddings.emb_mat",
         "num_user_actions": "#user_action_vocab.__len__()",
         "num_system_actions": "#system_action_vocab.__len__()",
-        "learning_rate": 0.0031
+        "learning_rate": 0.00031
       },
       {
         "class": "deeppavlov.models.state_tracker.preprocessors:SlotsValuesMatrix2Dict",

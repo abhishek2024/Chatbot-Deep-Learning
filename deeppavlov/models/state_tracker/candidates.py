@@ -17,6 +17,7 @@ import operator
 from overrides import overrides
 from collections import defaultdict
 from typing import Any, Union, List, Dict, Tuple
+import numpy as np
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.component import Component
@@ -117,3 +118,27 @@ class CandidateIndexerBuilder(Component):
                 slot_cands[slot] = slot_cands[slot] + [value]
             result.append(slot_cands)
         return result
+
+
+class SlotsValuesMatrixBuilder(Component):
+    """"""
+    def __init__(self, slot_vocab: callable, max_num_values: int, **kwargs):
+        self.slot_vocab = slot_vocab
+        self.max_num_values = max_num_values
+
+    def _slot2idx(self, slot):
+        if slot not in self.slot_vocab:
+            raise RuntimeError(f"Utterance slot {slot} doesn't match any slot"
+                               "from slo_vocab")
+        return self.slot_vocab([[slot]])[0][0]
+
+    def __call__(self, cand_indexers: List[Dict[str, List[str]]]) -> List[np.ndarray]:
+        utt_matrices = []
+        for cand_indexer in cand_indexers:
+            mat = np.zeros((len(self.slot_vocab), self.max_num_values + 2),
+                           dtype=np.float32)
+            for slot, cands in cand_indexer.items():
+                slot_idx = self._slot2idx(slot)
+                mat[slot_idx, :len(cands)] = 1.
+            utt_matrices.append(mat)
+        return utt_matrices
