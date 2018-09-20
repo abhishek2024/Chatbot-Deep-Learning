@@ -20,7 +20,8 @@
         "in": ["x"],
         "in_y": ["y"],
         "out": ["y_probas"],
-        "save_path": "bnr/model"
+        "save_path": "bnr/model",
+        "load_path": "bnr/model"
       }
     ],
     "out": [

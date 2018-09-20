@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 
 @register('ranker_encoder')
 class BasicNeuralRankerEncoder(TFModel):
-    def __init__(self, save_path, **kwargs):
+    def __init__(self, save_path=None, load_path=None, **kwargs):
         self.hidden_size_dense_1 = 300
         self.hidden_size_dense_2 = 300
         self.hidden_size_dense_3 = 512
@@ -49,12 +49,12 @@ class BasicNeuralRankerEncoder(TFModel):
         self._init_optimizer()
         self.sess.run(tf.global_variables_initializer())
 
-        super().__init__(save_path=save_path)
+        super().__init__(save_path=save_path, load_path=load_path)
 
         # load model if exists:
-        # super().__init__(**kwargs)
-        # if self.load_path is not None:
-        #     self.load()
+
+        if self.load_path is not None:
+            self.load()
 
     def _init_hub_modules(self):
         self.embedder = hub.Module("https://tfhub.dev/google/universal-sentence-encoder/2")
@@ -166,10 +166,6 @@ class BasicNeuralRankerEncoder(TFModel):
         loss, _ = self.sess.run([self.loss, self.train_op], feed_dict)
         return loss
 
-    # def __call__(self, query: List[str], chunk: List[List[str]]):
-    #     feed_dict = self._build_feed_dict(query, chunk)
-    #     return self.sess.run(self.prob, feed_dict)
-
     def __call__(self, x):
         query = x[0]['question']
         chunk = x[0]['contexts']
@@ -204,7 +200,6 @@ class BasicNeuralRankerEncoder(TFModel):
             else:
                 pad_batch += [''] * (limit - len(pad_batch))
         return pad_batch
-
 
 # q = ["Question 1?", "Sentence 2"]
 # c = [["Doc 1 sentence 1.", "Doc second sentence second."],
