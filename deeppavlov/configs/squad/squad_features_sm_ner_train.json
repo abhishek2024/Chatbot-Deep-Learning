@@ -27,8 +27,8 @@
         "level": "token",
         "emb_folder": "embeddings/",
         "emb_url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M.vec",
-        "save_path": "squad_model_features_ner/emb/vocab_embedder.pckl",
-        "load_path": "squad_model_features_ner/emb/vocab_embedder.pckl",
+        "save_path": "squad_model_features_sm_ner/emb/vocab_embedder.pckl",
+        "load_path": "squad_model_features_sm_ner/emb/vocab_embedder.pckl",
         "context_limit": 450,
         "question_limit": 150,
         "char_limit": 16,
@@ -42,8 +42,8 @@
         "level": "char",
         "emb_folder": "embeddings/",
         "emb_url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M-char.vec",
-        "save_path": "squad_model_features_ner/emb/char_vocab_embedder.pckl",
-        "load_path": "squad_model_features_ner/emb/char_vocab_embedder.pckl",
+        "save_path": "squad_model_features_sm_ner/emb/char_vocab_embedder.pckl",
+        "load_path": "squad_model_features_sm_ner/emb/char_vocab_embedder.pckl",
         "context_limit": "#vocab_embedder.context_limit",
         "question_limit": "#vocab_embedder.question_limit",
         "char_limit": "#vocab_embedder.char_limit",
@@ -70,8 +70,8 @@
         "pad_with_zeros": false,
         "unk_token": "<UNK>",
         "fit_on": ["context_ner_tags"],
-        "save_path": "squad_model_features_ner/ner_tags.dict",
-        "load_path": "squad_model_features_ner/ner_tags.dict",
+        "save_path": "squad_model_features_sm_ner/ner_tags.dict",
+        "load_path": "squad_model_features_sm_ner/ner_tags.dict",
         "out": ["context_ner_tags_idxs"]
       },
       {
@@ -109,8 +109,8 @@
         "weight_decay": 1.0,
         "use_soft_match_features": true,
         "legacy": false,
-        "save_path": "squad_model_features_ner/model",
-        "load_path": "squad_model_features_ner/model",
+        "save_path": "squad_model_features_sm_ner/model",
+        "load_path": "squad_model_features_sm_ner/model",
         "in": {
           "c_tokens": "context_tokens_idxs",
           "c_chars": "context_chars_idxs",
@@ -148,7 +148,7 @@
     "pytest_max_batches": 2,
     "validation_patience": 10,
     "metrics": ["squad_f1", "exact_match"],
-    "tensorboard_log_dir": "squad_model_features_ner/logs"
+    "tensorboard_log_dir": "squad_model_features_sm_ner/logs"
   },
   "metadata": {
     "requirements": [
