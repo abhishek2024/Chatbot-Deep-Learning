@@ -80,6 +80,7 @@ class SquadModel(TFModel):
         self.concat_bigru_outputs = self.opt.get('concat_bigru_outputs', True)
         self.shared_loss = self.opt.get('shared_loss', False)
         self.elmo_link = self.opt.get('elmo_link', 'https://tfhub.dev/google/elmo/2')
+        self.use_soft_match_features = self.opt.get('use_soft_match_features', False)
 
         assert self.number_of_hops > 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
 
@@ -243,13 +244,32 @@ class SquadModel(TFModel):
             c_emb = tf.concat([c_emb, cc_emb], axis=2)
             q_emb = tf.concat([q_emb, qc_emb], axis=2)
 
+            if self.use_soft_match_features:
+                # TODO: test soft match feature
+                c_emb_with_soft_match = dot_attention(c_emb, q_emb, mask=self.q_mask,
+                                                      att_size=self.attention_hidden_size,
+                                                      keep_prob=self.keep_prob_ph, use_gate=False,
+                                                      use_transpose_att=False,
+                                                      scope='c_word_attention')
+
+                q_emb_with_soft_match = dot_attention(q_emb, c_emb, mask=self.c_mask,
+                                                      att_size=self.attention_hidden_size,
+                                                      keep_prob=self.keep_prob_ph, use_gate=False,
+                                                      use_transpose_att=False,
+                                                      scope='q_word_attention')
+
+                c_emb = c_emb_with_soft_match
+                q_emb = q_emb_with_soft_match
+
             if self.use_features:
                 c_emb = tf.concat([c_emb, self.c_f], axis=2)
                 q_emb = tf.concat([q_emb, self.q_f], axis=2)
 
             if self.use_ner_features:
-                c_ner_emb = tf.nn.embedding_lookup(self.ner_emb, self.c_ner)
-                q_ner_emb = tf.nn.embedding_lookup(self.ner_emb, self.q_ner)
+                c_ner_emb = variational_dropout(
+                    tf.nn.embedding_lookup(self.ner_emb, self.c_ner), keep_prob=self.keep_prob_ph)
+                q_ner_emb = variational_dropout(
+                    tf.nn.embedding_lookup(self.ner_emb, self.q_ner), keep_prob=self.keep_prob_ph)
                 c_emb = tf.concat([c_emb, c_ner_emb], axis=2)
                 q_emb = tf.concat([q_emb, q_ner_emb], axis=2)
 

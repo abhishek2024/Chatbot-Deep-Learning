@@ -38,6 +38,7 @@ class SquadDatasetReader(DatasetReader):
     url_sber_squad = 'http://files.deeppavlov.ai/datasets/sber_squad-v1.1.tar.gz'
     url_multi_squad = 'http://files.deeppavlov.ai/datasets/multiparagraph_squad.tar.gz'
     url_ner_squad = 'http://files.deeppavlov.ai/datasets/squad-tokens-ner-v1.1.tar.gz'
+    url_ner_sber_squad = 'http://files.deeppavlov.ai/datasets/sber_squad-tokens-ner-v1.1.tar.gz'
 
     def read(self, dir_path: str, dataset='SQuAD'):
         required_files = ['{}-v1.1.json'.format(dt) for dt in ['train', 'dev']]
@@ -54,6 +55,9 @@ class SquadDatasetReader(DatasetReader):
             required_files = ['{}_multi-v1.1.json'.format(dt) for dt in ['train', 'dev']]
         elif dataset == 'NERSQuAD':
             self.url = self.url_ner_squad
+            required_files = ['{}-tokens-ner-v1.1.json'.format(dt) for dt in ['train', 'dev']]
+        elif dataset == 'NERSberSQuAD':
+            self.url = self.url_ner_sber_squad
             required_files = ['{}-tokens-ner-v1.1.json'.format(dt) for dt in ['train', 'dev']]
         else:
             raise RuntimeError('Dataset {} is unknown'.format(dataset))
