@@ -227,8 +227,10 @@ def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0,
         d_memory = tf.nn.dropout(memory, keep_prob=keep_prob, noise_shape=[BS, 1, MH])
 
         with tf.variable_scope("attention"):
-            inputs_att = tf.layers.dense(d_inputs, att_size, use_bias=False, activation=tf.nn.relu)
-            memory_att = tf.layers.dense(d_memory, att_size, use_bias=False, activation=tf.nn.relu)
+            inputs_att = tf.layers.dense(d_inputs, att_size, use_bias=False,
+                                         activation=tf.nn.relu, kernel_regularizer=tf.nn.l2_loss)
+            memory_att = tf.layers.dense(d_memory, att_size, use_bias=False,
+                                         activation=tf.nn.relu, kernel_regularizer=tf.nn.l2_loss)
             logits = tf.matmul(inputs_att, tf.transpose(memory_att, [0, 2, 1])) / (att_size ** 0.5)
 
             mask = tf.tile(tf.expand_dims(mask, axis=1), [1, IL, 1])
@@ -260,7 +262,7 @@ def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0,
             with tf.variable_scope("gate"):
                 dim = res.get_shape().as_list()[-1]
                 d_res = tf.nn.dropout(res, keep_prob=keep_prob, noise_shape=[BS, 1, dim])
-                gate = tf.layers.dense(d_res, dim, use_bias=False, activation=tf.nn.sigmoid)
+                gate = tf.layers.dense(d_res, dim, use_bias=False, activation=tf.nn.sigmoid, kernel_regularizer=tf.nn.l2_loss)
                 return res * gate
 
         return res
@@ -275,7 +277,9 @@ def simple_attention(memory, att_size, mask, keep_prob=1.0, scope="simple_attent
     with tf.variable_scope(scope):
         BS, ML, MH = tf.unstack(tf.shape(memory))
         memory_do = tf.nn.dropout(memory, keep_prob=keep_prob, noise_shape=[BS, 1, MH])
-        logits = tf.layers.dense(tf.layers.dense(memory_do, att_size, activation=tf.nn.tanh), 1, use_bias=False)
+        logits = tf.layers.dense(
+            tf.layers.dense(memory_do, att_size, activation=tf.nn.tanh, kernel_regularizer=tf.nn.l2_loss),
+            1, use_bias=False)
         logits = softmax_mask(tf.squeeze(logits, [2]), mask)
         att_weights = tf.expand_dims(tf.nn.softmax(logits), axis=2)
         res = tf.reduce_sum(att_weights * memory, axis=1)
@@ -290,7 +294,9 @@ def attention(inputs, state, att_size, mask, scope="attention", reuse=False):
     """
     with tf.variable_scope(scope, reuse=reuse):
         u = tf.concat([tf.tile(tf.expand_dims(state, axis=1), [1, tf.shape(inputs)[1], 1]), inputs], axis=2)
-        logits = tf.layers.dense(tf.layers.dense(u, att_size, activation=tf.nn.tanh), 1, use_bias=False)
+        logits = tf.layers.dense(
+            tf.layers.dense(u, att_size, activation=tf.nn.tanh, kernel_regularizer=tf.nn.l2_loss),
+            1, use_bias=False)
         logits = softmax_mask(tf.squeeze(logits, [2]), mask)
         att_weights = tf.expand_dims(tf.nn.softmax(logits), axis=2)
         res = tf.reduce_sum(att_weights * inputs, axis=1)

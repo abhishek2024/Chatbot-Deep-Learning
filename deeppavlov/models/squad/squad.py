@@ -81,6 +81,7 @@ class SquadModel(TFModel):
         self.shared_loss = self.opt.get('shared_loss', False)
         self.elmo_link = self.opt.get('elmo_link', 'https://tfhub.dev/google/elmo/2')
         self.use_soft_match_features = self.opt.get('use_soft_match_features', False)
+        self.l2_norm = self.opt.get('l2_norm', None)
 
         assert self.number_of_hops > 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
 
@@ -125,7 +126,7 @@ class SquadModel(TFModel):
         self.word_emb = tf.get_variable("word_emb", initializer=tf.constant(self.init_word_emb, dtype=tf.float32),
                                         trainable=False)
         self.char_emb = tf.get_variable("char_emb", initializer=tf.constant(self.init_char_emb, dtype=tf.float32),
-                                        trainable=self.opt['train_char_emb'])
+                                        trainable=self.opt['train_char_emb'], regularizer=tf.nn.l2_loss)
 
         self.c_mask = tf.cast(self.c_ph, tf.bool)
         self.q_mask = tf.cast(self.q_ph, tf.bool)
@@ -159,7 +160,7 @@ class SquadModel(TFModel):
             self.ner_emb = tf.get_variable("ner_emb",
                                            initializer=tf.random_uniform(
                                                (self.ner_vocab_size, self.ner_features_dim), -0.1, 0.1),
-                                           trainable=True)
+                                           trainable=True, regularizer=tf.nn.l2_loss)
 
         if self.use_elmo:
             self.c_str = tf.slice(self.c_str_ph, [0, 0], [bs, self.c_maxlen])
@@ -516,6 +517,9 @@ class SquadModel(TFModel):
                 self.loss = tf.reduce_mean(scorer_loss)
             else:
                 self.loss = tf.reduce_mean(squad_loss)
+
+            if self.l2_norm is not None:
+                self.loss += self.l2_norm * tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
 
 
     def _init_placeholders(self):
