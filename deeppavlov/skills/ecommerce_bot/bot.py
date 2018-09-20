@@ -135,23 +135,34 @@ class EcommerceBot(Component):
                 except:
                     state = self.preprocess.parse_input(state)
 
-            start = state['start'] if 'start' in state else 0
-            stop = state['stop'] if 'stop' in state else 5
-
             query = self.preprocess.analyze(query_or)
 
             if 'history' not in state:
                 state['history'] = []
 
             if len(state['history'])>0:
-                cur_prev = self.preprocess.analyze(state['history'][-1] + " " + query_or)
-                query = self._choose_context(cur_prev, query)
-                print(query.text)
-                state['history'].append(query.text)
-            else:
-                state['history'].append(query.text)
+                if state['history'][-1] != query_or:
+                    cur_prev = self.preprocess.analyze(state['history'][-1] + " " + query_or)
+                    complex_bool = self._take_complex_query(cur_prev, query)
 
+                    if complex_bool is True:
+                        query = cur_prev
+                    else:
+                    # current short query wins that means that the state should be zeroed
+                        state = {
+                        'history': [],
+                        'start': 0,
+                        'stop': 5,
+                        }
+
+            state['history'].append(query.text)
+
+            # start processing the query
             log.debug(f"query: {query}")
+            log.debug(f"state: {state}")
+
+            start = state['start'] if 'start' in state else 0
+            stop = state['stop'] if 'stop' in state else 5
 
             query, money_range = self.preprocess.extract_money(query)
             log.debug(f"money detected: {query} {money_range}")
@@ -219,7 +230,7 @@ class EcommerceBot(Component):
             entropies = self._entropy_subquery(results_args_sim)
 
             state['start'] = start
-            state['stop'] = stop
+            state['stop'] = start+len(response)
             if 'history' not in state:
                 state['history'] = []
 
@@ -229,25 +240,28 @@ class EcommerceBot(Component):
 
         return (response, entropies, len(results_args_sim)), confidence, state
 
-    def _choose_context(self, previous, current) -> str:
+    def _take_complex_query(self, previous, current) -> str:
         coef = 0.05      
 
         log.debug(f"num of long query {previous} {len(previous)}")
         log.debug(f"num of short query {current} {len(current)}")
 
-        prev_sim = [score*len(previous)*coef for score in self._similarity(previous)[0]]
-        cur_sim = [score*len(current)*coef for score in self._similarity(current)[0]]
+        # prev_sim = [score*len(previous)*coef for score in self._similarity(previous)[0]]
+        prev_sim = [score for score in self._similarity(previous)[0]]
+        # cur_sim = [score*len(current)*coef for score in self._similarity(current)[0]]
+        cur_sim = [score for score in self._similarity(current)[0]]
 
-        prev_sim_sum = np.sum([score for score in prev_sim])
-        cur_sim_sum = np.sum([score for score in cur_sim])
+        prev_sim_sum = np.sum(sorted([score for score in prev_sim], reverse=True)[0:5])
+        cur_sim_sum = np.sum(sorted([score for score in cur_sim], reverse=True)[0:5])
+        # cur_sim_sum = np.sum([score for score in cur_sim])
 
         log.debug(f"num of long query {prev_sim_sum}")
         log.debug(f"num of short query {cur_sim_sum}")
 
         if prev_sim_sum>cur_sim_sum:
-            return previous
+            return True
 
-        return current
+        return False
 
     def _similarity(self, query: List[Any]) -> List[float]:
         score_title = [bleu_advanced(self.preprocess.lemmas(item['title_nlped']),
