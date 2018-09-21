@@ -437,10 +437,10 @@ class KerasSeq2SeqTokenModel(KerasModel):
         for i in range(len(batch)):  # batch size
             predicted_sample = []
 
-            current_token = self.decoder_embedder([["<SOS>"]])[0][0]
+            current_token = self.decoder_embedder([["<SOS>"]])[0][0]  # (300,)
             end_of_sequence = False
-            state_0 = encoder_state_0[i].reshape((1, -1))
-            state_1 = encoder_state_1[i].reshape((1, -1))
+            state_0 = encoder_state_0[i].reshape((1, -1))  # (1, hidden_size)
+            state_1 = encoder_state_1[i].reshape((1, -1))  # (1, hidden_size)
 
             while not end_of_sequence:
                 token_probas, state_0, state_1 = self.decoder_model.predict([np.array([[current_token]]),
