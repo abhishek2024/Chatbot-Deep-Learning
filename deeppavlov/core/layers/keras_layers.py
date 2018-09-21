@@ -107,6 +107,7 @@ def multiplicative_self_attention(units, n_hidden=None, n_output_features=None, 
     output = Dense(n_output_features, activation=activation)(attended_units)
     return output
 
+
 def multiplicative_self_attention_init(n_hidden, n_output_features, activation):
     layers = {}
     layers["queries"] = Dense(n_hidden)
@@ -127,11 +128,12 @@ def multiplicative_self_attention_get_output(units, layers):
     output = layers["output"](attended_units)
     return output
 
+
 def char_emb_cnn_func(n_characters: int,
                       char_embedding_dim: int,
                       emb_mat: np.array = None,
-                        filter_widths=(3, 4, 5, 7),
-                        highway_on_top=False):
+                      filter_widths=(3, 4, 5, 7),
+                      highway_on_top=False):
 
     emb_layer = Embedding(n_characters,
                           char_embedding_dim)
@@ -166,3 +168,23 @@ def char_emb_cnn_func(n_characters: int,
         return emb_c
 
     return result
+
+
+def masking_sequences(sequences, seq_lengths):
+    """
+    Function extracts seq_lengths[i]-1 element of sequences[i].
+    Useful for extracting corresponding hidden state of RNN output.
+
+    Args:
+        sequences:
+        seq_lengths:
+
+    Returns:
+
+    """
+    masked = None
+    # for i in range(K.int_shape(seq_lengths)[0]):
+    #     masked.append(sequences[i][seq_lengths[i] - 1])
+
+    masked = Lambda(lambda x: x[0][x[1]])([sequences, seq_lengths])
+    return masked
