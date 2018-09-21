@@ -1,23 +1,24 @@
-"""
-Copyright 2017 Neural Networks and Deep Learning lab, MIPT
+# Copyright 2017 Neural Networks and Deep Learning lab, MIPT
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
-from copy import deepcopy
+from typing import List, Tuple
 
 import tensorflow as tf
 import numpy as np
+
+from copy import deepcopy
+import shutil
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
@@ -112,12 +113,15 @@ class SquadModel(TFModel):
         self.sess.run(tf.global_variables_initializer())
 
         super().__init__(**kwargs)
+
+        self.tmp_model_path = self.load_path.parent / 'tmp_dir' / self.load_path.name
+
         # Try to load the model (if there are some model files the model will be loaded from them)
         if self.load_path is not None:
             self.load()
             if self.weight_decay < 1.0:
-                logger.info('SQuAD model: Using EMA weights.')
-                self.sess.run(self.assign_vars)
+                # TODO: it is redundant because best model is saved with assigned ema weights
+                self._assign_ema_weights()
 
     def _init_graph(self):
         self._init_placeholders()
@@ -585,6 +589,10 @@ class SquadModel(TFModel):
         for g, v in zip(global_vars, shadow_vars):
             self.assign_vars.append(tf.assign(g, v))
 
+    def _assign_ema_weights(self):
+        logger.info('SQuAD model: Using EMA weights.')
+        self.sess.run(self.assign_vars)
+
     def _build_feed_dict(self, c_tokens, c_chars, q_tokens, q_chars,
                          c_features=None, q_features=None, c_str=None, q_str=None, c_ner=None, q_ner=None,
                          y1=None, y2=None, y=None):
@@ -706,6 +714,7 @@ class SquadModel(TFModel):
 
     def process_event(self, event_name, data):
         if event_name == "after_validation":
+            # learning rate decay
             if data['impatience'] > self.last_impatience:
                 self.lr_impatience += 1
             else:
@@ -718,6 +727,21 @@ class SquadModel(TFModel):
                 self.learning_rate = max(self.learning_rate / 2, self.min_learning_rate)
                 logger.info('SQuAD model: learning_rate changed to {}'.format(self.learning_rate))
             logger.info('SQuAD model: lr_impatience: {}, learning_rate: {}'.format(self.lr_impatience, self.learning_rate))
+        elif event_name == "before_validation":
+            if self.weight_decay < 1.0:
+                # validate model with EMA weights
+
+                # save current weights to tmp path
+                # warning: TFModel does not save optimizer params.
+                # In our case, we do this save/load operation in one session so we do not lose optimizer params.
+                self.save(path=self.tmp_model_path)
+                # load ema weights
+                self._assign_ema_weights()
+        elif event_name == "before_saving_improved_model":
+            if self.weight_decay < 1.0:
+                # load from tmp weights and do not call _assign_ema_weigts
+                self.load(path=self.tmp_model_path)
+                shutil.rmtree(self.tmp_model_path.parent)
 
     def _pad_strings(self, batch, len_limit):
         max_len = max(map(lambda x: len(x), batch))

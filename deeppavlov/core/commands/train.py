@@ -39,7 +39,7 @@ from deeppavlov.core.common.log import get_logger
 log = get_logger(__name__)
 
 
-def prettify_metrics(metrics: dict, precision: int = 4) -> OrderedDict:
+def prettify_metrics(metrics: List[Tuple[str, float]], precision: int = 4) -> OrderedDict:
     """Prettifies the dictionary of metrics."""
     prettified_metrics = OrderedDict()
     for key, value in metrics:
@@ -92,14 +92,8 @@ def fit_chainer(config: dict, iterator: Union[DataLearningIterator, DataFittingI
     return chainer
 
 
-def train_evaluate_model_from_config(config: [str, Path, dict], to_train: bool = True, to_validate: bool = True) -> None:
-    """Make training and evaluation of the model described in corresponding configuration file."""
-    if isinstance(config, (str, Path)):
-        config = read_json(config)
-    set_deeppavlov_root(config)
-
-    import_packages(config.get('metadata', {}).get('imports', []))
-
+def read_data_by_config(config: dict):
+    """Read data by dataset_reader from specified config."""
     dataset_config = config.get('dataset', None)
 
     if dataset_config:
@@ -139,9 +133,28 @@ def train_evaluate_model_from_config(config: [str, Path, dict], to_train: bool =
     else:
         log.warning("No dataset reader is provided in the JSON config.")
 
+    return data
+
+
+def get_iterator_from_config(config: dict, data: dict):
+    """Create iterator (from config) for specified data."""
     iterator_config = config['dataset_iterator']
     iterator: Union[DataLearningIterator, DataFittingIterator] = from_params(iterator_config,
                                                                              data=data)
+    return iterator
+
+
+def train_evaluate_model_from_config(config: [str, Path, dict], iterator=None,
+                                     to_train=True, to_validate=True) -> Dict[str, Dict[str, float]]:
+    """Make training and evaluation of the model described in corresponding configuration file."""
+    if isinstance(config, (str, Path)):
+        config = read_json(config)
+    set_deeppavlov_root(config)
+    import_packages(config.get('metadata', {}).get('imports', []))
+
+    if iterator is None:
+        data = read_data_by_config(config)
+        iterator = get_iterator_from_config(config, data)
 
     train_config = {
         'metrics': ['accuracy'],
@@ -169,6 +182,10 @@ def train_evaluate_model_from_config(config: [str, Path, dict], to_train: bool =
         elif not isinstance(model, Chainer):
             log.warning('Nothing to train')
 
+        model.destroy()
+
+    res = {}
+
     if train_config['validate_best'] or train_config['test_best']:
         # try:
         #     model_config['load_path'] = model_config['save_path']
@@ -184,6 +201,8 @@ def train_evaluate_model_from_config(config: [str, Path, dict], to_train: bool =
                                      show_examples=train_config['show_examples'])
             }
 
+            res['valid'] = report['valid']['metrics']
+
             print(json.dumps(report, ensure_ascii=False))
 
         if train_config['test_best']:
@@ -193,7 +212,13 @@ def train_evaluate_model_from_config(config: [str, Path, dict], to_train: bool =
                                     show_examples=train_config['show_examples'])
             }
 
+            res['test'] = report['test']['metrics']
+
             print(json.dumps(report, ensure_ascii=False))
+        
+        model.destroy()
+
+    return res
 
 
 def _test_model(model: Component, metrics_functions: List[Tuple[str, Callable]],
@@ -291,6 +316,7 @@ def _train_batches(model: NNModel, iterator: DataLearningIterator, train_config:
 
     # validate first (important if model is pre-trained)
     if train_config['val_every_n_epochs'] > 0 and epochs % train_config['val_every_n_epochs'] == 0:
+        model.process_event(event_name='before_validation', data=None)
         report = _test_model(model, metrics_functions, iterator,
                              train_config['batch_size'], 'valid', start_time, train_config['show_examples'])
         report['epochs_done'] = epochs
@@ -300,6 +326,7 @@ def _train_batches(model: NNModel, iterator: DataLearningIterator, train_config:
         metrics = list(report['metrics'].items())
 
         m_name, score = metrics[0]
+        model.process_event(event_name='before_saving_improved_model', data=None)
         if improved(score, best):
             patience = 0
             log.info('New best {} of {}'.format(m_name, score))
@@ -439,6 +466,7 @@ def _train_batches(model: NNModel, iterator: DataLearningIterator, train_config:
                 train_y_predicted.clear()
 
             if train_config['val_every_n_epochs'] > 0 and epochs % train_config['val_every_n_epochs'] == 0:
+                model.process_event(event_name='before_validation', data=None)
                 report = _test_model(model, metrics_functions, iterator,
                                      train_config['batch_size'], 'valid', start_time, train_config['show_examples'])
                 report['epochs_done'] = epochs
@@ -454,6 +482,7 @@ def _train_batches(model: NNModel, iterator: DataLearningIterator, train_config:
                         tb_valid_writer.add_summary(metric_sum, epochs)
 
                 m_name, score = metrics[0]
+                model.process_event(event_name='before_saving_improved_model', data=None)
                 if improved(score, best):
                     patience = 0
                     log.info('New best {} of {}'.format(m_name, score))
