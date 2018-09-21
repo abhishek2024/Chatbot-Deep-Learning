@@ -310,7 +310,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
 
         self._encoder_inp_lengths = Input(shape=(1,), dtype='int32')
 
-        self._encoder_outputs, self._encoder_state_0, self._encoder_state_1 = masking_sequences(LSTM(
+        _encoder_outputs, _encoder_state_0, _encoder_state_1 = LSTM(
             hidden_size,
             activation='tanh',
             return_state=True,  # get encoder's last state
@@ -318,7 +318,10 @@ class KerasSeq2SeqTokenModel(KerasModel):
             kernel_regularizer=l2(encoder_coef_reg_lstm),
             dropout=encoder_dropout_rate,
             recurrent_dropout=encoder_rec_dropout_rate,
-            name="encoder_lstm")(self._encoder_emb_inp), self._encoder_inp_lengths)
+            name="encoder_lstm")(self._encoder_emb_inp)
+        self._encoder_outputs = masking_sequences(_encoder_outputs, self._encoder_inp_lengths)
+        self._encoder_state_0 = masking_sequences(_encoder_state_0, self._encoder_inp_lengths)
+        self._encoder_state_1 = masking_sequences(_encoder_state_1, self._encoder_inp_lengths)
 
         return None
 
@@ -432,7 +435,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
 
             while not end_of_sequence:
                 token_probas, state_0, state_1 = self.decoder_model.predict([np.array([[current_token]]),
-                                                                             np.array([[1]]),
+                                                                             np.array([[1]], dtype='int'),
                                                                              state_0,
                                                                              state_1])
                 current_token_id = self._probas2ids(token_probas)[0][0]
