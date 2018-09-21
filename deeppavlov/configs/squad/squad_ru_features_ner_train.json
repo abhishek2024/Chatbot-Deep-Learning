@@ -104,10 +104,11 @@
         "learning_rate": 0.5,
         "min_learning_rate": 0.001,
         "learning_rate_patience": 2,
-        "keep_prob": 0.6,
+        "keep_prob": 0.7,
         "grad_clip": 5.0,
         "weight_decay": 1.0,
         "legacy": false,
+        "l2_norm": 5e-7,
         "save_path": "squad_model_ru_features_ner/model",
         "load_path": "squad_model_ru_features_ner/model",
         "in": {

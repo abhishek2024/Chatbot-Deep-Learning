@@ -521,7 +521,6 @@ class SquadModel(TFModel):
             if self.l2_norm is not None:
                 self.loss += self.l2_norm * tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
 
-
     def _init_placeholders(self):
         self.c_ph = tf.placeholder(shape=(None, None), dtype=tf.int32, name='c_ph')
         self.cc_ph = tf.placeholder(shape=(None, None, self.char_limit), dtype=tf.int32, name='cc_ph')
