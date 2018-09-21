@@ -182,9 +182,11 @@ def masking_sequences(sequences, seq_lengths):
     Returns:
 
     """
-    masked = None
+    masked = []
     # for i in range(K.int_shape(seq_lengths)[0]):
     #     masked.append(sequences[i][seq_lengths[i] - 1])
 
-    masked = Lambda(lambda x: x[0][x[1]])([sequences, seq_lengths])
+    # masked = Lambda(lambda x: (x[0][x[3]], x[1][x[3]], x[2][x[3]]))([*sequences, seq_lengths])
+    for i in range(3):
+        masked.append(Lambda(lambda x: x)([sequences[i], seq_lengths]))
     return masked

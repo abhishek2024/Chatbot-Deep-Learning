@@ -193,7 +193,8 @@ class KerasSeq2SeqTokenModel(KerasModel):
         """
         pad = np.zeros(self.opt['decoder_embedding_size'])
         text_sentences = self.decoder_vocab(sentences)
-        seq_lengths_batch = np.array([min(len(sentence), self.opt["tgt_max_length"]) for sentence in sentences])
+        seq_lengths_batch = np.array([min(len(sentence), self.opt["tgt_max_length"])
+                                      for sentence in sentences], dtype=int).reshape((-1, 1))
 
         embeddings_batch = self.decoder_embedder([sen[:self.opt['tgt_max_length']] for sen in text_sentences])
         # embeddings_batch = [[pad] * (self.opt['tgt_max_length'] - len(tokens)) + list(tokens)
@@ -217,7 +218,8 @@ class KerasSeq2SeqTokenModel(KerasModel):
         Returns:
             (array of embedded texts, list of sentences lengths)
         """
-        seq_lengths_batch = np.array([min(len(sentence), text_size) for sentence in sentences])
+        seq_lengths_batch = np.array([min(len(sentence), text_size)
+                                      for sentence in sentences], dtype=int).reshape((-1, 1))
 
         if type(sentences[0][0]) is int:
             pad = 0
@@ -306,7 +308,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
         self._encoder_emb_inp = Input(shape=(self.opt["src_max_length"],
                                              self.opt["encoder_embedding_size"]))
 
-        self._encoder_inp_lengths = Input(shape=(1,))
+        self._encoder_inp_lengths = Input(shape=(1,), dtype='int32')
 
         self._encoder_outputs, self._encoder_state_0, self._encoder_state_1 = masking_sequences(LSTM(
             hidden_size,
@@ -340,7 +342,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
 
         self._decoder_emb_inp = Input(shape=(None,
                                              self.opt["decoder_embedding_size"]))
-        self._decoder_inp_lengths = Input(shape=(1,))
+        self._decoder_inp_lengths = Input(shape=(1,), dtype='int32')
 
         self._decoder_input_state_0 = Input(shape=(hidden_size,))
         self._decoder_input_state_1 = Input(shape=(hidden_size,))
@@ -430,7 +432,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
 
             while not end_of_sequence:
                 token_probas, state_0, state_1 = self.decoder_model.predict([np.array([[current_token]]),
-                                                                             np.array([1]),
+                                                                             np.array([[1]]),
                                                                              state_0,
                                                                              state_1])
                 current_token_id = self._probas2ids(token_probas)[0][0]
