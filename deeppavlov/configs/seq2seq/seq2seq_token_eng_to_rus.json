@@ -56,7 +56,7 @@
         "save_path": "seq2seq/rus-eng/x_tokens.dict",
         "load_path": "seq2seq/rus-eng/x_tokens.dict",
         "special_tokens": ["<UNK>"],
-        "min_freq": 2,
+        "min_freq": 5,
         "out": "x_tok_ind"
       },
       {
@@ -99,7 +99,7 @@
         "level": "token",
         "save_path": "seq2seq/rus-eng/y_tokens.dict",
         "load_path": "seq2seq/rus-eng/y_tokens.dict",
-        "min_freq": 5,
+        "min_freq": 10,
         "out": "y_tok_ind"
       },
       {
