@@ -310,7 +310,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
 
         self._encoder_inp_lengths = Input(shape=(1,), dtype='int32')
 
-        _encoder_outputs, _encoder_state_0, _encoder_state_1 = LSTM(
+        self._encoder_outputs, self._encoder_state_0, self._encoder_state_1 = LSTM(
             hidden_size,
             activation='tanh',
             return_state=True,  # get encoder's last state
@@ -319,10 +319,19 @@ class KerasSeq2SeqTokenModel(KerasModel):
             dropout=encoder_dropout_rate,
             recurrent_dropout=encoder_rec_dropout_rate,
             name="encoder_lstm")(self._encoder_emb_inp)
-        self._encoder_outputs = masking_sequences(_encoder_outputs, self._encoder_inp_lengths)
-        self._encoder_state_0 = masking_sequences(_encoder_state_0, self._encoder_inp_lengths)
-        self._encoder_state_1 = masking_sequences(_encoder_state_1, self._encoder_inp_lengths)
 
+        # _encoder_outputs, _encoder_state_0, _encoder_state_1 = LSTM(
+        #     hidden_size,
+        #     activation='tanh',
+        #     return_state=True,  # get encoder's last state
+        #     return_sequences=True,
+        #     kernel_regularizer=l2(encoder_coef_reg_lstm),
+        #     dropout=encoder_dropout_rate,
+        #     recurrent_dropout=encoder_rec_dropout_rate,
+        #     name="encoder_lstm")(self._encoder_emb_inp)
+        # self._encoder_outputs = masking_sequences(_encoder_outputs, self._encoder_inp_lengths)
+        # self._encoder_state_0 = masking_sequences(_encoder_state_0, self._encoder_inp_lengths)
+        # self._encoder_state_1 = masking_sequences(_encoder_state_1, self._encoder_inp_lengths)
         return None
 
     def _build_decoder(self,
