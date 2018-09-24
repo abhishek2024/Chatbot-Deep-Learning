@@ -15,7 +15,7 @@
         "name": "ecommerce_bot",
         "in": ["query", "state"],
         "fit_on": ["query"],
-        "min_similarity": 0.5,
+        "min_similarity": 0.05,
         "min_entropy": 0.5,
         "entropy_fields": ["Size", "Brand", "Author", "Color", "Genre"],
         "save_path": "ecommerce_bot/ecommerce_Phones_model.pkl",
