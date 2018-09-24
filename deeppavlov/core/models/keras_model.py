@@ -1,18 +1,16 @@
-"""
-Copyright 2017 Neural Networks and Deep Learning lab, MIPT
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Copyright 2017 Neural Networks and Deep Learning lab, MIPT
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 from abc import abstractmethod
 from pathlib import Path
@@ -23,7 +21,6 @@ import keras.metrics
 import keras.optimizers
 from typing import Dict
 from overrides import overrides
-from .tf_backend import TfModelMeta
 from keras import backend as K
 from keras.models import Model
 from keras.layers import Dense, Input
@@ -32,6 +29,7 @@ from deeppavlov.core.models.nn_model import NNModel
 from deeppavlov.core.common.file import save_json, read_json
 from deeppavlov.core.common.errors import ConfigError
 from deeppavlov.core.common.log import get_logger
+from .tf_backend import TfModelMeta
 
 
 log = get_logger(__name__)
@@ -39,7 +37,8 @@ log = get_logger(__name__)
 
 class KerasModel(NNModel, metaclass=TfModelMeta):
     """
-    Class builds keras model with tensorflow backend
+    Builds Keras model with TensorFlow backend.
+
     Attributes:
         opt: dictionary with all model parameters
         model: keras model itself
@@ -50,9 +49,10 @@ class KerasModel(NNModel, metaclass=TfModelMeta):
         optimizer: keras.optimizers instance
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         """
         Initialize model using parameters from opt
+
         Args:
             kwargs (dict): Dictionary with model parameters
         """
@@ -65,14 +65,16 @@ class KerasModel(NNModel, metaclass=TfModelMeta):
         self.batches_seen = 0
         self.train_examples_seen = 0
 
-        super().__init__(**kwargs)
+        super().__init__(save_path=save_path,
+                         load_path=load_path,
+                         url=url,
+                         mode=kwargs['mode'])
 
-        self.sess = self._config_session()
-        K.set_session(self.sess)
-
-    def _config_session(self):
+    @staticmethod
+    def _config_session():
         """
         Configure session for particular device
+
         Returns:
             tensorflow.Session
         """
@@ -81,11 +83,18 @@ class KerasModel(NNModel, metaclass=TfModelMeta):
         config.gpu_options.visible_device_list = '0'
         return tf.Session(config=config)
 
-    def init_model_from_scratch(self, model_name: str):
+    def init_model_from_scratch(self, model_name: str, optimizer_name: str,
+                                loss_name: str,
+                                lear_rate: float = 0.01, lear_rate_decay: float = 0.):
         """
         Initialize uncompiled model from scratch with given params
+
         Args:
             model_name: name of model function described as a method of this class
+            optimizer_name: name of optimizer from keras.optimizers
+            loss_name: loss function name (from keras.losses)
+            lear_rate: learning rate.
+            lear_rate_decay: learning rate decay.
 
         Returns:
             compiled model with given network and learning parameters
@@ -97,12 +106,35 @@ class KerasModel(NNModel, metaclass=TfModelMeta):
         else:
             raise AttributeError("Model {} is not defined".format(model_name))
 
+        optimizer_func = getattr(keras.optimizers, optimizer_name, None)
+        if callable(optimizer_func):
+            if not(lear_rate is None):
+                if not(lear_rate_decay is None):
+                    self.optimizer = optimizer_func(lr=lear_rate, decay=lear_rate_decay)
+                else:
+                    self.optimizer = optimizer_func(lr=lear_rate)
+            elif not(lear_rate_decay is None):
+                self.optimizer = optimizer_func(decay=lear_rate_decay)
+            else:
+                self.optimizer = optimizer_func()
+        else:
+            raise AttributeError("Optimizer {} is not defined in `keras.optimizers`".format(optimizer_name))
+
+        loss_func = getattr(keras.losses, loss_name, None)
+        if callable(loss_func):
+            loss = loss_func
+        else:
+            raise AttributeError("Loss {} is not defined in `keras.losses`".format(loss_name))
+
+        model.compile(optimizer=self.optimizer, loss=loss)
         return model
 
     @overrides
-    def load(self, model_name: str):
+    def load(self, model_name: str, optimizer_name: str, loss_name: str,
+             lear_rate: float = 0.01, lear_rate_decay: float = 0.):
         """
         Initialize uncompiled model from saved params and weights
+
         Args:
             model_name: name of model function described as a method of this class
 
@@ -143,6 +175,7 @@ class KerasModel(NNModel, metaclass=TfModelMeta):
                 lear_rate: float = 0.01, lear_rate_decay: float = 0.):
         """
         Compile model with given optimizer and loss
+
         Args:
             model: keras uncompiled model
             optimizer_name: name of optimizer from keras.optimizers
@@ -178,7 +211,7 @@ class KerasModel(NNModel, metaclass=TfModelMeta):
         return model
 
     @overrides
-    def save(self, fname: str = None):
+    def save(self, fname: str = None) -> None:
         """
         Save the model parameters into <<fname>>_opt.json (or <<ser_file>>_opt.json)
         and model weights into <<fname>>.h5 (or <<ser_file>>.h5)
@@ -211,7 +244,6 @@ class KerasModel(NNModel, metaclass=TfModelMeta):
             if self.opt.get("save_path") != self.opt.get("load_path"):
                 self.opt["load_path"] = str(self.opt["save_path"])
         save_json(self.opt, opt_path)
-        return True
 
     @abstractmethod
     def reset(self):
