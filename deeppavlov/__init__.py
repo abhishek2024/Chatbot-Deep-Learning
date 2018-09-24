@@ -76,6 +76,7 @@ import deeppavlov.models.tokenizers.spacy_tokenizer
 import deeppavlov.models.tokenizers.split_tokenizer
 import deeppavlov.models.tokenizers.ru_tokenizer
 import deeppavlov.models.squad.squad
+import deeppavlov.models.squad.squad_refactor
 import deeppavlov.models.morpho_tagger.tagger
 import deeppavlov.models.morpho_tagger.common
 import deeppavlov.models.api_requester
