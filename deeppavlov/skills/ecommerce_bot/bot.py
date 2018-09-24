@@ -152,6 +152,8 @@ class EcommerceBot(Component):
 
                     if complex_bool is True:
                         query = cur_prev
+                        state['start'] = 0
+                        state['stop'] = 5
                     else:
                     # current short query wins that means that the state should be zeroed
                         state = {
