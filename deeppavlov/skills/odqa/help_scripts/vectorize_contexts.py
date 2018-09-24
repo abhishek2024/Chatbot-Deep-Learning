@@ -7,20 +7,23 @@ iterator = SQLiteDataIterator(load_path='/media/olga/Data/projects/DeepPavlov/do
 encoder = BasicNeuralContextEncoder(load_path='/media/olga/Data/projects/DeepPavlov/download/bnr/model')
 SAVE_PATH = '/media/olga/Data/projects/DeepPavlov/download/odqa/chunk_vectors'
 
-all_vectors = np.empty(shape=(512,))
+all_vectors = np.empty(shape=(1, 512))
 
-# i = 0
+i = 0
+j = 0
 for docs, _ in iterator.gen_batches(batch_size=100):
-    # if i == 2:
-    #     break
+    if i == 10000:
+        np.save(SAVE_PATH.format(j), all_vectors)
+        all_vectors = np.empty(shape=(1, 512))
+        j += 1
+        i = 0
     batch_vectors = encoder(docs)
-    all_vectors = np.vstack((all_vectors, batch_vectors))
-    # i += 1
+    all_vectors = np.append(all_vectors, batch_vectors, axis=0)
+    print(all_vectors.shape)
+    i += 1
 
-
-all_vectors = np.delete(all_vectors, 0, axis=0)
-print(type(all_vectors))
-print(all_vectors.shape)
+# print(type(all_vectors))
+# print(all_vectors.shape)
 np.save(SAVE_PATH, all_vectors)
 # a = np.load('/media/olga/Data/projects/DeepPavlov/download/odqa/chunk_vectors.npy')
 # print(a)
