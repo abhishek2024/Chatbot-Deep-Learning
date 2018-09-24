@@ -22,7 +22,7 @@ from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
 from deeppavlov.models.squad.utils_refactor import dot_attention, simple_attention, PtrNet, attention, mult_attention
 from deeppavlov.models.squad.utils_refactor import CudnnGRU, CudnnCompatibleGRU, CudnnGRULegacy, softmax_mask
-from deeppavlov.models.squad.utils_refactor import embedding_layer, character_embedding_layer
+from deeppavlov.models.squad.utils_refactor import embedding_layer, character_embedding_layer, elmo_embedding_layer
 from deeppavlov.core.common.check_gpu import GPU_AVAILABLE
 from deeppavlov.core.layers.tf_layers import cudnn_bi_gru, variational_dropout
 from deeppavlov.core.common.log import get_logger
@@ -208,11 +208,11 @@ class SquadModelRef(TFModel):
                                                    emb_mat_init=self.init_char_emb,
                                                    trainable_emb_mat=self.opt['train_char_emb'],
                                                    regularizer=tf.nn.l2_loss,
-                                                   transform_char_emb=self.transform_char_emb)
+                                                   transform_char_emb=self.transform_char_emb, reuse=True)
 
             with tf.variable_scope("word"):
                 c_emb = embedding_layer(self.c, self.init_word_emb, trainable=False)
-                q_emb = embedding_layer(self.q, self.init_word_emb)
+                q_emb = embedding_layer(self.q, self.init_word_emb, trainable=False)
 
             c_emb = tf.concat([c_emb, cc_emb], axis=2)
             q_emb = tf.concat([q_emb, qc_emb], axis=2)
@@ -271,21 +271,9 @@ class SquadModelRef(TFModel):
             if self.use_elmo:
                 # TODO: also add elmo after encoding layer
                 import tensorflow_hub as tfhub
-                elmo = tfhub.Module(self.elmo_link, trainable=True)
-                c_elmo = elmo(
-                    inputs={
-                        "tokens": self.c_str,
-                        "sequence_len": tf.reduce_sum(1 - tf.cast(tf.equal(self.c_str, ""), tf.int32), axis=-1)
-                    },
-                    signature="tokens",
-                    as_dict=True)["elmo"]
-                q_elmo = elmo(
-                    inputs={
-                        "tokens": self.q_str,
-                        "sequence_len": tf.reduce_sum(1 - tf.cast(tf.equal(self.q_str, ""), tf.int32), axis=-1)
-                    },
-                    signature="tokens",
-                    as_dict=True)["elmo"]
+                elmo_module = tfhub.Module(self.elmo_link)
+                c_elmo = elmo_embedding_layer(self.c_str, elmo_module)
+                q_elmo = elmo_embedding_layer(self.q_str, elmo_module)
 
                 c_emb = tf.concat([c_emb, c_elmo], axis=2)
                 q_emb = tf.concat([q_emb, q_elmo], axis=2)

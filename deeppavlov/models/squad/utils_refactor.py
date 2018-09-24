@@ -15,6 +15,7 @@ limitations under the License.
 """
 
 import tensorflow as tf
+import tensorflow_hub as tfhub
 import numpy as np
 
 from deeppavlov.core.layers.tf_layers import cudnn_bi_gru, variational_dropout
@@ -345,9 +346,9 @@ def embedding_layer(ids, emb_mat_init=None, vocab_size=None, emb_dim=None,
 
 def character_embedding_layer(ids, char_encoder_hidden_size, keep_prob, emb_mat_init=None, vocab_size=None, emb_dim=None,
                               trainable_emb_mat=False, regularizer=None, transform_char_emb=0,
-                              scope='character_embedding_layer'):
+                              scope='character_embedding_layer', reuse=False):
     # padding is a char with id == 0
-    with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
+    with tf.variable_scope(scope, reuse=reuse):
         c_emb = embedding_layer(ids, emb_mat_init, vocab_size, emb_dim, trainable=trainable_emb_mat,
                                          regularizer=regularizer)
         token_dim = tf.shape(c_emb)[1]
@@ -379,3 +380,16 @@ def character_embedding_layer(ids, char_encoder_hidden_size, keep_prob, emb_mat_
         c_emb = tf.reshape(c_emb, [-1, token_dim, 2 * char_encoder_hidden_size])
 
     return c_emb
+
+
+def elmo_embedding_layer(tokens, elmo_module):
+    # tokens are padded with empty strings
+    tokens_emb = elmo_module(
+        inputs={
+            "tokens": tokens,
+            "sequence_len": tf.reduce_sum(1 - tf.cast(tf.equal(tokens, ""), tf.int32), axis=-1)
+        },
+        signature="tokens",
+        as_dict=True)["elmo"]
+
+    return tokens_emb
