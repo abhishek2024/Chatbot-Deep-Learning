@@ -383,7 +383,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
 
         return None
 
-    def train_on_batch(self, *args: Tuple[List[np.ndarray], List[int]], **kwargs) -> Union[float, List[float]]:
+    def train_on_batch(self, *args: Tuple[List[int], List[int]], **kwargs) -> Union[float, List[float]]:
         """
         Train the self.model on the given batch using teacher forcing
 

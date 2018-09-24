@@ -182,4 +182,4 @@ def masking_sequences(sequences, seq_lengths):
     Returns:
 
     """
-    return Lambda(lambda x: K.gather(x[0], x[1]))([sequences, seq_lengths])
+    return Lambda(lambda x: K.gather(x[0], K.cast(x[1], "int32")))([sequences, seq_lengths])

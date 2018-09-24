@@ -52,7 +52,6 @@
         "fit_on": [
           "x_tok"
         ],
-        "level": "token",
         "save_path": "seq2seq/rus-eng/x_tokens.dict",
         "load_path": "seq2seq/rus-eng/x_tokens.dict",
         "special_tokens": ["<UNK>"],
@@ -96,7 +95,6 @@
         "fit_on": [
           "y_tok"
         ],
-        "level": "token",
         "save_path": "seq2seq/rus-eng/y_tokens.dict",
         "load_path": "seq2seq/rus-eng/y_tokens.dict",
         "min_freq": 10,
