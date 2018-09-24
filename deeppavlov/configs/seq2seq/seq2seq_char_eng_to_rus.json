@@ -47,7 +47,8 @@
         "save_path": "seq2seq/rus-eng/x_chars.dict",
         "load_path": "seq2seq/rus-eng/x_chars.dict",
         "special_tokens": [
-          "<UNK>"
+          "<UNK>",
+          "<PAD>"
         ],
         "min_freq": 50,
         "out": "x_chars_ind"
@@ -65,7 +66,8 @@
         "special_tokens": [
           "<UNK>",
           "<SOS>",
-          "<EOS>"
+          "<EOS>",
+          "<PAD>"
         ],
         "fit_on": [
           "y_prep"
@@ -87,6 +89,8 @@
         "decoder_embedding_size": 100,
         "source_vocab_size": "#x_chars_vocab.__len__()",
         "target_vocab_size": "#y_chars_vocab.__len__()",
+        "source_padding_index": "#x_chars_vocab.__getitem__('<PAD>')",
+        "target_padding_index": "#y_chars_vocab.__getitem__('<PAD>')",
         "target_start_of_sequence_index": "#y_chars_vocab.__getitem__('<SOS>')",
         "target_end_of_sequence_index": "#y_chars_vocab.__getitem__('<EOS>')",
         "source_max_length": 100,
@@ -102,10 +106,15 @@
       {
         "ref": "y_chars_vocab",
         "in": "y_chars_ind_pred",
-        "out": "y_spec_chars"
+        "out": "y_pred_chars"
+      },
+      {
+        "name": "char_connector",
+        "in": "y_pred_chars",
+        "out": "y_texts"
       }
     ],
-    "out": "y_spec_chars"
+    "out": "y_texts"
   },
   "train": {
     "epochs": 10,

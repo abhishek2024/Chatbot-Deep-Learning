@@ -6,6 +6,7 @@
   "basic_dataset_reader": "deeppavlov.dataset_readers.basic_dataset_reader:BasicDatasetReader",
   "bow": "deeppavlov.models.embedders.bow_embedder:BoWEmbedder",
   "capitalization_featurizer": "deeppavlov.models.preprocessors.capitalization:CapitalizationPreprocessor",
+  "char_connector": "deeppavlov.models.tokenizers.char_connector:CharConnector",
   "char_splitter": "deeppavlov.models.preprocessors.char_splitter:CharSplitter",
   "char_vocab": "deeppavlov.core.data.simple_vocab:CharacterVocab",
   "conll2003_reader": "deeppavlov.dataset_readers.conll2003_reader:Conll2003DatasetReader",

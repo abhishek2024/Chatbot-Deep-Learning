@@ -72,6 +72,8 @@ class KerasSeq2SeqCharModel(KerasModel):
                  hidden_size: int,
                  source_vocab_size: int,
                  target_vocab_size: int,
+                 source_padding_index: int,
+                 target_padding_index: int,
                  target_start_of_sequence_index: int,
                  target_end_of_sequence_index: int,
                  encoder_embedding_size: int,
@@ -93,6 +95,8 @@ class KerasSeq2SeqCharModel(KerasModel):
         super().__init__(hidden_size=hidden_size,
                          src_vocab_size=source_vocab_size,
                          tgt_vocab_size=target_vocab_size,
+                         src_pad_id=source_padding_index,
+                         tgt_pad_id=target_padding_index,
                          tgt_sos_id=target_start_of_sequence_index,
                          tgt_eos_id=target_end_of_sequence_index,
                          encoder_embedding_size=encoder_embedding_size,
@@ -198,27 +202,23 @@ class KerasSeq2SeqCharModel(KerasModel):
         embeddings_batch = np.asarray(embeddings_batch)
         return embeddings_batch
 
-    def pad_texts(self, sentences: Union[List[List[np.ndarray]], List[List[int]]],
-                  text_size: int, embedding_size: int = None) -> np.ndarray:
+    def pad_texts(self, sentences: List[List[int]], text_size: int,
+                  padding_char_id: int = 0) -> np.ndarray:
         """
-        Cut and pad tokenized sequences (each sample is a list of indexed tokens or list of embedded tokens) \
-        up to text_size tokens with zeros (or array of zeros of size embedding_size in case of embedded tokens)
+        Cut and pad sequences (each sample is a list of indexes of characters) \
+        up to text_size chars with ``padding_char`` index
 
         Args:
-            sentences: list of lists of indexed or embedded tokens
-            text_size: number of tokens to pad
-            embedding_size: embedding size if sample is a list of embedded tokens
+            sentences: list of lists of indexes of characters
+            text_size: number of characters to pad
+            padding_char_id: index of padding character
 
         Returns:
-            array of embedded texts
+            array of padded indexes of characters
         """
-        if type(sentences[0][0]) is int:
-            pad = 0
-        else:
-            pad = np.zeros(embedding_size)
 
         cutted_batch = [sen[:text_size] for sen in sentences]
-        cutted_batch = [[pad] * (text_size - len(tokens)) + list(tokens) for tokens in cutted_batch]
+        cutted_batch = [[padding_char_id] * (text_size - len(tokens)) + list(tokens) for tokens in cutted_batch]
         return np.asarray(cutted_batch)
 
     def lstm_lstm_model(self,
@@ -369,7 +369,7 @@ class KerasSeq2SeqCharModel(KerasModel):
         Returns:
             metrics values on the given batch
         """
-        pad_emb_enc_inputs = self.pad_texts(args[0], self.opt["src_max_length"], self.opt["encoder_embedding_size"])
+        pad_emb_enc_inputs = self.pad_texts(args[0], self.opt["src_max_length"], padding_char_id=self.opt["src_pad_id"])
         dec_inputs = [[self.opt["tgt_sos_id"]] + list(sample) + [self.opt["tgt_eos_id"]]
                       for sample in args[1]]  # (bs, ts + 2) of integers (tokens ids)
         pad_emb_dec_inputs = self.texts2decoder_embeddings(dec_inputs)
@@ -382,38 +382,37 @@ class KerasSeq2SeqCharModel(KerasModel):
                                                    pad_emb_dec_outputs)
         return metrics_values
 
-    def infer_on_batch(self, *args: Tuple[Tuple[List[List[int]]]], **kwargs) -> List[List[int]]:
+    def infer_on_batch(self, *args: Tuple[List[List[int]]], **kwargs) -> List[List[int]]:
         """
         Infer self.encoder_model and self.decoder_model  on the given data (no teacher forcing)
 
         Args:
-            *args: encoder inputs (tokenized embedded sentences)
+            *args: encoder inputs (args[0][0] is a list of samples, each sample is a list of indexes of characters)
             **kwargs: additional arguments
 
         Returns:
             tokenized indexed decoder predictions
         """
         batch = args[0][0]
-        pad_emb_enc_inputs = self.pad_texts(batch, self.opt["src_max_length"], self.opt["encoder_embedding_size"])
-        encoder_state_0, encoder_state_1 = self.encoder_model.predict(pad_emb_enc_inputs)
+        pad_enc_inputs = self.pad_texts(batch, self.opt["src_max_length"], padding_char_id=self.opt["src_pad_id"])
+        encoder_state_0, encoder_state_1 = self.encoder_model.predict(pad_enc_inputs)
 
         predicted_batch = []
         for i in range(len(batch)):  # batch size
             predicted_sample = []
 
-            current_token = self.decoder_embedder([["<SOS>"]])[0][0]
+            current_char = self.opt["tgt_sos_id"]
             end_of_sequence = False
             state_0 = encoder_state_0[i].reshape((1, -1))
             state_1 = encoder_state_1[i].reshape((1, -1))
 
             while not end_of_sequence:
-                token_probas, state_0, state_1 = self.decoder_model.predict([np.array([[current_token]]),
-                                                                             state_0,
-                                                                             state_1])
-                current_token_id = self._probas2ids(token_probas)[0][0]
-                current_token = self.decoder_embedder(self.decoder_vocab([[current_token_id]]))[0][0]
-                predicted_sample.append(current_token_id)
-                if current_token_id == self.opt["tgt_eos_id"] or len(predicted_sample) == self.opt["tgt_max_length"]:
+                char_probas, state_0, state_1 = self.decoder_model.predict([np.array([[current_char]]),
+                                                                            state_0,
+                                                                            state_1])
+                current_char = self._probas2ids(char_probas)[0][0]
+                predicted_sample.append(current_char)
+                if current_char == self.opt["tgt_eos_id"] or len(predicted_sample) == self.opt["tgt_max_length"]:
                     end_of_sequence = True
 
             predicted_batch.append(predicted_sample)
