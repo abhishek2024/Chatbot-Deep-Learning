@@ -75,6 +75,7 @@ class EcommerceBot(Component):
         log.info(f"Items to nlp: {len(data)}")
         self.ec_data = [dict(item, **{
                                     'title_nlped': self.preprocess.spacy2dict(self.preprocess.analyze(item['Title'])),
+                                    # 'feat_nlped': self.preprocess.spacy2dict(self.preprocess.analyze(item['Feature']))
                                     'feat_nlped': self.preprocess.spacy2dict(self.preprocess.analyze(item['Title']+'. '+item['Feature']))
                                       }) for item in data]
         log.info('Data are nlped')
@@ -141,7 +142,11 @@ class EcommerceBot(Component):
                 state['history'] = []
 
             if len(state['history'])>0:
-                if state['history'][-1] != query_or:
+
+                if query[0].tag_ == 'IN':
+                    query = self.preprocess.analyze(state['history'][-1] + " " + query_or)
+
+                elif state['history'][-1] != query_or:
                     cur_prev = self.preprocess.analyze(state['history'][-1] + " " + query_or)
                     complex_bool = self._take_complex_query(cur_prev, query)
 
@@ -181,10 +186,12 @@ class EcommerceBot(Component):
             # scores = np.mean(
             #     [score_feat, score_title], axis=0).tolist()
 
-            scores, confidence = self._similarity(query)
+            scores = self._similarity(query)
+
+            scores_agg = [np.sum(score[0]) for score in scores]
 
             scores_title = [(score, -len(self.ec_data[idx]['Title']))
-                            for idx, score in enumerate(scores)]
+                            for idx, score in enumerate(scores_agg)]
 
             raw_scores_ar = np.array(scores_title, dtype=[
                 ('x', 'float_'), ('y', 'int_')])
@@ -193,10 +200,10 @@ class EcommerceBot(Component):
                 ::-1].tolist()
 
             results_args_sim = [
-                idx for idx in results_args if scores[idx] >= self.min_similarity]
+                idx for idx in results_args if scores_agg[idx] >= self.min_similarity]
 
             log.debug(f"Items before similarity filtering {len(results_args)} and after {len(results_args_sim)} with th={self.min_similarity} "+
-                      f"the best one has score {scores[results_args[0]]} with title {self.ec_data[results_args[0]]['Title']}")
+                      f"the best one has score {scores_agg[results_args[0]]} with title {self.ec_data[results_args[0]]['Title']}")
 
             for key, value in state.items():
                 log.debug(f"Filtering for {key}:{value}")
@@ -225,7 +232,7 @@ class EcommerceBot(Component):
                 del temp['feat_nlped']
                 response.append(temp)
 
-            confidence = [confidence[idx] for idx in results_args_sim[start:stop]]
+            confidence = [scores[idx][0] for idx in results_args_sim[start:stop]]
 
             entropies = self._entropy_subquery(results_args_sim)
 
@@ -247,18 +254,24 @@ class EcommerceBot(Component):
         log.debug(f"num of short query {current} {len(current)}")
 
         # prev_sim = [score*len(previous)*coef for score in self._similarity(previous)[0]]
-        prev_sim = [score for score in self._similarity(previous)[0]]
+        prev_sim = self._similarity(previous)
+        prev_sim_agg = [np.sum(score[0]) for score in prev_sim]
         # cur_sim = [score*len(current)*coef for score in self._similarity(current)[0]]
-        cur_sim = [score for score in self._similarity(current)[0]]
+        
+        cur_sim = self._similarity(current)
+        cur_sim_agg = [np.sum(score[0]) for score in cur_sim]
 
-        prev_sim_sum = np.sum(sorted([score for score in prev_sim], reverse=True)[0:5])
-        cur_sim_sum = np.sum(sorted([score for score in cur_sim], reverse=True)[0:5])
+        prev_arg_max = np.argmax(prev_sim_agg)
+        cur_arg_max = np.argmax(cur_sim_agg)
+
+        # prev_sim_sum = np.sum(sorted([score for score in prev_sim], reverse=True)[0])
+        # cur_sim_sum = np.sum(sorted([score for score in cur_sim], reverse=True)[0])
         # cur_sim_sum = np.sum([score for score in cur_sim])
 
-        log.debug(f"num of long query {prev_sim_sum}")
-        log.debug(f"num of short query {cur_sim_sum}")
+        log.debug(f"num of long query {prev_sim[prev_arg_max]}")
+        log.debug(f"num of short query {cur_sim[cur_arg_max]}")
 
-        if prev_sim_sum>cur_sim_sum:
+        if prev_sim_agg[prev_arg_max]>cur_sim_agg[cur_arg_max]:
             return True
 
         return False
@@ -266,18 +279,19 @@ class EcommerceBot(Component):
     def _similarity(self, query: List[Any]) -> List[float]:
         score_title = [bleu_advanced(self.preprocess.lemmas(item['title_nlped']),
                            self.preprocess.lemmas(self.preprocess.filter_nlp_title(query)),
-                           weights=(1,), penalty=False) for item in self.ec_data]
+                           weights=(1,), penalty=False, bp_weight=10) for item in self.ec_data]
 
         score_feat = [bleu_advanced(self.preprocess.lemmas(item['feat_nlped']),
                           self.preprocess.lemmas(self.preprocess.filter_nlp(query)),
-                          weights=(0.3, 0.7), penalty=False) for idx, item in enumerate(self.ec_data)]
+                          weights=(0.3, 0.7), penalty=True, bp_weight=10) for idx, item in enumerate(self.ec_data)]
         
-        confidence = list(zip(score_title, score_feat))
+        scores = [((score_title[idx], score_feat[idx]), item['Title'], item['Feature']) for idx, item in enumerate(self.ec_data)]
+        # confidence = list(zip(score_title, score_feat))
 
-        scores = np.mean(
-                [score_feat, score_title], axis=0).tolist()
+        # scores = np.mean(
+                # [score_feat, score_title], axis=0).tolist()
 
-        return scores, confidence
+        return scores
 
     def _entropy_subquery(self, results_args: List[int]) -> List[Tuple[float, str, List[Tuple[str, int]]]]:
         """Calculate entropy of selected attributes for items from the catalog.
