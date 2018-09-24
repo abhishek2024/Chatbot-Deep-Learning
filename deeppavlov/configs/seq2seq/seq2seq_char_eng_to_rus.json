@@ -11,6 +11,7 @@
   "dataset_iterator": {
     "name": "basic_classification_iterator",
     "seed": 42,
+    "split_seed": 23,
     "field_to_split": "train",
     "split_fields": [
       "train",
@@ -37,39 +38,19 @@
       },
       {
         "in": "x_prep",
-        "out": "x_tok",
-        "id": "my_tokenizer",
-        "name": "nltk_moses_tokenizer"
-      },
-      {
-        "in": "x_tok",
-        "id": "x_tokens_vocab",
+        "id": "x_chars_vocab",
         "name": "simple_vocab",
         "pad_with_zeros": false,
         "fit_on": [
-          "x_tok"
+          "x_prep"
         ],
-        "level": "token",
         "save_path": "seq2seq/rus-eng/x_chars.dict",
         "load_path": "seq2seq/rus-eng/x_chars.dict",
         "special_tokens": [
           "<UNK>"
         ],
-        "min_freq": 2,
-        "out": "x_tok_ind"
-      },
-      {
-        "ref": "x_tokens_vocab",
-        "in": "x_tok_ind",
-        "out": "x_spec_tokens"
-      },
-      {
-        "in": "x_spec_tokens",
-        "out": "x_emb",
-        "id": "my_embedder",
-        "name": "glove",
-        "pad_zero": false,
-        "load_path": "embeddings/glove.6B.100d.txt"
+        "min_freq": 50,
+        "out": "x_chars_ind"
       },
       {
         "in": "y",
@@ -78,13 +59,8 @@
       },
       {
         "in": "y_prep",
-        "out": "y_tok",
-        "ref": "my_tokenizer"
-      },
-      {
-        "in": "y_tok",
-        "id": "y_tokens_vocab",
-        "name": "simple_vocab",
+        "id": "y_chars_vocab",
+        "name": "char_vocab",
         "pad_with_zeros": false,
         "special_tokens": [
           "<UNK>",
@@ -92,43 +68,30 @@
           "<EOS>"
         ],
         "fit_on": [
-          "y_tok"
+          "y_prep"
         ],
-        "level": "token",
         "save_path": "seq2seq/rus-eng/y_chars.dict",
         "load_path": "seq2seq/rus-eng/y_chars.dict",
-        "min_freq": 2,
-        "out": "y_tok_ind"
+        "min_freq": 50,
+        "out": "y_chars_ind"
       },
       {
-        "ref": "y_tokens_vocab",
-        "in": "y_tok_ind",
-        "out": "y_spec_tokens"
-      },
-      {
-        "id": "dec_embedder",
-        "name": "fasttext",
-        "load_path": "embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
-        "dim": 300
-      },
-      {
-        "in": "x_emb",
-        "in_y": "y_tok_ind",
-        "out": "y_tok_ind_pred",
+        "in": "x_chars_ind",
+        "in_y": "y_chars_ind",
+        "out": "y_chars_ind_pred",
         "main": true,
         "name": "keras_seq2seq_char_model",
         "save_path": "seq2seq/rus-eng/char_lstm_lstm_model_v0",
         "load_path": "seq2seq/rus-eng/char_lstm_lstm_model_v0",
-        "encoder_embedding_size": "#my_embedder.dim",
-        "decoder_embedding_size": "#dec_embedder.dim",
-        "source_vocab_size": "#x_tokens_vocab.__len__()",
-        "target_vocab_size": "#y_tokens_vocab.__len__()",
-        "target_start_of_sequence_index": "#y_tokens_vocab.__getitem__('<SOS>')",
-        "target_end_of_sequence_index": "#y_tokens_vocab.__getitem__('<EOS>')",
-        "source_max_length": 10,
-        "target_max_length": 10,
-        "decoder_embedder": "#dec_embedder",
-        "decoder_vocab": "#y_tokens_vocab",
+        "encoder_embedding_size": 100,
+        "decoder_embedding_size": 100,
+        "source_vocab_size": "#x_chars_vocab.__len__()",
+        "target_vocab_size": "#y_chars_vocab.__len__()",
+        "target_start_of_sequence_index": "#y_chars_vocab.__getitem__('<SOS>')",
+        "target_end_of_sequence_index": "#y_chars_vocab.__getitem__('<EOS>')",
+        "source_max_length": 100,
+        "target_max_length": 100,
+        "decoder_vocab": "#y_chars_vocab",
         "optimizer": "RMSprop",
         "lear_rate": 0.001,
         "lear_rate_decay": 0,
@@ -137,17 +100,12 @@
         "model_name": "lstm_lstm_model"
       },
       {
-        "ref": "y_tokens_vocab",
-        "in": "y_tok_ind_pred",
-        "out": "y_spec_tokens"
-      },
-      {
-        "ref": "my_tokenizer",
-        "in": "y_spec_tokens",
-        "out": "y_text"
+        "ref": "y_chars_vocab",
+        "in": "y_chars_ind_pred",
+        "out": "y_spec_chars"
       }
     ],
-    "out": "y_text"
+    "out": "y_spec_chars"
   },
   "train": {
     "epochs": 10,
