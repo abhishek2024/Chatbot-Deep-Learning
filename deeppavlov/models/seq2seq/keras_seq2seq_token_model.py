@@ -85,7 +85,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
                  loss: str = "binary_crossentropy",
                  lear_rate: float = 0.01,
                  lear_rate_decay: float = 0.,
-                 reinit_lr_with_final_lr: bool = False,
+                 restore_lr: bool = False,
                  **kwargs):
         """
         Initialize model using parameters from config.
@@ -106,7 +106,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
                          loss=loss,
                          lear_rate=lear_rate,
                          lear_rate_decay=lear_rate_decay,
-                         reinit_lr_with_final_lr=reinit_lr_with_final_lr,
+                         restore_lr=restore_lr,
                          **kwargs)
 
         # Parameters required to init model
@@ -124,7 +124,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
 
         self.model = self.load(model_name=model_name)
 
-        if reinit_lr_with_final_lr:
+        if restore_lr:
             lear_rate = self.opt.get("final_lear_rate", lear_rate)
 
         self.model = self.compile(self.model, optimizer_name=optimizer, loss_name=loss,
@@ -149,7 +149,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
                                       loss=loss,
                                       lear_rate=lear_rate,
                                       lear_rate_decay=lear_rate_decay,
-                                      reinit_lr_with_final_lr=reinit_lr_with_final_lr,
+                                      restore_lr=restore_lr,
                                       **kwargs)
         return
 
@@ -394,7 +394,6 @@ class KerasSeq2SeqTokenModel(KerasModel):
         Returns:
             metrics values on the given batch
         """
-        K.set_session(self.sess)
         pad_emb_enc_inputs, enc_inputs_lengths = self.pad_texts(args[0],
                                                                 self.opt["src_max_length"],
                                                                 self.opt["encoder_embedding_size"])
@@ -426,7 +425,6 @@ class KerasSeq2SeqTokenModel(KerasModel):
             tokenized indexed decoder predictions
         """
         batch = args[0][0]
-        K.set_session(self.sess)
         pad_emb_enc_inputs, enc_inputs_lengths = self.pad_texts(batch,
                                                                 self.opt["src_max_length"],
                                                                 self.opt["encoder_embedding_size"])
@@ -468,7 +466,6 @@ class KerasSeq2SeqTokenModel(KerasModel):
         Returns:
             tokenized indexed decoder predictions
         """
-        K.set_session(self.sess)
         predictions = np.array(self.infer_on_batch(args))
         return predictions
 
