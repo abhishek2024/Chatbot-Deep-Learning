@@ -50,7 +50,7 @@ class SquadModel(TFModel):
         self.min_learning_rate = self.opt['min_learning_rate']
         self.learning_rate_patience = self.opt['learning_rate_patience']
         self.grad_clip = self.opt['grad_clip']
-        self.weight_decay = self.opt['weight_decay']
+        self.weight_decay = self.opt.get('weight_decay', 1.0)
         self.squad_loss_weight = self.opt.get('squad_loss_weight', 1.0)
         self.focal_loss_exp = self.opt.get('focal_loss_exp', 0.0)
         self.predict_ans = self.opt.get('predict_answer', True)
