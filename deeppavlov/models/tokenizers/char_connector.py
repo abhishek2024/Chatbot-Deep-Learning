@@ -36,10 +36,4 @@ class CharConnector(Component):
         pass
 
     def __call__(self, batch: List[List[str]], **kwargs) -> List[str]:
-        connected_batch = []
-        for sample in batch:
-            sentence = ""
-            for char in batch:
-                sentence += char
-            connected_batch.append(sentence)
-        return connected_batch
+        return ["".join(sample) for sample in batch]

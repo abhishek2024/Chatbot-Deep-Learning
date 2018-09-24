@@ -139,6 +139,8 @@ class KerasSeq2SeqCharModel(KerasModel):
         self._change_not_fixed_params(hidden_size=hidden_size,
                                       src_vocab_size=source_vocab_size,
                                       tgt_vocab_size=target_vocab_size,
+                                      src_pad_id=source_padding_index,
+                                      tgt_pad_id=target_padding_index,
                                       tgt_sos_id=target_start_of_sequence_index,
                                       tgt_eos_id=target_end_of_sequence_index,
                                       encoder_embedding_size=encoder_embedding_size,
@@ -358,7 +360,7 @@ class KerasSeq2SeqCharModel(KerasModel):
 
         return None
 
-    def train_on_batch(self, *args: Tuple[List[np.ndarray], List[int]], **kwargs) -> Union[float, List[float]]:
+    def train_on_batch(self, *args: Tuple[Tuple[List[int]], Tuple[List[int]]], **kwargs) -> Union[float, List[float]]:
         """
         Train the self.model on the given batch using teacher forcing
 
@@ -369,17 +371,16 @@ class KerasSeq2SeqCharModel(KerasModel):
         Returns:
             metrics values on the given batch
         """
-        pad_emb_enc_inputs = self.pad_texts(args[0], self.opt["src_max_length"], padding_char_id=self.opt["src_pad_id"])
+        pad_enc_inputs = self.pad_texts(args[0], self.opt["src_max_length"], padding_char_id=self.opt["src_pad_id"])
         dec_inputs = [[self.opt["tgt_sos_id"]] + list(sample) + [self.opt["tgt_eos_id"]]
                       for sample in args[1]]  # (bs, ts + 2) of integers (tokens ids)
-        pad_emb_dec_inputs = self.texts2decoder_embeddings(dec_inputs)
+        pad_dec_inputs = self.pad_texts(dec_inputs, self.opt["tgt_max_length"], padding_char_id=self.opt["tgt_pad_id"])
+        pad_dec_outputs = self.pad_texts(args[1], self.opt["tgt_max_length"], padding_char_id=self.opt["tgt_pad_id"])
+        pad_onehot_dec_outputs = self._ids2onehot(pad_dec_outputs, self.opt["tgt_vocab_size"])
 
-        pad_dec_outputs = self.pad_texts(args[1], self.opt["tgt_max_length"], self.opt["decoder_embedding_size"])
-        pad_emb_dec_outputs = self._ids2onehot(pad_dec_outputs, self.opt["tgt_vocab_size"])
-
-        metrics_values = self.model.train_on_batch([pad_emb_enc_inputs,
-                                                    pad_emb_dec_inputs],
-                                                   pad_emb_dec_outputs)
+        metrics_values = self.model.train_on_batch([pad_enc_inputs,
+                                                    pad_dec_inputs],
+                                                   pad_onehot_dec_outputs)
         return metrics_values
 
     def infer_on_batch(self, *args: Tuple[List[List[int]]], **kwargs) -> List[List[int]]:
