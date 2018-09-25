@@ -82,7 +82,7 @@
         ],
         "save_path": "seq2seq/rus-eng/y_tokens.dict",
         "load_path": "seq2seq/rus-eng/y_tokens.dict",
-        "min_freq": 5,
+        "min_freq": 1,
         "out": "y_tok_ind"
       },
       {
@@ -98,12 +98,12 @@
       },
       {
         "in": "x_emb",
-        "in_y": "y_spec_tokens",
+        "in_y": "y_tok_ind",
         "out": "y_tok_ind_pred",
         "main": true,
         "name": "keras_seq2seq_token_model",
-        "save_path": "seq2seq/rus-eng/token_lstm_lstm_model_v0",
-        "load_path": "seq2seq/rus-eng/token_lstm_lstm_model_v0",
+        "save_path": "seq2seq/rus-eng/token_lstm_lstm_model_v1",
+        "load_path": "seq2seq/rus-eng/token_lstm_lstm_model_v1",
         "encoder_embedding_size": "#my_embedder.dim",
         "decoder_embedding_size": "#dec_embedder.dim",
         "target_vocab_size": "#y_tokens_vocab.__len__()",
