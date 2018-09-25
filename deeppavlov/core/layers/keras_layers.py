@@ -173,15 +173,15 @@ def char_emb_cnn_func(n_characters: int,
 
 def masking_sequences(sequences, seq_lengths):
     """
-    Function extracts seq_lengths[i]-1 element of sequences[i].
+    Function extracts seq_lengths[i] element for each sequences[i].
     Useful for extracting corresponding hidden state of RNN output.
 
     Args:
-        sequences:
-        seq_lengths:
+        sequences: tensor of size (batch_size, timesteps, dim)
+        seq_lengths: tensor of integers of size (batch_size, 2).
+            Each row is a pair (i, length) where length is a number of element of sequences[i] to extract
 
     Returns:
-
+        tensor of shape (batch_size, dim)
     """
-    # # seq_lentghs_one_dim = Reshape(target_shape=())(seq_lengths)
     return Lambda(lambda x: tf.gather_nd(x[0], K.cast(x[1], "int32")))([sequences, seq_lengths])

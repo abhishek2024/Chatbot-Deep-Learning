@@ -40,12 +40,12 @@ log = get_logger(__name__)
 @register("keras_seq2seq_token_model")
 class KerasSeq2SeqTokenModel(KerasModel):
     """
-    Class implements Keras model for seq2seq task
+    Class implements Keras model for seq2seq task on token-level
 
     Args:
         hidden_size: size of the hidden layer of encoder and decoder
-        source_vocab_size: vocabulary size of source sequences
         target_vocab_size: vocabulary size of target sequences
+        target_padding_index: index of padding special token in target vocabulary
         target_start_of_sequence_index: index of start-of-sequence special token in target vocabulary
         target_end_of_sequence_index: index of end-of-sequence special token in target vocabulary
         encoder_embedding_size: embedding size of encoder's embedder
@@ -82,13 +82,13 @@ class KerasSeq2SeqTokenModel(KerasModel):
                  target_max_length: int = None,
                  model_name: str = "lstm_lstm_model",
                  optimizer: str = "Adam",
-                 loss: str = "binary_crossentropy",
+                 loss: str = "categorical_crossentropy",
                  lear_rate: float = 0.01,
                  lear_rate_decay: float = 0.,
                  restore_lr: bool = False,
                  **kwargs):
         """
-        Initialize model using parameters from config.
+        Initialize models for training and infering using parameters from config.
         """
         decoder_embedding_size = kwargs.pop("decoder_embedding_size", decoder_embedder.dim)
 
@@ -181,17 +181,20 @@ class KerasSeq2SeqTokenModel(KerasModel):
         return
 
     def texts2decoder_embeddings(self, sentences: List[List[str]],
-                                 text_size: int, embedding_size: int = None,
-                                 return_lengths=False) -> Tuple[np.ndarray, np.ndarray]:
+                                 text_size: int, embedding_size: int,
+                                 return_lengths: bool = False) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
         """
-        Convert texts to vector representations using decoder_embedder \
-        and padding up to self.opt["tgt_max_length"] tokens
+        Convert tokenized texts to vector representations using decoder_embedder \
+        and padding up to text_size tokens
 
         Args:
             sentences: list of lists of tokens
+            text_size: maximal number of tokens for padding
+            embedding_size: embedding size
+            return_lengths: whether to return lengths of each sample
 
         Returns:
-            (array of embedded texts, list of sentences lengths)
+            array of embedded texts, list of sentences lengths (optional)
         """
         pad = np.zeros(embedding_size)
         embeddings_batch = self.decoder_embedder([sen[:text_size] for sen in sentences])
@@ -207,7 +210,8 @@ class KerasSeq2SeqTokenModel(KerasModel):
 
     def pad_texts(self, sentences: Union[List[List[np.ndarray]], List[List[int]]],
                   text_size: int, embedding_size: int = None,
-                  padding_token_id: int = 0, return_lengths=False) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
+                  padding_token_id: int = 0,
+                  return_lengths: bool = False) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
         """
         Cut and pad tokenized sequences (each sample is a list of indexed tokens or list of embedded tokens) \
         up to text_size tokens with zeros (or array of zeros of size embedding_size in case of embedded tokens)
@@ -216,11 +220,11 @@ class KerasSeq2SeqTokenModel(KerasModel):
             sentences: list of lists of indexed or embedded tokens
             text_size: number of tokens to pad
             embedding_size: embedding size if sample is a list of embedded tokens
-            padding_token_id:
-            return_lengths:
+            padding_token_id: index of padding token in vocabulary
+            return_lengths: whether to return lengths of each sample
 
         Returns:
-            (array of embedded texts, list of sentences lengths)
+            array of embedded texts, list of sentences lengths (optional)
         """
         if type(sentences[0][0]) is int:
             pad = padding_token_id
