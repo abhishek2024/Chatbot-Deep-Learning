@@ -2,7 +2,7 @@
   "dataset_reader": {
     "name": "basic_dataset_reader",
     "data_path": "./rus-eng",
-    "train": "rus_short.txt",
+    "train": "rus.txt",
     "sep": "\t",
     "header": null,
     "names": ["eng", "rus"],
@@ -16,10 +16,12 @@
     "field_to_split": "train",
     "split_fields": [
       "train",
-      "valid"
+      "valid",
+      "test"
     ],
     "split_proportions": [
-      0.9,
+      0.8,
+      0.1,
       0.1
     ]
   },
@@ -45,8 +47,8 @@
         "fit_on": [
           "x_prep"
         ],
-        "save_path": "seq2seq/rus-eng/x_chars.dict",
-        "load_path": "seq2seq/rus-eng/x_chars.dict",
+        "save_path": "seq2seq/rus-eng/x_chars_full.dict",
+        "load_path": "seq2seq/rus-eng/x_chars_full.dict",
         "special_tokens": [
           "<UNK>",
           "<PAD>"
@@ -73,8 +75,8 @@
         "fit_on": [
           "y_prep"
         ],
-        "save_path": "seq2seq/rus-eng/y_chars.dict",
-        "load_path": "seq2seq/rus-eng/y_chars.dict",
+        "save_path": "seq2seq/rus-eng/y_chars_full.dict",
+        "load_path": "seq2seq/rus-eng/y_chars_full.dict",
         "min_freq": 50,
         "out": "y_chars_ind"
       },
@@ -84,8 +86,8 @@
         "out": "y_chars_ind_pred",
         "main": true,
         "name": "keras_seq2seq_char_model",
-        "save_path": "seq2seq/rus-eng/char_lstm_lstm_model_v0",
-        "load_path": "seq2seq/rus-eng/char_lstm_lstm_model_v0",
+        "save_path": "seq2seq/rus-eng/char_lstm_lstm_model_v1",
+        "load_path": "seq2seq/rus-eng/char_lstm_lstm_model_v1",
         "encoder_embedding_size": 100,
         "decoder_embedding_size": 100,
         "source_vocab_size": "#x_chars_vocab.__len__()",
@@ -125,7 +127,6 @@
       "per_token_accuracy"
     ],
     "validation_patience": 5,
-    "log_every_n_batches": 100,
     "val_every_n_epochs": 1,
     "log_every_n_epochs": 1,
     "show_examples": true,
@@ -138,11 +139,7 @@
       "../dp_requirements/fasttext.txt"
     ],
     "download": [
-      "http://files.deeppavlov.ai/datasets/rus-eng.tar.gz",
-      {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/embeddings/wiki.en.bin",
-        "subdir": "embeddings"
-      }
+      "http://files.deeppavlov.ai/datasets/rus-eng.tar.gz"
     ]
   }
 }

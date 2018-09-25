@@ -19,6 +19,7 @@ from keras.engine.topology import Layer
 from keras.layers.merge import Multiply, Add
 from keras.activations import softmax
 import numpy as np
+import tensorflow as tf
 
 
 def expand_tile(units, axis):
@@ -182,4 +183,5 @@ def masking_sequences(sequences, seq_lengths):
     Returns:
 
     """
-    return Lambda(lambda x: K.gather(x[0], K.cast(x[1], "int32")))([sequences, seq_lengths])
+    # # seq_lentghs_one_dim = Reshape(target_shape=())(seq_lengths)
+    return Lambda(lambda x: tf.gather_nd(x[0], K.cast(x[1], "int32")))([sequences, seq_lengths])
