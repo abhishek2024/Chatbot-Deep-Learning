@@ -71,9 +71,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
     """
     def __init__(self,
                  hidden_size: int,
-                 source_vocab_size: int,
                  target_vocab_size: int,
-                 source_padding_index: int,
                  target_padding_index: int,
                  target_start_of_sequence_index: int,
                  target_end_of_sequence_index: int,
@@ -95,9 +93,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
         decoder_embedding_size = kwargs.pop("decoder_embedding_size", decoder_embedder.dim)
 
         super().__init__(hidden_size=hidden_size,
-                         src_vocab_size=source_vocab_size,
                          tgt_vocab_size=target_vocab_size,
-                         src_pad_id=source_padding_index,
                          tgt_pad_id=target_padding_index,
                          tgt_sos_id=target_start_of_sequence_index,
                          tgt_eos_id=target_end_of_sequence_index,
@@ -140,9 +136,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
                                           lear_rate=lear_rate, lear_rate_decay=lear_rate_decay)
 
         self._change_not_fixed_params(hidden_size=hidden_size,
-                                      src_vocab_size=source_vocab_size,
                                       tgt_vocab_size=target_vocab_size,
-                                      src_pad_id=source_padding_index,
                                       tgt_pad_id=target_padding_index,
                                       tgt_sos_id=target_start_of_sequence_index,
                                       tgt_eos_id=target_end_of_sequence_index,
