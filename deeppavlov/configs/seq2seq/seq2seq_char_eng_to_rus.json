@@ -47,8 +47,8 @@
         "fit_on": [
           "x_prep"
         ],
-        "save_path": "seq2seq/rus-eng/x_chars_full.dict",
-        "load_path": "seq2seq/rus-eng/x_chars_full.dict",
+        "save_path": "seq2seq/rus-eng/x_chars.dict",
+        "load_path": "seq2seq/rus-eng/x_chars.dict",
         "special_tokens": [
           "<UNK>",
           "<PAD>"
@@ -75,8 +75,8 @@
         "fit_on": [
           "y_prep"
         ],
-        "save_path": "seq2seq/rus-eng/y_chars_full.dict",
-        "load_path": "seq2seq/rus-eng/y_chars_full.dict",
+        "save_path": "seq2seq/rus-eng/y_chars.dict",
+        "load_path": "seq2seq/rus-eng/y_chars.dict",
         "min_freq": 50,
         "out": "y_chars_ind"
       },
@@ -86,8 +86,8 @@
         "out": "y_chars_ind_pred",
         "main": true,
         "name": "keras_seq2seq_char_model",
-        "save_path": "seq2seq/rus-eng/char_lstm_lstm_model_v1",
-        "load_path": "seq2seq/rus-eng/char_lstm_lstm_model_v1",
+        "save_path": "seq2seq/rus-eng/char_lstm_lstm_model_v0",
+        "load_path": "seq2seq/rus-eng/char_lstm_lstm_model_v0",
         "encoder_embedding_size": 100,
         "decoder_embedding_size": 100,
         "source_vocab_size": "#x_chars_vocab.__len__()",
