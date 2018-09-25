@@ -227,8 +227,8 @@ def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0,
         BS, IL, IH = tf.unstack(tf.shape(inputs))
         BS, ML, MH = tf.unstack(tf.shape(memory))
 
-        d_inputs = tf.nn.dropout(inputs, keep_prob=keep_prob, noise_shape=[BS, 1, IH])
-        d_memory = tf.nn.dropout(memory, keep_prob=keep_prob, noise_shape=[BS, 1, MH])
+        d_inputs = variational_dropout(inputs, keep_prob=keep_prob)
+        d_memory = variational_dropout(memory, keep_prob=keep_prob)
 
         with tf.variable_scope("attention"):
             inputs_att = tf.layers.dense(d_inputs, att_size, use_bias=False,
@@ -358,24 +358,17 @@ def character_embedding_layer(ids, char_encoder_hidden_size, keep_prob, emb_mat_
 
         # compute actual lengths
         tokens_lens = tf.reshape(tf.reduce_sum(tf.cast(tf.cast(ids, tf.bool), tf.int32), axis=2), (-1,))
+        # to work with empty sequences if token len is zero (it means that token is padded)
+        tokens_lens = tf.maximum(tf.ones_like(tokens_lens), tokens_lens)
 
         c_emb = variational_dropout(c_emb, keep_prob=keep_prob)
 
         if transform_char_emb != 0:
             # apply dense layer to transform pretrained vectors to another dim
-            c_emb = tf.layers.dense(
-                tf.layers.dense(c_emb, transform_char_emb, activation=tf.nn.relu,
-                                kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                kernel_regularizer=regularizer,
-                                name='transform_char_emb_1'),
-                transform_char_emb,
-                kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                kernel_regularizer=regularizer,
-                name='transform_char_emb_2'
-            )
+            c_emb = transform_layer(c_emb, transform_char_emb, keep_prob=keep_prob, reuse=reuse)
 
         _, (state_fw, state_bw) = cudnn_bi_gru(c_emb, char_encoder_hidden_size, seq_lengths=tokens_lens,
-                                               trainable_initial_states=True, reuse=tf.AUTO_REUSE)
+                                               trainable_initial_states=True, reuse=reuse)
         c_emb = tf.concat([state_fw, state_bw], axis=1)
         c_emb = tf.reshape(c_emb, [-1, token_dim, 2 * char_encoder_hidden_size])
 
@@ -393,3 +386,16 @@ def elmo_embedding_layer(tokens, elmo_module):
         as_dict=True)["elmo"]
 
     return tokens_emb
+
+
+def transform_layer(inputs, transform_hidden_size, keep_prob, scope='transform_layer', reuse=False):
+    with tf.variable_scope(scope, reuse=reuse):
+        transformed = tf.layers.dense(
+            tf.layers.dense(variational_dropout(inputs, keep_prob), transform_hidden_size, activation=tf.nn.relu,
+                            kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                            name='transform_dense_1'),
+            transform_hidden_size,
+            kernel_initializer=tf.contrib.layers.xavier_initializer(),
+            name='transform_dense_2'
+        )
+    return transformed

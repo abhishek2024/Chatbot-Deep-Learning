@@ -20,11 +20,9 @@ import shutil
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
-from deeppavlov.models.squad.utils_refactor import dot_attention, simple_attention, PtrNet, attention, mult_attention
-from deeppavlov.models.squad.utils_refactor import CudnnGRU, CudnnCompatibleGRU, CudnnGRULegacy, softmax_mask
-from deeppavlov.models.squad.utils_refactor import embedding_layer, character_embedding_layer, elmo_embedding_layer
+from deeppavlov.models.squad.utils_refactor import *
 from deeppavlov.core.common.check_gpu import GPU_AVAILABLE
-from deeppavlov.core.layers.tf_layers import cudnn_bi_gru, variational_dropout
+from deeppavlov.core.layers.tf_layers import variational_dropout
 from deeppavlov.core.common.log import get_logger
 
 logger = get_logger(__name__)
@@ -119,84 +117,12 @@ class SquadModelRef(TFModel):
         if self.load_path is not None:
             self.load()
             if self.weight_decay < 1.0:
-                # TODO: it is redundant because best model is saved with assigned ema weights
                 self._assign_ema_weights()
 
     def _init_graph(self):
         self._init_placeholders()
 
-        self.c_mask = tf.cast(self.c_ph, tf.bool)
-        self.q_mask = tf.cast(self.q_ph, tf.bool)
-        self.c_len = tf.reduce_sum(tf.cast(self.c_mask, tf.int32), axis=1)
-        self.q_len = tf.reduce_sum(tf.cast(self.q_mask, tf.int32), axis=1)
-
-        bs = tf.shape(self.c_ph)[0]
-        self.c_maxlen = tf.reduce_max(self.c_len)
-        self.q_maxlen = tf.reduce_max(self.q_len)
-        self.c = tf.slice(self.c_ph, [0, 0], [bs, self.c_maxlen])
-        self.q = tf.slice(self.q_ph, [0, 0], [bs, self.q_maxlen])
-        self.c_mask = tf.slice(self.c_mask, [0, 0], [bs, self.c_maxlen])
-        self.q_mask = tf.slice(self.q_mask, [0, 0], [bs, self.q_maxlen])
-        self.cc = tf.slice(self.cc_ph, [0, 0, 0], [bs, self.c_maxlen, self.char_limit])
-        self.qc = tf.slice(self.qc_ph, [0, 0, 0], [bs, self.q_maxlen, self.char_limit])
-        self.cc_len = tf.reshape(tf.reduce_sum(tf.cast(tf.cast(self.cc, tf.bool), tf.int32), axis=2), [-1])
-        self.qc_len = tf.reshape(tf.reduce_sum(tf.cast(tf.cast(self.qc, tf.bool), tf.int32), axis=2), [-1])
-        # to remove char sequences with len equal zero (padded tokens)
-        self.cc_len = tf.maximum(tf.ones_like(self.cc_len), self.cc_len)
-        self.qc_len = tf.maximum(tf.ones_like(self.qc_len), self.qc_len)
-
-        if self.use_features:
-            self.c_f = tf.slice(self.c_f_ph, [0, 0, 0], [bs, self.c_maxlen, self.features_dim])
-            self.c_f = tf.reshape(self.c_f, shape=(bs, self.c_maxlen, self.features_dim))
-            self.q_f = tf.slice(self.q_f_ph, [0, 0, 0], [bs, self.q_maxlen, self.features_dim])
-            self.q_f = tf.reshape(self.q_f, shape=(bs, self.q_maxlen, self.features_dim))
-
-        if self.use_ner_features:
-            self.c_ner = tf.slice(self.c_ner_ph, [0, 0], [bs, self.c_maxlen])
-            self.c_ner = tf.reshape(self.c_ner, shape=(bs, self.c_maxlen))
-            self.q_ner = tf.slice(self.q_ner_ph, [0, 0], [bs, self.q_maxlen])
-            self.q_ner = tf.reshape(self.q_ner, shape=(bs, self.q_maxlen))
-
-            self.ner_emb = tf.get_variable("ner_emb",
-                                           initializer=tf.random_uniform(
-                                               (self.ner_vocab_size, self.ner_features_dim), -0.1, 0.1),
-                                           trainable=True, regularizer=tf.nn.l2_loss)
-
-        if self.use_elmo:
-            self.c_str = tf.slice(self.c_str_ph, [0, 0], [bs, self.c_maxlen])
-            self.q_str = tf.slice(self.q_str_ph, [0, 0], [bs, self.q_maxlen])
-
-        if self.noans_token:
-            # we use additional 'no answer' token to allow model not to answer on question
-            self.y1 = tf.one_hot(self.y1_ph, depth=self.context_limit + 1)
-            self.y2 = tf.one_hot(self.y2_ph, depth=self.context_limit + 1)
-            self.y1 = tf.slice(self.y1, [0, 0], [bs, self.c_maxlen + 1])
-            self.y2 = tf.slice(self.y2, [0, 0], [bs, self.c_maxlen + 1])
-        elif self.scorer:
-            # we don't need to predict answer position
-            self.y = self.y_ph
-            self.y_ohe = tf.one_hot(self.y, depth=2)
-
-        if self.predict_ans:
-            self.y1 = tf.one_hot(self.y1_ph, depth=self.context_limit)
-            self.y2 = tf.one_hot(self.y2_ph, depth=self.context_limit)
-            self.y1 = tf.slice(self.y1, [0, 0], [bs, self.c_maxlen])
-            self.y2 = tf.slice(self.y2, [0, 0], [bs, self.c_maxlen])
-
-            if self.soft_labels:
-                center_weight = self.true_label_weight
-                border_weight = (1 - self.true_label_weight) / 2
-                smoothing_kernel_st = tf.constant([border_weight, center_weight, border_weight])
-                smoothing_kernel_st = tf.reshape(smoothing_kernel_st, [3, 1, 1])
-                # WARNING: smoothing_kernel_end with non-zero first value makes huge values in loss
-                smoothing_kernel_end = tf.constant([0.0, center_weight + border_weight / 2, border_weight * 3 / 2])
-                smoothing_kernel_end = tf.reshape(smoothing_kernel_end, [3, 1, 1])
-                self.y1 = tf.expand_dims(self.y1, axis=-1)
-                self.y2 = tf.expand_dims(self.y2, axis=-1)
-                self.y1 = tf.squeeze(tf.nn.conv1d(self.y1, filters=smoothing_kernel_st, stride=1, padding='SAME'))
-                self.y2 = tf.squeeze(tf.nn.conv1d(self.y2, filters=smoothing_kernel_end, stride=1, padding='SAME'))
-                self.y1 = self.y1 / tf.expand_dims(tf.maximum(tf.reduce_sum(self.y1, axis=-1), 1e-3), axis=-1)
-                self.y2 = self.y2 / tf.expand_dims(tf.maximum(tf.reduce_sum(self.y2, axis=-1), 1e-3), axis=-1)
+        self._prepare_placeholders_usage()
 
         with tf.variable_scope("emb"):
             with tf.variable_scope("char"):
@@ -220,8 +146,8 @@ class SquadModelRef(TFModel):
             c_emb = tf.concat([c_emb, cc_emb], axis=2)
             q_emb = tf.concat([q_emb, qc_emb], axis=2)
 
+        with tf.variable_scope("features"):
             if self.use_soft_match_features:
-                # TODO: test soft match feature
                 c_emb_with_soft_match = dot_attention(c_emb, q_emb, mask=self.q_mask,
                                                       att_size=self.attention_hidden_size,
                                                       keep_prob=self.keep_prob_ph, use_gate=False,
@@ -245,31 +171,19 @@ class SquadModelRef(TFModel):
                 with tf.variable_scope('ner'):
                     c_ner_emb = embedding_layer(self.c_ner, vocab_size=self.ner_vocab_size,
                                                 emb_dim=self.ner_features_dim, trainable=True, regularizer=tf.nn.l2_loss)
-                    c_ner_emb = variational_dropout(c_ner_emb, keep_prob=self.keep_prob_ph)
-
                     q_ner_emb = embedding_layer(self.q_ner, vocab_size=self.ner_vocab_size, emb_dim=self.ner_features_dim)
+
+                    c_ner_emb = variational_dropout(c_ner_emb, keep_prob=self.keep_prob_ph)
                     q_ner_emb = variational_dropout(q_ner_emb, keep_prob=self.keep_prob_ph)
 
                 c_emb = tf.concat([c_emb, c_ner_emb], axis=2)
                 q_emb = tf.concat([q_emb, q_ner_emb], axis=2)
 
             if self.transform_word_emb != 0:
-                c_emb = tf.layers.dense(
-                        tf.layers.dense(c_emb, self.transform_word_emb, activation=tf.nn.relu,
-                                        kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                        name='transform_word_emb_1'),
-                        self.transform_word_emb,
-                        kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                        name='transform_word_emb_2'
-                    )
-
-                q_emb = tf.layers.dense(
-                        tf.layers.dense(q_emb, self.transform_word_emb, activation=tf.nn.relu,
-                                        name='transform_word_emb_1', reuse=True),
-                        self.transform_word_emb,
-                        name='transform_word_emb_2',
-                        reuse=True
-                    )
+                c_emb = transform_layer(c_emb, self.transform_word_emb, keep_prob=self.keep_prob_ph,
+                                        scope='transform_word_emb')
+                q_emb = transform_layer(q_emb, self.transform_word_emb, keep_prob=self.keep_prob_ph,
+                                        scope='transform_word_emb', reuse=True)
 
             if self.use_elmo:
                 # TODO: also add elmo after encoding layer
@@ -282,7 +196,7 @@ class SquadModelRef(TFModel):
                 q_emb = tf.concat([q_emb, q_elmo], axis=2)
 
         with tf.variable_scope("encoding"):
-            rnn = self.GRU(num_layers=self.num_encoder_layers, num_units=self.hidden_size, batch_size=bs,
+            rnn = self.GRU(num_layers=self.num_encoder_layers, num_units=self.hidden_size, batch_size=self.bs,
                            input_size=c_emb.get_shape().as_list()[-1],
                            keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
             c = rnn(c_emb, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
@@ -294,7 +208,7 @@ class SquadModelRef(TFModel):
                                    use_transpose_att=self.use_transpose_att)
 
             if self.use_birnn_after_qc_att:
-                rnn = self.GRU(num_layers=self.num_match_layers, num_units=self.hidden_size, batch_size=bs,
+                rnn = self.GRU(num_layers=self.num_match_layers, num_units=self.hidden_size, batch_size=self.bs,
                                input_size=qc_att.get_shape().as_list()[-1],
                                keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
                 qc_att = rnn(qc_att, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
@@ -304,7 +218,7 @@ class SquadModelRef(TFModel):
                 self_att = dot_attention(qc_att, qc_att, mask=self.c_mask, att_size=self.attention_hidden_size,
                                          keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
                                          drop_diag=self.drop_diag_self_att, use_transpose_att=False)
-                rnn = self.GRU(num_layers=self.num_match_layers, num_units=self.hidden_size, batch_size=bs,
+                rnn = self.GRU(num_layers=self.num_match_layers, num_units=self.hidden_size, batch_size=self.bs,
                                input_size=self_att.get_shape().as_list()[-1],
                                keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
                 match = rnn(self_att, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
@@ -317,9 +231,9 @@ class SquadModelRef(TFModel):
                     if self.noans_token:
                         noans_token = tf.Variable(tf.random_uniform((match.get_shape().as_list()[-1],), -0.1, 0.1), tf.float32)
                         noans_token = tf.nn.dropout(noans_token, keep_prob=self.keep_prob_ph)
-                        noans_token = tf.expand_dims(tf.tile(tf.expand_dims(noans_token, axis=0), [bs, 1]), axis=1)
+                        noans_token = tf.expand_dims(tf.tile(tf.expand_dims(noans_token, axis=0), [self.bs, 1]), axis=1)
                         match = tf.concat([noans_token, match], axis=1)
-                        self.c_mask = tf.concat([tf.ones(shape=(bs, 1), dtype=tf.bool), self.c_mask], axis=1)
+                        self.c_mask = tf.concat([tf.ones(shape=(self.bs, 1), dtype=tf.bool), self.c_mask], axis=1)
                     logits1, logits2 = pointer(init, match, self.hidden_size, self.c_mask)
                 else:
                     # TODO add noans_token support
@@ -349,11 +263,11 @@ class SquadModelRef(TFModel):
                     hops_end_logits = tf.stack(hops_end_logits, axis=1)
 
                     logits1 = tf.reduce_mean(tf.nn.dropout(hops_start_logits, keep_prob=self.hops_keep_prob_ph,
-                                                           noise_shape=(bs, self.number_of_hops, 1)),
+                                                           noise_shape=(self.bs, self.number_of_hops, 1)),
                                              axis=1)
 
                     logits2 = tf.reduce_mean(tf.nn.dropout(hops_end_logits, keep_prob=self.hops_keep_prob_ph,
-                                                           noise_shape=(bs, self.number_of_hops, 1)),
+                                                           noise_shape=(self.bs, self.number_of_hops, 1)),
                                              axis=1)
 
         with tf.variable_scope("predict"):
@@ -427,12 +341,12 @@ class SquadModelRef(TFModel):
                 scorer_logits = tf.squeeze(tf.layers.dense(layer_2_logits, units=1, name='scorer_logits'), axis=-1)
 
             if self.scorer and self.predict_ans and self.shared_loss:
-                logits = tf.reshape(tf.expand_dims(logits1, 1) + tf.expand_dims(logits2, 2), (bs, -1))
+                logits = tf.reshape(tf.expand_dims(logits1, 1) + tf.expand_dims(logits2, 2), (self.bs, -1))
                 all_logits = tf.concat([tf.expand_dims(scorer_logits, axis=-1), logits], axis=-1)
 
                 labels = tf.cast(
                     tf.reshape(tf.logical_and(tf.expand_dims(tf.cast(self.y1, tf.bool), 1),
-                                              tf.expand_dims(tf.cast(self.y2, tf.bool), 2)), (bs, -1)), tf.float32)
+                                              tf.expand_dims(tf.cast(self.y2, tf.bool), 2)), (self.bs, -1)), tf.float32)
                 # self.y 1 if answer is present, 0 otherwise
                 all_labels = tf.concat([tf.expand_dims(1-tf.cast(self.y, tf.float32), axis=-1), labels], axis=-1)
                 all_sum = tf.reduce_logsumexp(all_logits, axis=-1)
@@ -517,6 +431,66 @@ class SquadModelRef(TFModel):
         self.keep_prob_ph = tf.placeholder_with_default(1.0, shape=[], name='keep_prob_ph')
         self.hops_keep_prob_ph = tf.placeholder_with_default(1.0, shape=[], name='hops_keep_prob_ph')
         self.is_train_ph = tf.placeholder_with_default(False, shape=[], name='is_train_ph')
+
+    def _prepare_placeholders_usage(self):
+        self.c_mask = tf.cast(self.c_ph, tf.bool)
+        self.q_mask = tf.cast(self.q_ph, tf.bool)
+        self.c_len = tf.reduce_sum(tf.cast(self.c_mask, tf.int32), axis=1)
+        self.q_len = tf.reduce_sum(tf.cast(self.q_mask, tf.int32), axis=1)
+
+        self.bs = tf.shape(self.c_ph)[0]
+        self.c_maxlen = tf.reduce_max(self.c_len)
+        self.q_maxlen = tf.reduce_max(self.q_len)
+        self.c = tf.slice(self.c_ph, [0, 0], [self.bs, self.c_maxlen])
+        self.q = tf.slice(self.q_ph, [0, 0], [self.bs, self.q_maxlen])
+        self.c_mask = tf.slice(self.c_mask, [0, 0], [self.bs, self.c_maxlen])
+        self.q_mask = tf.slice(self.q_mask, [0, 0], [self.bs, self.q_maxlen])
+        self.cc = tf.slice(self.cc_ph, [0, 0, 0], [self.bs, self.c_maxlen, self.char_limit])
+        self.qc = tf.slice(self.qc_ph, [0, 0, 0], [self.bs, self.q_maxlen, self.char_limit])
+
+        if self.use_features:
+            self.c_f = tf.slice(self.c_f_ph, [0, 0, 0], [self.bs, self.c_maxlen, self.features_dim])
+            self.q_f = tf.slice(self.q_f_ph, [0, 0, 0], [self.bs, self.q_maxlen, self.features_dim])
+
+        if self.use_ner_features:
+            self.c_ner = tf.slice(self.c_ner_ph, [0, 0], [self.bs, self.c_maxlen])
+            self.q_ner = tf.slice(self.q_ner_ph, [0, 0], [self.bs, self.q_maxlen])
+
+        if self.use_elmo:
+            self.c_str = tf.slice(self.c_str_ph, [0, 0], [self.bs, self.c_maxlen])
+            self.q_str = tf.slice(self.q_str_ph, [0, 0], [self.bs, self.q_maxlen])
+
+        if self.noans_token:
+            # we use additional 'no answer' token to allow model not to answer on question
+            self.y1 = tf.one_hot(self.y1_ph, depth=self.context_limit + 1)
+            self.y2 = tf.one_hot(self.y2_ph, depth=self.context_limit + 1)
+            self.y1 = tf.slice(self.y1, [0, 0], [self.bs, self.c_maxlen + 1])
+            self.y2 = tf.slice(self.y2, [0, 0], [self.bs, self.c_maxlen + 1])
+        elif self.scorer:
+            # we don't need to predict answer position
+            self.y = self.y_ph
+            self.y_ohe = tf.one_hot(self.y, depth=2)
+
+        if self.predict_ans:
+            self.y1 = tf.one_hot(self.y1_ph, depth=self.context_limit)
+            self.y2 = tf.one_hot(self.y2_ph, depth=self.context_limit)
+            self.y1 = tf.slice(self.y1, [0, 0], [self.bs, self.c_maxlen])
+            self.y2 = tf.slice(self.y2, [0, 0], [self.bs, self.c_maxlen])
+
+            if self.soft_labels:
+                center_weight = self.true_label_weight
+                border_weight = (1 - self.true_label_weight) / 2
+                smoothing_kernel_st = tf.constant([border_weight, center_weight, border_weight])
+                smoothing_kernel_st = tf.reshape(smoothing_kernel_st, [3, 1, 1])
+                # WARNING: smoothing_kernel_end with non-zero first value makes huge values in loss
+                smoothing_kernel_end = tf.constant([0.0, center_weight + border_weight / 2, border_weight * 3 / 2])
+                smoothing_kernel_end = tf.reshape(smoothing_kernel_end, [3, 1, 1])
+                self.y1 = tf.expand_dims(self.y1, axis=-1)
+                self.y2 = tf.expand_dims(self.y2, axis=-1)
+                self.y1 = tf.squeeze(tf.nn.conv1d(self.y1, filters=smoothing_kernel_st, stride=1, padding='SAME'))
+                self.y2 = tf.squeeze(tf.nn.conv1d(self.y2, filters=smoothing_kernel_end, stride=1, padding='SAME'))
+                self.y1 = self.y1 / tf.expand_dims(tf.maximum(tf.reduce_sum(self.y1, axis=-1), 1e-3), axis=-1)
+                self.y2 = self.y2 / tf.expand_dims(tf.maximum(tf.reduce_sum(self.y2, axis=-1), 1e-3), axis=-1)
 
     def _init_optimizer(self):
         with tf.variable_scope('Optimizer'):
