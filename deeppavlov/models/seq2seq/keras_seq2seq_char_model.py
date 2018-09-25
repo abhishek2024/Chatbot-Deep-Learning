@@ -203,20 +203,20 @@ class KerasSeq2SeqCharModel(KerasModel):
         cutted_batch = [sen[:text_size] for sen in sentences]
         cutted_batch = [list(tokens) + [padding_char_id] * (text_size - len(tokens)) for tokens in cutted_batch]
         if return_lengths:
-            lengths = np.array([len(sen) for sen in sentences], dtype='int').reshape(-1)
+            lengths = np.array([min(len(sen), text_size) for sen in sentences], dtype='int')
             return np.asarray(cutted_batch), lengths
 
         return np.asarray(cutted_batch)
 
     def gru_gru_model(self,
-                        hidden_size: int = 300,
-                        encoder_coef_reg_lstm: float = 0.,
-                        encoder_dropout_rate: float = 0.,
-                        encoder_rec_dropout_rate: float = 0.,
-                        decoder_coef_reg_lstm: float = 0.,
-                        decoder_dropout_rate: float = 0.,
-                        decoder_rec_dropout_rate: float = 0.,
-                        **kwargs) -> Model:
+                      hidden_size: int = 300,
+                      encoder_coef_reg_lstm: float = 0.,
+                      encoder_dropout_rate: float = 0.,
+                      encoder_rec_dropout_rate: float = 0.,
+                      decoder_coef_reg_lstm: float = 0.,
+                      decoder_dropout_rate: float = 0.,
+                      decoder_rec_dropout_rate: float = 0.,
+                      **kwargs) -> Model:
         """
         Build keras models for training and infering
 
@@ -287,15 +287,6 @@ class KerasSeq2SeqCharModel(KerasModel):
                                      output_dim=self.opt["encoder_embedding_size"],
                                      input_length=self.opt["src_max_length"])(self._encoder_inp)
 
-        # self._encoder_outputs, self._encoder_state_0, self._encoder_state_1 = LSTM(
-        #     hidden_size,
-        #     activation='tanh',
-        #     return_state=True,  # get encoder's last state
-        #     kernel_regularizer=l2(encoder_coef_reg_lstm),
-        #     dropout=encoder_dropout_rate,
-        #     recurrent_dropout=encoder_rec_dropout_rate,
-        #     name="encoder_lstm")(_encoder_emb_inp)
-
         _encoder_outputs, _encoder_state = GRU(
             hidden_size,
             activation='tanh',
@@ -304,7 +295,7 @@ class KerasSeq2SeqCharModel(KerasModel):
             kernel_regularizer=l2(encoder_coef_reg_lstm),
             dropout=encoder_dropout_rate,
             recurrent_dropout=encoder_rec_dropout_rate,
-            name="encoder_lstm")(_encoder_emb_inp)
+            name="encoder_gru")(_encoder_emb_inp)
 
         self._encoder_state = masking_sequences(_encoder_outputs, self._encoder_inp_lengths)
         return None
@@ -335,17 +326,7 @@ class KerasSeq2SeqCharModel(KerasModel):
 
         self._decoder_input_state = Input(shape=(hidden_size,))
 
-        # decoder_lstm = LSTM(
-        #     hidden_size,
-        #     activation='tanh',
-        #     return_state=True,  # due to teacher forcing, this state is used only for inference
-        #     return_sequences=True,  # to get decoder_n_chars outputs' representations
-        #     kernel_regularizer=l2(decoder_coef_reg_lstm),
-        #     dropout=decoder_dropout_rate,
-        #     recurrent_dropout=decoder_rec_dropout_rate,
-        #     name="decoder_lstm")
-
-        decoder_lstm = GRU(
+        decoder_gru = GRU(
             hidden_size,
             activation='tanh',
             return_state=True,  # due to teacher forcing, this state is used only for inference
@@ -353,14 +334,14 @@ class KerasSeq2SeqCharModel(KerasModel):
             kernel_regularizer=l2(decoder_coef_reg_lstm),
             dropout=decoder_dropout_rate,
             recurrent_dropout=decoder_rec_dropout_rate,
-            name="decoder_lstm")
+            name="decoder_gru")
 
-        _train_decoder_outputs, _train_decoder_state = decoder_lstm(
+        _train_decoder_outputs, _train_decoder_state = decoder_gru(
             _decoder_emb_inp,
             initial_state=self._encoder_state)
         self._train_decoder_state = masking_sequences(_train_decoder_state, self._decoder_inp_lengths)
 
-        _infer_decoder_outputs, self._infer_decoder_state = decoder_lstm(
+        _infer_decoder_outputs, self._infer_decoder_state = decoder_gru(
             _decoder_emb_inp,
             initial_state=self._decoder_input_state)
 
