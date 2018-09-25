@@ -12,10 +12,12 @@
     "field_to_split": "train",
     "split_fields": [
       "train",
-      "valid"
+      "valid",
+      "test"
     ],
     "split_proportions": [
-      0.9,
+      0.8,
+      0.1,
       0.1
     ]
   },
@@ -41,31 +43,12 @@
       },
       {
         "in": "x_tok",
-        "id": "x_tokens_vocab",
-        "name": "simple_vocab",
-        "pad_with_zeros": false,
-        "fit_on": [
-          "x_tok"
-        ],
-        "level": "token",
-        "save_path": "seq2seq/wikitext-2/x_tokens.dict",
-        "load_path": "seq2seq/wikitext-2/x_tokens.dict",
-        "special_tokens": ["<UNK>"],
-        "min_freq": 2,
-        "out": "x_tok_ind"
-      },
-      {
-        "ref": "x_tokens_vocab",
-        "in": "x_tok_ind",
-        "out": "x_spec_tokens"
-      },
-      {
-        "in": "x_spec_tokens",
         "out": "x_emb",
         "id": "my_embedder",
-        "name": "glove",
+        "name": "fasttext",
         "pad_zero": false,
-        "load_path": "embeddings/glove.6B.100d.txt"
+        "load_path": "embeddings/wiki.en.bin",
+        "dim": 300
       },
       {
         "in": "y",
@@ -85,15 +68,15 @@
         "special_tokens": [
           "<UNK>",
           "<SOS>",
-          "<EOS>"
+          "<EOS>",
+          "<PAD>"
         ],
         "fit_on": [
           "y_tok"
         ],
-        "level": "token",
         "save_path": "seq2seq/wikitext-2/y_tokens.dict",
         "load_path": "seq2seq/wikitext-2/y_tokens.dict",
-        "min_freq": 2,
+        "min_freq": 1,
         "out": "y_tok_ind"
       },
       {
@@ -102,29 +85,35 @@
         "out": "y_spec_tokens"
       },
       {
+        "id": "dec_embedder",
+        "name": "fasttext",
+        "load_path": "embeddings/wiki.en.bin",
+        "dim": 300
+      },
+      {
         "in": "x_emb",
         "in_y": "y_tok_ind",
         "out": "y_tok_ind_pred",
         "main": true,
-        "name": "keras_seq2seq_model",
-        "save_path": "seq2seq/wikitext-2/lstm_lstm_model_v0",
-        "load_path": "seq2seq/wikitext-2/lstm_lstm_model_v0",
+        "name": "keras_seq2seq_token_model",
+        "save_path": "seq2seq/wikitext-2/token_lstm_lstm_model_v0",
+        "load_path": "seq2seq/wikitext-2/token_lstm_lstm_model_v0",
         "encoder_embedding_size": "#my_embedder.dim",
-        "decoder_embedding_size": "#my_embedder.dim",
-        "source_vocab_size": "#x_tokens_vocab.__len__()",
+        "decoder_embedding_size": "#dec_embedder.dim",
         "target_vocab_size": "#y_tokens_vocab.__len__()",
+        "target_padding_index": "#y_tokens_vocab.__getitem__('<PAD>')",
         "target_start_of_sequence_index": "#y_tokens_vocab.__getitem__('<SOS>')",
         "target_end_of_sequence_index": "#y_tokens_vocab.__getitem__('<EOS>')",
         "source_max_length": 500,
         "target_max_length": 10,
-        "decoder_embedder": "#my_embedder",
+        "decoder_embedder": "#dec_embedder",
         "decoder_vocab": "#y_tokens_vocab",
         "optimizer": "RMSprop",
-        "lear_rate": 0.0001,
-        "lear_rate_decay": 0.1,
+        "lear_rate": 0.001,
+        "lear_rate_decay": 0,
         "loss": "categorical_crossentropy",
-        "hidden_size": 256,
-        "model_name": "lstm_lstm_model"
+        "hidden_size": 128,
+        "model_name": "gru_gru_model"
       },
       {
         "ref": "y_tokens_vocab",
@@ -147,11 +136,12 @@
       "per_token_accuracy"
     ],
     "validation_patience": 5,
+    "log_every_n_batches": 100,
     "val_every_n_epochs": 1,
     "log_every_n_epochs": 1,
     "show_examples": true,
     "validate_best": true,
-    "test_best": false
+    "test_best": true
   },
   "metadata": {
     "requirements": [
