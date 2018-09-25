@@ -29,10 +29,10 @@ from keras.backend import tile
 from keras import backend as K
 
 from deeppavlov.core.models.keras_model import KerasModel
-from deeppavlov.core.layers.keras_layers import masking_sequences
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.models.component import Component
+from deeppavlov.core.layers.keras_layers import masking_sequences
 
 log = get_logger(__name__)
 
@@ -73,6 +73,8 @@ class KerasSeq2SeqTokenModel(KerasModel):
                  hidden_size: int,
                  source_vocab_size: int,
                  target_vocab_size: int,
+                 source_padding_index: int,
+                 target_padding_index: int,
                  target_start_of_sequence_index: int,
                  target_end_of_sequence_index: int,
                  encoder_embedding_size: int,
@@ -95,6 +97,8 @@ class KerasSeq2SeqTokenModel(KerasModel):
         super().__init__(hidden_size=hidden_size,
                          src_vocab_size=source_vocab_size,
                          tgt_vocab_size=target_vocab_size,
+                         src_pad_id=source_padding_index,
+                         tgt_pad_id=target_padding_index,
                          tgt_sos_id=target_start_of_sequence_index,
                          tgt_eos_id=target_end_of_sequence_index,
                          encoder_embedding_size=encoder_embedding_size,
@@ -138,6 +142,8 @@ class KerasSeq2SeqTokenModel(KerasModel):
         self._change_not_fixed_params(hidden_size=hidden_size,
                                       src_vocab_size=source_vocab_size,
                                       tgt_vocab_size=target_vocab_size,
+                                      src_pad_id=source_padding_index,
+                                      tgt_pad_id=target_padding_index,
                                       tgt_sos_id=target_start_of_sequence_index,
                                       tgt_eos_id=target_end_of_sequence_index,
                                       encoder_embedding_size=encoder_embedding_size,
@@ -180,7 +186,9 @@ class KerasSeq2SeqTokenModel(KerasModel):
                 self.opt[param] = kwargs.get(param)
         return
 
-    def texts2decoder_embeddings(self, sentences: List[List[str]]) -> Tuple[np.ndarray, np.ndarray]:
+    def texts2decoder_embeddings(self, sentences: List[List[str]],
+                                 text_size: int, embedding_size: int = None,
+                                 return_lengths=False) -> Tuple[np.ndarray, np.ndarray]:
         """
         Convert texts to vector representations using decoder_embedder \
         and padding up to self.opt["tgt_max_length"] tokens
@@ -191,21 +199,23 @@ class KerasSeq2SeqTokenModel(KerasModel):
         Returns:
             (array of embedded texts, list of sentences lengths)
         """
-        pad = np.zeros(self.opt['decoder_embedding_size'])
+        pad = np.zeros(embedding_size)
         text_sentences = self.decoder_vocab(sentences)
-        seq_lengths_batch = np.array([min(len(sentence), self.opt["tgt_max_length"])
-                                      for sentence in sentences], dtype=int).reshape((-1, 1))
 
-        embeddings_batch = self.decoder_embedder([sen[:self.opt['tgt_max_length']] for sen in text_sentences])
-        # embeddings_batch = [[pad] * (self.opt['tgt_max_length'] - len(tokens)) + list(tokens)
-        embeddings_batch = [[pad] * (self.opt['tgt_max_length'] - len(tokens)) + tokens
+        embeddings_batch = self.decoder_embedder([sen[:text_size] for sen in text_sentences])
+        embeddings_batch = [tokens + [pad] * (text_size - len(tokens))
                             for tokens in embeddings_batch]
 
         embeddings_batch = np.asarray(embeddings_batch)
-        return embeddings_batch, seq_lengths_batch
+        if return_lengths:
+            lengths = np.array([min(len(sen), text_size) for sen in sentences], dtype='int')
+            return embeddings_batch, lengths
+
+        return embeddings_batch
 
     def pad_texts(self, sentences: Union[List[List[np.ndarray]], List[List[int]]],
-                  text_size: int, embedding_size: int = None) -> Tuple[np.ndarray, np.ndarray]:
+                  text_size: int, embedding_size: int = None,
+                  padding_token_id: int = 0, return_lengths=False) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
         """
         Cut and pad tokenized sequences (each sample is a list of indexed tokens or list of embedded tokens) \
         up to text_size tokens with zeros (or array of zeros of size embedding_size in case of embedded tokens)
@@ -214,31 +224,34 @@ class KerasSeq2SeqTokenModel(KerasModel):
             sentences: list of lists of indexed or embedded tokens
             text_size: number of tokens to pad
             embedding_size: embedding size if sample is a list of embedded tokens
+            padding_token_id:
+            return_lengths:
 
         Returns:
             (array of embedded texts, list of sentences lengths)
         """
-        seq_lengths_batch = np.array([min(len(sentence), text_size)
-                                      for sentence in sentences], dtype=int).reshape((-1, 1))
-
         if type(sentences[0][0]) is int:
-            pad = 0
+            pad = padding_token_id
         else:
             pad = np.zeros(embedding_size)
 
         cutted_batch = [sen[:text_size] for sen in sentences]
-        cutted_batch = [[pad] * (text_size - len(tokens)) + list(tokens) for tokens in cutted_batch]
-        return np.asarray(cutted_batch), seq_lengths_batch
+        cutted_batch = [list(tokens) + [pad] * (text_size - len(tokens)) for tokens in cutted_batch]
+        if return_lengths:
+            lengths = np.array([min(len(sen), text_size) for sen in sentences], dtype='int')
+            return np.asarray(cutted_batch), lengths
 
-    def lstm_lstm_model(self,
-                        hidden_size: int = 300,
-                        encoder_coef_reg_lstm: float = 0.,
-                        encoder_dropout_rate: float = 0.,
-                        encoder_rec_dropout_rate: float = 0.,
-                        decoder_coef_reg_lstm: float = 0.,
-                        decoder_dropout_rate: float = 0.,
-                        decoder_rec_dropout_rate: float = 0.,
-                        **kwargs) -> Model:
+        return np.asarray(cutted_batch)
+
+    def gru_gru_model(self,
+                      hidden_size: int = 300,
+                      encoder_coef_reg_lstm: float = 0.,
+                      encoder_dropout_rate: float = 0.,
+                      encoder_rec_dropout_rate: float = 0.,
+                      decoder_coef_reg_lstm: float = 0.,
+                      decoder_dropout_rate: float = 0.,
+                      decoder_rec_dropout_rate: float = 0.,
+                      **kwargs) -> Model:
         """
         Build keras models for training and infering
 
@@ -274,16 +287,13 @@ class KerasSeq2SeqTokenModel(KerasModel):
 
         self.encoder_model = Model(inputs=[self._encoder_emb_inp,
                                            self._encoder_inp_lengths],
-                                   outputs=[self._encoder_state_0,
-                                            self._encoder_state_1])
+                                   outputs=self._encoder_state_0)
 
         self.decoder_model = Model(inputs=[self._decoder_emb_inp,
                                            self._decoder_inp_lengths,
-                                           self._decoder_input_state_0,
-                                           self._decoder_input_state_1],
+                                           self._decoder_input_state],
                                    outputs=[self._infer_decoder_outputs,
-                                            self._infer_decoder_state_0,
-                                            self._infer_decoder_state_1])
+                                            self._infer_decoder_state])
 
         return encoder_decoder_model
 
@@ -308,9 +318,9 @@ class KerasSeq2SeqTokenModel(KerasModel):
         self._encoder_emb_inp = Input(shape=(self.opt["src_max_length"],
                                              self.opt["encoder_embedding_size"]))
 
-        self._encoder_inp_lengths = Input(shape=(1,), dtype='int32')
+        self._encoder_inp_lengths = Input(shape=(2,), dtype='int32')
 
-        self._encoder_outputs, self._encoder_state_0, self._encoder_state_1 = LSTM(
+        _encoder_outputs, _encoder_state = GRU(
             hidden_size,
             activation='tanh',
             return_state=True,  # get encoder's last state
@@ -318,20 +328,9 @@ class KerasSeq2SeqTokenModel(KerasModel):
             kernel_regularizer=l2(encoder_coef_reg_lstm),
             dropout=encoder_dropout_rate,
             recurrent_dropout=encoder_rec_dropout_rate,
-            name="encoder_lstm")(self._encoder_emb_inp)
+            name="encoder_gru")(self._encoder_emb_inp)
 
-        # _encoder_outputs, _encoder_state_0, _encoder_state_1 = LSTM(
-        #     hidden_size,
-        #     activation='tanh',
-        #     return_state=True,  # get encoder's last state
-        #     return_sequences=True,
-        #     kernel_regularizer=l2(encoder_coef_reg_lstm),
-        #     dropout=encoder_dropout_rate,
-        #     recurrent_dropout=encoder_rec_dropout_rate,
-        #     name="encoder_lstm")(self._encoder_emb_inp)
-        # self._encoder_outputs = masking_sequences(_encoder_outputs, self._encoder_inp_lengths)
-        # self._encoder_state_0 = masking_sequences(_encoder_state_0, self._encoder_inp_lengths)
-        # self._encoder_state_1 = masking_sequences(_encoder_state_1, self._encoder_inp_lengths)
+        self._encoder_state = masking_sequences(_encoder_outputs, self._encoder_inp_lengths)
         return None
 
     def _build_decoder(self,
@@ -352,14 +351,12 @@ class KerasSeq2SeqTokenModel(KerasModel):
             None
         """
 
-        self._decoder_emb_inp = Input(shape=(None,
-                                             self.opt["decoder_embedding_size"]))
-        self._decoder_inp_lengths = Input(shape=(1,), dtype='int32')
+        self._decoder_emb_inp = Input(shape=(None, self.opt["decoder_embedding_size"]))
+        self._decoder_inp_lengths = Input(shape=(2,), dtype='int32')
 
-        self._decoder_input_state_0 = Input(shape=(hidden_size,))
-        self._decoder_input_state_1 = Input(shape=(hidden_size,))
+        self._decoder_input_state = Input(shape=(hidden_size,))
 
-        decoder_lstm = LSTM(
+        decoder_gru = GRU(
             hidden_size,
             activation='tanh',
             return_state=True,  # due to teacher forcing, this state is used only for inference
@@ -367,15 +364,16 @@ class KerasSeq2SeqTokenModel(KerasModel):
             kernel_regularizer=l2(decoder_coef_reg_lstm),
             dropout=decoder_dropout_rate,
             recurrent_dropout=decoder_rec_dropout_rate,
-            name="decoder_lstm")
+            name="decoder_gru")
 
-        _train_decoder_outputs, self._train_decoder_state_0, self._train_decoder_state_1 = decoder_lstm(
+        _train_decoder_outputs, _train_decoder_state = decoder_gru(
             self._decoder_emb_inp,
-            initial_state=[self._encoder_state_0, self._encoder_state_1])
+            initial_state=self._encoder_state)
+        self._train_decoder_state = masking_sequences(_train_decoder_state, self._decoder_inp_lengths)
 
-        _infer_decoder_outputs, self._infer_decoder_state_0, self._infer_decoder_state_1 = decoder_lstm(
+        _infer_decoder_outputs, self._infer_decoder_state = decoder_gru(
             self._decoder_emb_inp,
-            initial_state=[self._decoder_input_state_0, self._decoder_input_state_1])
+            initial_state=self._decoder_input_state)
 
         decoder_dense = Dense(self.opt["tgt_vocab_size"], name="dense_lstm", activation="softmax")
         self._train_decoder_outputs = decoder_dense(_train_decoder_outputs)
@@ -394,22 +392,28 @@ class KerasSeq2SeqTokenModel(KerasModel):
         Returns:
             metrics values on the given batch
         """
-        pad_emb_enc_inputs, enc_inputs_lengths = self.pad_texts(args[0],
-                                                                self.opt["src_max_length"],
-                                                                self.opt["encoder_embedding_size"])
+        pad_emb_enc_inputs, enc_inp_lengths = self.pad_texts(args[0],
+                                                             self.opt["src_max_length"],
+                                                             padding_char_id=self.opt["src_pad_id"],
+                                                             return_lengths=True)
         dec_inputs = [[self.opt["tgt_sos_id"]] + list(sample) + [self.opt["tgt_eos_id"]]
                       for sample in args[1]]  # (bs, ts + 2) of integers (tokens ids)
-        pad_emb_dec_inputs, dec_inputs_lengths = self.texts2decoder_embeddings(dec_inputs)
+        pad_emb_dec_inputs, dec_inp_lengths = self.texts2decoder_embeddings(dec_inputs,
+                                                                            self.opt["tgt_max_length"],
+                                                                            padding_char_id=self.opt["tgt_pad_id"],
+                                                                            return_lengths=True)
 
-        pad_dec_outputs, dec_outputs_lengths = self.pad_texts(args[1],
-                                                              self.opt["tgt_max_length"],
-                                                              self.opt["decoder_embedding_size"])
+        pad_dec_outputs = self.pad_texts(args[1],
+                                         self.opt["tgt_max_length"],
+                                         self.opt["decoder_embedding_size"])
         pad_emb_dec_outputs = self._ids2onehot(pad_dec_outputs, self.opt["tgt_vocab_size"])
 
         metrics_values = self.model.train_on_batch([pad_emb_enc_inputs,
-                                                    enc_inputs_lengths,
+                                                    np.hstack((np.arange(len(enc_inp_lengths)).reshape(-1, 1),
+                                                               enc_inp_lengths.reshape(-1, 1))),
                                                     pad_emb_dec_inputs,
-                                                    dec_inputs_lengths],
+                                                    np.hstack((np.arange(len(dec_inp_lengths)).reshape(-1, 1),
+                                                               dec_inp_lengths.reshape(-1, 1)))],
                                                    pad_emb_dec_outputs)
         return metrics_values
 
@@ -427,28 +431,30 @@ class KerasSeq2SeqTokenModel(KerasModel):
         batch = args[0][0]
         pad_emb_enc_inputs, enc_inputs_lengths = self.pad_texts(batch,
                                                                 self.opt["src_max_length"],
-                                                                self.opt["encoder_embedding_size"])
-        encoder_state_0, encoder_state_1 = self.encoder_model.predict([pad_emb_enc_inputs,
-                                                                       enc_inputs_lengths])
+                                                                self.opt["encoder_embedding_size"],
+                                                                padding_char_id=self.opt["src_pad_id"],
+                                                                return_lengths=True)
+        encoder_state = self.encoder_model.predict([pad_emb_enc_inputs,
+                                                    enc_inputs_lengths])
 
         predicted_batch = []
         for i in range(len(batch)):  # batch size
             predicted_sample = []
 
-            current_token = self.decoder_embedder([["<SOS>"]])[0][0]  # (300,)
+            current_token = self.decoder_embedder([[self.decoder_vocab[self.opt["tgt_sos_id"]]]])[0][0]  # (300,)
             end_of_sequence = False
-            state_0 = encoder_state_0[i].reshape((1, -1))  # (1, hidden_size)
-            state_1 = encoder_state_1[i].reshape((1, -1))  # (1, hidden_size)
+            state = encoder_state[i].reshape((1, -1))
 
             while not end_of_sequence:
-                token_probas, state_0, state_1 = self.decoder_model.predict([np.array([[current_token]]),
-                                                                             np.array([[1]], dtype='int'),
-                                                                             state_0,
-                                                                             state_1])
+                token_probas, state = self.decoder_model.predict([np.array([[current_token]]),
+                                                                  np.array([[0, 1]], dtype='int').reshape(1, 2),
+                                                                  state])
                 current_token_id = self._probas2ids(token_probas)[0][0]
                 current_token = self.decoder_embedder(self.decoder_vocab([[current_token_id]]))[0][0]
                 predicted_sample.append(current_token_id)
-                if current_token_id == self.opt["tgt_eos_id"] or len(predicted_sample) == self.opt["tgt_max_length"]:
+                if (current_token == self.opt["tgt_eos_id"] or
+                        current_token == self.opt["tgt_pad_id"] or
+                        len(predicted_sample) == self.opt["tgt_max_length"]):
                     end_of_sequence = True
 
             predicted_batch.append(predicted_sample)
