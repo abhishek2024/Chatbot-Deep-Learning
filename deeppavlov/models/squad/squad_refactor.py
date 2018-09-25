@@ -124,76 +124,25 @@ class SquadModelRef(TFModel):
 
         self._prepare_placeholders_usage()
 
-        with tf.variable_scope("emb"):
-            with tf.variable_scope("char"):
+        c_emb, q_emb = self._build_token_embeddings()
 
-                cc_emb = character_embedding_layer(self.cc, self.char_hidden_size, keep_prob=self.keep_prob_ph,
-                                                   emb_mat_init=self.init_char_emb,
-                                                   trainable_emb_mat=self.opt['train_char_emb'],
-                                                   regularizer=tf.nn.l2_loss,
-                                                   transform_char_emb=self.transform_char_emb)
+        c_emb, q_emb = self._add_token_features(c_emb, q_emb)
 
-                qc_emb = character_embedding_layer(self.qc, self.char_hidden_size, keep_prob=self.keep_prob_ph,
-                                                   emb_mat_init=self.init_char_emb,
-                                                   trainable_emb_mat=self.opt['train_char_emb'],
-                                                   regularizer=tf.nn.l2_loss,
-                                                   transform_char_emb=self.transform_char_emb, reuse=True)
+        if self.transform_word_emb != 0:
+            c_emb = transform_layer(c_emb, self.transform_word_emb, keep_prob=self.keep_prob_ph,
+                                    scope='transform_word_emb')
+            q_emb = transform_layer(q_emb, self.transform_word_emb, keep_prob=self.keep_prob_ph,
+                                    scope='transform_word_emb', reuse=True)
 
-            with tf.variable_scope("word"):
-                c_emb = embedding_layer(self.c, self.init_word_emb, trainable=False)
-                q_emb = embedding_layer(self.q, self.init_word_emb, trainable=False)
+        if self.use_elmo:
+            # TODO: also add elmo after encoding layer
+            import tensorflow_hub as tfhub
+            elmo_module = tfhub.Module(self.elmo_link)
+            c_elmo = elmo_embedding_layer(self.c_str, elmo_module)
+            q_elmo = elmo_embedding_layer(self.q_str, elmo_module)
 
-            c_emb = tf.concat([c_emb, cc_emb], axis=2)
-            q_emb = tf.concat([q_emb, qc_emb], axis=2)
-
-        with tf.variable_scope("features"):
-            if self.use_soft_match_features:
-                c_emb_with_soft_match = dot_attention(c_emb, q_emb, mask=self.q_mask,
-                                                      att_size=self.attention_hidden_size,
-                                                      keep_prob=self.keep_prob_ph, use_gate=False,
-                                                      use_transpose_att=False,
-                                                      scope='c_word_attention')
-
-                q_emb_with_soft_match = dot_attention(q_emb, c_emb, mask=self.c_mask,
-                                                      att_size=self.attention_hidden_size,
-                                                      keep_prob=self.keep_prob_ph, use_gate=False,
-                                                      use_transpose_att=False,
-                                                      scope='q_word_attention')
-
-                c_emb = c_emb_with_soft_match
-                q_emb = q_emb_with_soft_match
-
-            if self.use_features:
-                c_emb = tf.concat([c_emb, self.c_f], axis=2)
-                q_emb = tf.concat([q_emb, self.q_f], axis=2)
-
-            if self.use_ner_features:
-                with tf.variable_scope('ner'):
-                    c_ner_emb = embedding_layer(self.c_ner, vocab_size=self.ner_vocab_size,
-                                                emb_dim=self.ner_features_dim, trainable=True, regularizer=tf.nn.l2_loss)
-                    q_ner_emb = embedding_layer(self.q_ner, vocab_size=self.ner_vocab_size, emb_dim=self.ner_features_dim)
-
-                    c_ner_emb = variational_dropout(c_ner_emb, keep_prob=self.keep_prob_ph)
-                    q_ner_emb = variational_dropout(q_ner_emb, keep_prob=self.keep_prob_ph)
-
-                c_emb = tf.concat([c_emb, c_ner_emb], axis=2)
-                q_emb = tf.concat([q_emb, q_ner_emb], axis=2)
-
-            if self.transform_word_emb != 0:
-                c_emb = transform_layer(c_emb, self.transform_word_emb, keep_prob=self.keep_prob_ph,
-                                        scope='transform_word_emb')
-                q_emb = transform_layer(q_emb, self.transform_word_emb, keep_prob=self.keep_prob_ph,
-                                        scope='transform_word_emb', reuse=True)
-
-            if self.use_elmo:
-                # TODO: also add elmo after encoding layer
-                import tensorflow_hub as tfhub
-                elmo_module = tfhub.Module(self.elmo_link)
-                c_elmo = elmo_embedding_layer(self.c_str, elmo_module)
-                q_elmo = elmo_embedding_layer(self.q_str, elmo_module)
-
-                c_emb = tf.concat([c_emb, c_elmo], axis=2)
-                q_emb = tf.concat([q_emb, q_elmo], axis=2)
+            c_emb = tf.concat([c_emb, c_elmo], axis=2)
+            q_emb = tf.concat([q_emb, q_elmo], axis=2)
 
         with tf.variable_scope("encoding"):
             rnn = self.GRU(num_layers=self.num_encoder_layers, num_units=self.hidden_size, batch_size=self.bs,
@@ -491,6 +440,67 @@ class SquadModelRef(TFModel):
                 self.y2 = tf.squeeze(tf.nn.conv1d(self.y2, filters=smoothing_kernel_end, stride=1, padding='SAME'))
                 self.y1 = self.y1 / tf.expand_dims(tf.maximum(tf.reduce_sum(self.y1, axis=-1), 1e-3), axis=-1)
                 self.y2 = self.y2 / tf.expand_dims(tf.maximum(tf.reduce_sum(self.y2, axis=-1), 1e-3), axis=-1)
+
+    def _build_token_embeddings(self):
+        with tf.variable_scope("emb"):
+            with tf.variable_scope("char"):
+
+                cc_emb = character_embedding_layer(self.cc, self.char_hidden_size, keep_prob=self.keep_prob_ph,
+                                                   emb_mat_init=self.init_char_emb,
+                                                   trainable_emb_mat=self.opt['train_char_emb'],
+                                                   regularizer=tf.nn.l2_loss,
+                                                   transform_char_emb=self.transform_char_emb)
+
+                qc_emb = character_embedding_layer(self.qc, self.char_hidden_size, keep_prob=self.keep_prob_ph,
+                                                   emb_mat_init=self.init_char_emb,
+                                                   trainable_emb_mat=self.opt['train_char_emb'],
+                                                   regularizer=tf.nn.l2_loss,
+                                                   transform_char_emb=self.transform_char_emb, reuse=True)
+
+            with tf.variable_scope("word"):
+                c_emb = embedding_layer(self.c, self.init_word_emb, trainable=False)
+                q_emb = embedding_layer(self.q, self.init_word_emb, trainable=False)
+
+            c_emb = tf.concat([c_emb, cc_emb], axis=2)
+            q_emb = tf.concat([q_emb, qc_emb], axis=2)
+        return c_emb, q_emb
+
+    def _add_token_features(self, c_emb, q_emb):
+        with tf.variable_scope("features"):
+            if self.use_soft_match_features:
+                c_soft_match = dot_attention(c_emb, q_emb, mask=self.q_mask,
+                                                      att_size=self.attention_hidden_size,
+                                                      keep_prob=self.keep_prob_ph, use_gate=False,
+                                                      use_transpose_att=False,
+                                                      concat_inputs=False,
+                                                      scope='c_word_attention')
+
+                q_soft_match = dot_attention(q_emb, c_emb, mask=self.c_mask,
+                                                      att_size=self.attention_hidden_size,
+                                                      keep_prob=self.keep_prob_ph, use_gate=False,
+                                                      use_transpose_att=False,
+                                                      concat_inputs=False,
+                                                      scope='q_word_attention')
+
+                c_emb = tf.concat([c_emb, c_soft_match], axis=2)
+                q_emb = tf.concat([q_emb, q_soft_match], axis=2)
+
+            if self.use_features:
+                c_emb = tf.concat([c_emb, self.c_f], axis=2)
+                q_emb = tf.concat([q_emb, self.q_f], axis=2)
+
+            if self.use_ner_features:
+                with tf.variable_scope('ner'):
+                    c_ner_emb = embedding_layer(self.c_ner, vocab_size=self.ner_vocab_size,
+                                                emb_dim=self.ner_features_dim, trainable=True, regularizer=tf.nn.l2_loss)
+                    q_ner_emb = embedding_layer(self.q_ner, vocab_size=self.ner_vocab_size, emb_dim=self.ner_features_dim)
+
+                    c_ner_emb = variational_dropout(c_ner_emb, keep_prob=self.keep_prob_ph)
+                    q_ner_emb = variational_dropout(q_ner_emb, keep_prob=self.keep_prob_ph)
+
+                c_emb = tf.concat([c_emb, c_ner_emb], axis=2)
+                q_emb = tf.concat([q_emb, q_ner_emb], axis=2)
+        return c_emb, q_emb
 
     def _init_optimizer(self):
         with tf.variable_scope('Optimizer'):

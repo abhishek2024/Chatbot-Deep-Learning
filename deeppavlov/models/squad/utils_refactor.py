@@ -200,7 +200,7 @@ class PtrNet:
 
 
 def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0,
-                  use_gate=True, drop_diag=False, use_transpose_att=False, inputs_mask=None,
+                  use_gate=True, drop_diag=False, use_transpose_att=False, inputs_mask=None, concat_inputs=True,
                   scope="dot_attention"):
     """Computes attention vector for each item in inputs:
        attention vector is a weighted sum of memory items.
@@ -246,7 +246,10 @@ def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0,
             att_weights = tf.nn.softmax(softmax_mask(logits, mask))
             outputs = tf.matmul(att_weights, memory)
 
-            res = tf.concat([inputs, outputs], axis=2)
+            if concat_inputs:
+                res = tf.concat([inputs, outputs], axis=2)
+            else:
+                res = outputs
 
             # like in QA-NET and DCN: S * SS_T * C
             if use_transpose_att:
