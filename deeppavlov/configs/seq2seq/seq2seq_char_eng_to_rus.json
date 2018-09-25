@@ -104,7 +104,7 @@
         "lear_rate_decay": 0.0001,
         "loss": "categorical_crossentropy",
         "hidden_size": 128,
-        "model_name": "lstm_lstm_model"
+        "model_name": "gru_gru_model"
       },
       {
         "ref": "y_chars_vocab",

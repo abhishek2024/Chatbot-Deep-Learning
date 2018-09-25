@@ -208,7 +208,7 @@ class KerasSeq2SeqCharModel(KerasModel):
 
         return np.asarray(cutted_batch)
 
-    def lstm_lstm_model(self,
+    def gru_gru_model(self,
                         hidden_size: int = 300,
                         encoder_coef_reg_lstm: float = 0.,
                         encoder_dropout_rate: float = 0.,
