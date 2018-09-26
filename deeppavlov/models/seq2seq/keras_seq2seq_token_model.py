@@ -365,7 +365,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
         _train_decoder_outputs, _train_decoder_state = decoder_gru(
             self._decoder_emb_inp,
             initial_state=self._encoder_state)
-        self._train_decoder_state = masking_sequences(_train_decoder_state, self._decoder_inp_lengths)
+        self._train_decoder_state = masking_sequences(_train_decoder_outputs, self._decoder_inp_lengths)
 
         _infer_decoder_outputs, self._infer_decoder_state = decoder_gru(
             self._decoder_emb_inp,
