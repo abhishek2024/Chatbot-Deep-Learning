@@ -3,7 +3,8 @@ import numpy as np
 from deeppavlov.dataset_iterators.sqlite_iterator import SQLiteDataIterator
 from deeppavlov.skills.odqa.basic_neural_context_encoder import BasicNeuralContextEncoder
 
-iterator = SQLiteDataIterator(load_path='/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki_full_chunk.db')
+iterator = SQLiteDataIterator(load_path='/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki.db',
+                              shuffle=False)
 encoder = BasicNeuralContextEncoder(load_path='/media/olga/Data/projects/DeepPavlov/download/bnr/model')
 SAVE_PATH = '/media/olga/Data/projects/DeepPavlov/download/odqa/chunk_vectors_{}'
 
