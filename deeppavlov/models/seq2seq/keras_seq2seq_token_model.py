@@ -262,7 +262,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
             **kwargs: additional arguments
 
         Returns:
-            keras model for training
+            keras model for training, also initializes encoder and decoder model separately for infering
         """
 
         self._build_encoder(hidden_size,
@@ -299,7 +299,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
                        encoder_dropout_rate: float,
                        encoder_rec_dropout_rate: float) -> None:
         """
-        Initialize encoder layers
+        Initialize encoder layers for GRU encoder
 
         Args:
             hidden_size: size of the hidden layer of encoder and decoder
@@ -335,7 +335,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
                        decoder_dropout_rate: float,
                        decoder_rec_dropout_rate: float) -> None:
         """
-        Initialize decoder layers
+        Initialize decoder layers for GRU decoder
 
         Args:
             hidden_size: size of the hidden layer of encoder and decoder
@@ -377,24 +377,26 @@ class KerasSeq2SeqTokenModel(KerasModel):
 
         return None
 
-    def train_on_batch(self, *args: Tuple[List[int], List[int]], **kwargs) -> Union[float, List[float]]:
+    def train_on_batch(self, x: Tuple[List[np.ndarray]], y: Tuple[List[int]], **kwargs) -> Union[float, List[float]]:
+        # def train_on_batch(self, *args: Tuple[List[int], List[int]], **kwargs) -> Union[float, List[float]]:
         """
         Train the self.model on the given batch using teacher forcing
 
         Args:
-            args: list of tokenized text samples
+            x: list of tokenized embedded input samples
+            y: list of output samples where each sample is a list of indices of tokens
             kwargs: additional arguments
 
         Returns:
             metrics values on the given batch
         """
-        pad_emb_enc_inputs, enc_inp_lengths = self.pad_texts(args[0],
+        pad_emb_enc_inputs, enc_inp_lengths = self.pad_texts(x,
                                                              text_size=self.opt["src_max_length"],
                                                              embedding_size=self.opt["encoder_embedding_size"],
                                                              return_lengths=True)
         dec_inputs = [[self.opt["tgt_sos_id"]] +
                       list(sample) + [self.opt["tgt_eos_id"]]
-                      for sample in args[1]]  # (bs, ts + 2) of integers (tokens ids)
+                      for sample in y]  # (bs, ts + 2) of integers (tokens ids)
         text_dec_inputs = self.decoder_vocab(dec_inputs)
 
         pad_emb_dec_inputs, dec_inp_lengths = self.texts2decoder_embeddings(
@@ -403,15 +405,11 @@ class KerasSeq2SeqTokenModel(KerasModel):
             embedding_size=self.opt["decoder_embedding_size"],
             return_lengths=True)
 
-        # pad_emb_dec_outputs = self.texts2decoder_embeddings(args[1],
-        #                                                     text_size=self.opt["tgt_max_length"],
-        #                                                     embedding_size=self.opt["decoder_embedding_size"])
-        pad_dec_outputs = self.pad_texts(args[1],
+        pad_dec_outputs = self.pad_texts(y,
                                          text_size=self.opt["tgt_max_length"],
                                          embedding_size=None,
                                          padding_token_id=self.opt["tgt_pad_id"])
         pad_onehot_dec_outputs = self._ids2onehot(pad_dec_outputs, vocab_size=self.opt["tgt_vocab_size"])
-
 
         metrics_values = self.model.train_on_batch([pad_emb_enc_inputs,
                                                     np.hstack((np.arange(len(enc_inp_lengths)).reshape(-1, 1),
@@ -422,19 +420,18 @@ class KerasSeq2SeqTokenModel(KerasModel):
                                                    pad_onehot_dec_outputs)
         return metrics_values
 
-    def infer_on_batch(self, *args: Tuple[Tuple[np.ndarray]], **kwargs) -> List[List[int]]:
+    def infer_on_batch(self, x: List[List[np.ndarray]], **kwargs) -> List[List[int]]:
         """
-        Infer self.encoder_model and self.decoder_model  on the given data (no teacher forcing)
+        Infer self.encoder_model and self.decoder_model on the given data (no teacher forcing)
 
         Args:
-            *args: encoder inputs (tokenized embedded sentences)
+            x: list of tokenized embedded input samples
             **kwargs: additional arguments
 
         Returns:
-            tokenized indexed decoder predictions
+            list of decoder predictions where each prediction is a list of indices of tokens
         """
-        batch = args[0][0]
-        pad_emb_enc_inputs, enc_inp_lengths = self.pad_texts(batch,
+        pad_emb_enc_inputs, enc_inp_lengths = self.pad_texts(x,
                                                              text_size=self.opt["src_max_length"],
                                                              embedding_size=self.opt["encoder_embedding_size"],
                                                              return_lengths=True)
@@ -443,7 +440,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
                                                                enc_inp_lengths.reshape(-1, 1)))])
 
         predicted_batch = []
-        for i in range(len(batch)):  # batch size
+        for i in range(len(x)):  # batch size
             predicted_sample = []
 
             current_token = self.decoder_embedder([[self.decoder_vocab[self.opt["tgt_sos_id"]]]])[0][0]  # (300,)
@@ -466,21 +463,22 @@ class KerasSeq2SeqTokenModel(KerasModel):
 
         return predicted_batch
 
-    def __call__(self, *args: Tuple[Tuple[np.ndarray]], **kwargs) -> np.ndarray:
+    def __call__(self, x: List[List[np.ndarray]], **kwargs) -> np.ndarray:
         """
-        Infer self.encoder_model and self.decoder_model on the given data
+        Infer self.encoder_model and self.decoder_model on the given data (no teacher forcing)
 
         Args:
-            *args: encoder inputs (tokenized embedded sentences)
+            x: list of tokenized embedded input samples
             **kwargs: additional arguments
 
         Returns:
-            tokenized indexed decoder predictions
+            list of decoder predictions where each prediction is a list of indices of tokens
         """
-        predictions = np.array(self.infer_on_batch(args))
+        predictions = np.array(self.infer_on_batch(x))
         return predictions
 
-    def _probas2ids(self, data: List[List[np.ndarray]]) -> np.ndarray:
+    @staticmethod
+    def _probas2ids(data: List[List[np.ndarray]]) -> np.ndarray:
         """
         Convert vectors of probabilities distribution of tokens in the vocabulary \
         or one-hot token representations in the vocabulary  \
@@ -490,22 +488,23 @@ class KerasSeq2SeqTokenModel(KerasModel):
             data: list of tokenized samples where each sample is a list of np.ndarray of vocabulary size
 
         Returns:
-            tokenized samples where each sample is a list of token's id
+            tokenized samples where each sample is a list of token's ids
         """
         ids_data = np.asarray([[np.argmax(token) for token in sample] for sample in data])
 
         return ids_data
 
-    def _ids2onehot(self, data: Union[List[List[int]], Tuple[List[int]]], vocab_size: int) -> np.ndarray:
+    @staticmethod
+    def _ids2onehot(data: Union[List[List[int]], Tuple[List[int]]], vocab_size: int) -> np.ndarray:
         """
         Convert token ids to one-hot representations in vocabulary of size vocab_size
 
         Args:
-            data: list of tokenized samples where each sample is a list of token's id
+            data: list of tokenized samples where each sample is a list of token's ids
             vocab_size: size of the vocabulary
 
         Returns:
-            tokenized samples where each sample is a list of np.ndarrat of vocabulary size
+            tokenized samples where each sample is a list of np.ndarrays of vocabulary size
         """
         onehot = np.eye(vocab_size)
         onehot_data = np.asarray([[onehot[token] for token in sample] for sample in data])
