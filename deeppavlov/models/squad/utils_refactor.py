@@ -368,7 +368,7 @@ def character_embedding_layer(ids, char_encoder_hidden_size, keep_prob, emb_mat_
 
         if transform_char_emb != 0:
             # apply dense layer to transform pretrained vectors to another dim
-            c_emb = transform_layer(c_emb, transform_char_emb, keep_prob=keep_prob, reuse=reuse)
+            c_emb = transform_layer(c_emb, transform_char_emb, reuse=reuse)
 
         _, (state_fw, state_bw) = cudnn_bi_gru(c_emb, char_encoder_hidden_size, seq_lengths=tokens_lens,
                                                trainable_initial_states=True, reuse=reuse)
@@ -391,10 +391,10 @@ def elmo_embedding_layer(tokens, elmo_module):
     return tokens_emb
 
 
-def transform_layer(inputs, transform_hidden_size, keep_prob, scope='transform_layer', reuse=False):
+def transform_layer(inputs, transform_hidden_size, scope='transform_layer', reuse=False):
     with tf.variable_scope(scope, reuse=reuse):
         transformed = tf.layers.dense(
-            tf.layers.dense(variational_dropout(inputs, keep_prob), transform_hidden_size, activation=tf.nn.relu,
+            tf.layers.dense(inputs, transform_hidden_size, activation=tf.nn.relu,
                             kernel_initializer=tf.contrib.layers.xavier_initializer(),
                             name='transform_dense_1'),
             transform_hidden_size,
@@ -402,3 +402,23 @@ def transform_layer(inputs, transform_hidden_size, keep_prob, scope='transform_l
             name='transform_dense_2'
         )
     return transformed
+
+
+def highway_layer(x, y, use_combinations=False, regularizer=None, scope='highway_layer', reuse=False):
+    with tf.variable_scope(scope, reuse=reuse):
+        hidden_size = x.get_shape()[-1]
+        inputs = tf.concat([x, y], axis=-1)
+        if use_combinations:
+            inputs = tf.concat([inputs, x * y, x - y], axis=-1)
+
+        gate = tf.layers.dense(inputs, hidden_size, activation=tf.sigmoid,
+                               kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                               kernel_regularizer=regularizer,
+                               )
+
+        x_y_repr = tf.layers.dense(inputs, hidden_size, activation=tf.nn.relu,
+                                   kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                   kernel_regularizer=regularizer,
+                                   )
+
+    return gate * x_y_repr + (1 - gate) * x

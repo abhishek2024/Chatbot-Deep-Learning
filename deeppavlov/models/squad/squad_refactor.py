@@ -65,7 +65,10 @@ class SquadModelRef(TFModel):
         self.transform_char_emb = self.opt.get('transform_char_emb', 0)
         self.transform_word_emb = self.opt.get('transform_word_emb', 0)
         self.drop_diag_self_att = self.opt.get('drop_diag_self_att', False)
-        self.use_birnn_after_qc_att = self.opt.get('use_birnn_after_qc_att', True)
+        self.use_birnn_after_coatt = self.opt.get('use_birnn_after_coatt', True)
+        self.use_birnn_after_selfatt = self.opt.get('use_birnn_after_selfatt', True)
+        self.use_highway_after_coatt = self.opt.get('use_highway_after_coatt', False)
+        self.use_highway_after_selfatt = self.opt.get('use_highway_after_selfatt', False)
         self.use_transpose_att = self.opt.get('use_transpose_att', False)
         self.hops_keep_prob = self.opt.get('hops_keep_prob', 0.6)
         self.number_of_hops = self.opt.get('number_of_hops', 1)
@@ -80,6 +83,9 @@ class SquadModelRef(TFModel):
         self.elmo_link = self.opt.get('elmo_link', 'https://tfhub.dev/google/elmo/2')
         self.use_soft_match_features = self.opt.get('use_soft_match_features', False)
         self.l2_norm = self.opt.get('l2_norm', None)
+        self.concat_att_inputs = self.opt.get('concat_att_inputs', True)
+
+
         # TODO: add l2 norm to all dense layers and variables
 
         assert self.number_of_hops > 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
@@ -129,10 +135,8 @@ class SquadModelRef(TFModel):
         c_emb, q_emb = self._add_token_features(c_emb, q_emb)
 
         if self.transform_word_emb != 0:
-            c_emb = transform_layer(c_emb, self.transform_word_emb, keep_prob=self.keep_prob_ph,
-                                    scope='transform_word_emb')
-            q_emb = transform_layer(q_emb, self.transform_word_emb, keep_prob=self.keep_prob_ph,
-                                    scope='transform_word_emb', reuse=True)
+            c_emb = transform_layer(c_emb, self.transform_word_emb, scope='transform_word_emb')
+            q_emb = transform_layer(q_emb, self.transform_word_emb, scope='transform_word_emb', reuse=True)
 
         if self.use_elmo:
             # TODO: also add elmo after encoding layer
@@ -144,35 +148,49 @@ class SquadModelRef(TFModel):
             c_emb = tf.concat([c_emb, c_elmo], axis=2)
             q_emb = tf.concat([q_emb, q_elmo], axis=2)
 
-        with tf.variable_scope("encoding"):
+        with tf.variable_scope('encoding'):
             rnn = self.GRU(num_layers=self.num_encoder_layers, num_units=self.hidden_size, batch_size=self.bs,
                            input_size=c_emb.get_shape().as_list()[-1],
                            keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
             c = rnn(c_emb, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
             q = rnn(q_emb, seq_len=self.q_len, concat_layers=self.concat_bigru_outputs)
 
-        with tf.variable_scope("attention"):
+        with tf.variable_scope('co-attention'):
             qc_att = dot_attention(c, q, mask=self.q_mask, att_size=self.attention_hidden_size,
                                    keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
-                                   use_transpose_att=self.use_transpose_att)
+                                   use_transpose_att=self.use_transpose_att, concat_inputs=self.concat_att_inputs)
 
-            if self.use_birnn_after_qc_att:
+            if self.use_highway_after_coatt:
+                qc_att = highway_layer(variational_dropout(c, keep_prob=self.keep_prob_ph),
+                                       variational_dropout(qc_att, keep_prob=self.keep_prob_ph),
+                                       use_combinations=True, regularizer=tf.nn.l2_loss)
+
+            if self.use_birnn_after_coatt:
                 rnn = self.GRU(num_layers=self.num_match_layers, num_units=self.hidden_size, batch_size=self.bs,
                                input_size=qc_att.get_shape().as_list()[-1],
                                keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
                 qc_att = rnn(qc_att, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
 
-        if self.predict_ans:
-            with tf.variable_scope("match"):
-                self_att = dot_attention(qc_att, qc_att, mask=self.c_mask, att_size=self.attention_hidden_size,
-                                         keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
-                                         drop_diag=self.drop_diag_self_att, use_transpose_att=False)
-                rnn = self.GRU(num_layers=self.num_match_layers, num_units=self.hidden_size, batch_size=self.bs,
-                               input_size=self_att.get_shape().as_list()[-1],
-                               keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
-                match = rnn(self_att, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
 
-            with tf.variable_scope("pointer"):
+        with tf.variable_scope('self-attention'):
+            match = dot_attention(qc_att, qc_att, mask=self.c_mask, att_size=self.attention_hidden_size,
+                                  keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
+                                  drop_diag=self.drop_diag_self_att, use_transpose_att=False,
+                                  concat_inputs=self.concat_att_inputs)
+
+            if self.use_highway_after_selfatt:
+                match = highway_layer(variational_dropout(qc_att, keep_prob=self.keep_prob_ph),
+                                      variational_dropout(match, keep_prob=self.keep_prob_ph),
+                                      use_combinations=True, regularizer=tf.nn.l2_loss)
+
+        if self.use_birnn_after_selfatt:
+            rnn = self.GRU(num_layers=self.num_match_layers, num_units=self.hidden_size, batch_size=self.bs,
+                           input_size=match.get_shape().as_list()[-1],
+                           keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
+            match = rnn(match, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
+
+        if self.predict_ans:
+            with tf.variable_scope('pointer'):
                 init = simple_attention(q, self.attention_hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph)
                 if self.number_of_hops == 1:
                     # default model
@@ -219,7 +237,7 @@ class SquadModelRef(TFModel):
                                                            noise_shape=(self.bs, self.number_of_hops, 1)),
                                              axis=1)
 
-        with tf.variable_scope("predict"):
+        with tf.variable_scope('predict'):
             if self.predict_ans and not self.shared_loss:
                 outer_logits = tf.exp(tf.expand_dims(logits1, axis=2) + tf.expand_dims(logits2, axis=1))
                 outer = tf.matmul(tf.expand_dims(tf.nn.softmax(logits1), axis=2),
@@ -442,8 +460,8 @@ class SquadModelRef(TFModel):
                 self.y2 = self.y2 / tf.expand_dims(tf.maximum(tf.reduce_sum(self.y2, axis=-1), 1e-3), axis=-1)
 
     def _build_token_embeddings(self):
-        with tf.variable_scope("emb"):
-            with tf.variable_scope("char"):
+        with tf.variable_scope('emb'):
+            with tf.variable_scope('char'):
 
                 cc_emb = character_embedding_layer(self.cc, self.char_hidden_size, keep_prob=self.keep_prob_ph,
                                                    emb_mat_init=self.init_char_emb,
@@ -457,7 +475,7 @@ class SquadModelRef(TFModel):
                                                    regularizer=tf.nn.l2_loss,
                                                    transform_char_emb=self.transform_char_emb, reuse=True)
 
-            with tf.variable_scope("word"):
+            with tf.variable_scope('word'):
                 c_emb = embedding_layer(self.c, self.init_word_emb, trainable=False)
                 q_emb = embedding_layer(self.q, self.init_word_emb, trainable=False)
 
@@ -466,7 +484,7 @@ class SquadModelRef(TFModel):
         return c_emb, q_emb
 
     def _add_token_features(self, c_emb, q_emb):
-        with tf.variable_scope("features"):
+        with tf.variable_scope('features'):
             if self.use_soft_match_features:
                 c_soft_match = dot_attention(c_emb, q_emb, mask=self.q_mask,
                                                       att_size=self.attention_hidden_size,
@@ -660,7 +678,7 @@ class SquadModelRef(TFModel):
         return yp1s, yp2s, [float(p) for p in prob], [float(logit) for logit in logits]
 
     def process_event(self, event_name, data):
-        if event_name == "after_validation":
+        if event_name == 'after_validation':
             # learning rate decay
             if data['impatience'] > self.last_impatience:
                 self.lr_impatience += 1
@@ -674,7 +692,7 @@ class SquadModelRef(TFModel):
                 self.learning_rate = max(self.learning_rate / 2, self.min_learning_rate)
                 logger.info('SQuAD model: learning_rate changed to {}'.format(self.learning_rate))
             logger.info('SQuAD model: lr_impatience: {}, learning_rate: {}'.format(self.lr_impatience, self.learning_rate))
-        elif event_name == "before_validation":
+        elif event_name == 'before_validation':
             if self.weight_decay < 1.0:
                 # validate model with EMA weights
 
@@ -684,7 +702,7 @@ class SquadModelRef(TFModel):
                 self.save(path=self.tmp_model_path)
                 # load ema weights
                 self._assign_ema_weights()
-        elif event_name == "before_saving_improved_model":
+        elif event_name == 'before_saving_improved_model':
             if self.weight_decay < 1.0:
                 # load from tmp weights and do not call _assign_ema_weigts
                 self.load(path=self.tmp_model_path)
