@@ -40,7 +40,7 @@ log = get_logger(__name__)
 @register("keras_seq2seq_char_model")
 class KerasSeq2SeqCharModel(KerasModel):
     """
-    Class implements Keras model for seq2seq task
+    Class implements Keras model for seq2seq task on char-level
 
     Args:
         hidden_size: size of the hidden layer of encoder and decoder
@@ -64,9 +64,9 @@ class KerasSeq2SeqCharModel(KerasModel):
         opt: dictionary with model parameters
         decoder_embedder: decoder's embedder component
         decoder_vocab: decoder's vocab component
-        encoder_model:
-        decoder_model:
-        model:
+        encoder_model: Keras model for encoder (for infering)
+        decoder_model: Keras model for decoder (for infering)
+        model: Keras model of connected encoder and decoder (for training)
 
     """
     def __init__(self,
@@ -83,13 +83,13 @@ class KerasSeq2SeqCharModel(KerasModel):
                  target_max_length: int = None,
                  model_name: str = "lstm_lstm_model",
                  optimizer: str = "Adam",
-                 loss: str = "binary_crossentropy",
+                 loss: str = "categorical_crossentropy",
                  lear_rate: float = 0.01,
                  lear_rate_decay: float = 0.,
                  restore_lr: bool = False,
                  **kwargs):
         """
-        Initialize model using parameters from config.
+        Initialize models for training and infering using parameters from config.
         """
         decoder_embedding_size = kwargs.pop("decoder_embedding_size")
 
@@ -231,7 +231,7 @@ class KerasSeq2SeqCharModel(KerasModel):
             **kwargs: additional arguments
 
         Returns:
-            keras model for training
+            keras model for training, also initializes encoder and decoder model separately for infering
         """
 
         self._build_encoder(hidden_size,
@@ -268,7 +268,7 @@ class KerasSeq2SeqCharModel(KerasModel):
                        encoder_dropout_rate: float,
                        encoder_rec_dropout_rate: float) -> None:
         """
-        Initialize encoder layers
+        Initialize encoder layers for GRU encoder
 
         Args:
             hidden_size: size of the hidden layer of encoder and decoder
@@ -306,7 +306,7 @@ class KerasSeq2SeqCharModel(KerasModel):
                        decoder_dropout_rate: float,
                        decoder_rec_dropout_rate: float) -> None:
         """
-        Initialize decoder layers
+        Initialize decoder layers for GRU decoder
 
         Args:
             hidden_size: size of the hidden layer of encoder and decoder
@@ -351,28 +351,29 @@ class KerasSeq2SeqCharModel(KerasModel):
 
         return None
 
-    def train_on_batch(self, *args: Tuple[Tuple[List[int]], Tuple[List[int]]], **kwargs) -> Union[float, List[float]]:
+    def train_on_batch(self, x: Tuple[List[int]], y: Tuple[List[int]], **kwargs) -> Union[float, List[float]]:
         """
         Train the self.model on the given batch using teacher forcing
 
         Args:
-            args: list of text samples where each sample is a list
+            x: list of input samples where each sample is a list of indices of chars
+            y: list of output samples where each sample is a list of indices of chars
             kwargs: additional arguments
 
         Returns:
             metrics values on the given batch
         """
-        pad_enc_inputs, enc_inp_lengths = self.pad_texts(args[0],
+        pad_enc_inputs, enc_inp_lengths = self.pad_texts(x,
                                                          self.opt["src_max_length"],
                                                          padding_char_id=self.opt["src_pad_id"],
                                                          return_lengths=True)
         dec_inputs = [[self.opt["tgt_sos_id"]] + list(sample) + [self.opt["tgt_eos_id"]]
-                      for sample in args[1]]  # (bs, ts + 2) of integers (tokens ids)
+                      for sample in y]  # (bs, ts + 2) of integers (tokens ids)
         pad_dec_inputs, dec_inp_lengths = self.pad_texts(dec_inputs,
                                                          self.opt["tgt_max_length"],
                                                          padding_char_id=self.opt["tgt_pad_id"],
                                                          return_lengths=True)
-        pad_dec_outputs = self.pad_texts(args[1],
+        pad_dec_outputs = self.pad_texts(y,
                                          self.opt["tgt_max_length"],
                                          padding_char_id=self.opt["tgt_pad_id"])
         pad_onehot_dec_outputs = self._ids2onehot(pad_dec_outputs, self.opt["tgt_vocab_size"])
@@ -386,19 +387,18 @@ class KerasSeq2SeqCharModel(KerasModel):
                                                    pad_onehot_dec_outputs)
         return metrics_values
 
-    def infer_on_batch(self, *args: Tuple[List[List[int]]], **kwargs) -> List[List[int]]:
+    def infer_on_batch(self, x: List[List[int]], **kwargs) -> List[List[int]]:
         """
-        Infer self.encoder_model and self.decoder_model  on the given data (no teacher forcing)
+        Infer self.encoder_model and self.decoder_model on the given data (no teacher forcing)
 
         Args:
-            *args: encoder inputs (args[0][0] is a list of samples, each sample is a list of indexes of characters)
+            x: list of input samples where each sample is a list of indices of chars
             **kwargs: additional arguments
 
         Returns:
-            tokenized indexed decoder predictions
+            list of decoder predictions where each prediction is a list of indices of chars
         """
-        batch = args[0][0]
-        pad_enc_inputs, enc_inp_lengths = self.pad_texts(batch,
+        pad_enc_inputs, enc_inp_lengths = self.pad_texts(x,
                                                          self.opt["src_max_length"],
                                                          padding_char_id=self.opt["src_pad_id"],
                                                          return_lengths=True)
@@ -407,7 +407,7 @@ class KerasSeq2SeqCharModel(KerasModel):
                                                                enc_inp_lengths.reshape(-1, 1)))])
 
         predicted_batch = []
-        for i in range(len(batch)):  # batch size
+        for i in range(len(x)):  # batch size
             predicted_sample = []
 
             current_char = self.opt["tgt_sos_id"]
@@ -421,54 +421,56 @@ class KerasSeq2SeqCharModel(KerasModel):
                 current_char = self._probas2ids(char_probas)[0][0]
                 predicted_sample.append(current_char)
                 if (current_char == self.opt["tgt_eos_id"] or
-                    current_char == self.opt["tgt_pad_id"] or
-                    len(predicted_sample) == self.opt["tgt_max_length"]):
+                        current_char == self.opt["tgt_pad_id"] or
+                        len(predicted_sample) == self.opt["tgt_max_length"]):
                     end_of_sequence = True
 
             predicted_batch.append(predicted_sample)
 
         return predicted_batch
 
-    def __call__(self, *args: Tuple[List[List[int]]], **kwargs) -> np.ndarray:
+    def __call__(self, x: List[List[int]], **kwargs) -> np.ndarray:
         """
-        Infer self.encoder_model and self.decoder_model on the given data
+        Infer self.encoder_model and self.decoder_model on the given data (no teacher forcing)
 
         Args:
-            *args: encoder inputs
+            x: list of input samples where each sample is a list of indices of chars
             **kwargs: additional arguments
 
         Returns:
-            tokenized indexed decoder predictions
+            array of decoder predictions where each prediction is a list of indices of chars
         """
-        predictions = np.array(self.infer_on_batch(args))
+        predictions = np.array(self.infer_on_batch(x))
         return predictions
 
-    def _probas2ids(self, data: List[List[np.ndarray]]) -> np.ndarray:
+    @staticmethod
+    def _probas2ids(data: List[List[np.ndarray]]) -> np.ndarray:
         """
         Convert vectors of probabilities distribution of chars in the vocabulary \
         or one-hot token representations in the vocabulary  \
         to corresponding token ids
 
         Args:
-            data: list of tokenized samples where each sample is a list of np.ndarray of vocabulary size
+            data: list of samples where each sample is a list of np.ndarray of vocabulary size
 
         Returns:
-            tokenized samples where each sample is a list of token's id
+            samples where each sample is a list of char's id
         """
         ids_data = np.asarray([[np.argmax(char) for char in sample] for sample in data])
 
         return ids_data
 
-    def _ids2onehot(self, data: Union[List[List[int]], Tuple[List[int]]], vocab_size: int) -> np.ndarray:
+    @staticmethod
+    def _ids2onehot(data: Union[List[List[int]], Tuple[List[int]]], vocab_size: int) -> np.ndarray:
         """
         Convert token ids to one-hot representations in vocabulary of size vocab_size
 
         Args:
-            data: list of tokenized samples where each sample is a list of token's id
+            data: list of samples where each sample is a list of char's id
             vocab_size: size of the vocabulary
 
         Returns:
-            tokenized samples where each sample is a list of np.ndarrat of vocabulary size
+            samples where each sample is a list of np.ndarrays of vocabulary size
         """
         onehot = np.eye(vocab_size)
         onehot_data = np.asarray([[onehot[char] for char in sample] for sample in data])

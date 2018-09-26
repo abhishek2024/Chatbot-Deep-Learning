@@ -64,9 +64,9 @@ class KerasSeq2SeqTokenModel(KerasModel):
         opt: dictionary with model parameters
         decoder_embedder: decoder's embedder component
         decoder_vocab: decoder's vocab component
-        encoder_model:
-        decoder_model:
-        model:
+        encoder_model: Keras model for encoder (for infering)
+        decoder_model: Keras model for decoder (for infering)
+        model: Keras model of connected encoder and decoder (for training)
 
     """
     def __init__(self,
@@ -378,7 +378,6 @@ class KerasSeq2SeqTokenModel(KerasModel):
         return None
 
     def train_on_batch(self, x: Tuple[List[np.ndarray]], y: Tuple[List[int]], **kwargs) -> Union[float, List[float]]:
-        # def train_on_batch(self, *args: Tuple[List[int], List[int]], **kwargs) -> Union[float, List[float]]:
         """
         Train the self.model on the given batch using teacher forcing
 
@@ -472,7 +471,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
             **kwargs: additional arguments
 
         Returns:
-            list of decoder predictions where each prediction is a list of indices of tokens
+            array of decoder predictions where each prediction is a list of indices of tokens
         """
         predictions = np.array(self.infer_on_batch(x))
         return predictions
