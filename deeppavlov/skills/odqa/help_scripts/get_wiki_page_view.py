@@ -2,13 +2,17 @@ import requests
 import unicodedata
 import json
 from urllib import parse
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(Path(__file__) / ".." / ".." / ".." / ".." / "..").resolve()))
 
 from deeppavlov.dataset_iterators.sqlite_iterator import SQLiteDataIterator
 from deeppavlov.core.common.file import save_json, read_json
 
 DB_PATH = '/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki.db'
 URL = 'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia.org/all-access/all-agents/{}/monthly/20171105/20181105'
-SAVE_PATH = 'popularities.json'
+SAVE_PATH = '/media/olga/Data/datasets/squad/popularities.json'
 # headers = {
 #     'Content-Type': 'application/json',
 # }
@@ -18,6 +22,7 @@ doc_ids = iterator.get_doc_ids()
 del iterator
 title2popularity = read_json(SAVE_PATH)
 
+count = 0
 for orig_title in doc_ids:
     try:
         try:
@@ -39,7 +44,6 @@ for orig_title in doc_ids:
         title = title.replace("ü", "ü")
         title = title.replace("ī", "ī")
         title = title.replace("+", '%2B')
-
 
         if orig_title == "&quot;Chūsotsu&quot; &quot;Chūkara&quot;":
             title = '\"Chūsotsu\" \"Chūkara\"'
@@ -73,6 +77,11 @@ for orig_title in doc_ids:
             popularities = [item['views'] for item in response['items']]
         popularity = sum(popularities) / len(popularities)
         title2popularity[orig_title] = popularity
+
+        count += 1
+        if count == 10000:
+            save_json(title2popularity, SAVE_PATH)
+            count = 0
     except KeyError:
         save_json(title2popularity, SAVE_PATH)
         print(orig_title)
@@ -85,4 +94,3 @@ for orig_title in doc_ids:
         pass
 
 save_json(title2popularity, SAVE_PATH)
-
