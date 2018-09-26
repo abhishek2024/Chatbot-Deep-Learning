@@ -142,10 +142,9 @@
       "per_token_accuracy"
     ],
     "validation_patience": 5,
-    "log_every_n_batches": 100,
     "val_every_n_epochs": 1,
     "log_every_n_epochs": 1,
-    "show_examples": true,
+    "show_examples": false,
     "validate_best": true,
     "test_best": true
   },
