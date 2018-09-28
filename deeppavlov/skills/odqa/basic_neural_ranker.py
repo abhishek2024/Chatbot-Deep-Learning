@@ -143,36 +143,27 @@ class BasicNeuralRankerEncoder(TFModel):
 
         # self.train_op = tf.train.MomentumOptimizer(self.learning_rate, 0).minimize(self.loss)
 
-    def _build_feed_dict(self, query, chunk):
-        # assert len(query) == len(chunk)
+    def _build_feed_dict(self, inputs):
+        query = inputs[0]['question']
+        chunk = inputs[0]['contexts']
+        chunk = [ch if isinstance(ch, str) else ch[1] for ch in chunk]
         query = list(filter(lambda x: x != '', sent_tokenize(query)))
         chunk = [list(filter(lambda x: x != '', sent_tokenize(ch))) for ch in chunk]
         q_len = len(query)
         c_len = [len(el) for el in chunk]
         q_pad = self._pad_sentences(query, self.question_pad_size)
         c_pad = self._pad_sentences(chunk, self.context_pad_size)
-        # print(c_pad)
-        # print(type(c_pad))
-        # print(type(c_pad[0]))
-        # print([len(c) for c in c_pad])
         feed_dict = {self.q_ph: q_pad, self.c_ph: c_pad, self.q_len_ph: q_len, self.c_len_ph: c_len}
         return feed_dict
 
-    def train_on_batch(self, x, *args, **kwargs):
-        query = x[0]['question']
-        chunk = x[0]['contexts']
-        chunk = [ch if isinstance(ch, str) else ch[1] for ch in chunk]
-        feed_dict = self._build_feed_dict(query, chunk)
+    def train_on_batch(self, inputs, *args, **kwargs):
+        feed_dict = self._build_feed_dict(inputs)
         loss, _ = self.sess.run([self.loss, self.train_op], feed_dict)
         return loss
 
-    def __call__(self, x):
-        query = x[0]['question']
-        chunk = x[0]['contexts']
-        chunk = [ch if isinstance(ch, str) else ch[1] for ch in chunk]
-        feed_dict = self._build_feed_dict(query, chunk)
+    def __call__(self, inputs):
+        feed_dict = self._build_feed_dict(inputs)
         res = self.sess.run(self.prob, feed_dict)
-        # print(res)
         return res
 
     @staticmethod
