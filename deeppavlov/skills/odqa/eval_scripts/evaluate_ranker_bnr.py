@@ -6,11 +6,10 @@ import csv
 import re
 import string
 
-import matplotlib.pylab as plt
 import numpy as np
 
 # from deeppavlov.core.commands.infer import build_model_from_config
-from deeppavlov.core.common.file import read_json
+from deeppavlov.core.common.file import read_json, save_json
 from deeppavlov.models.tokenizers.spacy_tokenizer import StreamSpacyTokenizer
 from deeppavlov.skills.odqa.basic_neural_query_encoder import BasicNeuralQueryEncoder
 from deeppavlov.vocabs.wiki_sqlite import WikiSQLiteVocab
@@ -25,13 +24,15 @@ logger.addHandler(file)
 parser = argparse.ArgumentParser()
 
 parser.add_argument("-context_path", help="path to a saved numpy array with context vectors", type=str,
-                    default='/media/olga/Data/projects/DeepPavlov/download/odqa/chunk_vectors.npy')
+                    default='/media/olga/Data/projects/DeepPavlov/download/odqa/chunk_vectors_stacked.npy')
 parser.add_argument("-query_encoder_model", help="path to a query encoder model", type=str,
                     default='/media/olga/Data/projects/DeepPavlov/download/bnr/model')
 parser.add_argument("-dataset_path", help="path to SQuAD dataset", type=str,
-                    default='/media/olga/Data/projects/ODQA/data/squad/preproc/dev-v1.1_prep_4ranker.json')
+                    default='/media/olga/Data/datasets/squad/preproc/dev-v1.1_prep_4ranker.json')
 parser.add_argument("-db_path", help="path to wiki chunk db", type=str,
                     default='/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki_full_chunk.db')
+parser.add_argument("-ranker_save_path", help="where top n ranker answers should be stored", type=str,
+                    default='ranker_answers_bnr_top_50.json')
 
 TOKENIZER = StreamSpacyTokenizer()
 
@@ -123,13 +124,13 @@ def main():
     vocab = WikiSQLiteVocab(load_path=args.db_path, join_docs=False)
     context_vectors = np.load(args.context_path)
     dataset = read_json(args.dataset_path)
-    # dataset = dataset[:10]
+    dataset = dataset[:10]
 
     qa_dataset_size = len(dataset)
     logger.info('QA dataset size: {}'.format(qa_dataset_size))
     # n_queries = 0  # DEBUG
     start_time = time.time()
-    N_CHUNKS = 15
+    N_CHUNKS = 50
 
     try:
         mapping = {}
@@ -140,13 +141,14 @@ def main():
             _answers = []
             for q in questions:
                 q_vector = q_encoder(q)
-                dots = np.matmul(q_vector, context_vectors)
-                ids = np.argsort(dots)[:N_CHUNKS]
-                _texts = vocab(ids)
+                dots = np.matmul(q_vector, context_vectors.transpose())
+                ids = np.squeeze(dots).argsort()[-N_CHUNKS:][::-1]
+                _texts, _ = vocab([ids.tolist()])
                 _answers.append(_texts)
             return _answers
 
         ranker_answers = get_ranker_answers([i['question'] for i in dataset])
+        save_json(ranker_answers, args.ranker_save_path)
         returned_db_size = len(ranker_answers[0])
         logger.info("Returned DB size: {}".format(returned_db_size))
 
@@ -157,7 +159,7 @@ def main():
             i = 1
             for qa, ranker_answer in zip(dataset, ranker_answers):
                 answers = qa['answers']
-                texts = ranker_answer[:n]
+                texts = ranker_answer[0][:n]
                 correct_answers += instance_score(answers, texts)
                 pmef_correct_answers += pmef_instance_score(answers, texts)
                 drqa_correct_answers += drqa_instance_score(answers, texts)
@@ -182,16 +184,6 @@ def main():
         logger.info("Quality mapping: {}".format(mapping))
         logger.info("PMEF quality mapping: {}".format(pmef_mapping))
         logger.info("DRQA quality mapping: {}".format(drqa_mapping))
-
-        # Plot quality mapping
-
-        lists = sorted(mapping.items())
-
-        x, y = zip(*lists)
-        plt.plot(x, y)
-        plt.xlabel('quantity of dataset returned by ranker 1')
-        plt.ylabel('probability of true answer occurrence')
-        plt.show()
 
     except Exception as e:
         logger.exception(e)
