@@ -71,9 +71,10 @@ class SquadModelRef(TFModel):
         self.use_highway_after_selfatt = self.opt.get('use_highway_after_selfatt', False)
         self.use_transpose_att = self.opt.get('use_transpose_att', False)
         self.hops_keep_prob = self.opt.get('hops_keep_prob', 0.6)
+        self.number_of_answer_hops = self.opt.get('number_of_answer_hops', 1)
         self.number_of_hops = self.opt.get('number_of_hops', 1)
-        self.legacy = self.opt.get('legacy', True)  # support old checkpoints
-        self.multihop_cell_size = self.opt.get('multihop_cell_size', 128)
+        self.legacy = self.opt.get('legacy', False)  # support old checkpoints
+        self.answer_cell_size = self.opt.get('answer_cell_size', 128)
         self.num_encoder_layers = self.opt.get('num_encoder_layers', 3)
         self.num_match_layers = self.opt.get('num_match_layers', 1)
         self.use_focal_loss = self.opt.get('use_focal_loss', False)
@@ -85,10 +86,13 @@ class SquadModelRef(TFModel):
         self.l2_norm = self.opt.get('l2_norm', None)
         self.concat_att_inputs = self.opt.get('concat_att_inputs', True)
 
-
         # TODO: add l2 norm to all dense layers and variables
 
-        assert self.number_of_hops > 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
+        assert self.number_of_answer_hops > 0, "Number of answer hops is {}, " \
+                                               "but should be > 0".format(self.number_of_answer_hops)
+
+        assert self.number_of_hops > 0, "Number of hops is {}, " \
+                                        "but should be > 0".format(self.number_of_hops)
 
         self.word_emb_dim = self.init_word_emb.shape[1]
         self.char_emb_dim = self.init_char_emb.shape[1]
@@ -139,7 +143,7 @@ class SquadModelRef(TFModel):
             q_emb = transform_layer(q_emb, self.transform_word_emb, scope='transform_word_emb', reuse=True)
 
         if self.use_elmo:
-            # TODO: also add elmo after encoding layer
+            # TODO: add elmo after encoding layer?
             import tensorflow_hub as tfhub
             elmo_module = tfhub.Module(self.elmo_link)
             c_elmo = elmo_embedding_layer(self.c_str, elmo_module)
@@ -155,87 +159,80 @@ class SquadModelRef(TFModel):
             c = rnn(c_emb, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
             q = rnn(q_emb, seq_len=self.q_len, concat_layers=self.concat_bigru_outputs)
 
-        with tf.variable_scope('co-attention'):
-            qc_att = dot_attention(c, q, mask=self.q_mask, att_size=self.attention_hidden_size,
-                                   keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
-                                   use_transpose_att=self.use_transpose_att, concat_inputs=self.concat_att_inputs)
+        context_representations = [c]
+        for i in range(self.number_of_hops):
+            with tf.variable_scope('co-attention_{}'.format(i)):
+                qc_att = dot_attention(context_representations[-1], q, mask=self.q_mask,
+                                       att_size=self.attention_hidden_size, keep_prob=self.keep_prob_ph,
+                                       use_gate=self.use_gated_attention, use_transpose_att=self.use_transpose_att,
+                                       concat_inputs=self.concat_att_inputs)
 
-            if self.use_highway_after_coatt:
-                qc_att = highway_layer(variational_dropout(c, keep_prob=self.keep_prob_ph),
-                                       variational_dropout(qc_att, keep_prob=self.keep_prob_ph),
-                                       use_combinations=True, regularizer=tf.nn.l2_loss)
+                if self.use_highway_after_coatt:
+                    # qc_att = tf.layers.batch_normalization(qc_att, training=self.is_train_ph)
+                    qc_att = highway_layer(variational_dropout(context_representations[-1], keep_prob=self.keep_prob_ph),
+                                           variational_dropout(qc_att, keep_prob=self.keep_prob_ph),
+                                           use_combinations=True, regularizer=tf.nn.l2_loss)
 
-            if self.use_birnn_after_coatt:
+                if self.use_birnn_after_coatt:
+                    rnn = self.GRU(num_layers=self.num_match_layers, num_units=self.hidden_size, batch_size=self.bs,
+                                   input_size=qc_att.get_shape().as_list()[-1],
+                                   keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
+                    qc_att = rnn(qc_att, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
+
+            with tf.variable_scope('self-attention_{}'.format(i)):
+                match = dot_attention(qc_att, qc_att, mask=self.c_mask, att_size=self.attention_hidden_size,
+                                      keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
+                                      drop_diag=self.drop_diag_self_att, use_transpose_att=False,
+                                      concat_inputs=self.concat_att_inputs)
+
+                if self.use_highway_after_selfatt:
+                    # Z
+                    # match = tf.layers.batch_normalization(match, training=self.is_train_ph)
+                    match = highway_layer(variational_dropout(qc_att, keep_prob=self.keep_prob_ph),
+                                          variational_dropout(match, keep_prob=self.keep_prob_ph),
+                                          use_combinations=True, regularizer=tf.nn.l2_loss)
+
+                if self.use_birnn_after_selfatt:
+                    # R
+                    rnn = self.GRU(num_layers=self.num_match_layers, num_units=self.hidden_size, batch_size=self.bs,
+                                   input_size=match.get_shape().as_list()[-1],
+                                   keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
+                    match = rnn(match, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
+
+                context_representations.append(match)
+        
+        if self.number_of_hops == 1:
+            final_context_repr = context_representations[-1]
+        else:
+            with tf.variable_scope('aggregation'):
+                context_representations = tf.concat(context_representations, axis=-1)
                 rnn = self.GRU(num_layers=self.num_match_layers, num_units=self.hidden_size, batch_size=self.bs,
-                               input_size=qc_att.get_shape().as_list()[-1],
+                               input_size=context_representations.get_shape().as_list()[-1],
                                keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
-                qc_att = rnn(qc_att, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
-
-
-        with tf.variable_scope('self-attention'):
-            match = dot_attention(qc_att, qc_att, mask=self.c_mask, att_size=self.attention_hidden_size,
-                                  keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
-                                  drop_diag=self.drop_diag_self_att, use_transpose_att=False,
-                                  concat_inputs=self.concat_att_inputs)
-
-            if self.use_highway_after_selfatt:
-                match = highway_layer(variational_dropout(qc_att, keep_prob=self.keep_prob_ph),
-                                      variational_dropout(match, keep_prob=self.keep_prob_ph),
-                                      use_combinations=True, regularizer=tf.nn.l2_loss)
-
-        if self.use_birnn_after_selfatt:
-            rnn = self.GRU(num_layers=self.num_match_layers, num_units=self.hidden_size, batch_size=self.bs,
-                           input_size=match.get_shape().as_list()[-1],
-                           keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
-            match = rnn(match, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
+                final_context_repr = rnn(context_representations, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
 
         if self.predict_ans:
-            with tf.variable_scope('pointer'):
-                init = simple_attention(q, self.attention_hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph)
-                if self.number_of_hops == 1:
+            with tf.variable_scope('answer_selection'):
+
+                if self.noans_token:
+                    noans_token = tf.Variable(tf.random_uniform((final_context_repr.get_shape().as_list()[-1],),
+                                                                -0.1, 0.1), tf.float32)
+                    noans_token = tf.nn.dropout(noans_token, keep_prob=self.keep_prob_ph)
+                    noans_token = tf.expand_dims(tf.tile(tf.expand_dims(noans_token, axis=0), [self.bs, 1]), axis=1)
+                    final_context_repr = tf.concat([noans_token, final_context_repr], axis=1)
+                    self.c_mask = tf.concat([tf.ones(shape=(self.bs, 1), dtype=tf.bool), self.c_mask], axis=1)
+
+                if self.number_of_answer_hops == 1:
                     # default model
-                    pointer = PtrNet(cell_size=init.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
-                    if self.noans_token:
-                        noans_token = tf.Variable(tf.random_uniform((match.get_shape().as_list()[-1],), -0.1, 0.1), tf.float32)
-                        noans_token = tf.nn.dropout(noans_token, keep_prob=self.keep_prob_ph)
-                        noans_token = tf.expand_dims(tf.tile(tf.expand_dims(noans_token, axis=0), [self.bs, 1]), axis=1)
-                        match = tf.concat([noans_token, match], axis=1)
-                        self.c_mask = tf.concat([tf.ones(shape=(self.bs, 1), dtype=tf.bool), self.c_mask], axis=1)
-                    logits1, logits2 = pointer(init, match, self.hidden_size, self.c_mask)
+                    logits1, logits2 = pointer_net_answer_selection(q, final_context_repr, self.q_mask, self.c_mask,
+                                                                    self.attention_hidden_size,
+                                                                    keep_prob=self.keep_prob_ph)
                 else:
-                    # TODO add noans_token support
-                    init = tf.layers.dense(init, units=self.multihop_cell_size, name='init_projection')
-                    state = variational_dropout(init, keep_prob=self.keep_prob_ph)
-                    multihop_cell = tf.nn.rnn_cell.GRUCell(num_units=self.multihop_cell_size)
-
-                    hops_start_logits = []
-                    hops_end_logits = []
-
-                    for i in range(self.number_of_hops):
-                        x, _ = mult_attention(match, state, mask=self.c_mask,
-                                              scope='multihop_cell_att', reuse=tf.AUTO_REUSE)
-                        x = variational_dropout(x, keep_prob=self.keep_prob_ph)
-                        _, state = multihop_cell(x, state)
-
-                        start_att, start_logits = mult_attention(match, state, mask=self.c_mask,
-                                                                 scope='start_pointer_att', reuse=tf.AUTO_REUSE)
-
-                        _, end_logits = mult_attention(match, tf.concat([state, start_att], axis=-1),
-                                                       mask=self.c_mask, scope='end_pointer_att', reuse=tf.AUTO_REUSE)
-
-                        hops_start_logits.append(start_logits)
-                        hops_end_logits.append(end_logits)
-
-                    hops_start_logits = tf.stack(hops_start_logits, axis=1)
-                    hops_end_logits = tf.stack(hops_end_logits, axis=1)
-
-                    logits1 = tf.reduce_mean(tf.nn.dropout(hops_start_logits, keep_prob=self.hops_keep_prob_ph,
-                                                           noise_shape=(self.bs, self.number_of_hops, 1)),
-                                             axis=1)
-
-                    logits2 = tf.reduce_mean(tf.nn.dropout(hops_end_logits, keep_prob=self.hops_keep_prob_ph,
-                                                           noise_shape=(self.bs, self.number_of_hops, 1)),
-                                             axis=1)
+                    # TODO check noans_token support
+                    logits1, logits2 = san_answer_selection(q, final_context_repr, self.q_mask, self.c_mask,
+                                                            self.number_of_answer_hops, self.attention_hidden_size,
+                                                            self.answer_cell_size, self.keep_prob_ph,
+                                                            self.hops_keep_prob_ph)
 
         with tf.variable_scope('predict'):
             if self.predict_ans and not self.shared_loss:
@@ -253,7 +250,7 @@ class SquadModelRef(TFModel):
             if self.scorer and not self.shared_loss:
                 q_att = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph,
                                          scope='q_att')
-                c_att = simple_attention(match, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph,
+                c_att = simple_attention(final_context_repr, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph,
                                          scope='c_att')
                 q_att = tf.layers.dense(q_att, units=c_att.get_shape().as_list()[-1],
                                         activation=tf.nn.relu,
@@ -271,11 +268,11 @@ class SquadModelRef(TFModel):
                                                     name='noans_dense_1'),
                                     keep_prob=self.keep_prob_ph)
                 scorer_logits = tf.layers.dense(layer_1_logits,
-                                                 activation=tf.nn.relu,
-                                                 units=2,
-                                                 name='noans_dense_2')
+                                                activation=tf.nn.relu,
+                                                units=2,
+                                                name='noans_dense_2')
                 predict_probas = tf.nn.softmax(scorer_logits)
-                self.yp = predict_probas[:,1]
+                self.yp = predict_probas[:, 1]
                 yt_prob = tf.reduce_sum(predict_probas * self.y_ohe, axis=-1)
 
             if self.scorer and self.shared_loss:
@@ -283,9 +280,9 @@ class SquadModelRef(TFModel):
                 end_att_weights = tf.expand_dims(tf.nn.softmax(logits2, axis=-1), axis=-1)
                 # not really good idea to sum only start and end tokens
                 # need some kind of sigmoid layer here
-                start_att = tf.reduce_sum(start_att_weights * match, axis=1)
-                end_att = tf.reduce_sum(end_att_weights * match, axis=1)
-                c_att = simple_attention(match, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph,
+                start_att = tf.reduce_sum(start_att_weights * final_context_repr, axis=1)
+                end_att = tf.reduce_sum(end_att_weights * final_context_repr, axis=1)
+                c_att = simple_attention(final_context_repr, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph,
                                          scope='c_att')
 
                 dense_input = tf.concat([start_att, end_att, c_att], -1)
@@ -487,18 +484,18 @@ class SquadModelRef(TFModel):
         with tf.variable_scope('features'):
             if self.use_soft_match_features:
                 c_soft_match = dot_attention(c_emb, q_emb, mask=self.q_mask,
-                                                      att_size=self.attention_hidden_size,
-                                                      keep_prob=self.keep_prob_ph, use_gate=False,
-                                                      use_transpose_att=False,
-                                                      concat_inputs=False,
-                                                      scope='c_word_attention')
+                                             att_size=self.attention_hidden_size,
+                                             keep_prob=self.keep_prob_ph, use_gate=False,
+                                             use_transpose_att=False,
+                                             concat_inputs=False,
+                                             scope='c_word_attention')
 
                 q_soft_match = dot_attention(q_emb, c_emb, mask=self.c_mask,
-                                                      att_size=self.attention_hidden_size,
-                                                      keep_prob=self.keep_prob_ph, use_gate=False,
-                                                      use_transpose_att=False,
-                                                      concat_inputs=False,
-                                                      scope='q_word_attention')
+                                             att_size=self.attention_hidden_size,
+                                             keep_prob=self.keep_prob_ph, use_gate=False,
+                                             use_transpose_att=False,
+                                             concat_inputs=False,
+                                             scope='q_word_attention')
 
                 c_emb = tf.concat([c_emb, c_soft_match], axis=2)
                 q_emb = tf.concat([q_emb, q_soft_match], axis=2)
@@ -524,18 +521,21 @@ class SquadModelRef(TFModel):
         with tf.variable_scope('Optimizer'):
             self.global_step = tf.get_variable('global_step', shape=[], dtype=tf.int32,
                                                initializer=tf.constant_initializer(0), trainable=False)
-            self.opt = tf.train.AdadeltaOptimizer(learning_rate=self.lr_ph, epsilon=1e-6)
 
-            if self.predict_ans and self.scorer:
-                # TODO: check if it moved from contrib
-                self.opt = tf.contrib.opt.MultitaskOptimizerWrapper(self.opt)
+            with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
 
-            grads = self.opt.compute_gradients(self.loss)
-            gradients, variables = zip(*grads)
+                self.opt = tf.train.AdadeltaOptimizer(learning_rate=self.lr_ph, epsilon=1e-6)
 
-            capped_grads = [tf.clip_by_norm(g, self.grad_clip) for g in gradients]
+                if self.predict_ans and self.scorer:
+                    # TODO: check if it moved from contrib
+                    self.opt = tf.contrib.opt.MultitaskOptimizerWrapper(self.opt)
 
-            self.train_op = self.opt.apply_gradients(zip(capped_grads, variables), global_step=self.global_step)
+                grads = self.opt.compute_gradients(self.loss)
+                gradients, variables = zip(*grads)
+
+                capped_grads = [tf.clip_by_norm(g, self.grad_clip) for g in gradients]
+
+                self.train_op = self.opt.apply_gradients(zip(capped_grads, variables), global_step=self.global_step)
 
     def _init_ema(self):
         var_ema = tf.train.ExponentialMovingAverage(self.weight_decay)

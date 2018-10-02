@@ -185,17 +185,17 @@ class PtrNet:
         self.scope = scope
         self.keep_prob = keep_prob
 
-    def __call__(self, init, match, hidden_size, mask):
+    def __call__(self, init, match, att_hidden_size, mask):
         with tf.variable_scope(self.scope):
             BS, ML, MH = tf.unstack(tf.shape(match))
             BS, IH = tf.unstack(tf.shape(init))
             match_do = tf.nn.dropout(match, keep_prob=self.keep_prob, noise_shape=[BS, 1, MH])
             dropout_mask = tf.nn.dropout(tf.ones([BS, IH], dtype=tf.float32), keep_prob=self.keep_prob)
-            inp, logits1 = attention(match_do, init * dropout_mask, hidden_size, mask)
+            inp, logits1 = attention(match_do, init * dropout_mask, att_hidden_size, mask)
             inp_do = tf.nn.dropout(inp, keep_prob=self.keep_prob)
             _, state = self.gru(inp_do, init)
             tf.get_variable_scope().reuse_variables()
-            _, logits2 = attention(match_do, state * dropout_mask, hidden_size, mask)
+            _, logits2 = attention(match_do, state * dropout_mask, att_hidden_size, mask)
             return logits1, logits2
 
 
@@ -422,3 +422,51 @@ def highway_layer(x, y, use_combinations=False, regularizer=None, scope='highway
                                    )
 
     return gate * x_y_repr + (1 - gate) * x
+
+
+def pointer_net_answer_selection(q, context_repr, q_mask, c_mask, att_hidden_size, keep_prob):
+    q_att = simple_attention(q, att_hidden_size, mask=q_mask, keep_prob=keep_prob)
+
+    pointer = PtrNet(cell_size=q_att.get_shape().as_list()[-1], keep_prob=keep_prob)
+    logits1, logits2 = pointer(q_att, context_repr, att_hidden_size, c_mask)
+
+    return logits1, logits2
+
+
+def san_answer_selection(q, context_repr, q_mask, c_mask, n_hops, att_hidden_size, answer_cell_size, keep_prob,
+                         hops_keep_prob):
+    bs = tf.shape(q)[0]
+
+    q_att = simple_attention(q, att_hidden_size, mask=q_mask, keep_prob=keep_prob)
+    q_att = tf.layers.dense(q_att, units=answer_cell_size, name='init_projection')
+    state = variational_dropout(q_att, keep_prob=keep_prob)
+    multihop_cell = tf.nn.rnn_cell.GRUCell(num_units=answer_cell_size)
+
+    hops_start_logits = []
+    hops_end_logits = []
+
+    for i in range(n_hops):
+        x, _ = mult_attention(context_repr, state, mask=c_mask, scope='multihop_cell_att', reuse=tf.AUTO_REUSE)
+        x = variational_dropout(x, keep_prob=keep_prob)
+        _, state = multihop_cell(x, state)
+
+        start_att, start_logits = mult_attention(context_repr, state, mask=c_mask, scope='start_pointer_att',
+                                                 reuse=tf.AUTO_REUSE)
+
+        _, end_logits = mult_attention(context_repr, tf.concat([state, start_att], axis=-1), mask=c_mask,
+                                       scope='end_pointer_att', reuse=tf.AUTO_REUSE)
+
+        hops_start_logits.append(start_logits)
+        hops_end_logits.append(end_logits)
+
+    hops_start_logits = tf.stack(hops_start_logits, axis=1)
+    hops_end_logits = tf.stack(hops_end_logits, axis=1)
+
+    # TODO check if dropout all zeros
+    logits1 = tf.reduce_mean(tf.nn.dropout(hops_start_logits, keep_prob=hops_keep_prob, noise_shape=(bs, n_hops, 1)),
+                             axis=1)
+
+    logits2 = tf.reduce_mean(tf.nn.dropout(hops_end_logits, keep_prob=hops_keep_prob, noise_shape=(bs, n_hops, 1)),
+                             axis=1)
+
+    return logits1, logits2
