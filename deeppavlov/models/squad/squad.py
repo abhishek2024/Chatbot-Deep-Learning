@@ -83,6 +83,7 @@ class SquadModel(TFModel):
         self.elmo_link = self.opt.get('elmo_link', 'https://tfhub.dev/google/elmo/2')
         self.use_soft_match_features = self.opt.get('use_soft_match_features', False)
         self.l2_norm = self.opt.get('l2_norm', None)
+        self.top_k = self.opt.get('top_k', 1)
         # TODO: add l2 norm to all dense layers and variables
 
         assert self.number_of_hops > 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
@@ -399,15 +400,34 @@ class SquadModel(TFModel):
         with tf.variable_scope("predict"):
             if self.predict_ans and not self.shared_loss:
                 outer_logits = tf.exp(tf.expand_dims(logits1, axis=2) + tf.expand_dims(logits2, axis=1))
+                outer_logits = tf.matrix_band_part(outer_logits, 0, tf.cast(tf.minimum(15, self.c_maxlen), tf.int64))
+
                 outer = tf.matmul(tf.expand_dims(tf.nn.softmax(logits1), axis=2),
                                   tf.expand_dims(tf.nn.softmax(logits2), axis=1))
                 outer = tf.matrix_band_part(outer, 0, tf.cast(tf.minimum(15, self.c_maxlen), tf.int64))
-                self.yp1 = tf.argmax(tf.reduce_max(outer, axis=2), axis=1)
-                self.yp2 = tf.argmax(tf.reduce_max(outer, axis=1), axis=1)
-                self.yp_prob = tf.reduce_max(tf.reduce_max(outer, axis=2), axis=1)
-                self.yp_logits = tf.reduce_max(tf.reduce_max(outer_logits, axis=2), axis=1)
+
                 if self.noans_token:
-                    self.yp_score = 1 - tf.nn.softmax(logits1)[:,0] * tf.nn.softmax(logits2)[:,0]
+                    self.yp_score = 1 - tf.nn.softmax(logits1)[:, 0] * tf.nn.softmax(logits2)[:, 0]
+
+                if self.top_k == 1:
+                    self.yp1 = tf.argmax(tf.reduce_max(outer, axis=2), axis=1)
+                    self.yp2 = tf.argmax(tf.reduce_max(outer, axis=1), axis=1)
+                    self.yp_prob = tf.reduce_max(tf.reduce_max(outer, axis=2), axis=1)
+                    self.yp_logits = tf.reduce_max(tf.reduce_max(outer_logits, axis=2), axis=1)
+                else:
+                    outer_reshaped = tf.reshape(outer, (bs, -1))
+                    k = tf.minimum(self.top_k, tf.shape(outer_reshaped)[-1])
+
+                    self.yp_prob, top_indices = tf.nn.top_k(outer_reshaped, k=k, sorted=True)
+                    self.yp1, self.yp2 = tf.unstack(tf.reshape(tf.unravel_index(
+                        tf.reshape(top_indices, (-1,)), dims=(tf.shape(outer)[-2], tf.shape(outer)[-1])),
+                        (2, bs, -1)))
+                    self.yp_logits = tf.gather_nd(tf.reshape(outer_logits, (bs, -1)),
+                                                  indices=tf.stack([
+                                                      tf.tile(tf.expand_dims(tf.range(bs), axis=-1), [1, k]),
+                                                      top_indices], axis=-1))
+                    self.yp_score = tf.tile(tf.expand_dims(self.yp_score, axis=-1), [1, k])# make it bs x k
+                    # TODO change answer preprocessor
 
             if self.scorer and not self.shared_loss:
                 q_att = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph,
@@ -695,6 +715,7 @@ class SquadModel(TFModel):
         if self.noans_token:
             yp1s, yp2s, prob, score = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_score],
                                                     feed_dict=feed_dict)
+            """
             yp1s_noans, yp2s_noans = [], []
             for yp1, yp2 in zip(yp1s, yp2s):
                 if yp1 == 0 or yp2 == 0:
@@ -704,7 +725,11 @@ class SquadModel(TFModel):
                     yp1s_noans.append(yp1 - 1)
                     yp2s_noans.append(yp2 - 1)
             yp1s, yp2s = yp1s_noans, yp2s_noans
-            return yp1s, yp2s, [float(p) for p in prob], [float(score) for score in score]
+            """
+            noans_mask = (yp1s * yp2s).astype(bool)
+            yp1s = yp1s * noans_mask - 1
+            yp2s = yp2s * noans_mask - 1
+            return yp1s, yp2s, prob.tolist(), score.tolist()
 
         if self.predict_ans and self.scorer:
             yp1s, yp2s, prob, logits, score = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_logits, self.yp],

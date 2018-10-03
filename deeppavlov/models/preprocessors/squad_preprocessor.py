@@ -298,18 +298,39 @@ class SquadAnsPostprocessor(Component):
             postprocessed answer text, start position in raw context, end position in raw context
         """
         answers = []
-        start = []
-        end = []
+        starts = []
+        ends = []
         for a_st, a_end, c, p2r, span in zip(ans_start, ans_end, contexts, p2rs, spans):
-            if a_st == -1 or a_end == -1:
-                start.append(-1)
-                end.append(-1)
-                answers.append('')
-            else:
-                start.append(p2r[span[a_st][0]])
-                end.append(p2r[span[a_end][1]])
-                answers.append(c[start[-1]:end[-1]])
-        return answers, start, end
+            if isinstance(a_st, int) or isinstance(a_st, np.int64) or isinstance(a_st, np.int32):
+                start, end, answer = self._get_answer(a_st, a_end, p2r, span, c)
+                answers.append(answer)
+                starts.append(start)
+                ends.append(end)
+            else:  # we got list of top_k answers
+                top_answers = []
+                top_starts = []
+                top_ends = []
+                for a_st, a_end in zip(a_st, a_end):
+                    start, end, answer = self._get_answer(a_st, a_end, p2r, span, c)
+                    top_answers.append(answer)
+                    top_starts.append(start)
+                    top_ends.append(end)
+                answers.append(top_answers)
+                starts.append(top_starts)
+                ends.append(top_ends)
+        return answers, starts, ends
+
+    @staticmethod
+    def _get_answer(a_st, a_end, p2r, span, context):
+        if a_st == -1 or a_end == -1:
+            start = -1
+            end = -1
+            answer = ''
+        else:
+            start = p2r[span[a_st][0]]
+            end = p2r[span[a_end][1]]
+            answer = context[start:end]
+        return start, end, answer
 
 
 @register('squad_lgbm_scorer')
