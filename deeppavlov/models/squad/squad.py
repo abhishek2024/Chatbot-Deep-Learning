@@ -426,8 +426,8 @@ class SquadModel(TFModel):
                                                   indices=tf.stack([
                                                       tf.tile(tf.expand_dims(tf.range(bs), axis=-1), [1, k]),
                                                       top_indices], axis=-1))
-                    self.yp_score = tf.tile(tf.expand_dims(self.yp_score, axis=-1), [1, k])# make it bs x k
-                    # TODO change answer preprocessor
+                    if self.noans_token:
+                        self.yp_score = tf.tile(tf.expand_dims(self.yp_score, axis=-1), [1, k])  # make it bs x k
 
             if self.scorer and not self.shared_loss:
                 q_att = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph,
@@ -710,7 +710,7 @@ class SquadModel(TFModel):
                                           c_features, q_features, c_str, q_str, c_ner, q_ner)
         if self.scorer and not self.predict_ans:
             score = self.sess.run(self.yp, feed_dict=feed_dict)
-            return [float(score) for score in score]
+            return score.tolist()
 
         if self.noans_token:
             yp1s, yp2s, prob, score = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_score],
@@ -734,11 +734,11 @@ class SquadModel(TFModel):
         if self.predict_ans and self.scorer:
             yp1s, yp2s, prob, logits, score = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_logits, self.yp],
                                                             feed_dict=feed_dict)
-            return yp1s, yp2s, [float(p) for p in prob], [float(logit) for logit in logits], [float(s) for s in score]
+            return yp1s, yp2s, prob.tolist(), logits.tolist(), score.tolist()
 
         yp1s, yp2s, prob, logits = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_logits],
                                                  feed_dict=feed_dict)
-        return yp1s, yp2s, [float(p) for p in prob], [float(logit) for logit in logits]
+        return yp1s, yp2s, prob.tolist(), logits.tolist()
 
     def process_event(self, event_name, data):
         if event_name == "after_validation":
