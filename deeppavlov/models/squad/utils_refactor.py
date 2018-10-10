@@ -232,9 +232,13 @@ def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0,
 
         with tf.variable_scope("attention"):
             inputs_att = tf.layers.dense(d_inputs, att_size, use_bias=False,
-                                         activation=tf.nn.relu, kernel_regularizer=tf.nn.l2_loss)
+                                         activation=tf.nn.relu,
+                                         kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
+                                         kernel_regularizer=tf.nn.l2_loss)
             memory_att = tf.layers.dense(d_memory, att_size, use_bias=False,
-                                         activation=tf.nn.relu, kernel_regularizer=tf.nn.l2_loss)
+                                         activation=tf.nn.relu,
+                                         kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
+                                         kernel_regularizer=tf.nn.l2_loss)
             logits = tf.matmul(inputs_att, tf.transpose(memory_att, [0, 2, 1])) / (att_size ** 0.5)
 
             mask = tf.tile(tf.expand_dims(mask, axis=1), [1, IL, 1])
@@ -269,7 +273,10 @@ def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0,
             with tf.variable_scope("gate"):
                 dim = res.get_shape().as_list()[-1]
                 d_res = tf.nn.dropout(res, keep_prob=keep_prob, noise_shape=[BS, 1, dim])
-                gate = tf.layers.dense(d_res, dim, use_bias=False, activation=tf.nn.sigmoid, kernel_regularizer=tf.nn.l2_loss)
+                gate = tf.layers.dense(d_res, dim, use_bias=False,
+                                       activation=tf.nn.sigmoid,
+                                       kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                       kernel_regularizer=tf.nn.l2_loss)
                 return res * gate
 
         return res
@@ -285,7 +292,10 @@ def simple_attention(memory, att_size, mask, keep_prob=1.0, scope="simple_attent
         BS, ML, MH = tf.unstack(tf.shape(memory))
         memory_do = tf.nn.dropout(memory, keep_prob=keep_prob, noise_shape=[BS, 1, MH])
         logits = tf.layers.dense(
-            tf.layers.dense(memory_do, att_size, activation=tf.nn.tanh, kernel_regularizer=tf.nn.l2_loss),
+            tf.layers.dense(memory_do, att_size,
+                            activation=tf.nn.tanh,
+                            kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                            kernel_regularizer=tf.nn.l2_loss),
             1, use_bias=False)
         logits = softmax_mask(tf.squeeze(logits, [2]), mask)
         att_weights = tf.expand_dims(tf.nn.softmax(logits), axis=2)
@@ -302,7 +312,10 @@ def attention(inputs, state, att_size, mask, scope="attention", reuse=False):
     with tf.variable_scope(scope, reuse=reuse):
         u = tf.concat([tf.tile(tf.expand_dims(state, axis=1), [1, tf.shape(inputs)[1], 1]), inputs], axis=2)
         logits = tf.layers.dense(
-            tf.layers.dense(u, att_size, activation=tf.nn.tanh, kernel_regularizer=tf.nn.l2_loss),
+            tf.layers.dense(u, att_size,
+                            activation=tf.nn.tanh,
+                            kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                            kernel_regularizer=tf.nn.l2_loss),
             1, use_bias=False)
         logits = softmax_mask(tf.squeeze(logits, [2]), mask)
         att_weights = tf.expand_dims(tf.nn.softmax(logits), axis=2)
@@ -395,10 +408,10 @@ def transform_layer(inputs, transform_hidden_size, scope='transform_layer', reus
     with tf.variable_scope(scope, reuse=reuse):
         transformed = tf.layers.dense(
             tf.layers.dense(inputs, transform_hidden_size, activation=tf.nn.relu,
-                            kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                            kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
                             name='transform_dense_1'),
             transform_hidden_size,
-            kernel_initializer=tf.contrib.layers.xavier_initializer(),
+            kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
             name='transform_dense_2'
         )
     return transformed
@@ -417,7 +430,7 @@ def highway_layer(x, y, use_combinations=False, regularizer=None, scope='highway
                                )
 
         x_y_repr = tf.layers.dense(inputs, hidden_size, activation=tf.nn.relu,
-                                   kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                   kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
                                    kernel_regularizer=regularizer,
                                    )
 

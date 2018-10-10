@@ -254,7 +254,7 @@ class SquadModelRef(TFModel):
                                          scope='c_att')
                 q_att = tf.layers.dense(q_att, units=c_att.get_shape().as_list()[-1],
                                         activation=tf.nn.relu,
-                                        kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                        kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
                                         name='q_att_dense'
                                         )
                 q_att = tf.nn.dropout(q_att, keep_prob=self.keep_prob_ph)
@@ -264,7 +264,7 @@ class SquadModelRef(TFModel):
                                     tf.layers.dense(dense_input,
                                                     units=self.hidden_size,
                                                     activation=tf.nn.relu,
-                                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                                    kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
                                                     name='noans_dense_1'),
                                     keep_prob=self.keep_prob_ph)
                 scorer_logits = tf.layers.dense(layer_1_logits,
@@ -290,7 +290,7 @@ class SquadModelRef(TFModel):
                     tf.layers.dense(dense_input,
                                     units=self.hidden_size,
                                     activation=tf.nn.relu,
-                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                    kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
                                     name='scorer_dense_1'),
                     keep_prob=self.keep_prob_ph)
 
@@ -298,7 +298,7 @@ class SquadModelRef(TFModel):
                     tf.layers.dense(layer_1_logits,
                                     units=self.hidden_size // 2,
                                     activation=tf.nn.relu,
-                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                    kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
                                     name='scorer_dense_2'),
                     keep_prob=self.keep_prob_ph)
 
@@ -442,6 +442,7 @@ class SquadModelRef(TFModel):
             self.y2 = tf.slice(self.y2, [0, 0], [self.bs, self.c_maxlen])
 
             if self.soft_labels:
+                # do we still need this?
                 center_weight = self.true_label_weight
                 border_weight = (1 - self.true_label_weight) / 2
                 smoothing_kernel_st = tf.constant([border_weight, center_weight, border_weight])
@@ -476,6 +477,7 @@ class SquadModelRef(TFModel):
                 c_emb = embedding_layer(self.c, self.init_word_emb, trainable=False)
                 q_emb = embedding_layer(self.q, self.init_word_emb, trainable=False)
 
+            # TODO: add highway layer?
             c_emb = tf.concat([c_emb, cc_emb], axis=2)
             q_emb = tf.concat([q_emb, qc_emb], axis=2)
         return c_emb, q_emb
