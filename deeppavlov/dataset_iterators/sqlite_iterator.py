@@ -101,6 +101,19 @@ class SQLiteDataIterator(DataFittingIterator):
             "SQLite iterator: The size of the database is {} documents".format(len(doc2idx)))
         return doc2idx
 
+    def get_doc_titles(self) -> List[Any]:
+        cursor = self.connect.cursor()
+        cursor.execute('SELECT title FROM {}'.format(self.db_name))
+        ids = [ids[0] for ids in cursor.fetchall()]
+        cursor.close()
+        return ids
+
+    def index2title(self) -> Dict[int, Any]:
+        i2t = {i: doc_id for i, doc_id in enumerate(self.get_doc_titles())}
+        logger.info(
+            "SQLite iterator: The size of the database is {} documents".format(len(i2t)))
+        return i2t
+
     @overrides
     def get_doc_content(self, doc_id: Any) -> Optional[str]:
         cursor = self.connect.cursor()
