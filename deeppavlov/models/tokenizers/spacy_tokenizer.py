@@ -15,7 +15,7 @@ limitations under the License.
 """
 
 from itertools import chain
-from typing import List, Generator, Any
+from typing import List, Generator, Any, Union
 
 import spacy
 from spacy.lang.en import English
@@ -38,7 +38,7 @@ class StreamSpacyTokenizer(Component):
     Works only for English language.
     """
 
-    def __init__(self, disable: list = None, stopwords: list = None,
+    def __init__(self, disable: list = None, stopwords: Union[str, List[str]] = None,
                  batch_size: int = None, ngram_range: List[int] = None, lemmas=False,
                  n_threads: int = None, lowercase: bool = None, alphas_only: bool = None,
                  replacers: dict = None, **kwargs):
@@ -70,8 +70,9 @@ class StreamSpacyTokenizer(Component):
         elif stopwords == 'nltk':
             stopwords = set(nltk_stopwords.words('english'))
         else:
-            raise ValueError(
-                f"There is no {stopwords} option for stopwords in English tokenizer. Select from [\"sklearn\", \"nltk\"].")
+            if isinstance(stopwords, str):
+                raise ValueError(
+                    f"There is no {stopwords} option for stopwords in English tokenizer. Select from [\"sklearn\", \"nltk\"].")
 
         self.stopwords = stopwords or []
         self.model = spacy.load('en', disable=disable)
