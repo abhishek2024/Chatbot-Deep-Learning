@@ -37,12 +37,14 @@ class SQLiteDataIterator(DataFittingIterator):
     """
 
     def __init__(self, load_path, data_dir: str = '',
-                 batch_size: int = None, shuffle: bool = None, seed: int = None, **kwargs):
+                 batch_size: int = None, shuffle: bool = None, seed: int = None,
+                 db_content_type: str = 'text', **kwargs):
         """
         :param data_dir: a directory name where DB should be stored
         :param load_path: a path to local SQLite DB
         :param data_url: an URL to SQLite DB
         :param batch_size: a batch size for reading from the database
+        :param text_type: can be from ['text', 'title']
         """
         self.data_dir = data_dir
 
@@ -78,6 +80,7 @@ class SQLiteDataIterator(DataFittingIterator):
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.random = Random(seed)
+        self.db_content_type = db_content_type
 
     @overrides
     def get_doc_ids(self) -> List[Any]:
@@ -116,9 +119,18 @@ class SQLiteDataIterator(DataFittingIterator):
 
     @overrides
     def get_doc_content(self, doc_id: Any) -> Optional[str]:
+        """
+
+        Args:
+            doc_id:
+            text_type: text_type can be from ['text', 'title']
+
+        Returns:
+
+        """
         cursor = self.connect.cursor()
         cursor.execute(
-            "SELECT text FROM {} WHERE id = ?".format(self.db_name),
+            "SELECT {} FROM {} WHERE id = ?".format(self.db_content_type, self.db_name),
             (doc_id,)
         )
         result = cursor.fetchone()
