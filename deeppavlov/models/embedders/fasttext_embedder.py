@@ -39,6 +39,7 @@ class FasttextEmbedder(Component, Serializable):
         save_path: is not used because model is not trainable; therefore, it is unchangable
         dim: dimensionality of fastText model
         pad_zero: whether to pad samples or not
+        mean: whether to return mean token embedding
         **kwargs: additional arguments
 
     Attributes:
@@ -47,9 +48,10 @@ class FasttextEmbedder(Component, Serializable):
         dim: dimension of embeddings
         pad_zero: whether to pad sequence of tokens with zeros or not
         load_path: path with pre-trained fastText binary model
+        mean: whether to return mean token embedding
     """
     def __init__(self, load_path: Union[str, Path], save_path: Union[str, Path] = None, dim: int = 100,
-                 pad_zero: bool = False, **kwargs) -> None:
+                 pad_zero: bool = False, mean: bool = False, **kwargs) -> None:
         """
         Initialize embedder with given parameters
         """
@@ -58,6 +60,7 @@ class FasttextEmbedder(Component, Serializable):
         self.dim = dim
         self.pad_zero = pad_zero
         self.model = self.load()
+        self.mean = mean
 
     def destroy(self):
         del self.model
@@ -99,20 +102,19 @@ class FasttextEmbedder(Component, Serializable):
         return model
 
     @overrides
-    def __call__(self, batch: List[List[str]], mean: bool = False, *args, **kwargs) -> List[Union[list, np.ndarray]]:
+    def __call__(self, batch: List[List[str]], *args, **kwargs) -> List[Union[list, np.ndarray]]:
         """
         Embed sentences from batch
 
         Args:
             batch: list of tokenized text samples
-            mean: whether to return mean embedding of tokens per sample
             *args: arguments
             **kwargs: arguments
 
         Returns:
             embedded batch
         """
-        batch = [self._encode(sample, mean) for sample in batch]
+        batch = [self._encode(sample) for sample in batch]
         if self.pad_zero:
             batch = zero_pad(batch)
         return batch
@@ -126,13 +128,12 @@ class FasttextEmbedder(Component, Serializable):
         """
         yield from self.model.get_words()
 
-    def _encode(self, tokens: List[str], mean: bool) -> Union[List[np.ndarray], np.ndarray]:
+    def _encode(self, tokens: List[str]) -> Union[List[np.ndarray], np.ndarray]:
         """
         Embed one text sample
 
         Args:
             tokens: tokenized text sample
-            mean: whether to return mean embedding of tokens per sample
 
         Returns:
             list of embedded tokens or array of mean values
@@ -149,7 +150,7 @@ class FasttextEmbedder(Component, Serializable):
                 self.tok2emb[t] = emb
             embedded_tokens.append(emb)
 
-        if mean:
+        if self.mean:
             filtered = [et for et in embedded_tokens if np.any(et)]
             if filtered:
                 return np.mean(filtered, axis=0)
