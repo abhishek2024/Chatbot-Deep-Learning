@@ -87,8 +87,8 @@ class PipelineManager:
                  plot: bool = True,
                  save_best=True,
                  multiprocessing=True,
-                 max_num_workers: Union[int, None]=4,
-                 use_all_gpus: bool=False,
+                 max_num_workers: Union[int, None]=None,
+                 use_all_gpus: bool=True,
                  use_multi_gpus: Union[List[int], None]=None):
         """
         Initialize logger, read input args, builds a directory tree, initialize date.

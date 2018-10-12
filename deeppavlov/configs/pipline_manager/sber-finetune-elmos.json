@@ -1,0 +1,156 @@
+{
+  "dataset_reader": {
+    "name": "basic_classification_reader",
+    "data_path": "rb_0927",
+    "x": "Text",
+    "y": "theme",
+    "train": "train_final.csv",
+    "valid": "valid_final.csv",
+    "test": "test_final.csv"
+  },
+  "dataset_iterator": {
+    "name": "basic_classification_iterator"
+  },
+  "chainer": {
+    "in": [
+      "x"
+    ],
+    "in_y": [
+      "y"
+    ],
+    "pipe": [
+      [
+        {
+          "in": "y",
+          "out": "y_ids",
+          "fit_on": [
+            "y"
+          ],
+          "name": "simple_vocab",
+          "component_name": "Vocab of classes",
+          "id": "classes_vocab",
+          "level": "token",
+          "save_path": "vocabs/sber_classes.dict",
+          "load_path": "vocabs/sber_classes.dict"
+        }
+      ],
+      [
+        {
+          "in": [
+            "x"
+          ],
+          "name": "ru_tokenizer",
+          "out": [
+            "x_tok"
+          ],
+          "component_name": "Ru tokenizer"
+        }
+      ],
+      [
+        {
+          "in": [
+            "x_tok"
+          ],
+          "out": [
+            "x_vec"
+          ],
+          "name": "elmo",
+          "id": "embedder",
+          "component_name": "ELMO_1024_7",
+          "cache": true,
+          "elmo_output_names": [
+            "elmo"
+          ],
+          "mini_batch_size": 32,
+          "spec": "/home/kuznetsov/models_env/ruwiki_pp_1.0_elmo/models/2018-06-09-16:38:34/hubs/sber-faq_epoches_n_7"
+        }
+      ],
+      [
+        {
+          "in": "y_ids",
+          "out": "y_onehot",
+          "name": "one_hotter",
+          "component_name": "One_hotter",
+          "depth": "#classes_vocab.len"
+        }
+      ],
+      [
+        {
+          "in": [
+            "x_vec"
+          ],
+          "in_y": [
+            "y_onehot"
+          ],
+          "out": [
+            "y_pred_probas"
+          ],
+          "main": true,
+          "name": "keras_classification_model_prob",
+          "component_name": "CNN",
+          "save_path": "rb_0927/cnn",
+          "classes": "#classes_vocab.keys()",
+          "embedding_size": "#embedder.dim",
+          "loss": "categorical_crossentropy",
+          "optimizer": "Adam",
+          "confident_threshold": 1.0,
+          "lear_rate": 0.015179094266694065,
+          "lear_rate_decay": 0.002459134657854223,
+          "text_size": 20,
+          "model_name": "cnn_model",
+          "kernel_sizes_cnn": [
+            1,
+            2,
+            3
+          ],
+          "filters_cnn": 319,
+          "coef_reg_cnn": 3.615230944648216e-05,
+          "coef_reg_den": 1.021509101400304e-05,
+          "dropout_rate": 0.15751719291839245,
+          "dense_size": 250
+        }
+      ],
+      [
+        {
+          "in": "y_pred_probas",
+          "out": "y_pred_ids",
+          "name": "proba2labels",
+          "component_name": "prob2ind",
+          "max_proba": true
+        }
+      ],
+      [
+        {
+          "in": "y_pred_ids",
+          "out": "y_pred_labels",
+          "component_name": "vocab",
+          "ref": "classes_vocab"
+        }
+      ]
+    ],
+    "out": [
+      "y_pred_labels"
+    ]
+  },
+  "train": {
+    "epochs": 1000,
+    "batch_size": 32,
+    "metrics": [
+      "simple_accuracy",
+      "simple_f1_macro",
+      "simple_f1_weighted"
+    ],
+    "validation_patience": 10,
+    "val_every_n_epochs": 1,
+    "log_every_n_epochs": 1,
+    "show_examples": false,
+    "validate_best": true,
+    "test_best": true
+  },
+  "metadata": {
+    "requirements": [
+      "../dp_requirements/tf.txt",
+      "../dp_requirements/elmo.txt"
+    ]
+  }
+}
