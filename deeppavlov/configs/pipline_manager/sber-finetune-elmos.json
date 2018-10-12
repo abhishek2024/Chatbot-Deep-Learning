@@ -62,7 +62,12 @@
             "elmo"
           ],
           "mini_batch_size": 32,
-          "spec": "/home/kuznetsov/models_env/ruwiki_pp_1.0_elmo/models/2018-06-09-16:38:34/hubs/sber-faq_epoches_n_7"
+          "spec": {"search_grid": [
+            "/home/kuznetsov/models_env/ruwiki_pp_1.0_elmo/models/2018-06-09-16:38:34/hubs/sber-faq_epoches_n_7", 
+            "/home/kuznetsov/models_env/ruwiki_pp_1.0_elmo/models/2018-06-09-16:38:34/hubs/sber-faq_epoches_n_7", 
+            "/home/kuznetsov/models_env/ruwiki_pp_1.0_elmo/models/2018-06-09-16:38:34/hubs/sber-faq_epoches_n_7"
+            ]
+          }
         }
       ],
       [
@@ -136,8 +141,8 @@
     "epochs": 1000,
     "batch_size": 32,
     "metrics": [
-      "simple_accuracy",
       "simple_f1_macro",
+      "simple_accuracy",
       "simple_f1_weighted"
     ],
     "validation_patience": 10,
