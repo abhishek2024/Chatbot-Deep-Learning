@@ -62,7 +62,7 @@ parser.add_argument("-r", "--root", dest="root", default='./download/experiments
 parser.add_argument("-p", "--plot", dest="plot", default=False,
                     help="If true it is plot a histograms with results", type=bool)
 parser.add_argument("-cv", "--cross-val", dest="cross_val", default=False, help="cross validation", type=bool)
-parser.add_argument("-sn", "--sample-num", dest="sample_num", default=10,
+parser.add_argument("-sn", "--sample-num", dest="sample_num", default=1,
                     help="Number of generated samples if you use random search", type=int)
 parser.add_argument("-tm", "--target-metric", dest="target_metric", default=None,
                     help="If you use more than one metric then target metric will be used"

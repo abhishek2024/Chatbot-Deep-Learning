@@ -62,7 +62,7 @@
             "elmo"
           ],
           "mini_batch_size": 32,
-          "spec": {"search_grid": [
+          "spec": {"grid_search": [
             "/home/kuznetsov/models_env/ruwiki_pp_1.0_elmo/models/2018-06-09-16:38:34/hubs/sber-faq_epoches_n_7", 
             "/home/kuznetsov/models_env/ruwiki_pp_1.0_elmo/models/2018-06-09-16:38:34/hubs/sber-faq_epoches_n_7", 
             "/home/kuznetsov/models_env/ruwiki_pp_1.0_elmo/models/2018-06-09-16:38:34/hubs/sber-faq_epoches_n_7"

@@ -187,9 +187,9 @@ class PipeGen:
             if component is not None:
                 for key, item in component.items():
                     if isinstance(item, dict):
-                        if 'search_grid' in item.keys():
+                        if 'grid_search' in item.keys():
                             var_list = list()
-                            for var in item['search_grid']:
+                            for var in item['grid_search']:
                                 var_dict = dict()
                                 var_dict[var] = [i, key]
                                 var_list.append(var_dict)
