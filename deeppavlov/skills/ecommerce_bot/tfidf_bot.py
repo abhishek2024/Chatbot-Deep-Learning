@@ -130,12 +130,12 @@ class EcommerceTfidfBot(Component):
 
             cos_distance = [cosine(q_vect.todense(), x.todense()) for x in self.x_train_features]
         
-            # scores = [(cos, len(self.ec_data[idx]['Title'])) for idx, cos in enumerate(cos_distance)]
+            scores = [(cos, len(self.ec_data[idx]['Title'])) for idx, cos in enumerate(cos_distance)]
 
-            # raw_scores = np.array(scores, dtype=[('x', 'float_'), ('y', 'int_')])
+            raw_scores = np.array(scores, dtype=[('x', 'float_'), ('y', 'int_')])
 
-            # answer_ids = np.argsort(raw_scores, order=('x', 'y'))
-            answer_ids = np.argsort(cos_distance)
+            answer_ids = np.argsort(raw_scores, order=('x', 'y'))
+            # answer_ids = np.argsort(cos_distance)
 
             # results_args_sim = [idx for idx in results_args if scores[idx] >= self.min_similarity]
         
