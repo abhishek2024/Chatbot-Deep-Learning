@@ -89,12 +89,19 @@ class EcommerceTfidfBot(Component):
         logger.info("Saving to {}".format(self.save_path))
         path = expand_path(self.save_path)
         make_all_dirs(path)
+
+#        print("densing")
+ #       self.x_train_features = [x.todense() for x in self.x_train_features]
+
         save_pickle((self.ec_data, self.x_train_features), path)
 
     def load(self) -> None:
         """Load classifier parameters"""
         logger.info("Loading from {}".format(self.load_path))
         self.ec_data, self.x_train_features = load_pickle(expand_path(self.load_path))
+
+        print("densing")
+        self.x_train_features = [x.todense() for x in self.x_train_features]
 
     def __call__(self, q_vects, histories, states):
 
@@ -128,13 +135,19 @@ class EcommerceTfidfBot(Component):
             if 'stop' not in state:
                 state['stop'] = 10
 
-            cos_distance = [cosine(q_vect.todense(), x.todense()) for x in self.x_train_features]
+            q_vect_dense = q_vect.todense()
+
+            #cos_distance = [cosine(q_vect_dense, x.todense()) for x in self.x_train_features]
+            print("cosining")
+            cos_distance = [cosine(q_vect_dense, x) for x in self.x_train_features]
         
             scores = [(cos, len(self.ec_data[idx]['Title'])) for idx, cos in enumerate(cos_distance)]
+            print("calc cosine")
 
             raw_scores = np.array(scores, dtype=[('x', 'float_'), ('y', 'int_')])
 
             answer_ids = np.argsort(raw_scores, order=('x', 'y'))
+            print("sorted")
             # answer_ids = np.argsort(cos_distance)
 
             # results_args_sim = [idx for idx in results_args if scores[idx] >= self.min_similarity]
