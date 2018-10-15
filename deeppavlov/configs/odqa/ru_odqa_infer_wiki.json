@@ -1,0 +1,70 @@
+{
+  "chainer": {
+    "in": [
+      "question_raw"
+    ],
+    "out": [
+      "best_answer"
+    ],
+    "pipe": [
+      {
+        "config_path": "../deeppavlov/configs/ranking/ru_ranker_tfidf_wiki.json",
+        "in": [
+          "question_raw"
+        ],
+        "out": [
+          "doc_ids"
+        ]
+      },
+      {
+        "name": "wiki_sqlite_vocab",
+        "in": [
+          "doc_ids"
+        ],
+        "out": [
+          "context_raw"
+        ],
+        "data_dir": "odqa",
+        "join_docs": false,
+        "shuffle": false,
+        "data_url": "http://files.deeppavlov.ai/datasets/wikipedia/ruwiki.db"
+      },
+      {
+        "name": "document_chunker",
+        "in": ["context_raw"],
+        "out": ["chunks"],
+        "flatten_result": true
+      },
+      {
+        "name": "string_multiplier",
+        "in": ["question_raw", "chunks"],
+        "out":["questions"]
+      },
+      {
+        "name": "logit_ranker",
+        "squad_model": {
+          "config_path": "../deeppavlov/configs/squad/squad_ru.json"
+        },
+        "in": [
+          "chunks",
+          "questions"
+        ],
+        "out": [
+          "best_answer"
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "requirements": [
+      "../dp_requirements/tf.txt"
+    ],
+    "labels": {
+      "server_utils": "ODQA"
+    },
+    "download": [
+      "http://files.deeppavlov.ai/datasets/wikipedia/ruwiki.tar.gz",
+      "http://files.deeppavlov.ai/deeppavlov_data/ru_odqa.tar.gz"
+    ]
+  }
+}

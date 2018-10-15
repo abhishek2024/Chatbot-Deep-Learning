@@ -85,6 +85,7 @@
         "weight_decay": 1.0,
         "use_elmo": true,
         "noans_token": true,
+        "legacy": true,
         "save_path": "squad_model_elmo_noans/model",
         "load_path": "squad_model_elmo_noans/model",
         "in": {

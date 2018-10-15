@@ -45,7 +45,8 @@ class TFModel(NNModel, metaclass=TfModelMeta):
             log.info('[loading model from {}]'.format(path))
             # Exclude optimizer variables from saved variables
             # TODO use _get_saveable_variables
-            var_list = self._get_trainable_variables(exclude_scopes)
+            # TODO check some models require to load only trainable variabels
+            var_list = self._get_saveable_variables(exclude_scopes)
             saver = tf.train.Saver(var_list)
             saver.restore(self.sess, path)
 
@@ -55,7 +56,7 @@ class TFModel(NNModel, metaclass=TfModelMeta):
             path = self.save_path
         path = str(path.resolve())
         log.info('[saving model to {}]'.format(path))
-        var_list = self._get_trainable_variables(exclude_scopes)
+        var_list = self._get_saveable_variables(exclude_scopes)
         saver = tf.train.Saver(var_list)
         saver.save(self.sess, path)
 

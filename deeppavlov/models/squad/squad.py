@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Tuple
-
 import tensorflow as tf
 import numpy as np
 
@@ -72,7 +70,7 @@ class SquadModel(TFModel):
         self.use_transpose_att = self.opt.get('use_transpose_att', False)
         self.hops_keep_prob = self.opt.get('hops_keep_prob', 0.6)
         self.number_of_hops = self.opt.get('number_of_hops', 1)
-        self.legacy = self.opt.get('legacy', True)  # support old checkpoints
+        self.legacy = self.opt.get('legacy', False)  # support old checkpoints
         self.multihop_cell_size = self.opt.get('multihop_cell_size', 128)
         self.num_encoder_layers = self.opt.get('num_encoder_layers', 3)
         self.num_match_layers = self.opt.get('num_match_layers', 1)
@@ -176,6 +174,7 @@ class SquadModel(TFModel):
 
         if self.noans_token:
             # we use additional 'no answer' token to allow model not to answer on question
+            # later we will add 'no answer' token as first token in context question-aware representation
             self.y1 = tf.one_hot(self.y1_ph, depth=self.context_limit + 1)
             self.y2 = tf.one_hot(self.y2_ph, depth=self.context_limit + 1)
             self.y1 = tf.slice(self.y1, [0, 0], [bs, self.c_maxlen + 1])
@@ -351,7 +350,8 @@ class SquadModel(TFModel):
                 match = rnn(self_att, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
 
             with tf.variable_scope("pointer"):
-                init = simple_attention(q, self.attention_hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph)
+                # TODO: use self.attention_hidden_size
+                init = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph)
                 if self.number_of_hops == 1:
                     # default model
                     pointer = PtrNet(cell_size=init.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
@@ -399,12 +399,13 @@ class SquadModel(TFModel):
 
         with tf.variable_scope("predict"):
             if self.predict_ans and not self.shared_loss:
+                max_ans_length = tf.cast(tf.minimum(15, self.c_maxlen), tf.int64)
                 outer_logits = tf.exp(tf.expand_dims(logits1, axis=2) + tf.expand_dims(logits2, axis=1))
-                outer_logits = tf.matrix_band_part(outer_logits, 0, tf.cast(tf.minimum(15, self.c_maxlen), tf.int64))
+                outer_logits = tf.matrix_band_part(outer_logits, 0, max_ans_length)
 
                 outer = tf.matmul(tf.expand_dims(tf.nn.softmax(logits1), axis=2),
                                   tf.expand_dims(tf.nn.softmax(logits2), axis=1))
-                outer = tf.matrix_band_part(outer, 0, tf.cast(tf.minimum(15, self.c_maxlen), tf.int64))
+                outer = tf.matrix_band_part(outer, 0, max_ans_length)
 
                 if self.noans_token:
                     self.yp_score = 1 - tf.nn.softmax(logits1)[:, 0] * tf.nn.softmax(logits2)[:, 0]
@@ -673,21 +674,15 @@ class SquadModel(TFModel):
         # TODO: filter examples in batches with answer position greater self.context_limit
         # select one answer from list of correct answers
         # y1s, y2s are start and end positions of answer
-        y1s = list(map(lambda x: x[0], y1s))
-        y2s = list(map(lambda x: x[0], y2s))
+        y1s = np.array([x[0] for x in y1s])
+        y2s = np.array([x[0] for x in y2s])
         ys = None
         if self.scorer:
             ys = [int(not (y1 == -1 and y2 == -1)) for y1, y2 in zip(y1s, y2s)]
         if self.noans_token and self.predict_ans:
-            y1s_noans, y2s_noans = [], []
-            for y1, y2 in zip(y1s, y2s):
-                if y1 == -1 or y2 == -1:
-                    y1s_noans.append(0)
-                    y2s_noans.append(0)
-                else:
-                    y1s_noans.append(y1 + 1)
-                    y2s_noans.append(y2 + 1)
-            y1s, y2s = y1s_noans, y2s_noans
+            noans_mask = ((y1s != -1) * (y2s != -1))
+            y1s = (y1s + 1) * noans_mask
+            y2s = (y2s + 1) * noans_mask
         feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars,
                                           c_features, q_features, c_str, q_str, c_ner, q_ner, y1s, y2s, ys)
         loss, _ = self.sess.run([self.loss, self.train_op], feed_dict=feed_dict)
@@ -708,28 +703,18 @@ class SquadModel(TFModel):
 
         feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars,
                                           c_features, q_features, c_str, q_str, c_ner, q_ner)
+
         if self.scorer and not self.predict_ans:
             score = self.sess.run(self.yp, feed_dict=feed_dict)
             return score.tolist()
 
         if self.noans_token:
-            yp1s, yp2s, prob, score = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_score],
+            yp1, yp2, logits, score = self.sess.run([self.yp1, self.yp2, self.yp_logits, self.yp_score],
                                                     feed_dict=feed_dict)
-            """
-            yp1s_noans, yp2s_noans = [], []
-            for yp1, yp2 in zip(yp1s, yp2s):
-                if yp1 == 0 or yp2 == 0:
-                    yp1s_noans.append(-1)
-                    yp2s_noans.append(-1)
-                else:
-                    yp1s_noans.append(yp1 - 1)
-                    yp2s_noans.append(yp2 - 1)
-            yp1s, yp2s = yp1s_noans, yp2s_noans
-            """
-            noans_mask = (yp1s * yp2s).astype(bool)
-            yp1s = yp1s * noans_mask - 1
-            yp2s = yp2s * noans_mask - 1
-            return yp1s, yp2s, prob.tolist(), score.tolist()
+            noans_mask = (yp1 * yp2).astype(bool)
+            yp1 = yp1 * noans_mask - 1
+            yp2 = yp2 * noans_mask - 1
+            return yp1, yp2, logits.tolist(), score.tolist()
 
         if self.predict_ans and self.scorer:
             yp1s, yp2s, prob, logits, score = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_logits, self.yp],
@@ -740,7 +725,14 @@ class SquadModel(TFModel):
                                                  feed_dict=feed_dict)
         return yp1s, yp2s, prob.tolist(), logits.tolist()
 
-    def process_event(self, event_name, data):
+    def process_event(self, event_name: str, data) -> None:
+        """
+        Processes events sent by trainer. Implements learning rate decay.
+
+        Args:
+            event_name: event_name sent by trainer
+            data: number of examples, epochs, metrics sent by trainer
+        """
         if event_name == "after_validation":
             # learning rate decay
             if data['impatience'] > self.last_impatience:
@@ -777,6 +769,3 @@ class SquadModel(TFModel):
         for tokens in batch:
             tokens.extend([''] * (max_len - len(tokens)))
         return batch
-
-    def shutdown(self):
-        pass

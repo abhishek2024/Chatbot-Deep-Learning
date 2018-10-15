@@ -1,19 +1,18 @@
-"""
-Copyright 2017 Neural Networks and Deep Learning lab, MIPT
+# Copyright 2017 Neural Networks and Deep Learning lab, MIPT
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
+from typing import Dict, Any
 from pathlib import Path
 import json
 import pickle
@@ -26,11 +25,18 @@ from deeppavlov.core.common.registry import register
 @register('squad_dataset_reader')
 class SquadDatasetReader(DatasetReader):
     """
+    Downloads dataset files and prepares train/valid split.
+
+    SQuAD:
     Stanford Question Answering Dataset
     https://rajpurkar.github.io/SQuAD-explorer/
-    and
-    Russian dataset from SDSJ
+
+    SberSQuAD:
+    Dataset from SDSJ Task B
     https://www.sdsj.ru/ru/contest.html
+
+    MultiSQuAD:
+    SQuAD dataset with additional contexts retrieved (by tfidf) from original Wikipedia article.
     """
 
     url_squad = 'http://files.deeppavlov.ai/datasets/squad-v1.1.tar.gz'
@@ -40,7 +46,19 @@ class SquadDatasetReader(DatasetReader):
     url_ner_squad = 'http://files.deeppavlov.ai/datasets/squad-tokens-ner-v1.1.tar.gz'
     url_ner_sber_squad = 'http://files.deeppavlov.ai/datasets/sber_squad-tokens-ner-v1.1.tar.gz'
 
-    def read(self, dir_path: str, dataset='SQuAD'):
+    def read(self, dir_path: str, dataset: str = 'SQuAD', *args, **kwargs) -> Dict[str, Dict[str, Any]]:
+        """
+
+        Args:
+            dir_path: path to save data
+            dataset: dataset name: ``'SQuAD'``, ``'SberSQuAD'`` or ``'MultiSQuAD'``
+
+        Returns:
+            dataset split on train/valid
+
+        Raises:
+            RuntimeError: if `dataset` is not one of these: ``'SQuAD'``, ``'SberSQuAD'``, ``'MultiSQuAD'``.
+        """
         required_files = ['{}-v1.1.json'.format(dt) for dt in ['train', 'dev']]
 
         if dataset == 'SQuAD':
@@ -52,7 +70,6 @@ class SquadDatasetReader(DatasetReader):
             self.url = self.url_sber_squad
         elif dataset == 'MultiSQuAD':
             self.url = self.url_multi_squad
-            required_files = ['{}_multi-v1.1.json'.format(dt) for dt in ['train', 'dev']]
         elif dataset == 'NERSQuAD':
             self.url = self.url_ner_squad
             required_files = ['{}-tokens-ner-v1.1.json'.format(dt) for dt in ['train', 'dev']]
@@ -72,13 +89,12 @@ class SquadDatasetReader(DatasetReader):
         dataset = {}
         for f in required_files:
             data = json.load((dir_path / f).open('r'))
-            if f in (['dev-v{}.json'.format(v) for v in ['1.1', '2.0']] + ['dev_multi-v1.1.json', 'dev-tokens-ner-v1.1.json']):
+            if f in (['dev-v{}.json'.format(v) for v in ['1.1', '2.0']] + ['dev-tokens-ner-v1.1.json']):
                 dataset['valid'] = data
             else:
                 dataset['train'] = data
 
         return dataset
-
 
 @register('squad_scorer_dataset_reader')
 class SquadScorerDatasetReader(DatasetReader):

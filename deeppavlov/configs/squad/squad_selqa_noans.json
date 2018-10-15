@@ -79,6 +79,7 @@
         "weight_decay": 1.0,
         "noans_token": true,
         "scorer": false,
+        "legacy": true,
         "save_path": "squad_selqa_model_noans/model",
         "load_path": "squad_selqa_model_noans/model",
         "in": {

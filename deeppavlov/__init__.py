@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = '0.0.7'
+__version__ = '0.0.8'
 __author__ = 'Neural Networks and Deep Learning lab, MIPT'
 __description__ = 'An open source library for building end-to-end dialog systems and training chatbots.'
 __keywords__ = ['NLP', 'NER', 'SQUAD', 'Intents', 'Chatbot']
@@ -88,24 +88,16 @@ import deeppavlov.skills.odqa.tfhub_paragraph_ranker
 import deeppavlov.vocabs.typos
 import deeppavlov.vocabs.wiki_sqlite
 import deeppavlov.dataset_readers.insurance_reader
-import deeppavlov.dataset_iterators.ranking_iterator
 import deeppavlov.models.ner.network
-import deeppavlov.models.ranking.ranking_model
 import deeppavlov.models.ranking.metrics
 import deeppavlov.models.preprocessors.char_splitter
 import deeppavlov.models.preprocessors.mask
-#import deeppavlov.models.preprocessors.assemble_embeddins_matrix
 import deeppavlov.models.preprocessors.capitalization
-#import deeppavlov.models.preprocessors.field_getter
 import deeppavlov.models.preprocessors.sanitizer
-#import deeppavlov.models.preprocessors.lazy_tokenizer
 import deeppavlov.models.slotfill.slotfill_raw
 import deeppavlov.models.slotfill.slotfill
 import deeppavlov.models.preprocessors.one_hotter
 import deeppavlov.dataset_readers.ontonotes_reader
-
-#import deeppavlov.models.classifiers.tokens_matcher.tokens_matcher
-
 
 import deeppavlov.metrics.accuracy
 import deeppavlov.metrics.fmeasure

@@ -2,7 +2,7 @@
   "dataset_reader": {
     "name": "squad_dataset_reader",
     "dataset": "MultiSQuAD",
-    "data_path": "squad/"
+    "data_path": "multi_squad/"
   },
   "dataset_iterator": {
     "name": "multi_squad_iterator",
@@ -42,7 +42,7 @@
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.char_limit",
-        "fit_lol": ["context_tokens", "question_tokens"],
+        "fit_on": ["context_tokens", "question_tokens"],
         "in": ["context_tokens", "question_tokens"],
         "out": ["context_tokens_idxs", "question_tokens_idxs"]
       },
@@ -57,7 +57,7 @@
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.char_limit",
-        "fit_lol": ["context_chars", "question_chars"],
+        "fit_on": ["context_chars", "question_chars"],
         "in": ["context_chars", "question_chars"],
         "out": ["context_chars_idxs", "question_chars_idxs"]
       },
@@ -122,7 +122,7 @@
       "server_utils": "SquadModel"
     },
     "download": [
-      "http://lnsigo.mipt.ru/export/deeppavlov_data/multi_squad_model_noans.tar.gz",
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/multi_squad_model_noans_1.1.tar.gz",
       {
         "url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M.vec",
         "subdir": "embeddings"

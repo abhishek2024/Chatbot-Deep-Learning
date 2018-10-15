@@ -1,0 +1,101 @@
+{
+  "chainer": {
+    "in": [
+      "question_raw"
+    ],
+    "out": [
+      "best_answer"
+    ],
+    "pipe": [
+      {
+        "name": "tfidf_ranker",
+        "in": [
+          "question_raw"
+        ],
+        "out": [
+          "doc_ids",
+          "doc_scores"
+        ],
+        "fit_on_batch": [
+          "questions_raw"
+        ],
+        "vectorizer": {
+          "name": "hashing_tfidf_vectorizer",
+          "fit_on_batch": [
+            "questions_raw"
+          ],
+          "save_path": "odqa/en_wiki_test_tfidf.npz",
+          "load_path": "odqa/en_wiki_test_tfidf.npz",
+          "tokenizer": {
+            "name": "stream_spacy_tokenizer",
+            "lemmas": true,
+            "ngram_range": [
+              1,
+              2
+            ]
+          }
+        }
+      },
+      {
+        "name": "wiki_sqlite_vocab",
+        "in": [
+          "doc_ids"
+        ],
+        "out": [
+          "context_raw"
+        ],
+        "data_dir": "odqa",
+        "join_docs": false,
+        "shuffle": false,
+        "data_url": "http://files.deeppavlov.ai/datasets/wikipedia/wiki_test.db"
+      },
+      {
+        "name": "document_chunker",
+        "in": [
+          "context_raw"
+        ],
+        "out": [
+          "chunks"
+        ],
+        "flatten_result": true
+      },
+      {
+        "name": "string_multiplier",
+        "in": [
+          "question_raw",
+          "chunks"
+        ],
+        "out": [
+          "questions"
+        ]
+      },
+      {
+        "name": "logit_ranker",
+        "squad_model": {
+          "config_path": "../deeppavlov/configs/squad/squad.json"
+        },
+        "in": [
+          "chunks",
+          "questions"
+        ],
+        "out": [
+          "best_answer"
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "requirements": [
+      "../dp_requirements/tf.txt",
+      "../dp_requirements/spacy.txt",
+      "../dp_requirements/en_core_web_sm.txt"
+    ],
+    "labels": {
+      "server_utils": "ODQA"
+    },
+    "download": [
+      "http://files.deeppavlov.ai/datasets/wikipedia/wiki_test.tar.gz",
+      "http://files.deeppavlov.ai/deeppavlov_data/odqa_test.tar.gz"
+    ]
+  }
+}
