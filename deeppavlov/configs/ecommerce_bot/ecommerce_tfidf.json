@@ -2,7 +2,7 @@
   "dataset_reader": {
     "name": "amazon_ecommerce_reader",
     "data_path": "./amazon_ecommerce",
-    "catalog": ["Phones", "Home"]
+    "catalog": ["Phones", "Home", "Automotive", "Electronics", "Movies", "Books"]
   },
   "dataset_iterator": {
     "name": "data_learning_iterator"
