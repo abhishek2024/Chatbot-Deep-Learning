@@ -51,6 +51,7 @@ class EcommerceAgent(Agent):
         super(EcommerceAgent, self).__init__(skills=skills)
         # self.history: dict = defaultdict(list)
         self.states: dict = defaultdict(lambda: [{"start": 0, "stop": 5} for _ in self.skills])
+        print("init")
 
 
     def _call(self, utterances_batch: list, utterances_ids: list=None) -> list:
@@ -179,7 +180,7 @@ def make_agent() -> EcommerceAgent:
         agent: created Ecommerce agent
     """
 
-    config_path = find_config('ecommerce_bot')
+    config_path = find_config('ecommerce_tfidf')
     skill = build_model_from_config(config_path, as_component=True)
     agent = EcommerceAgent(skills=[skill])
     return agent
