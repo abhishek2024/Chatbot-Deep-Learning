@@ -116,7 +116,9 @@ class EcommerceAgent(Agent):
             self.states[id_] = state
             self.states[id_]["query"] = utt
 
-            items, entropy, total = responses
+            # items, entropy, total = responses
+            items = responses
+            entropy = []
 
             self.history[id_].append(responses)
             self.history[id_].append(self.states[id_])
