@@ -110,7 +110,7 @@ class EcommerceAgent(Agent):
                 self.states[id_] = {"start": 0, "stop": 5}
 
             responses, confidences, state = self.skills[0](
-                [utt], self.history[id_], [self.states[id_]])
+                [utt], [], self.history[id_], [self.states[id_]])
 
             # update `self.states` with retrieved results
             self.states[id_] = state
