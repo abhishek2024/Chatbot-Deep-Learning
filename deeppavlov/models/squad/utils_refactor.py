@@ -282,6 +282,56 @@ def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0,
         return res
 
 
+def dot_reattention(inputs, memory, memory_mask, inputs_mask, att_size, E=None, B=None, gamma_init=3, keep_prob=1.0,
+                    drop_diag=False, concat_inputs=False, scope="dot_reattention"):
+    # check reinforced mnemonic reader paper for more info about E, B and re-attention
+    with tf.variable_scope(scope):
+        BS, IL, IH = tf.unstack(tf.shape(inputs))
+        BS, ML, MH = tf.unstack(tf.shape(memory))
+
+        d_inputs = variational_dropout(inputs, keep_prob=keep_prob)
+        d_memory = variational_dropout(memory, keep_prob=keep_prob)
+
+        with tf.variable_scope("attention"):
+            inputs_att = tf.layers.dense(d_inputs, att_size, use_bias=False,
+                                         activation=tf.nn.relu,
+                                         kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
+                                         kernel_regularizer=tf.nn.l2_loss)
+            memory_att = tf.layers.dense(d_memory, att_size, use_bias=False,
+                                         activation=tf.nn.relu,
+                                         kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
+                                         kernel_regularizer=tf.nn.l2_loss)
+            # BS x IL x ML
+            logits = tf.matmul(inputs_att, tf.transpose(memory_att, [0, 2, 1])) / (att_size ** 0.5)
+
+            if E is not None and B is not None:
+                gamma = tf.Variable(gamma_init, dtype=tf.float32, trainable=True, name='gamma')
+                E_softmax = tf.nn.softmax(softmax_mask(E,
+                                                       tf.tile(tf.expand_dims(inputs_mask, axis=-1), [1, 1, ML])),
+                                          axis=1)
+
+                B_softmax = tf.nn.softmax(softmax_mask(B,
+                                                       tf.tile(tf.expand_dims(inputs_mask, axis=1), [1, IL, 1])),
+                                          axis=-1)
+
+                logits = logits + gamma * tf.matmul(B_softmax, E_softmax)
+
+            memory_mask = tf.tile(tf.expand_dims(memory_mask, axis=1), [1, IL, 1])
+            if drop_diag:
+                # set mask values to zero on diag
+                memory_mask = tf.cast(memory_mask, tf.float32) * (1 - tf.diag(tf.ones(shape=(IL,), dtype=tf.float32)))
+
+            att_weights = tf.nn.softmax(softmax_mask(logits, memory_mask))
+            outputs = tf.matmul(att_weights, memory)
+
+            if concat_inputs:
+                res = tf.concat([inputs, outputs], axis=2)
+            else:
+                res = outputs
+
+        return res, logits
+
+
 def simple_attention(memory, att_size, mask, keep_prob=1.0, scope="simple_attention"):
     """Simple attention without any conditions.
         a_i = v^T * tanh(W * m_i + b)

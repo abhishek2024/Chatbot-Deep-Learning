@@ -57,10 +57,10 @@ class SquadPreprocessor(Component):
         spans = []
         for c_raw, q_raw in zip(contexts_raw, questions_raw):
             c, r2p, p2r = SquadPreprocessor.preprocess_str(c_raw, return_mapping=True)
-            c_tokens = [token.replace("''", '"').replace("``", '"') for token in word_tokenize(c)][:self.context_limit]
+            c_tokens = [token.replace("''", '"').replace('``', '"') for token in word_tokenize(c)][:self.context_limit]
             c_chars = [list(token)[:self.char_limit] for token in c_tokens]
             q = SquadPreprocessor.preprocess_str(q_raw)
-            q_tokens = [token.replace("''", '"').replace("``", '"') for token in word_tokenize(q)][:self.question_limit]
+            q_tokens = [token.replace("''", '"').replace('``', '"') for token in word_tokenize(q)][:self.question_limit]
             q_chars = [list(token)[:self.char_limit] for token in q_tokens]
             contexts.append(c)
             contexts_tokens.append(c_tokens)
@@ -86,7 +86,7 @@ class SquadPreprocessor(Component):
             preprocessed line, raw2preprocessed, preprocessed2raw
 
         """
-        line = line.replace("''", '" ').replace("``", '" ')
+        line = line.replace("''", '" ').replace('``', '" ')
         if not return_mapping:
             return ''.join(c for c in line if not unicodedata.combining(c))
 
@@ -177,8 +177,8 @@ class SquadVocabEmbedder(Estimator):
         self.char_limit = char_limit
         self.loaded = False
 
-        self.NULL = "<NULL>"
-        self.OOV = "<OOV>"
+        self.NULL = '<NULL>'
+        self.OOV = '<OOV>'
 
         self.emb_folder.mkdir(parents=True, exist_ok=True)
 

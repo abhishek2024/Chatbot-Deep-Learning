@@ -85,6 +85,7 @@ class SquadModelRef(TFModel):
         self.use_soft_match_features = self.opt.get('use_soft_match_features', False)
         self.l2_norm = self.opt.get('l2_norm', None)
         self.concat_att_inputs = self.opt.get('concat_att_inputs', True)
+        self.use_reattention = self.opt.get('use_reattention', False)
 
         # TODO: add l2 norm to all dense layers and variables
 
@@ -160,12 +161,20 @@ class SquadModelRef(TFModel):
             q = rnn(q_emb, seq_len=self.q_len, concat_layers=self.concat_bigru_outputs)
 
         context_representations = [c]
+        E = None  # check reinforced mnemonic reader paper for more info about E, B and re-attention
+        B = None
         for i in range(self.number_of_hops):
             with tf.variable_scope('co-attention_{}'.format(i)):
-                qc_att = dot_attention(context_representations[-1], q, mask=self.q_mask,
-                                       att_size=self.attention_hidden_size, keep_prob=self.keep_prob_ph,
-                                       use_gate=self.use_gated_attention, use_transpose_att=self.use_transpose_att,
-                                       concat_inputs=self.concat_att_inputs)
+                if not self.use_reattention:
+                    qc_att = dot_attention(context_representations[-1], q, mask=self.q_mask,
+                                           att_size=self.attention_hidden_size, keep_prob=self.keep_prob_ph,
+                                           use_gate=self.use_gated_attention, use_transpose_att=self.use_transpose_att,
+                                           concat_inputs=self.concat_att_inputs)
+                else:
+                    qc_att, E = dot_reattention(context_representations[-1], q, memory_mask=self.q_mask,
+                                                inputs_mask=self.c_mask, att_size=self.attention_hidden_size,
+                                                E=E, B=B,
+                                                keep_prob=self.keep_prob_ph, concat_inputs=self.concat_att_inputs)
 
                 if self.use_highway_after_coatt:
                     # qc_att = tf.layers.batch_normalization(qc_att, training=self.is_train_ph)
@@ -180,10 +189,16 @@ class SquadModelRef(TFModel):
                     qc_att = rnn(qc_att, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
 
             with tf.variable_scope('self-attention_{}'.format(i)):
-                match = dot_attention(qc_att, qc_att, mask=self.c_mask, att_size=self.attention_hidden_size,
-                                      keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
-                                      drop_diag=self.drop_diag_self_att, use_transpose_att=False,
-                                      concat_inputs=self.concat_att_inputs)
+                if not self.use_reattention:
+                    match = dot_attention(qc_att, qc_att, mask=self.c_mask, att_size=self.attention_hidden_size,
+                                          keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
+                                          drop_diag=self.drop_diag_self_att, use_transpose_att=False,
+                                          concat_inputs=self.concat_att_inputs)
+                else:
+                    match, B = dot_reattention(qc_att, qc_att, memory_mask=self.c_mask,
+                                               inputs_mask=self.c_mask, att_size=self.attention_hidden_size,
+                                               E=B, B=B,
+                                               keep_prob=self.keep_prob_ph, concat_inputs=self.concat_att_inputs)
 
                 if self.use_highway_after_selfatt:
                     # Z
@@ -215,6 +230,7 @@ class SquadModelRef(TFModel):
             with tf.variable_scope('answer_selection'):
 
                 if self.noans_token:
+                    # create trainable no_ans token vector and add it to context at the first position
                     noans_token = tf.Variable(tf.random_uniform((final_context_repr.get_shape().as_list()[-1],),
                                                                 -0.1, 0.1), tf.float32)
                     noans_token = tf.nn.dropout(noans_token, keep_prob=self.keep_prob_ph)
@@ -237,6 +253,7 @@ class SquadModelRef(TFModel):
         with tf.variable_scope('predict'):
             if self.predict_ans and not self.shared_loss:
                 outer_logits = tf.exp(tf.expand_dims(logits1, axis=2) + tf.expand_dims(logits2, axis=1))
+                outer_logits = tf.matrix_band_part(outer_logits, 0, tf.cast(tf.minimum(15, self.c_maxlen), tf.int64))
                 outer = tf.matmul(tf.expand_dims(tf.nn.softmax(logits1), axis=2),
                                   tf.expand_dims(tf.nn.softmax(logits2), axis=1))
                 outer = tf.matrix_band_part(outer, 0, tf.cast(tf.minimum(15, self.c_maxlen), tf.int64))
@@ -392,6 +409,8 @@ class SquadModelRef(TFModel):
             self.y2_ph = tf.placeholder(shape=(None, ), dtype=tf.int32, name='y2_ph')
 
         self.lr_ph = tf.placeholder(dtype=tf.float32, shape=[], name='lr_ph')
+        # add separate keep prob for inputs
+        # to use higher keep prob in deeper layers
         self.keep_prob_ph = tf.placeholder_with_default(1.0, shape=[], name='keep_prob_ph')
         self.hops_keep_prob_ph = tf.placeholder_with_default(1.0, shape=[], name='hops_keep_prob_ph')
         self.is_train_ph = tf.placeholder_with_default(False, shape=[], name='is_train_ph')
