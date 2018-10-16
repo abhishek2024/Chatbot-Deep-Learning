@@ -19,6 +19,7 @@ from functools import partial
 
 from deeppavlov.core.layers.tf_layers import embedding_layer, character_embedding_network, variational_dropout
 from deeppavlov.core.layers.tf_layers import cudnn_bi_lstm, cudnn_bi_gru, bi_rnn, stacked_cnn, INITIALIZER
+from deeppavlov.models.ner.utils import dot_attention_relation, simple_attention_rel
 from deeppavlov.core.models.tf_model import TFModel
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.log import get_logger
@@ -82,6 +83,12 @@ class NerNetwork(TFModel):
                  additional_features: int = None,
                  net_type: str = 'rnn',  # Net architecture
                  cell_type: str = 'lstm',
+                 use_relations: bool = False,
+                 use_dot_attention_relation: bool = False,
+                 use_simple_attention_relation: bool = False,
+                 num_relations_limit: int = 10,
+                 num_words_per_relation_limit: int = 3,
+                 attention_hidden_size: int = 75,
                  use_cudnn_rnn: bool = False,
                  two_dense_on_top: bool = False,
                  n_hidden_list: Tuple[int] = (128,),
@@ -104,6 +111,13 @@ class NerNetwork(TFModel):
                  **kwargs) -> None:
         tf.set_random_seed(seed)
         np.random.seed(seed)
+        self.init_word_emb = token_emb_mat
+        self.use_relations = use_relations
+        self.use_dot_attention_relation = use_dot_attention_relation
+        self.use_simple_attention_relation = use_simple_attention_relation
+        self.num_relations_limit = num_relations_limit
+        self.num_words_per_relation_limit = num_words_per_relation_limit
+        self.attention_hidden_size = attention_hidden_size
         self._learning_rate = learning_rate
         self._lr_drop_patience = lr_drop_patience
         self._lr_drop_value = lr_drop_value
@@ -116,6 +130,9 @@ class NerNetwork(TFModel):
 
         # Token embeddings
         self._add_word_embeddings(token_emb_mat, token_emb_dim)
+
+        self.word_emb = tf.get_variable("word_emb", initializer=tf.constant(self.init_word_emb, dtype=tf.float32),
+                                        trainable=False)
 
         # Masks for different lengths utterances
         self.mask_ph = self._add_mask()
@@ -131,6 +148,40 @@ class NerNetwork(TFModel):
         # Part of speech features
         if pos_features_dim is not None:
             self._add_pos(pos_features_dim)
+
+        if self.use_relations:
+            self._add_rels()
+            self.c_rel = self._xs_ph_list[-1]
+        #print("rel_ph", self.c_rel)
+        
+        with tf.name_scope("rels"):
+            if self.use_relations:
+
+                c_rel_emb = tf.nn.embedding_lookup(self.word_emb, self.c_rel)
+
+                cr_mask = tf.cast(tf.cast(self.c_rel, tf.bool), tf.float32)
+
+                cr_mask_help = tf.reduce_sum(cr_mask, axis=-1, keepdims=False)
+                cr_mask_help = tf.cast(tf.cast(cr_mask_help, tf.bool), tf.float32)
+
+                cr_mask = tf.expand_dims(cr_mask, axis=-1)
+
+                cr_emb_full = tf.reduce_sum(c_rel_emb * cr_mask, axis=-2, keepdims=False) / \
+                      (tf.reduce_sum(cr_mask, axis=-2, keepdims=False) + 1e-05)
+
+                if self.use_dot_attention_relation:
+                    if char_emb_mat is not None and char_emb_dim is not None:
+                        c_emb = tf.concat([self._input_features[0], self._input_features[1]], axis = 2)
+                    else:
+                        c_emb = self._input_features[0]
+                    c_att = dot_attention_relation(c_emb, cr_emb_full, mask=cr_mask_help,
+                                           att_size=self.attention_hidden_size, keep_prob = self._dropout_ph)
+
+                if self.use_simple_attention_relation:
+                    c_att = simple_attention_rel(cr_emb_full, self.word_emb_dim, keep_prob=self._dropout_ph, scope="simple_attention_rel_c")
+
+        if self.use_relations:
+            self._input_features.append(c_att)
 
         # Anything you want
         if additional_features is not None:
@@ -174,12 +225,12 @@ class NerNetwork(TFModel):
         self.training_ph = tf.placeholder_with_default(False, shape=[], name='is_training')
 
     def _add_word_embeddings(self, token_emb_mat, token_emb_dim=None):
-        if token_emb_mat is None:
-            token_ph = tf.placeholder(tf.float32, [None, None, token_emb_dim], name='Token_Ind_ph')
-            emb = token_ph
-        else:
-            token_ph = tf.placeholder(tf.int32, [None, None], name='Token_Ind_ph')
-            emb = embedding_layer(token_ph, token_emb_mat)
+        #if token_emb_mat is None:
+        token_ph = tf.placeholder(tf.float32, [None, None, token_emb_dim], name='Token_Ind_ph')
+        emb = token_ph
+        #else:
+        #    token_ph = tf.placeholder(tf.int32, [None, None], name='Token_Ind_ph')
+        #    emb = embedding_layer(token_ph, token_emb_mat)
         self._xs_ph_list.append(token_ph)
         self._input_features.append(emb)
 
@@ -199,6 +250,7 @@ class NerNetwork(TFModel):
         self._xs_ph_list.append(capitalization_ph)
         self._input_features.append(capitalization_ph)
 
+
     def _add_pos(self, pos_features_dim):
         pos_ph = tf.placeholder(tf.float32, [None, None, pos_features_dim], name='POS_ph')
         self._xs_ph_list.append(pos_ph)
@@ -209,6 +261,10 @@ class NerNetwork(TFModel):
             feat_ph = tf.placeholder(tf.float32, [None, None, dim], name=feature + '_ph')
             self._xs_ph_list.append(feat_ph)
             self._input_features.append(feat_ph)
+
+    def _add_rels(self):
+        relations_ph = tf.placeholder(tf.int32, [None, None, self.num_relations_limit, self.num_words_per_relation_limit], name='relations_ph')
+        self._xs_ph_list.append(relations_ph)
 
     def _build_cudnn_rnn(self, units, n_hidden_list, cell_type, intra_layer_dropout, mask):
         sequence_lengths = tf.to_int32(tf.reduce_sum(mask, axis=1))

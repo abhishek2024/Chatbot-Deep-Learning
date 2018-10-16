@@ -29,21 +29,51 @@
       },
       {
         "in": ["x_san"],
+        "name":"ner_rel_extractor",
+        "num_relations_limit": 10,
+        "num_words_per_relation_limit": 3,
+        "relation_dict_pickle": "./relations/word2vec_dict_ngrams.pickle",
+        "out":["x_rel", "max_sentence_len"]
+      },
+      {
+        "in": ["x_rel"],
+        "name":"collapse",
+        "out":["x_rel_2d", "x_rel_unf_ind"]
+      },
+      {
+        "in": ["x_san"],
         "id": "word_vocab",
         "name": "simple_vocab",
         "pad_with_zeros": true,
         "special_tokens": ["<UNK>"],
-        "fit_on": ["x_san"],
+        "fit_off": ["x_san"],
         "save_path": "ner_conll2003/word.dict",
         "load_path": "ner_conll2003/word.dict",
         "out": ["x_tok_ind"]
+      },
+      {
+        "in": ["x_rel_2d"],
+        "id": "rel_vocab",
+        "name": "simple_vocab",
+        "pad_with_zeros": false,
+        "special_tokens": ["<UNK>"],
+        "fit_off": ["x_rel_2d"],
+        "save_path": "ner_conll2003/rel.dict",
+        "load_path": "ner_conll2003/rel.dict",
+        "out": ["x_rel_ind_2d"]
+      },
+      {
+        "in": ["x_rel_ind_2d", "x_rel_unf_ind", "max_sentence_len"],
+        "id": "unfold",
+        "name": "unfold",
+        "out": ["x_rel_ind"]
       },
       {
         "in": ["y"],
         "id": "tag_vocab",
         "name": "simple_vocab",
         "pad_with_zeros": true,
-        "fit_on": ["y"],
+        "fit_off": ["y"],
         "save_path": "ner_conll2003/tag.dict",
         "load_path": "ner_conll2003/tag.dict",
         "out": ["y_ind"]
@@ -58,7 +88,7 @@
         "id": "char_vocab",
         "name": "char_vocab",
         "pad_with_zeros": true,
-        "fit_on": ["x_char"],
+        "fit_off": ["x_char"],
         "save_path": "ner_conll2003/char.dict",
         "load_path": "ner_conll2003/char.dict",
         "out": ["x_char_ind"]
@@ -97,7 +127,7 @@
         "out": ["cap"]
       },
       {
-        "in": ["x_emb", "mask", "x_char_ind", "cap"],
+        "in": ["x_emb", "mask", "x_char_ind", "cap", "x_rel_ind"],
         "in_y": ["y_ind"],
         "out": ["y_predicted"],
         "name": "ner",
@@ -106,12 +136,18 @@
         "n_hidden_list": [128],
         "net_type": "rnn",
         "cell_type": "lstm",
+        "use_relations": true,
+        "use_dot_attention_relation": true,
+        "use_simple_attention_relation": false,
+        "attention_hidden_size": 75,
         "use_cudnn_rnn": true,
         "n_tags": "#tag_vocab.len",
         "capitalization_dim": "#capitalization.dim",
+        "relational_features": true,
+        "token_emb_mat": "#embeddings.emb_mat",
         "char_emb_dim": "#embeddings_char.dim",
-        "save_path": "ner_conll2003/model_no_pos",
-        "load_path": "ner_conll2003/model_no_pos",
+        "save_path": "ner_conll2003/model_no_pos_reg",
+        "load_path": "ner_conll2003/model_no_pos_reg",
         "char_emb_mat": "#embeddings_char.emb_mat",
         "two_dense_on_top": true,
         "use_crf": true,
@@ -133,7 +169,7 @@
   },
   "train": {
     "epochs": 100,
-    "batch_size": 64,
+    "batch_size": 25,
     "metrics": [
       {
         "name": "ner_f1",
@@ -144,12 +180,13 @@
     "val_every_n_epochs": 1,
 
     "log_every_n_epochs": 1,
-    "show_examples": false
+    "show_examples": false,
+    "tensorboard_log_dir": "ner_conll2003/logs_ner_reg"
   },
   "metadata": {
     "requirements": [
       "../dp_requirements/gensim.txt",
-      "../dp_requirements/tf.txt"
+      "../dp_requirements/tf-gpu.txt"
     ],
     "labels": {
       "telegram_utils": "NERCoNLL2003Model",
