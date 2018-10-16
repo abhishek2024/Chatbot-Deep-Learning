@@ -25,6 +25,7 @@
         "in": "query",
         "id": "my_tokenizer",
         "lemmas": true,
+	"alphas_only": false,
         "out": "q_token_lemmas"
       },
       {
@@ -49,7 +50,7 @@
         "model_name": "sklearn.feature_extraction.text:TfidfVectorizer",
         "infer_method": "transform",
         "analyzer": "word",
-        "use_idf": false
+        "use_idf": true
       },
       {
         "name": "ecommerce_tfidf_bot",
