@@ -9,17 +9,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 import copy
 import json
 
 from collections import Counter
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Union
 from operator import itemgetter
 from scipy.stats import entropy
 import numpy as np
-from scipy.sparse.linalg import norm as sparse_norm
-from scipy.sparse import vstack
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, vstack, hstack
 from scipy.sparse.linalg import norm as sparse_norm
 from scipy.spatial.distance import cosine, euclidean
 
@@ -124,6 +123,17 @@ class EcommerceTfidfBot(Component):
 
         for idx, q_vect in enumerate(q_vects):
 
+            print(q_vect)
+            # b = vstack([q_vect, q_vect])
+            # print(b)
+            # print(type(q_vect))
+            # print(type(b))
+
+            # print(q_vect.shape)
+            # print(b.shape)     
+            # q_comp = vstack([state['history'][-1],q_vect]).toarray()
+                    
+
             if len(states)>=idx+1:
                 state = states[idx]
             else:
@@ -134,16 +144,39 @@ class EcommerceTfidfBot(Component):
             if 'stop' not in state:
                 state['stop'] = 5
 
+            if 'history' not in state:
+                state['history'] = []
+
+            if len(state['history'])>0:
+                if state['history'][-1] != q_vect:
+                    q_comp = q_vect.maximum(state['history'][-1])
+                    print(q_comp)
+                    complex_bool = self._take_complex_query(q_comp, q_vect)
+
+                if complex_bool is True:
+                    q_vect = q_comp
+                    state['start'] = 0
+                    state['stop'] = 5
+                else:
+                    # current short query wins that means that the state should be zeroed
+                    state = {
+                        'history': [],
+                        'start': 0,
+                        'stop': 5,
+                        }
+
+            state['history'].append(q_vect)
+
 #            q_vect_dense = q_vect.todense()
 
             #cos_distance = [cosine(q_vect_dense, x.todense()) for x in self.x_train_features]
-            print("cosining")
+            # print("cosining")
             #cos_distance = [cosine(q_vect_dense, x) for x in self.x_train_features]
-            norm = sparse_norm(q_vect) * sparse_norm(self.x_train_features, axis=1)
-            cos_similarities = np.array(q_vect.dot(self.x_train_features.T).todense())/norm
+            # norm = sparse_norm(q_vect) * sparse_norm(self.x_train_features, axis=1)
+            # cos_similarities = np.array(q_vect.dot(self.x_train_features.T).todense())/norm
 
-            cos_similarities = cos_similarities[0]
-            cos_similarities = np.nan_to_num(cos_similarities)
+            # cos_similarities = cos_similarities[0]
+            # cos_similarities = np.nan_to_num(cos_similarities)
         
    #         scores = [(cos, len(self.ec_data[idx]['Title'])) for idx, cos in enumerate(cos_distance)]
     #        print("calc cosine")
@@ -167,3 +200,23 @@ class EcommerceTfidfBot(Component):
         print(confidences)
 
         return items, confidences, states
+
+    def _take_complex_query(self, q_prev: csr_matrix, q_cur: csr_matrix) -> bool:
+        prev_sim = self._similarity(q_prev)
+        cur_sim = self._similarity(q_cur)
+
+        if prev_sim.max()>cur_sim.max():
+            return True
+
+        return False
+
+    def _similarity(self, query: Union[csr_matrix, List]) -> List[float]:
+        norm = sparse_norm(q_vect) * sparse_norm(self.x_train_features, axis=1)
+        cos_similarities = np.array(q_vect.dot(self.x_train_features.T).todense())/norm
+
+        cos_similarities = cos_similarities[0]
+        cos_similarities = np.nan_to_num(cos_similarities)
+        return cos_similarities
+        
+
+
