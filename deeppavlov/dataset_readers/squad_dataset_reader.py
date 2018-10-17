@@ -43,6 +43,7 @@ class SquadDatasetReader(DatasetReader):
     url_squad_2_0 = 'http://files.deeppavlov.ai/datasets/squad-v2.0.tar.gz'
     url_sber_squad = 'http://files.deeppavlov.ai/datasets/sber_squad-v1.1.tar.gz'
     url_multi_squad = 'http://files.deeppavlov.ai/datasets/multiparagraph_squad.tar.gz'
+    url_multi_squad_chunks = 'http://files.deeppavlov.ai/datasets/multiparagraph_squad_chunks.tar.gz'
     url_ner_squad = 'http://files.deeppavlov.ai/datasets/squad-tokens-ner-v1.1.tar.gz'
     url_ner_sber_squad = 'http://files.deeppavlov.ai/datasets/sber_squad-tokens-ner-v1.1.tar.gz'
 
@@ -70,6 +71,8 @@ class SquadDatasetReader(DatasetReader):
             self.url = self.url_sber_squad
         elif dataset == 'MultiSQuAD':
             self.url = self.url_multi_squad
+        elif dataset == 'MultiSQuAD chunks':
+            self.url = self.url_multi_squad_chunks
         elif dataset == 'NERSQuAD':
             self.url = self.url_ner_squad
             required_files = ['{}-tokens-ner-v1.1.json'.format(dt) for dt in ['train', 'dev']]

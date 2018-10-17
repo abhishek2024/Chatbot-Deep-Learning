@@ -171,6 +171,12 @@ class SquadModel(TFModel):
             self.c_str = tf.slice(self.c_str_ph, [0, 0], [bs, self.c_maxlen])
             self.q_str = tf.slice(self.q_str_ph, [0, 0], [bs, self.q_maxlen])
 
+        if self.predict_ans:
+            self.y1 = tf.one_hot(self.y1_ph, depth=self.context_limit)
+            self.y2 = tf.one_hot(self.y2_ph, depth=self.context_limit)
+            self.y1 = tf.slice(self.y1, [0, 0], [bs, self.c_maxlen])
+            self.y2 = tf.slice(self.y2, [0, 0], [bs, self.c_maxlen])
+
         if self.noans_token:
             # we use additional 'no answer' token to allow model not to answer on question
             # later we will add 'no answer' token as first token in context question-aware representation
@@ -182,12 +188,6 @@ class SquadModel(TFModel):
             # we don't need to predict answer position
             self.y = self.y_ph
             self.y_ohe = tf.one_hot(self.y, depth=2)
-
-        if self.predict_ans:
-            self.y1 = tf.one_hot(self.y1_ph, depth=self.context_limit)
-            self.y2 = tf.one_hot(self.y2_ph, depth=self.context_limit)
-            self.y1 = tf.slice(self.y1, [0, 0], [bs, self.c_maxlen])
-            self.y2 = tf.slice(self.y2, [0, 0], [bs, self.c_maxlen])
 
             if self.soft_labels:
                 center_weight = self.true_label_weight
