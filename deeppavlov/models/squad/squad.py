@@ -92,11 +92,10 @@ class SquadModel(TFModel):
         self.last_impatience = 0
         self.lr_impatience = 0
 
-        # TODO: model is saved and loaded only with trainable variables (not saveable!)
         if GPU_AVAILABLE:
             self.GRU = CudnnGRU if not self.legacy else CudnnGRULegacy
         else:
-            raise RuntimeError('SquadModel requires GPU')
+            self.GRU = CudnnCompatibleGRU
 
         self.sess_config = tf.ConfigProto(allow_soft_placement=True)
         self.sess_config.gpu_options.allow_growth = True
@@ -723,6 +722,7 @@ class SquadModel(TFModel):
 
         yp1s, yp2s, prob, logits = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_logits],
                                                  feed_dict=feed_dict)
+
         return yp1s, yp2s, prob.tolist(), logits.tolist()
 
     def process_event(self, event_name: str, data) -> None:
