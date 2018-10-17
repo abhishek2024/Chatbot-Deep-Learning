@@ -30,7 +30,6 @@ from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.common.file import save_pickle, load_pickle
 from deeppavlov.core.commands.utils import expand_path, make_all_dirs, is_file_exist
 from deeppavlov.core.models.estimator import Component
-from deeppavlov.metrics.bleu import bleu_advanced
 
 logger = get_logger(__name__)
 
@@ -100,8 +99,8 @@ class EcommerceTfidfBot(Component):
         logger.info("Loading from {}".format(self.load_path))
         self.ec_data, self.x_train_features = load_pickle(expand_path(self.load_path))
 
-        print("densing")
-        self.x_train_features = [x.todense() for x in self.x_train_features]
+ #       print("densing")
+  #      self.x_train_features = [x.todense() for x in self.x_train_features]
 
     def __call__(self, q_vects, histories, states):
 
@@ -128,34 +127,43 @@ class EcommerceTfidfBot(Component):
             if len(states)>=idx+1:
                 state = states[idx]
             else:
-                state = {'start': 0, 'stop': 10}
+                state = {'start': 0, 'stop': 5}
             
             if 'start' not in state:
                 state['start'] = 0
             if 'stop' not in state:
-                state['stop'] = 10
+                state['stop'] = 5
 
-            q_vect_dense = q_vect.todense()
+#            q_vect_dense = q_vect.todense()
 
             #cos_distance = [cosine(q_vect_dense, x.todense()) for x in self.x_train_features]
             print("cosining")
-            cos_distance = [cosine(q_vect_dense, x) for x in self.x_train_features]
+            #cos_distance = [cosine(q_vect_dense, x) for x in self.x_train_features]
+            norm = sparse_norm(q_vect) * sparse_norm(self.x_train_features, axis=1)
+            cos_similarities = np.array(q_vect.dot(self.x_train_features.T).todense())/norm
+
+            cos_similarities = cos_similarities[0]
+            cos_similarities = np.nan_to_num(cos_similarities)
         
-            scores = [(cos, len(self.ec_data[idx]['Title'])) for idx, cos in enumerate(cos_distance)]
-            print("calc cosine")
+   #         scores = [(cos, len(self.ec_data[idx]['Title'])) for idx, cos in enumerate(cos_distance)]
+    #        print("calc cosine")
 
-            raw_scores = np.array(scores, dtype=[('x', 'float_'), ('y', 'int_')])
+    #        raw_scores = np.array(scores, dtype=[('x', 'float_'), ('y', 'int_')])
 
-            answer_ids = np.argsort(raw_scores, order=('x', 'y'))
-            print("sorted")
-            # answer_ids = np.argsort(cos_distance)
+     #       answer_ids = np.argsort(raw_scores, order=('x', 'y'))
+      #      print("sorted")
+            answer_ids = np.argsort(cos_similarities)[::-1]
 
             # results_args_sim = [idx for idx in results_args if scores[idx] >= self.min_similarity]
         
             items.append([self.ec_data[idx] for idx in answer_ids[state['start']:state['stop']]])
 
-            confidences.append([cos_distance[idx] for idx in answer_ids[state['start']:state['stop']]])
+            #confidences.append([cos_distance[idx] for idx in answer_ids[state['start']:state['stop']]])
+            confidences.append([cos_similarities[idx] for idx in answer_ids[state['start']:state['stop']]])
 
             states.append(state)
+
+        print(items)
+        print(confidences)
 
         return items, confidences, states
