@@ -173,13 +173,14 @@ def train_evaluate_model_from_config(config: [str, Path, dict], iterator=None,
     if to_train:
         model = fit_chainer(config, iterator)
 
+        if callable(getattr(model, 'fit', None)):
+            _fit(model, iterator, train_config)
         if callable(getattr(model, 'train_on_batch', None)):
             _train_batches(model, iterator, train_config, metrics_functions)
-        elif callable(getattr(model, 'fit_batches', None)):
+        if callable(getattr(model, 'fit_batches', None)):
             _fit_batches(model, iterator, train_config)
-        elif callable(getattr(model, 'fit', None)):
-            _fit(model, iterator, train_config)
-        elif not isinstance(model, Chainer):
+        if not any(getattr(model, m, None) for m in ('fit', 'train_on_batch', 'fit_batches'))\
+                and not isinstance(model, Chainer):
             log.warning('Nothing to train')
 
         model.destroy()
@@ -215,7 +216,7 @@ def train_evaluate_model_from_config(config: [str, Path, dict], iterator=None,
             res['test'] = report['test']['metrics']
 
             print(json.dumps(report, ensure_ascii=False))
-        
+
         model.destroy()
 
     return res
@@ -352,9 +353,11 @@ def _train_batches(model: NNModel, iterator: DataLearningIterator, train_config:
                     y_predicted = list(model(list(x)))
                     train_y_true += y_true
                     train_y_predicted += y_predicted
-                loss = model.train_on_batch(x, y_true)
-                if loss is not None:
-                    losses.append(loss)
+                result = model.train_on_batch(x, y_true)
+                if not isinstance(result, dict):
+                    result = {'loss': result} if result is not None else {}
+                if 'loss' in result:
+                    losses.append(result['loss'])
                 i += 1
                 examples += len(x)
 
@@ -367,6 +370,7 @@ def _train_batches(model: NNModel, iterator: DataLearningIterator, train_config:
                         'metrics': prettify_metrics(metrics),
                         'time_spent': str(datetime.timedelta(seconds=round(time.time() - start_time + 0.5)))
                     }
+                    report.update(result)
 
                     if train_config['show_examples']:
                         try:
@@ -388,10 +392,10 @@ def _train_batches(model: NNModel, iterator: DataLearningIterator, train_config:
                                                                             simple_value=score), ])
                             tb_train_writer.add_summary(metric_sum, i)
 
-                        if 'loss' in report:
-                            loss_sum = tf.Summary(value=[tf.Summary.Value(tag='every_n_batches/' + 'loss',
-                                                                            simple_value=report['loss']), ])
-                            tb_train_writer.add_summary(loss_sum, i)
+                        for name, score in result.items():
+                            res_sum = tf.Summary(value=[tf.Summary.Value(tag='every_n_batches/' + name,
+                                                                         simple_value=score), ])
+                            tb_train_writer.add_summary(res_sum, i)
 
                     report = {'train': report}
                     print(json.dumps(report, ensure_ascii=False))
@@ -432,6 +436,7 @@ def _train_batches(model: NNModel, iterator: DataLearningIterator, train_config:
                     'metrics': prettify_metrics(metrics),
                     'time_spent': str(datetime.timedelta(seconds=round(time.time() - start_time + 0.5)))
                 }
+                report.update(result)
 
                 if train_config['show_examples']:
                     try:
@@ -453,10 +458,10 @@ def _train_batches(model: NNModel, iterator: DataLearningIterator, train_config:
                                                                         simple_value=score), ])
                         tb_train_writer.add_summary(metric_sum, epochs)
 
-                    if 'loss' in report:
-                        loss_sum = tf.Summary(value=[tf.Summary.Value(tag='every_n_epochs/' + 'loss',
-                                                                        simple_value=report['loss']), ])
-                        tb_train_writer.add_summary(loss_sum, epochs)
+                    for name, score in result.items():
+                        res_sum = tf.Summary(value=[tf.Summary.Value(tag='every_n_epochs/' + name,
+                                                                     simple_value=score), ])
+                        tb_train_writer.add_summary(res_sum, epochs)
 
                 model.process_event(event_name='after_train_log', data=report)
                 report = {'train': report}
