@@ -19,6 +19,8 @@ import unicodedata
 from collections import Counter
 from pathlib import Path
 import string
+from multiprocessing import Pool, cpu_count
+from functools import lru_cache
 
 import numpy as np
 from nltk import word_tokenize
@@ -40,39 +42,31 @@ logger = get_logger(__name__)
 
 @register('squad_preprocessor')
 class SquadPreprocessor(Component):
-    def __init__(self, context_limit, question_limit, char_limit, *args, **kwargs):
+    def __init__(self, context_limit, question_limit, char_limit, n_jobs=8, *args, **kwargs):
         self.context_limit = context_limit
         self.question_limit = question_limit
         self.char_limit = char_limit
+        n_jobs = cpu_count() if n_jobs == -1 else n_jobs
+        self.pool = Pool(n_jobs)
 
     def __call__(self, contexts_raw, questions_raw, **kwargs):
-        contexts = []
-        contexts_tokens = []
-        contexts_chars = []
-        contexts_r2p = []
-        contexts_p2r = []
-        questions = []
-        questions_tokens = []
-        questions_chars = []
-        spans = []
-        for c_raw, q_raw in zip(contexts_raw, questions_raw):
-            c, r2p, p2r = SquadPreprocessor.preprocess_str(c_raw, return_mapping=True)
-            c_tokens = [token.replace("''", '"').replace('``', '"') for token in word_tokenize(c)][:self.context_limit]
-            c_chars = [list(token)[:self.char_limit] for token in c_tokens]
-            q = SquadPreprocessor.preprocess_str(q_raw)
-            q_tokens = [token.replace("''", '"').replace('``', '"') for token in word_tokenize(q)][:self.question_limit]
-            q_chars = [list(token)[:self.char_limit] for token in q_tokens]
-            contexts.append(c)
-            contexts_tokens.append(c_tokens)
-            contexts_chars.append(c_chars)
-            contexts_r2p.append(r2p)
-            contexts_p2r.append(p2r)
-            questions.append(q)
-            questions_tokens.append(q_tokens)
-            questions_chars.append(q_chars)
-            spans.append(SquadPreprocessor.convert_idx(c, c_tokens))
-        return contexts, contexts_tokens, contexts_chars, contexts_r2p, contexts_p2r, \
-               questions, questions_tokens, questions_chars, spans
+        context_limits = [self.context_limit] * len(contexts_raw)
+        question_limits = [self.question_limit] * len(contexts_raw)
+        char_limits = [self.char_limit] * len(contexts_raw)
+        args = list(zip(contexts_raw, questions_raw, context_limits, question_limits, char_limits))
+        results = self.pool.starmap(self.preprocess_example, args)
+        return list(zip(*results))
+
+    @staticmethod
+    def preprocess_example(c_raw, q_raw, context_limit, question_limit, char_limit):
+        c, r2p, p2r = SquadPreprocessor.preprocess_str(c_raw, return_mapping=True)
+        c_tokens = [token.replace("''", '"').replace('``', '"') for token in word_tokenize(c)][:context_limit]
+        c_chars = [list(token)[:char_limit] for token in c_tokens]
+        q = SquadPreprocessor.preprocess_str(q_raw)
+        q_tokens = [token.replace("''", '"').replace('``', '"') for token in word_tokenize(q)][:question_limit]
+        q_chars = [list(token)[:char_limit] for token in q_tokens]
+        span = SquadPreprocessor.convert_idx(c, c_tokens)
+        return c, c_tokens, c_chars, r2p, p2r, q, q_tokens, q_chars, span
 
     @staticmethod
     def preprocess_str(line, return_mapping=False):
@@ -263,6 +257,7 @@ class SquadVocabEmbedder(Estimator):
         self.save_path.parent.mkdir(parents=True, exist_ok=True)
         pickle.dump((self.emb_dim, self.emb_mat, self.token2idx_dict), self.save_path.open('wb'))
 
+    @lru_cache(maxsize=2**16)
     def _get_idx(self, el):
         """ Returns idx for el (token or char).
 
