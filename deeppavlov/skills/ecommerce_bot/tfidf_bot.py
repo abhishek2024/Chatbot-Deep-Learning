@@ -107,6 +107,7 @@ class EcommerceTfidfBot(Component):
 
         print(q_vects)
 
+
         if not isinstance(q_vects, list):
             print("converted into list")
             q_vects = [q_vects]
@@ -117,9 +118,12 @@ class EcommerceTfidfBot(Component):
         if not isinstance(histories, list):
             histories = [histories]
 
+        print("states inside skill")
+        print(states)
+
         items: List = []
         confidences: List = []
-        states: List = []
+        back_states: List = []
 
         for idx, q_vect in enumerate(q_vects):
 
@@ -132,12 +136,14 @@ class EcommerceTfidfBot(Component):
             # print(q_vect.shape)
             # print(b.shape)     
             # q_comp = vstack([state['history'][-1],q_vect]).toarray()
-                    
 
             if len(states)>=idx+1:
                 state = states[idx]
             else:
                 state = {'start': 0, 'stop': 5}
+
+            print("states inside a loop")
+            print(state)
             
             if 'start' not in state:
                 state['start'] = 0
@@ -148,10 +154,12 @@ class EcommerceTfidfBot(Component):
                 state['history'] = []
 
             if len(state['history'])>0:
-                if state['history'][-1] != q_vect:
+                if not np.array_equal(state['history'][-1].todense(), q_vect.todense()):
                     q_comp = q_vect.maximum(state['history'][-1])
+                    print("complex query")
                     print(q_comp)
                     complex_bool = self._take_complex_query(q_comp, q_vect)
+                    print(complex_bool)
 
                 if complex_bool is True:
                     q_vect = q_comp
@@ -164,6 +172,8 @@ class EcommerceTfidfBot(Component):
                         'start': 0,
                         'stop': 5,
                         }
+            else:
+                print('history is empty')
 
             state['history'].append(q_vect)
 
@@ -185,21 +195,26 @@ class EcommerceTfidfBot(Component):
 
      #       answer_ids = np.argsort(raw_scores, order=('x', 'y'))
       #      print("sorted")
-            answer_ids = np.argsort(cos_similarities)[::-1]
+
+            print('final query')
+            print(q_vect)
+
+            scores = self._similarity(q_vect)
+            answer_ids = np.argsort(scores)[::-1]
 
             # results_args_sim = [idx for idx in results_args if scores[idx] >= self.min_similarity]
         
             items.append([self.ec_data[idx] for idx in answer_ids[state['start']:state['stop']]])
 
             #confidences.append([cos_distance[idx] for idx in answer_ids[state['start']:state['stop']]])
-            confidences.append([cos_similarities[idx] for idx in answer_ids[state['start']:state['stop']]])
+            confidences.append([scores[idx] for idx in answer_ids[state['start']:state['stop']]])
 
-            states.append(state)
+            back_states.append(state)
 
         print(items)
         print(confidences)
 
-        return items, confidences, states
+        return items, confidences, back_states
 
     def _take_complex_query(self, q_prev: csr_matrix, q_cur: csr_matrix) -> bool:
         prev_sim = self._similarity(q_prev)
@@ -210,7 +225,7 @@ class EcommerceTfidfBot(Component):
 
         return False
 
-    def _similarity(self, query: Union[csr_matrix, List]) -> List[float]:
+    def _similarity(self, q_vect: Union[csr_matrix, List]) -> List[float]:
         norm = sparse_norm(q_vect) * sparse_norm(self.x_train_features, axis=1)
         cos_similarities = np.array(q_vect.dot(self.x_train_features.T).todense())/norm
 
