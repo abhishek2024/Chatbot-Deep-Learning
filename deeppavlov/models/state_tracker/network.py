@@ -20,7 +20,7 @@ from time import time
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.errors import ConfigError
-from deeppavlov.core.models.tf_model import TFModel
+from deeppavlov.core.models.tf_model import EnhancedTFModel
 from deeppavlov.core.common.log import get_logger
 
 
@@ -28,24 +28,19 @@ log = get_logger(__name__)
 
 
 @register("dst_network")
-class StateTrackerNetwork(TFModel):
+class StateTrackerNetwork(EnhancedTFModel):
     """
     Parameters:
         hidden_size: RNN hidden layer size.
         dense_size:
         num_slot_values:
         embedding_matrix:
-        learning_rate: training learning rate.
-        end_learning_rate: if set, learning rate starts from ``learning rate`` value and
-            decays polynomially to the value of ``end_learning_rate``.
-        decay_steps: number of steps for learning rate to decay.
-        decay_power: power used to calculate learning rate decay for polynomial strategy.
-        optimizer: one of tf.train.Optimizer subclasses as a string.
         **kwargs: parameters passed to a parent
                   :class:`~deeppavlov.core.models.tf_model.TFModel` class.
     """
 
-    GRAPH_PARAMS = ['hidden_size', 'num_slot_values', 'num_tokens', 'embedding_size']
+    GRAPH_PARAMS = ['hidden_size', 'dense_size', 'embedding_size',
+                    'num_user_actions', 'num_system_actions', 'num_slot_values']
 
     def __init__(self,
                  hidden_size: int,
@@ -54,13 +49,9 @@ class StateTrackerNetwork(TFModel):
                  num_user_actions: int,
                  num_system_actions: int,
                  embedding_matrix: np.ndarray,
-                 learning_rate: float,
-                 end_learning_rate: float = None,
-                 decay_steps: int = 1000,
-                 decay_power: float = 1.,
-                 optimizer: str = 'AdamOptimizer',
                  **kwargs) -> None:
-        end_learning_rate = end_learning_rate or learning_rate
+        super().__init__(**kwargs)
+
         # initializer embedding matrix
         self.emb_mat = embedding_matrix
 
@@ -72,12 +63,7 @@ class StateTrackerNetwork(TFModel):
             'num_user_actions': num_user_actions,
             'num_system_actions': num_system_actions,
             'num_tokens': embedding_matrix.shape[0],
-            'embedding_size': embedding_matrix.shape[1],
-            'learning_rate': learning_rate,
-            'end_learning_rate': end_learning_rate,
-            'decay_steps': decay_steps,
-            'decay_power': decay_power,
-            'optimizer': optimizer
+            'embedding_size': embedding_matrix.shape[1]
         }
         # initialize parameters
         self._init_params()
@@ -87,10 +73,7 @@ class StateTrackerNetwork(TFModel):
         self.sess = tf.Session()
 
         self.sess.run(tf.global_variables_initializer())
-
-        super().__init__(**kwargs)
-
-        if tf.train.checkpoint_exists(str(self.save_path.resolve())):
+        if tf.train.checkpoint_exists(str(self.load_path.resolve())):
             log.info("[initializing `{}` from saved]".format(self.__class__.__name__))
             self.load()
         else:
@@ -105,17 +88,6 @@ class StateTrackerNetwork(TFModel):
         self.num_sys_acts = self.opt['num_system_actions']
         self.num_tokens = self.opt['num_tokens']
         self.embedding_size = self.opt['embedding_size']
-        self.learning_rate = self.opt['learning_rate']
-        self.end_learning_rate = self.opt['end_learning_rate']
-        self.decay_steps = self.opt['decay_steps']
-        self.decay_power = self.opt['decay_power']
-
-        self._optimizer = None
-        if hasattr(tf.train, self.opt['optimizer']):
-            self._optimizer = getattr(tf.train, self.opt['optimizer'])
-        if not issubclass(self._optimizer, tf.train.Optimizer):
-            raise ConfigError("`optimizer` parameter should be a name of"
-                              " tf.train.Optimizer subclass")
 
     def _build_graph(self):
 
@@ -148,8 +120,7 @@ class StateTrackerNetwork(TFModel):
         self._summary = tf.summary.merge_all()
         self._train_writer = tf.summary.FileWriter(f"logs/train_{time()}", self.graph)
         self._test_writer = tf.summary.FileWriter(f"logs/test_{time()}")
-        self._train_op = \
-            self.get_train_op(self._loss, self.learning_rate, clip_norm=10.)
+        self._train_op = self.get_train_op(self._loss, clip_norm=10.)
 
     def _add_placeholders(self):
         # _utt_token_idx: [2, num_tokens]
@@ -194,12 +165,13 @@ class StateTrackerNetwork(TFModel):
 
         # TODO: try training embeddings
         # TODO: try weighting embeddings with tf-idf
-        _emb_initializer = tf.constant_initializer(self.emb_mat)
-        self._embedding = tf.get_variable("embedding",
-                                          shape=self.emb_mat.shape,
-                                          dtype=tf.float32,
-                                          initializer=_emb_initializer,
-                                          trainable=False)
+        with tf.variable_scope("EmbeddingMatrix"):
+            _emb_initializer = tf.constant_initializer(self.emb_mat)
+            self._embedding = tf.get_variable("embedding",
+                                              shape=self.emb_mat.shape,
+                                              dtype=tf.float32,
+                                              initializer=_emb_initializer,
+                                              trainable=False)
 
     @staticmethod
     def _stacked_bi_gru(units, n_hidden_list, seq_length=None, name='rnn_layer'):
@@ -416,6 +388,37 @@ class StateTrackerNetwork(TFModel):
             raise NotImplementedError("Probs not available for now.")
         return prediction
 
+    def calc_loss(self, u_utt_token_idx, u_utt_slot_tok_val_idx, u_act_idx,
+                  u_slot_act_mask,
+                  s_utt_token_idx, s_utt_slot_tok_val_idx, s_act_idx,
+                  s_slot_act_mask,
+                  slot_val_mask, prev_pred_mat, true_state_mat, **kwargs):
+        utt_token_idx, utt_seq_length = self._concat_and_pad([u_utt_token_idx,
+                                                              s_utt_token_idx],
+                                                             axis=0, pad_axis=1)
+        u_utt_slot_tok_val_idx = np.expand_dims(u_utt_slot_tok_val_idx[0], axis=0)
+        s_utt_slot_tok_val_idx = np.expand_dims(s_utt_slot_tok_val_idx[0], axis=0)
+        utt_slot_tok_val_idx, _ = self._concat_and_pad([u_utt_slot_tok_val_idx,
+                                                        s_utt_slot_tok_val_idx],
+                                                       pad_length=max(utt_seq_length),
+                                                       axis=0, pad_axis=2)
+        loss_value = self.sess.run(
+            self._loss,
+            feed_dict={
+                self._u_utt_action_idx: u_act_idx[0],
+                self._u_utt_slot_action_mask: u_slot_act_mask[0],
+                self._s_utt_action_idx: s_act_idx[0],
+                self._s_utt_slot_action_mask: s_slot_act_mask[0],
+                self._utt_token_idx: utt_token_idx,
+                self._utt_seq_length: utt_seq_length,
+                self._utt_slot_tok_val_idx: utt_slot_tok_val_idx,
+                self._prev_pred: prev_pred_mat[0],
+                self._slot_val_mask: slot_val_mask[0],
+                self._true_state: true_state_mat[0]
+            }
+        )
+        return {'loss': loss_value}
+
     def train_on_batch(self, u_utt_token_idx, u_utt_slot_tok_val_idx, u_act_idx,
                        u_slot_act_mask,
                        s_utt_token_idx, s_utt_slot_tok_val_idx, s_act_idx,
@@ -433,6 +436,8 @@ class StateTrackerNetwork(TFModel):
         _tr, loss_value, summary = self.sess.run(
             [self._train_op, self._loss, self._summary],
             feed_dict={
+                self.get_learning_rate_ph(): self.get_learning_rate(),
+                self.get_momentum_ph(): self.get_momentum(),
                 self._u_utt_action_idx: u_act_idx[0],
                 self._u_utt_slot_action_mask: u_slot_act_mask[0],
                 self._s_utt_action_idx: s_act_idx[0],
@@ -452,10 +457,14 @@ class StateTrackerNetwork(TFModel):
         # print(f"where(_tr): {np.where(_tr)}")
         # print(f"loss_value.shape: {loss_value.shape}")
         # print(f"loss_value: {loss_value}")
-        return loss_value
+        report = {'loss': loss_value, 'learning_rate': self.get_learning_rate()}
+        if self.get_momentum():
+            report['momentum'] = self.get_momentum()
+        return report
 
     def load(self, *args, **kwargs):
         self.load_params()
+        kwargs['exclude_scopes'] = ('Optimizer', 'EmbeddingMatrix')
         super().load(*args, **kwargs)
 
     def load_params(self):
