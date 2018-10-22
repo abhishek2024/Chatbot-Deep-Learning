@@ -43,6 +43,7 @@ class SquadModelRef(TFModel):
         self.hidden_size = self.opt['encoder_hidden_size']
         self.attention_hidden_size = self.opt['attention_hidden_size']
         self.keep_prob = self.opt['keep_prob']
+        self.input_keep_prob = self.opt.get('input_keep_prob', self.keep_prob)
         self.learning_rate = self.opt['learning_rate']
         self.min_learning_rate = self.opt['min_learning_rate']
         self.learning_rate_patience = self.opt['learning_rate_patience']
@@ -156,7 +157,7 @@ class SquadModelRef(TFModel):
         with tf.variable_scope('encoding'):
             rnn = self.GRU(num_layers=self.num_encoder_layers, num_units=self.hidden_size, batch_size=self.bs,
                            input_size=c_emb.get_shape().as_list()[-1],
-                           keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
+                           keep_prob=self.input_keep_prob_ph, share_layers=self.share_layers)
             c = rnn(c_emb, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
             q = rnn(q_emb, seq_len=self.q_len, concat_layers=self.concat_bigru_outputs)
 
@@ -197,7 +198,7 @@ class SquadModelRef(TFModel):
                 else:
                     match, B = dot_reattention(qc_att, qc_att, memory_mask=self.c_mask,
                                                inputs_mask=self.c_mask, att_size=self.attention_hidden_size,
-                                               E=B, B=B,
+                                               E=B, B=B, drop_diag=self.drop_diag_self_att,
                                                keep_prob=self.keep_prob_ph, concat_inputs=self.concat_att_inputs)
 
                 if self.use_highway_after_selfatt:
@@ -224,7 +225,9 @@ class SquadModelRef(TFModel):
                 rnn = self.GRU(num_layers=self.num_match_layers, num_units=self.hidden_size, batch_size=self.bs,
                                input_size=context_representations.get_shape().as_list()[-1],
                                keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
-                final_context_repr = rnn(context_representations, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
+                final_context_repr = rnn(context_representations,
+                                         seq_len=self.c_len,
+                                         concat_layers=self.concat_bigru_outputs)
 
         if self.predict_ans:
             with tf.variable_scope('answer_selection'):
@@ -240,72 +243,33 @@ class SquadModelRef(TFModel):
 
                 if self.number_of_answer_hops == 1:
                     # default model
-                    logits1, logits2 = pointer_net_answer_selection(q, final_context_repr, self.q_mask, self.c_mask,
-                                                                    self.attention_hidden_size,
-                                                                    keep_prob=self.keep_prob_ph)
+                    logits_st, logits_end = pointer_net_answer_selection(q, final_context_repr, self.q_mask,
+                                                                         self.c_mask,
+                                                                         self.attention_hidden_size,
+                                                                         keep_prob=self.keep_prob_ph)
                 else:
                     # TODO check noans_token support
-                    logits1, logits2 = san_answer_selection(q, final_context_repr, self.q_mask, self.c_mask,
+                    logits_st, logits_end = san_answer_selection(q, final_context_repr, self.q_mask, self.c_mask,
                                                             self.number_of_answer_hops, self.attention_hidden_size,
                                                             self.answer_cell_size, self.keep_prob_ph,
                                                             self.hops_keep_prob_ph)
-
-        with tf.variable_scope('predict'):
-            if self.predict_ans and not self.shared_loss:
-                outer_logits = tf.exp(tf.expand_dims(logits1, axis=2) + tf.expand_dims(logits2, axis=1))
-                outer_logits = tf.matrix_band_part(outer_logits, 0, tf.cast(tf.minimum(15, self.c_maxlen), tf.int64))
-                outer = tf.matmul(tf.expand_dims(tf.nn.softmax(logits1), axis=2),
-                                  tf.expand_dims(tf.nn.softmax(logits2), axis=1))
-                outer = tf.matrix_band_part(outer, 0, tf.cast(tf.minimum(15, self.c_maxlen), tf.int64))
-                self.yp1 = tf.argmax(tf.reduce_max(outer, axis=2), axis=1)
-                self.yp2 = tf.argmax(tf.reduce_max(outer, axis=1), axis=1)
-                self.yp_prob = tf.reduce_max(tf.reduce_max(outer, axis=2), axis=1)
-                self.yp_logits = tf.reduce_max(tf.reduce_max(outer_logits, axis=2), axis=1)
-                if self.noans_token:
-                    self.yp_score = 1 - tf.nn.softmax(logits1)[:,0] * tf.nn.softmax(logits2)[:,0]
-
-            if self.scorer and not self.shared_loss:
-                q_att = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph,
-                                         scope='q_att')
-                c_att = simple_attention(final_context_repr, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph,
-                                         scope='c_att')
-                q_att = tf.layers.dense(q_att, units=c_att.get_shape().as_list()[-1],
-                                        activation=tf.nn.relu,
-                                        kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
-                                        name='q_att_dense'
-                                        )
-                q_att = tf.nn.dropout(q_att, keep_prob=self.keep_prob_ph)
-                c_att = tf.nn.dropout(c_att, keep_prob=self.keep_prob_ph)
-                dense_input = tf.concat([q_att, c_att, c_att - q_att, c_att * q_att], -1)
-                layer_1_logits = tf.nn.dropout(
-                                    tf.layers.dense(dense_input,
-                                                    units=self.hidden_size,
-                                                    activation=tf.nn.relu,
-                                                    kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
-                                                    name='noans_dense_1'),
-                                    keep_prob=self.keep_prob_ph)
-                scorer_logits = tf.layers.dense(layer_1_logits,
-                                                activation=tf.nn.relu,
-                                                units=2,
-                                                name='noans_dense_2')
-                predict_probas = tf.nn.softmax(scorer_logits)
-                self.yp = predict_probas[:, 1]
-                yt_prob = tf.reduce_sum(predict_probas * self.y_ohe, axis=-1)
-
-            if self.scorer and self.shared_loss:
-                start_att_weights = tf.expand_dims(tf.nn.softmax(logits1, axis=-1), axis=-1)
-                end_att_weights = tf.expand_dims(tf.nn.softmax(logits2, axis=-1), axis=-1)
+        if self.scorer:
+            with tf.variable_scope('scorer'):
+                start_att_weights = tf.expand_dims(tf.nn.softmax(logits_st, axis=-1), axis=-1)
+                end_att_weights = tf.expand_dims(tf.nn.softmax(logits_end, axis=-1), axis=-1)
                 # not really good idea to sum only start and end tokens
                 # need some kind of sigmoid layer here
                 start_att = tf.reduce_sum(start_att_weights * final_context_repr, axis=1)
                 end_att = tf.reduce_sum(end_att_weights * final_context_repr, axis=1)
-                c_att = simple_attention(final_context_repr, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph,
-                                         scope='c_att')
+                c_att = simple_attention(final_context_repr, self.hidden_size, mask=self.c_mask,
+                                         keep_prob=self.keep_prob_ph, scope='c_att')
+                q_att = simple_attention(q, self.hidden_size, mask=self.q_mask,
+                                         keep_prob=self.keep_prob_ph, scope='q_att')
 
-                dense_input = tf.concat([start_att, end_att, c_att], -1)
+                dense_input = tf.concat([start_att, end_att, c_att, q_att], -1)
                 layer_1_logits = tf.nn.dropout(
                     tf.layers.dense(dense_input,
-                                    units=self.hidden_size,
+                                    units=self.hidden_size * 2,
                                     activation=tf.nn.relu,
                                     kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
                                     name='scorer_dense_1'),
@@ -313,16 +277,33 @@ class SquadModelRef(TFModel):
 
                 layer_2_logits = tf.nn.dropout(
                     tf.layers.dense(layer_1_logits,
-                                    units=self.hidden_size // 2,
+                                    units=self.hidden_size,
                                     activation=tf.nn.relu,
                                     kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
                                     name='scorer_dense_2'),
                     keep_prob=self.keep_prob_ph)
 
+                # if scorer_logits large - no ans, if zs small answer exist
                 scorer_logits = tf.squeeze(tf.layers.dense(layer_2_logits, units=1, name='scorer_logits'), axis=-1)
 
-            if self.scorer and self.predict_ans and self.shared_loss:
-                logits = tf.reshape(tf.expand_dims(logits1, 1) + tf.expand_dims(logits2, 2), (self.bs, -1))
+        # make predictions
+        with tf.variable_scope('predict'):
+            if self.predict_ans and not self.shared_loss:
+                outer_logits = tf.exp(tf.expand_dims(logits_st, axis=2) + tf.expand_dims(logits_end, axis=1))
+                outer_logits = tf.matrix_band_part(outer_logits, 0, tf.cast(tf.minimum(15, self.c_maxlen), tf.int64))
+                outer = tf.matmul(tf.expand_dims(tf.nn.softmax(logits_st), axis=2),
+                                  tf.expand_dims(tf.nn.softmax(logits_end), axis=1))
+                outer = tf.matrix_band_part(outer, 0, tf.cast(tf.minimum(15, self.c_maxlen), tf.int64))
+                self.yp1 = tf.argmax(tf.reduce_max(outer, axis=2), axis=1)
+                self.yp2 = tf.argmax(tf.reduce_max(outer, axis=1), axis=1)
+                self.yp_prob = tf.reduce_max(tf.reduce_max(outer, axis=2), axis=1)
+                self.yp_logits = tf.reduce_max(tf.reduce_max(outer_logits, axis=2), axis=1)
+                if self.noans_token:
+                    self.noans_prob = 1 - tf.nn.softmax(logits_st)[:, 0] * tf.nn.softmax(logits_end)[:, 0]
+
+            if self.predict_ans and self.shared_loss and self.scorer:
+                # we want to predict answer and to use shared loss
+                logits = tf.reshape(tf.expand_dims(logits_st, 1) + tf.expand_dims(logits_end, 2), (self.bs, -1))
                 all_logits = tf.concat([tf.expand_dims(scorer_logits, axis=-1), logits], axis=-1)
 
                 labels = tf.cast(
@@ -332,22 +313,22 @@ class SquadModelRef(TFModel):
                 all_labels = tf.concat([tf.expand_dims(1-tf.cast(self.y, tf.float32), axis=-1), labels], axis=-1)
                 all_sum = tf.reduce_logsumexp(all_logits, axis=-1)
 
-                outer_logits = tf.exp(tf.expand_dims(logits1, axis=2) + tf.expand_dims(logits2, axis=1))
+                outer_logits = tf.exp(tf.expand_dims(logits_st, axis=2) + tf.expand_dims(logits_end, axis=1))
                 outer_logits = tf.matrix_band_part(outer_logits, 0, tf.cast(tf.minimum(15, self.c_maxlen), tf.int64))
                 self.yp1 = tf.argmax(tf.reduce_max(outer_logits, axis=2), axis=1)
                 self.yp2 = tf.argmax(tf.reduce_max(outer_logits, axis=1), axis=1)
                 self.yp_logits = tf.reduce_max(tf.reduce_max(outer_logits, axis=2), axis=1)
                 self.yp_prob = self.yp_logits / tf.exp(all_sum)
 
-                # if scorer_logits large - no ans, if zs small answer exist
-                self.yp = -tf.exp(scorer_logits)  # prob noans (its better to return logit here, to make noans score comparable)
+            if self.scorer:
+                self.noans_prob = 1 - tf.nn.sigmoid(scorer_logits)
 
-            # loss part
+            # compute loss
             if self.predict_ans and not self.shared_loss:
-                # SQuAD loss
-                loss_p1 = tf.nn.softmax_cross_entropy_with_logits(logits=logits1, labels=self.y1)
-                loss_p2 = tf.nn.softmax_cross_entropy_with_logits(logits=logits2, labels=self.y2)
-                squad_loss = loss_p1 + loss_p2
+                # SQuAD loss: sum of start and end positions predictions
+                loss_start = tf.nn.softmax_cross_entropy_with_logits(logits=logits_st, labels=self.y1)
+                loss_end = tf.nn.softmax_cross_entropy_with_logits(logits=logits_end, labels=self.y2)
+                squad_loss = loss_start + loss_end
 
             if self.scorer and not self.shared_loss:
                 # scorer loss
@@ -359,13 +340,14 @@ class SquadModelRef(TFModel):
                                   tf.nn.softmax_cross_entropy_with_logits(logits=scorer_logits, labels=self.y_ohe)
                 else:
                 """
-                scorer_loss = tf.nn.softmax_cross_entropy_with_logits(logits=scorer_logits, labels=self.y_ohe)
+                scorer_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=scorer_logits,
+                                                                      labels=1-tf.cast(self.y, tf.float32))
 
                 if self.predict_ans and not self.noans_token:
                     # skip examples without answer when calculate squad_loss
                     squad_loss = tf.boolean_mask(squad_loss, self.y)
 
-            if self.predict_ans and self.scorer and self.shared_loss:
+            if self.predict_ans and self.shared_loss and self.scorer:
                 correct_sum = tf.reduce_logsumexp(softmax_mask(all_logits, all_labels), axis=-1)
                 shared_loss = -(correct_sum - all_sum)
 
@@ -412,6 +394,7 @@ class SquadModelRef(TFModel):
         # add separate keep prob for inputs
         # to use higher keep prob in deeper layers
         self.keep_prob_ph = tf.placeholder_with_default(1.0, shape=[], name='keep_prob_ph')
+        self.input_keep_prob_ph = tf.placeholder_with_default(1.0, shape=[], name='input_keep_prob_ph')
         self.hops_keep_prob_ph = tf.placeholder_with_default(1.0, shape=[], name='hops_keep_prob_ph')
         self.is_train_ph = tf.placeholder_with_default(False, shape=[], name='is_train_ph')
 
@@ -450,9 +433,8 @@ class SquadModelRef(TFModel):
             self.y1 = tf.slice(self.y1, [0, 0], [self.bs, self.c_maxlen + 1])
             self.y2 = tf.slice(self.y2, [0, 0], [self.bs, self.c_maxlen + 1])
         elif self.scorer:
-            # we don't need to predict answer position
+            # we want to predict answer presence
             self.y = self.y_ph
-            self.y_ohe = tf.one_hot(self.y, depth=2)
 
         if self.predict_ans:
             self.y1 = tf.one_hot(self.y1_ph, depth=self.context_limit)
@@ -480,13 +462,13 @@ class SquadModelRef(TFModel):
         with tf.variable_scope('emb'):
             with tf.variable_scope('char'):
 
-                cc_emb = character_embedding_layer(self.cc, self.char_hidden_size, keep_prob=self.keep_prob_ph,
+                cc_emb = character_embedding_layer(self.cc, self.char_hidden_size, keep_prob=self.input_keep_prob_ph,
                                                    emb_mat_init=self.init_char_emb,
                                                    trainable_emb_mat=self.opt['train_char_emb'],
                                                    regularizer=tf.nn.l2_loss,
                                                    transform_char_emb=self.transform_char_emb)
 
-                qc_emb = character_embedding_layer(self.qc, self.char_hidden_size, keep_prob=self.keep_prob_ph,
+                qc_emb = character_embedding_layer(self.qc, self.char_hidden_size, keep_prob=self.input_keep_prob_ph,
                                                    emb_mat_init=self.init_char_emb,
                                                    trainable_emb_mat=self.opt['train_char_emb'],
                                                    regularizer=tf.nn.l2_loss,
@@ -531,8 +513,8 @@ class SquadModelRef(TFModel):
                                                 emb_dim=self.ner_features_dim, trainable=True, regularizer=tf.nn.l2_loss)
                     q_ner_emb = embedding_layer(self.q_ner, vocab_size=self.ner_vocab_size, emb_dim=self.ner_features_dim)
 
-                    c_ner_emb = variational_dropout(c_ner_emb, keep_prob=self.keep_prob_ph)
-                    q_ner_emb = variational_dropout(q_ner_emb, keep_prob=self.keep_prob_ph)
+                    c_ner_emb = variational_dropout(c_ner_emb, keep_prob=self.input_keep_prob_ph)
+                    q_ner_emb = variational_dropout(q_ner_emb, keep_prob=self.input_keep_prob_ph)
 
                 c_emb = tf.concat([c_emb, c_ner_emb], axis=2)
                 q_emb = tf.concat([q_emb, q_ner_emb], axis=2)
@@ -611,6 +593,7 @@ class SquadModelRef(TFModel):
                 self.y2_ph: y2,
                 self.lr_ph: self.learning_rate,
                 self.keep_prob_ph: self.keep_prob,
+                self.input_keep_prob_ph: self.input_keep_prob,
                 self.hops_keep_prob_ph: self.hops_keep_prob,
                 self.is_train_ph: True,
             })
@@ -619,6 +602,7 @@ class SquadModelRef(TFModel):
                 self.y_ph: y,
                 self.lr_ph: self.learning_rate,
                 self.keep_prob_ph: self.keep_prob,
+                self.input_keep_prob_ph: self.input_keep_prob,
                 self.hops_keep_prob_ph: self.hops_keep_prob,
                 self.is_train_ph: True,
             })
@@ -672,11 +656,11 @@ class SquadModelRef(TFModel):
         feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars,
                                           c_features, q_features, c_str, q_str, c_ner, q_ner)
         if self.scorer and not self.predict_ans:
-            score = self.sess.run(self.yp, feed_dict=feed_dict)
+            score = self.sess.run(self.noans_prob, feed_dict=feed_dict)
             return [float(score) for score in score]
 
         if self.noans_token:
-            yp1s, yp2s, prob, score = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_score],
+            yp1s, yp2s, prob, score = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.noans_prob],
                                                     feed_dict=feed_dict)
             yp1s_noans, yp2s_noans = [], []
             for yp1, yp2 in zip(yp1s, yp2s):
@@ -690,7 +674,7 @@ class SquadModelRef(TFModel):
             return yp1s, yp2s, [float(p) for p in prob], [float(score) for score in score]
 
         if self.predict_ans and self.scorer:
-            yp1s, yp2s, prob, logits, score = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_logits, self.yp],
+            yp1s, yp2s, prob, logits, score = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_logits, self.noans_prob],
                                                             feed_dict=feed_dict)
             return yp1s, yp2s, [float(p) for p in prob], [float(logit) for logit in logits], [float(s) for s in score]
 
