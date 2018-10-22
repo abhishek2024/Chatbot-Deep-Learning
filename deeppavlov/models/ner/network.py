@@ -151,7 +151,7 @@ class NerNetwork(TFModel):
                 units = self._build_rnn(features, n_hidden_list, cell_type, intra_layer_dropout, self.mask_ph,)
         elif net_type == 'cnn':
             units = self._build_cnn(features, n_hidden_list, cnn_filter_width, use_batch_norm)
-        self._logits = self._build_top(units, n_tags, n_hidden_list[-1], top_dropout, two_dense_on_top)
+        self._logits, self._top_units = self._build_top(units, n_tags, n_hidden_list[-1], top_dropout, two_dense_on_top)
 
         self.train_op, self.loss = self._build_train_predict(self._logits, self.mask_ph, n_tags,
                                                              use_crf, clip_grad_norm, l2_reg)
@@ -247,7 +247,7 @@ class NerNetwork(TFModel):
         logits = tf.layers.dense(units, n_tags, activation=None,
                                  kernel_initializer=INITIALIZER(),
                                  kernel_regularizer=tf.nn.l2_loss)
-        return logits
+        return logits, units
 
     def _build_train_predict(self, logits, mask, n_tags, use_crf, clip_grad_norm, l2_reg):
         if use_crf:
@@ -340,3 +340,6 @@ class NerNetwork(TFModel):
                                                                                self._learning_rate * self._lr_drop_value))
                 self.load()
                 self._learning_rate *= self._lr_drop_value
+
+    def _new_head(self, n_tags):
+        pass
