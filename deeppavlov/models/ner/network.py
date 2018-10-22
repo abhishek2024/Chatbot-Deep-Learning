@@ -110,6 +110,7 @@ class NerNetwork(TFModel):
         self._clip_grad_norm = clip_grad_norm
         self._l2_reg = l2_reg
         self._use_crf = use_crf
+        self._n_blocks = 0
 
         self._learning_rate = learning_rate
         self._lr_drop_patience = lr_drop_patience
@@ -120,32 +121,34 @@ class NerNetwork(TFModel):
         self._input_features = []
 
         # ================ Building input features =================
+        with tf.variable_scope('Block_' + str(self._n_blocks)):
+            self._n_blocks += 1
 
-        # Token embeddings
-        self._add_word_embeddings(token_emb_mat, token_emb_dim)
+            # Token embeddings
+            self._add_word_embeddings(token_emb_mat, token_emb_dim)
 
-        # Masks for different lengths utterances
-        self.mask_ph = self._add_mask()
+            # Masks for different lengths utterances
+            self.mask_ph = self._add_mask()
 
-        # Char embeddings using highway CNN with max pooling
-        if char_emb_mat is not None and char_emb_dim is not None:
-            self._add_char_embeddings(char_emb_mat)
+            # Char embeddings using highway CNN with max pooling
+            if char_emb_mat is not None and char_emb_dim is not None:
+                self._add_char_embeddings(char_emb_mat)
 
-        # Capitalization features
-        if capitalization_dim is not None:
-            self._add_capitalization(capitalization_dim)
+            # Capitalization features
+            if capitalization_dim is not None:
+                self._add_capitalization(capitalization_dim)
 
-        # Part of speech features
-        if pos_features_dim is not None:
-            self._add_pos(pos_features_dim)
+            # Part of speech features
+            if pos_features_dim is not None:
+                self._add_pos(pos_features_dim)
 
-        # Anything you want
-        if additional_features is not None:
-            self._add_additional_features(additional_features)
+            # Anything you want
+            if additional_features is not None:
+                self._add_additional_features(additional_features)
 
-        features = tf.concat(self._input_features, axis=2)
-        if embeddings_dropout:
-            features = variational_dropout(features, self._dropout_ph)
+            features = tf.concat(self._input_features, axis=2)
+            if embeddings_dropout:
+                features = variational_dropout(features, self._dropout_ph)
 
         # ================== Building the network ==================
 
@@ -159,9 +162,9 @@ class NerNetwork(TFModel):
         elif net_type == 'cnn':
             units = self._build_cnn(features, n_hidden_list, cnn_filter_width, use_batch_norm)
         self._logits, self._top_units = self._build_top(units, n_tags, n_hidden_list[-1], top_dropout, two_dense_on_top)
-
-        self.train_op, self.loss = self._build_train_predict(self._logits, self.mask_ph, n_tags,
-                                                             use_crf, clip_grad_norm, l2_reg)
+        with tf.variable_scope('Block' + '_' + str(self._n_blocks - 1)):
+            self.train_op, self.loss = self._build_train_predict(self._logits, self.mask_ph, n_tags,
+                                                                 use_crf, clip_grad_norm, l2_reg)
         self.predict = self.predict_crf if use_crf else self.predict_no_crf
 
         # ================= Initialize the session =================
@@ -177,6 +180,9 @@ class NerNetwork(TFModel):
 
         if n_transfer_tags is not None:
             self._logits, self.train_op, self.loss = self._new_head(n_transfer_tags)
+
+        self._learning_rates_multipliers = np.ones(self._n_blocks)
+        self._block_is_training = np.ones(self._n_blocks)
 
     def _add_training_placeholders(self, dropout_keep_prob, learning_rate):
         self.learning_rate_ph = tf.placeholder_with_default(learning_rate, shape=[], name='learning_rate')
@@ -223,7 +229,8 @@ class NerNetwork(TFModel):
     def _build_cudnn_rnn(self, units, n_hidden_list, cell_type, intra_layer_dropout, mask):
         sequence_lengths = tf.to_int32(tf.reduce_sum(mask, axis=1))
         for n, n_hidden in enumerate(n_hidden_list):
-            with tf.variable_scope(cell_type.upper() + '_' + str(n)):
+            with tf.variable_scope('Block' + '_' + str(self._n_blocks)):
+                self._n_blocks += 1
                 if cell_type.lower() == 'lstm':
                     units, _ = cudnn_bi_lstm(units, n_hidden, sequence_lengths)
                 elif cell_type.lower() == 'gru':
@@ -237,26 +244,35 @@ class NerNetwork(TFModel):
 
     def _build_rnn(self, units, n_hidden_list, cell_type, intra_layer_dropout):
         for n, n_hidden in enumerate(n_hidden_list):
-            units, _ = bi_rnn(units, n_hidden, cell_type=cell_type, name='Layer_' + str(n))
-            units = tf.concat(units, -1)
-            if intra_layer_dropout and n != len(n_hidden_list) - 1:
-                units = variational_dropout(units, self._dropout_ph)
+            with tf.variable_scope('Block' + '_' + str(self._n_blocks)):
+                self._n_blocks += 1
+                units, _ = bi_rnn(units, n_hidden, cell_type=cell_type, name='Layer_' + str(n))
+                units = tf.concat(units, -1)
+                if intra_layer_dropout and n != len(n_hidden_list) - 1:
+                    units = variational_dropout(units, self._dropout_ph)
         return units
 
     def _build_cnn(self, units, n_hidden_list, cnn_filter_width, use_batch_norm):
-        units = stacked_cnn(units, n_hidden_list, cnn_filter_width, use_batch_norm, training_ph=self.training_ph)
+        for n, n_hidden in enumerate(n_hidden_list):
+            with tf.variable_scope('Block' + '_' + str(self._n_blocks)):
+                self._n_blocks += 1
+                units = stacked_cnn(units, [n_hidden], cnn_filter_width, use_batch_norm, training_ph=self.training_ph)
         return units
 
     def _build_top(self, units, n_tags, n_hididden, top_dropout, two_dense_on_top):
         if top_dropout:
             units = variational_dropout(units, self._dropout_ph)
         if two_dense_on_top:
-            units = tf.layers.dense(units, n_hididden, activation=tf.nn.relu,
-                                    kernel_initializer=INITIALIZER(),
-                                    kernel_regularizer=tf.nn.l2_loss)
-        logits = tf.layers.dense(units, n_tags, activation=None,
-                                 kernel_initializer=INITIALIZER(),
-                                 kernel_regularizer=tf.nn.l2_loss)
+            with tf.variable_scope('Block' + '_' + str(self._n_blocks)):
+                self._n_blocks += 1
+                units = tf.layers.dense(units, n_hididden, activation=tf.nn.relu,
+                                        kernel_initializer=INITIALIZER(),
+                                        kernel_regularizer=tf.nn.l2_loss)
+        with tf.variable_scope('Block' + '_' + str(self._n_blocks)):
+            self._n_blocks += 1
+            logits = tf.layers.dense(units, n_tags, activation=None,
+                                     kernel_initializer=INITIALIZER(),
+                                     kernel_regularizer=tf.nn.l2_loss)
         return logits, units
 
     def _build_train_predict(self, logits, mask, n_tags, use_crf, clip_grad_norm, l2_reg):
@@ -320,6 +336,8 @@ class NerNetwork(TFModel):
         feed_dict[self.training_ph] = train
         if not train:
             feed_dict[self._dropout_ph] = 1.0
+
+        feed_dict[self._diff_lr_ph] = self._learning_rates_multipliers * self._block_is_training
         return feed_dict
 
     def __call__(self, *args, **kwargs):
@@ -352,11 +370,88 @@ class NerNetwork(TFModel):
                 self._learning_rate *= self._lr_drop_value
 
     def _new_head(self, n_tags):
-        logits = tf.layers.dense(self._top_units, n_tags, activation=None,
-                                       kernel_initializer=INITIALIZER(),
-                                       kernel_regularizer=tf.nn.l2_loss)
+        with tf.variable_scope('Block' + '_' + str(self._n_blocks - 1)):
+            logits = tf.layers.dense(self._top_units, n_tags, activation=None,
+                                     kernel_initializer=INITIALIZER(),
+                                     kernel_regularizer=tf.nn.l2_loss)
 
-        train_op, loss = self._build_train_predict(logits, self.mask_ph, n_tags, self._use_crf,
-                                                   self._clip_grad_norm, self._l2_reg)
+            train_op, loss = self._build_train_predict(logits, self.mask_ph, n_tags, self._use_crf,
+                                                       self._clip_grad_norm, self._l2_reg)
 
         return logits, train_op, loss
+
+    def get_train_op(self,
+                     loss,
+                     learning_rate,
+                     optimizer=None,
+                     clip_norm=None,
+                     learnable_scopes=None,
+                     optimizer_scope_name=None):
+        """ Get train operation for given loss
+
+        Args:
+            loss: loss, tf tensor or scalar
+            learning_rate: scalar or placeholder
+            clip_norm: clip gradients norm by clip_norm
+            learnable_scopes: which scopes are trainable (None for all)
+            optimizer: instance of tf.train.Optimizer, default Adam
+
+        Returns:
+            train_op
+        """
+
+        self._diff_lr_ph = tf.placeholder(tf.float32, [self._n_blocks])
+        if optimizer_scope_name is None:
+            opt_scope = tf.variable_scope('Optimizer')
+        else:
+            opt_scope = tf.variable_scope(optimizer_scope_name)
+
+        with opt_scope:
+            if learnable_scopes is None:
+                variables_to_train = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+            else:
+                variables_to_train = []
+                for scope_name in learnable_scopes:
+                    variables_to_train.extend(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope_name))
+
+            if optimizer is None:
+                optimizer = tf.train.AdamOptimizer
+
+            optimizers = [optimizer(self.learning_rate_ph * self._diff_lr_ph[n]) for n in range(self._n_blocks)]
+
+            # For batch norm it is necessary to update running averages
+            extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+            with tf.control_dependencies(extra_update_ops):
+
+                def clip_if_not_none(grad):
+                    if grad is not None:
+                        return tf.clip_by_norm(grad, clip_norm)
+
+                grads_and_vars = optimizers[0].compute_gradients(loss, var_list=variables_to_train)
+                if clip_norm is not None:
+                    grads_and_vars = [(clip_if_not_none(grad), var)
+                                      for grad, var in grads_and_vars]
+
+                def get_block_gnv(gnv, n):
+                    block_gnv = []
+                    for grad, var in gnv:
+                        if int(var.name.split('/')[0].split('_')[1]) == n:
+                            block_gnv.append([grad, var])
+
+                    return block_gnv
+
+                train_ops = []
+                for n in range(self._n_blocks):
+                    block_gnv = get_block_gnv(grads_and_vars, n)
+                    if len(block_gnv) > 0:
+                        train_ops.append(optimizers[n].apply_gradients(block_gnv))
+
+                train_op = tf.group(*train_ops)
+        return train_op
+
+    def print_blocks(self):
+        for n in range(self._n_blocks):
+            print(f'Block {n}:')
+            for var in tf.trainable_variables():
+                if int(var.name.split('/')[0].split('_')[1]) == n:
+                    print(var)
