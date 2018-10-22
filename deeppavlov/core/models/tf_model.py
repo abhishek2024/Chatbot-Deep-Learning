@@ -111,7 +111,7 @@ class TFModel(NNModel, metaclass=TfModelMeta):
                     variables_to_train.extend(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope_name))
 
             if optimizer is None:
-                optimizer = tf.train.AdamOptimizer(learning_rate)
+                optimizer = tf.train.AdamOptimizer(learning_rate, **kwargs)
 
             # For batch norm it is necessary to update running averages
             extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
@@ -190,7 +190,7 @@ class DecayScheduler():
 
     def __str__(self):
         return f"DecayScheduler(start_val={self.start_val}, end_val={self.end_val}"\
-            f", dec_type={self.dec_type}, num_it={self.num_it}, extra={self.extra})"
+            f", dec_type={self.dec_type}, num_it={self.nb}, extra={self.extra})"
 
     def next_val(self):
         self.iters = min(self.iters + 1, self.nb)
@@ -335,7 +335,7 @@ class EnhancedTFModel(TFModel, Estimator):
                 best_loss = valid_report['loss']
                 best_lr = self._lr
             self._lr = _lr_find_schedule.next_val()
-        best_lr /= 4
+        best_lr /= 3
 
         self._lr_schedule = DecayScheduler(start_val=best_lr / lr_div,
                                            end_val=best_lr,
