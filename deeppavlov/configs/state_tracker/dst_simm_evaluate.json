@@ -1,6 +1,6 @@
 {
   "dataset_reader": {
-    "name": "sim_r_reader",
+    "name": "sim_m_reader",
     "data_path": "google-dialogues"
   },
   "dataset_iterator": {
@@ -19,7 +19,6 @@
         "save_path": "dst/user_actions.dict",
         "special_tokens": ["unknown"],
         "default_token": "unknown",
-        "fit_on": ["u_acts"],
         "in": ["u_acts"],
         "out": ["u_act_idx"]
       },
@@ -30,14 +29,13 @@
         "save_path": "dst/system_actions.dict",
         "special_tokens": ["unknown"],
         "default_token": "unknown",
-        "fit_on": ["s_acts"],
         "in": ["s_acts"],
         "out": ["s_act_idx"]
       },
       {
         "name": "simple_vocab",
         "id": "slot_vocab",
-        "save_path": "dst/slot_names_simr.dict",
+        "save_path": "dst/slot_names_simm.dict",
         "fit_on": ["state"]
       },
       {
@@ -58,8 +56,8 @@
       {
         "name": "simple_vocab",
         "id": "word_vocab",
-        "save_path": "dst/word_simr.dict",
-        "load_path": "dst/word_simr.dict",
+        "save_path": "dst/word_simm.dict",
+        "load_path": "dst/word_simm.dict",
         "fit_on": ["u_norm_tokens", "s_norm_tokens"],
         "special_tokens": ["<unk>"],
         "in": ["u_norm_tokens"],
@@ -155,10 +153,11 @@
         "embedding_matrix": "#embeddings.emb_mat",
         "num_user_actions": "#user_action_vocab.__len__()",
         "num_system_actions": "#system_action_vocab.__len__()",
-        "learning_rate": [3e-2, 3e-5], 
+        "learning_rate": [3e-2, 3e-4],
         "learning_rate_decay": "exponential",
-        "learning_rate_decay_epochs": 10,
-        "optimizer": "tf.train:AdamOptimizer"
+        "learning_rate_decay_epochs": 40,
+        "momentum": 0.95,
+        "optimizer": "tf.train:MomentumOptimizer"
       },
       {
         "class": "deeppavlov.models.state_tracker.preprocessors:SlotsValuesMatrix2Dict",
@@ -174,10 +173,11 @@
     "batch_size": 1,
 
     "metrics": ["accuracy"],
-    "validation_patience": 20,
+    "validation_patience": 40,
     "val_every_n_epochs": 1,
 
-    "log_every_n_batches": 1500,
+    "log_every_n_epochs": 1,
+    "show_examples": true,
     "validate_best": true,
     "test_best": true,
     "tensorboard_log_dir": "logs"

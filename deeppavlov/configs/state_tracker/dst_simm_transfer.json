@@ -1,0 +1,55 @@
+{
+  "dataset_reader": {
+    "name": "sim_m_reader",
+    "data_path": "google-dialogues"
+  },
+  "dataset_iterator": {
+    "name": "dialog_state_iterator"
+  },
+  "chainer": {
+    "in": ["u_utter", "u_slots", "u_slots_bio", "u_acts",
+      "s_tokens", "s_slots", "s_slots_bio", "s_acts", "prev_state"],
+    "in_y": ["state"],
+    "out": [],
+    "pipe": [
+      {
+        "name": "simple_vocab",
+        "id": "slot_vocab",
+        "save_path": "dst/slot_names_simm.dict",
+        "fit_on": ["state"]
+      },
+      {
+        "name": "lazy_tokenizer",
+        "in": ["u_utter"],
+        "out": ["u_tokens"]
+      },
+      {
+        "class": "deeppavlov.models.state_tracker.preprocessors:Delexicalizator",
+        "in": ["u_tokens", "u_slots_bio"],
+        "out": ["u_norm_tokens"]
+      },
+      {
+        "class": "deeppavlov.models.state_tracker.preprocessors:Delexicalizator",
+        "in": ["s_tokens", "s_slots_bio"],
+        "out": ["s_norm_tokens"]
+      },
+      {
+        "name": "simple_vocab",
+        "id": "word_vocab",
+        "save_path": "dst/word_simm.dict",
+        "load_path": "dst/word_simm.dict",
+        "fit_on": ["u_norm_tokens", "s_norm_tokens"],
+        "special_tokens": ["<unk>"]
+      }
+    ]
+  },
+  "train": {
+    "validate_best": false,
+    "test_best": false
+  },
+  "metadata": {
+    "requirements": [],
+    "labels": {},
+    "download": []
+  }
+}
