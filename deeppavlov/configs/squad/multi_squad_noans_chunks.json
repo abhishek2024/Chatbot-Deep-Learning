@@ -37,12 +37,12 @@
         "level": "token",
         "emb_folder": "embeddings/",
         "emb_url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M.vec",
-        "save_path": "multi_squad_model_noans/emb/vocab_embedder.pckl",
-        "load_path": "multi_squad_model_noans/emb/vocab_embedder.pckl",
+        "save_path": "multi_squad_model_noans_chunks/emb/vocab_embedder.pckl",
+        "load_path": "multi_squad_model_noans_chunks/emb/vocab_embedder.pckl",
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.char_limit",
-        "fit_lol": ["context_tokens", "question_tokens"],
+        "fit_on": ["context_tokens", "question_tokens"],
         "in": ["context_tokens", "question_tokens"],
         "out": ["context_tokens_idxs", "question_tokens_idxs"]
       },
@@ -52,12 +52,12 @@
         "level": "char",
         "emb_folder": "embeddings/",
         "emb_url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M-char.vec",
-        "save_path": "multi_squad_model_noans/emb/char_vocab_embedder.pckl",
-        "load_path": "multi_squad_model_noans/emb/char_vocab_embedder.pckl",
+        "save_path": "multi_squad_model_noans_chunks/emb/char_vocab_embedder.pckl",
+        "load_path": "multi_squad_model_noans_chunks/emb/char_vocab_embedder.pckl",
         "context_limit": "#squad_prepr.context_limit",
         "question_limit": "#squad_prepr.question_limit",
         "char_limit": "#squad_prepr.char_limit",
-        "fit_lol": ["context_chars", "question_chars"],
+        "fit_on": ["context_chars", "question_chars"],
         "in": ["context_chars", "question_chars"],
         "out": ["context_chars_idxs", "question_chars_idxs"]
       },
@@ -122,7 +122,7 @@
       "server_utils": "SquadModel"
     },
     "download": [
-      "http://files.deeppavlov.ai/export/deeppavlov_data/multi_squad_model_noans_1.1.tar.gz",
+      "http://files.deeppavlov.ai/export/deeppavlov_data/multi_squad_model_noans_chunks.tar.gz",
       {
         "url": "http://files.deeppavlov.ai/export/embeddings/wiki-news-300d-1M.vec",
         "subdir": "embeddings"
