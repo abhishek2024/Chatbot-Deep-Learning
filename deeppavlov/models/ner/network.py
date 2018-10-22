@@ -101,9 +101,16 @@ class NerNetwork(TFModel):
                  seed: int = None,
                  lr_drop_patience: int = 5,
                  lr_drop_value: float = 0.1,
+                 n_transfer_tags = None,
                  **kwargs) -> None:
+
         tf.set_random_seed(seed)
         np.random.seed(seed)
+
+        self._clip_grad_norm = clip_grad_norm
+        self._l2_reg = l2_reg
+        self._use_crf = use_crf
+
         self._learning_rate = learning_rate
         self._lr_drop_patience = lr_drop_patience
         self._lr_drop_value = lr_drop_value
@@ -167,6 +174,9 @@ class NerNetwork(TFModel):
         self.sess.run(tf.global_variables_initializer())
         super().__init__(**kwargs)
         self.load()
+
+        if n_transfer_tags is not None:
+            self._logits, self.train_op, self.loss = self._new_head(n_transfer_tags)
 
     def _add_training_placeholders(self, dropout_keep_prob, learning_rate):
         self.learning_rate_ph = tf.placeholder_with_default(learning_rate, shape=[], name='learning_rate')
@@ -342,4 +352,11 @@ class NerNetwork(TFModel):
                 self._learning_rate *= self._lr_drop_value
 
     def _new_head(self, n_tags):
-        pass
+        logits = tf.layers.dense(self._top_units, n_tags, activation=None,
+                                       kernel_initializer=INITIALIZER(),
+                                       kernel_regularizer=tf.nn.l2_loss)
+
+        train_op, loss = self._build_train_predict(logits, self.mask_ph, n_tags, self._use_crf,
+                                                   self._clip_grad_norm, self._l2_reg)
+
+        return logits, train_op, loss
