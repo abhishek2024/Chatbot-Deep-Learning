@@ -1,6 +1,7 @@
 {
   "dataset_reader": {
     "name": "sim_m_reader",
+    "evaluate_mode": true,
     "data_path": "google-dialogues"
   },
   "dataset_iterator": {
@@ -178,13 +179,14 @@
 
     "log_every_n_epochs": 1,
     "show_examples": true,
-    "validate_best": true,
+    "validate_best": false,
     "test_best": true,
     "tensorboard_log_dir": "logs"
   },
   "metadata": {
     "requirements": [
-      "../dp_requirements/tf.txt"
+      "../dp_requirements/tf.txt",
+      "../dp_requirements/gensim.txt"
     ],
     "labels": {
     },

@@ -40,7 +40,7 @@ class GoogleDialogsDatasetReader(DatasetReader):
 
     @classmethod
     @overrides
-    def read(self, data_path: str) -> Dict[str, List]:
+    def read(self, data_path: str, evaluate_mode: bool = False) -> Dict[str, List]:
         """
         Parameters:
             data_path: path to save data
@@ -63,6 +63,12 @@ class GoogleDialogsDatasetReader(DatasetReader):
             'valid': self._read_from_file(Path(data_path, self._data_fname('dev'))),
             'test': self._read_from_file(Path(data_path, self._data_fname('test')))
         }
+        if evaluate_mode:
+            data = {
+                'train': [],
+                'valid': [],
+                'test': data['train'] + data['valid'] + data['test']
+            }
         return data
 
     @classmethod
