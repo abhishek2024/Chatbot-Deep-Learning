@@ -117,7 +117,7 @@ class EcommerceAgent(Agent):
             print(self.states[id_])
 
             responses, confidences, state = self.skills[0](
-                [utt], [], self.history[id_], [self.states[id_]])
+                [utt], self.history[id_], [self.states[id_]], [])
 
             # update `self.states` with retrieved results
             self.states[id_] = state[0]
@@ -126,14 +126,11 @@ class EcommerceAgent(Agent):
             print("afte rstate")
             print(self.states[id_])
 
-            # items, entropy, total = responses
-            items = responses[0]
-            entropy = []
+            items_batch, entropy_batch = responses
 
             self.history[id_].append(responses)
             self.history[id_].append(self.states[id_])
-
-
+            
             for idx, item in enumerate(items):
 
                 title = item['Title']
@@ -145,14 +142,14 @@ class EcommerceAgent(Agent):
                     Button('Show details', "@details:"+str(len(self.history[id_])-2)+":"+str(idx)))
                 rich_message.add_control(buttons_frame)
 
-#            buttons_frame = ButtonsFrame(text="")
-#            if self.states[id_]["start"] > 0:
-#                buttons_frame.add_button(
-#                    Button('Previous', "@previous:"+str(len(self.history[id_])-1)))
+            buttons_frame = ButtonsFrame(text="")
+            if self.states[id_]["start"] > 0:
+                buttons_frame.add_button(
+                    Button('Previous', "@previous:"+str(len(self.history[id_])-1)))
 
-#            buttons_frame.add_button(
-#                Button('Next', "@next:"+str(len(self.history[id_])-1)))
-#            rich_message.add_control(buttons_frame)
+            buttons_frame.add_button(
+                Button('Next', "@next:"+str(len(self.history[id_])-1)))
+            rich_message.add_control(buttons_frame)
 
             if entropy:
                 buttons_frame = ButtonsFrame(
@@ -194,6 +191,7 @@ def make_agent() -> EcommerceAgent:
     """
 
     config_path = find_config('ecommerce_tfidf')
+    #config_path = find_config('ecommerce_bot')
     skill = build_model_from_config(config_path, as_component=True)
     agent = EcommerceAgent(skills=[skill])
     return agent
