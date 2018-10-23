@@ -10,9 +10,9 @@
  "chainer": {
     "in": [
       "query", 
-      "data", 
       "history", 
-      "state"
+      "state",
+      "data"
     ],
     "out": [
       "response", 
