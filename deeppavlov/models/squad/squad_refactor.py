@@ -47,6 +47,7 @@ class SquadModelRef(TFModel):
         self.learning_rate = self.opt['learning_rate']
         self.min_learning_rate = self.opt['min_learning_rate']
         self.learning_rate_patience = self.opt['learning_rate_patience']
+        self.learning_rate_decay_factor = self.opt['learning_rate_decay_factor', 2]
         self.grad_clip = self.opt['grad_clip']
         self.weight_decay = self.opt.get('weight_decay', 1.0)
         self.squad_loss_weight = self.opt.get('squad_loss_weight', 1.0)
@@ -259,9 +260,9 @@ class SquadModelRef(TFModel):
                 elif self.answer_selector == 'san':
                     # TODO check noans_token support
                     logits_st, logits_end = san_answer_selection(q, final_context_repr, self.q_mask, self.c_mask,
-                                                            self.number_of_answer_hops, self.attention_hidden_size,
-                                                            self.answer_cell_size, self.keep_prob_ph,
-                                                            self.hops_keep_prob_ph)
+                                                                 self.number_of_answer_hops, self.attention_hidden_size,
+                                                                 self.answer_cell_size, self.keep_prob_ph,
+                                                                 self.hops_keep_prob_ph)
         if self.scorer:
             with tf.variable_scope('scorer'):
                 start_att_weights = tf.expand_dims(tf.nn.softmax(logits_st, axis=-1), axis=-1)
@@ -703,7 +704,7 @@ class SquadModelRef(TFModel):
 
             if self.lr_impatience >= self.learning_rate_patience:
                 self.lr_impatience = 0
-                self.learning_rate = max(self.learning_rate / 2, self.min_learning_rate)
+                self.learning_rate = max(self.learning_rate / self.learning_rate_decay_factor, self.min_learning_rate)
                 logger.info('SQuAD model: learning_rate changed to {}'.format(self.learning_rate))
             logger.info('SQuAD model: lr_impatience: {}, learning_rate: {}'.format(self.lr_impatience, self.learning_rate))
         elif event_name == 'before_validation':
@@ -721,6 +722,7 @@ class SquadModelRef(TFModel):
                 # load from tmp weights and do not call _assign_ema_weigts
                 self.load(path=self.tmp_model_path)
                 shutil.rmtree(self.tmp_model_path.parent)
+
 
     def _pad_strings(self, batch, len_limit):
         max_len = max(map(lambda x: len(x), batch))

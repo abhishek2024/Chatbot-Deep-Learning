@@ -91,6 +91,7 @@
         "num_match_layers": 1,
         "num_encoder_layers": 2,
         "number_of_hops": 3,
+        "answer_selector": "mnemonic_reader",
         "legacy": false,
         "save_path": "squad_model_MR/model",
         "load_path": "squad_model_MR/model",
