@@ -179,7 +179,7 @@ class NerNetwork(TFModel):
         self.load()
 
         if n_transfer_tags is not None:
-            self._logits, self.train_op, self.loss = self._new_head(n_transfer_tags)
+            self.new_head(n_transfer_tags)
 
         self._learning_rates_multipliers = np.ones(self._n_blocks)
         self._block_is_training = np.ones(self._n_blocks)
@@ -369,16 +369,14 @@ class NerNetwork(TFModel):
                 self.load()
                 self._learning_rate *= self._lr_drop_value
 
-    def _new_head(self, n_tags):
+    def new_head(self, n_tags):
         with tf.variable_scope('Block' + '_' + str(self._n_blocks - 1)):
-            logits = tf.layers.dense(self._top_units, n_tags, activation=None,
-                                     kernel_initializer=INITIALIZER(),
-                                     kernel_regularizer=tf.nn.l2_loss)
+            self._logits = tf.layers.dense(self._top_units, n_tags, activation=None,
+                                           kernel_initializer=INITIALIZER(),
+                                           kernel_regularizer=tf.nn.l2_loss)
 
-            train_op, loss = self._build_train_predict(logits, self.mask_ph, n_tags, self._use_crf,
+            self.train_op, self.loss = self._build_train_predict(self._logits, self.mask_ph, n_tags, self._use_crf,
                                                        self._clip_grad_norm, self._l2_reg)
-
-        return logits, train_op, loss
 
     def get_train_op(self,
                      loss,
