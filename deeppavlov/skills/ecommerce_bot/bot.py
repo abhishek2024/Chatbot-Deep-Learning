@@ -104,11 +104,11 @@ class EcommerceBot(Skill):
 
         Parameters:
             queries: list of queries
+            history: list of previous queries
             states: list of dialog state
 
         Returns:
             response:   items:      list of retrieved items 
-                        total:      total number of relevant items
                         entropies:  list of entropy attributes with corresponding values
 
             confidence: list of similarity scores
@@ -118,12 +118,14 @@ class EcommerceBot(Skill):
         response: List = []
         confidence: List = []
         results_args: List = []
+        entropies: List = []
+        back_states: List = []
         results_args_sim: List = []
 
         log.debug(f"queries: {queries} states: {states}")
 
         for item_idx, query in enumerate(queries):
-
+        
             state = states[item_idx]
 
             if isinstance(state, str):
@@ -204,10 +206,11 @@ class EcommerceBot(Skill):
 
             confidence = [(score_title[idx], score_feat[idx])
                           for idx in results_args_sim[start:stop]]
-            entropies = self._entropy_subquery(results_args_sim)
+            entropies.append(self._entropy_subquery(results_args_sim))
             log.debug(f"Total number of relevant answers {len(results_args_sim)}")
+            back_states.append(state)
 
-        return (response, entropies, len(results_args_sim)), confidence, state
+        return (response, entropies), confidence, back_states
 
     def _entropy_subquery(self, results_args: List[int]) -> List[Tuple[float, str, List[Tuple[str, int]]]]:
         """Calculate entropy of selected attributes for items from the catalog.
