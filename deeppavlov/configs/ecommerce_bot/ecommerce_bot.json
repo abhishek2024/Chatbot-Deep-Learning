@@ -8,24 +8,44 @@
     "name": "data_learning_iterator"
   },
  "chainer": {
-    "in": ["query", "history", "state"],
-    "out": ["response"],
+    "in": [
+	    "query", 
+	    "history", 
+	    "state",
+	    "data"
+    ],
+    "out": [
+          "response",
+          "confidence",
+          "state"
+    ],
     "pipe": [
       {
         "name": "ecommerce_bot",
-        "in": ["query", "history", "state"],
-        "fit_on": ["query"],
+        "in": [
+		"query", 
+		"history", 
+		"state"
+	],
+        "fit_on": ["data"],
         "min_similarity": 0.5,
         "min_entropy": 0.5,
         "entropy_fields": ["Size", "Brand", "Author", "Color", "Genre"],
         "save_path": "ecommerce_bot/ecommerce_Phones_model.pkl",
-        "load_path": ["ecommerce_bot/ecommerce_Phones_model.pkl","ecommerce_bot/ecommerce_Electronics_model.pkl"],
+        "load_path": [
+		"ecommerce_bot/ecommerce_Phones_model.pkl",
+		"ecommerce_bot/ecommerce_Electronics_model.pkl"
+	],
         "preprocess": {
           "name": "ecommerce_preprocess",
           "spacy_model": "en_core_web_sm",
           "disable": ["parser"]
         },
-        "out": ["response"]
+        "out": [
+          "response",
+          "confidence",
+          "state"
+	]
       }
     ]
    },
