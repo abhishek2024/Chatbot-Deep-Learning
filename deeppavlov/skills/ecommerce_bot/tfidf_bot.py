@@ -102,14 +102,24 @@ class EcommerceTfidfBot(Component):
   #      self.x_train_features = [x.todense() for x in self.x_train_features]
 
     def __call__(self, q_vects, histories, states):
+        """Retrieve catalog items according to the TFIDF measure
+
+        Parameters:
+            queries: list of queries
+            history: list of previous queries
+            states: list of dialog state
+
+        Returns:
+            response:   items:      list of retrieved items
+                        entropies:  list of entropy attributes with corresponding values
+
+            confidence: list of similarity scores
+            state: dialog state
+        """
 
         logger.info(f"Total catalog {len(self.ec_data)}")
 
-        print(q_vects)
-
-
         if not isinstance(q_vects, list):
-            print("converted into list")
             q_vects = [q_vects]
 
         if not isinstance(states, list):
@@ -118,15 +128,14 @@ class EcommerceTfidfBot(Component):
         if not isinstance(histories, list):
             histories = [histories]
 
-        print("states inside skill")
-        print(states)
-
         items: List = []
         confidences: List = []
         back_states: List = []
+        entropies: List = []
 
         for idx, q_vect in enumerate(q_vects):
 
+            logger.info(f"Search query {q_vect}")
             print(q_vect)
             # b = vstack([q_vect, q_vect])
             # print(b)
@@ -142,9 +151,6 @@ class EcommerceTfidfBot(Component):
             else:
                 state = {'start': 0, 'stop': 5}
 
-            print("states inside a loop")
-            print(state)
-            
             if 'start' not in state:
                 state['start'] = 0
             if 'stop' not in state:
@@ -152,6 +158,8 @@ class EcommerceTfidfBot(Component):
 
             if 'history' not in state:
                 state['history'] = []
+
+            logger.info(f"Current state {state}")
 
             if len(state['history'])>0:
                 if not np.array_equal(state['history'][-1].todense(), q_vect.todense()):
@@ -201,20 +209,20 @@ class EcommerceTfidfBot(Component):
 
             scores = self._similarity(q_vect)
             answer_ids = np.argsort(scores)[::-1]
+            answer_ids_filtered = [idx for idx in answer_ids if scores[idx] >= self.min_similarity]
 
-            # results_args_sim = [idx for idx in results_args if scores[idx] >= self.min_similarity]
-        
             items.append([self.ec_data[idx] for idx in answer_ids[state['start']:state['stop']]])
 
             #confidences.append([cos_distance[idx] for idx in answer_ids[state['start']:state['stop']]])
             confidences.append([scores[idx] for idx in answer_ids[state['start']:state['stop']]])
 
             back_states.append(state)
+            entropies.append(self._entropy_subquery(answer_ids_filtered))
 
         print(items)
         print(confidences)
 
-        return items, confidences, back_states
+        return (items, entropies), confidences, back_states
 
     def _take_complex_query(self, q_prev: csr_matrix, q_cur: csr_matrix) -> bool:
         prev_sim = self._similarity(q_prev)
@@ -233,5 +241,37 @@ class EcommerceTfidfBot(Component):
         cos_similarities = np.nan_to_num(cos_similarities)
         return cos_similarities
         
+    def _entropy_subquery(self, results_args: List[int]) -> List[Tuple[float, str, List[Tuple[str, int]]]]:
+        """Calculate entropy of selected attributes for items from the catalog.
+
+        Parameters:
+            results_args: items id to consider
+
+        Returns:
+            entropies: entropy score with attribute name and corresponding values
+        """
+
+        ent_fields: Dict = {}
+
+        for idx in results_args:
+            for field in self.entropy_fields:
+                if field in self.ec_data[idx]:
+                    if field not in ent_fields:
+                        ent_fields[field] = []
+
+                    ent_fields[field].append(self.ec_data[idx][field].lower())
+
+        entropies = []
+        for key, value in ent_fields.items():
+            count = Counter(value)
+            entropies.append(
+                (entropy(list(count.values()), base=2), key, count.most_common()))
+
+        entropies = sorted(entropies, key=itemgetter(0), reverse=True)
+        entropies = [ent_item for ent_item in entropies if ent_item[0]
+                     >= self.min_entropy]
+
+        return entropies
+
 
 
