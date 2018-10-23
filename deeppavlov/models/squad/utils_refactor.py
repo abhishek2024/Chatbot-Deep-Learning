@@ -353,14 +353,17 @@ def simple_attention(memory, att_size, mask, keep_prob=1.0, scope="simple_attent
         return res
 
 
-def attention(inputs, state, att_size, mask, scope="attention", reuse=False):
+def attention(inputs, state, att_size, mask, use_combinations=False, scope="attention", reuse=False):
     """Computes weighted sum of inputs conditioned on state
 
         Additive form of attention:
         a_i = v^T * tanh(W * [state, m_i] + b)
     """
     with tf.variable_scope(scope, reuse=reuse):
-        u = tf.concat([tf.tile(tf.expand_dims(state, axis=1), [1, tf.shape(inputs)[1], 1]), inputs], axis=2)
+        state_tiled = tf.tile(tf.expand_dims(state, axis=1), [1, tf.shape(inputs)[1], 1])
+        u = tf.concat([state_tiled, inputs], axis=2)
+        if use_combinations:
+            u = tf.concat([u, state_tiled, inputs * state_tiled, inputs - state_tiled], axis=2)
         logits = tf.layers.dense(
             tf.layers.dense(u, att_size,
                             activation=tf.nn.tanh,
@@ -494,6 +497,16 @@ def pointer_net_answer_selection(q, context_repr, q_mask, c_mask, att_hidden_siz
     logits1, logits2 = pointer(q_att, context_repr, att_hidden_size, c_mask)
 
     return logits1, logits2
+
+
+def mnemonic_reader_answer_selection(q, context_repr, q_mask, c_mask, att_hidden_size, keep_prob):
+    init_state = simple_attention(q, att_hidden_size, mask=q_mask, keep_prob=keep_prob)
+    state = tf.layers.dense(init_state, units=context_repr.get_shape().as_list()[-1],
+                            kernel_regularizer=tf.nn.l2_loss)
+    att, logits_st = attention(context_repr, state, att_hidden_size, c_mask, use_combinations=True, scope='st_att')
+    state = highway_layer(state, att, use_combinations=True, regularizer=tf.nn.l2_loss)
+    _, logits_end = attention(context_repr, state, att_hidden_size, c_mask, use_combinations=True, scope='end_att')
+    return logits_st, logits_end
 
 
 def san_answer_selection(q, context_repr, q_mask, c_mask, n_hops, att_hidden_size, answer_cell_size, keep_prob,

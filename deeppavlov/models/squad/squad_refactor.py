@@ -87,6 +87,7 @@ class SquadModelRef(TFModel):
         self.l2_norm = self.opt.get('l2_norm', None)
         self.concat_att_inputs = self.opt.get('concat_att_inputs', True)
         self.use_reattention = self.opt.get('use_reattention', False)
+        self.answer_selector = self.opt.get('answer_selector', 'pointer_net')
 
         # TODO: add l2 norm to all dense layers and variables
 
@@ -95,6 +96,10 @@ class SquadModelRef(TFModel):
 
         assert self.number_of_hops > 0, "Number of hops is {}, " \
                                         "but should be > 0".format(self.number_of_hops)
+
+        answer_selectors = ['pointer_net', 'mnemonic_reader', 'san']
+        assert self.answer_selector in answer_selectors, "Answer selector should be on from: {}".format(
+            ', '.join(answer_selectors))
 
         self.word_emb_dim = self.init_word_emb.shape[1]
         self.char_emb_dim = self.init_char_emb.shape[1]
@@ -241,13 +246,17 @@ class SquadModelRef(TFModel):
                     final_context_repr = tf.concat([noans_token, final_context_repr], axis=1)
                     self.c_mask = tf.concat([tf.ones(shape=(self.bs, 1), dtype=tf.bool), self.c_mask], axis=1)
 
-                if self.number_of_answer_hops == 1:
-                    # default model
+                if self.answer_selector == 'pointer_net':
                     logits_st, logits_end = pointer_net_answer_selection(q, final_context_repr, self.q_mask,
                                                                          self.c_mask,
                                                                          self.attention_hidden_size,
                                                                          keep_prob=self.keep_prob_ph)
-                else:
+                elif self.answer_selector == 'mnemonic_reader':
+                    logits_st, logits_end = mnemonic_reader_answer_selection(q, final_context_repr, self.q_mask,
+                                                                             self.c_mask,
+                                                                             self.attention_hidden_size,
+                                                                             keep_prob=self.keep_prob_ph)
+                elif self.answer_selector == 'san':
                     # TODO check noans_token support
                     logits_st, logits_end = san_answer_selection(q, final_context_repr, self.q_mask, self.c_mask,
                                                             self.number_of_answer_hops, self.attention_hidden_size,
