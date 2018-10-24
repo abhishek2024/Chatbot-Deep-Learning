@@ -89,6 +89,7 @@ class SquadModelRef(TFModel):
         self.concat_att_inputs = self.opt.get('concat_att_inputs', True)
         self.use_reattention = self.opt.get('use_reattention', False)
         self.answer_selector = self.opt.get('answer_selector', 'pointer_net')
+        self.init_with_poolings = self.opt.get('init_with_poolings', False)
 
         # TODO: add l2 norm to all dense layers and variables
 
@@ -256,7 +257,8 @@ class SquadModelRef(TFModel):
                     logits_st, logits_end = mnemonic_reader_answer_selection(q, final_context_repr, self.q_mask,
                                                                              self.c_mask,
                                                                              self.attention_hidden_size,
-                                                                             keep_prob=self.keep_prob_ph)
+                                                                             keep_prob=self.keep_prob_ph,
+                                                                             with_poolings=self.init_with_poolings)
                 elif self.answer_selector == 'san':
                     # TODO check noans_token support
                     logits_st, logits_end = san_answer_selection(q, final_context_repr, self.q_mask, self.c_mask,

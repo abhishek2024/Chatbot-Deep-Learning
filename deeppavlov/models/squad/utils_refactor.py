@@ -499,8 +499,16 @@ def pointer_net_answer_selection(q, context_repr, q_mask, c_mask, att_hidden_siz
     return logits1, logits2
 
 
-def mnemonic_reader_answer_selection(q, context_repr, q_mask, c_mask, att_hidden_size, keep_prob):
-    init_state = simple_attention(q, att_hidden_size, mask=q_mask, keep_prob=keep_prob)
+def mnemonic_reader_answer_selection(q, context_repr, q_mask, c_mask, att_hidden_size, keep_prob, with_poolings=False):
+    q_mask = tf.cast(q_mask, tf.float32)
+    q_att = simple_attention(q, att_hidden_size, mask=q_mask, keep_prob=keep_prob)
+    if with_poolings:
+        q_mask_expand = tf.expand_dims(q_mask, axis=-1)
+        q_max_pool = tf.reduce_max(softmax_mask(q, mask=q_mask_expand), axis=1)
+        q_avg_pool = tf.reduce_sum(q * q_mask_expand, axis=1) / tf.expand_dims(tf.reduce_sum(q_mask, axis=-1), axis=-1)
+        init_state = tf.concat([q_att, q_max_pool, q_avg_pool], axis=-1)
+    else:
+        init_state = q_att
     state = tf.layers.dense(init_state, units=context_repr.get_shape().as_list()[-1],
                             kernel_regularizer=tf.nn.l2_loss)
     context_repr = variational_dropout(context_repr, keep_prob=keep_prob)
