@@ -1,6 +1,6 @@
 {
   "dataset_reader": {
-    "name": "sim_r_reader",
+    "name": "dstc2_google_reader",
     "mode": "full_train",
     "data_path": "google-dialogues"
   },
@@ -16,11 +16,10 @@
       {
         "name": "action_vocab",
         "id": "user_action_vocab",
-        "load_path": "dst/user_actions_simr.dict",
-        "save_path": "dst/user_actions_simr.dict",
+        "load_path": "dst/user_actions.dict",
+        "save_path": "dst/user_actions.dict",
         "special_tokens": ["unknown"],
         "default_token": "unknown",
-        "fit_on": ["u_acts"],
         "in": ["u_acts"],
         "out": ["u_act_idx"]
       },
@@ -31,14 +30,13 @@
         "save_path": "dst/system_actions.dict",
         "special_tokens": ["unknown"],
         "default_token": "unknown",
-        "fit_on": ["s_acts"],
         "in": ["s_acts"],
         "out": ["s_act_idx"]
       },
       {
         "name": "simple_vocab",
         "id": "slot_vocab",
-        "save_path": "dst/slot_names_simr.dict",
+        "save_path": "dst/slot_names_dstc2.dict",
         "fit_on": ["state"]
       },
       {
@@ -59,8 +57,8 @@
       {
         "name": "simple_vocab",
         "id": "word_vocab",
-        "save_path": "dst/word_simr.dict",
-        "load_path": "dst/word_simr.dict",
+        "save_path": "dst/word_dstc2.dict",
+        "load_path": "dst/word_dstc2.dict",
         "fit_on": ["u_norm_tokens", "s_norm_tokens"],
         "special_tokens": ["<unk>"],
         "in": ["u_norm_tokens"],
@@ -143,8 +141,7 @@
       },
       {
         "name": "dst_network",
-        "load_path": "dst/model_simr",
-        "save_path": "dst/model_simr",
+        "save_path": "dst/model_phase0",
         "in": ["u_tok_idx", "u_tok_slot_idx_matr", "u_act_idx", "u_slot_act_mask_matr",
           "s_tok_idx", "s_tok_slot_idx_matr", "s_act_idx", "s_slot_act_mask_matr",
           "slot_cand_mask_matr", "prev_state_matr"],
@@ -180,7 +177,7 @@
     "val_every_n_epochs": 1,
 
     "log_every_n_batches": 2000,
-    "validate_best": true,
+    "validate_best": false,
     "test_best": true,
     "tensorboard_log_dir": "logs"
   },
