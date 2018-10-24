@@ -40,7 +40,7 @@ class GoogleDialogsDatasetReader(DatasetReader):
 
     @classmethod
     @overrides
-    def read(self, data_path: str, evaluate_mode: bool = False) -> Dict[str, List]:
+    def read(self, data_path: str, mode: str = "basic") -> Dict[str, List]:
         """
         Parameters:
             data_path: path to save data
@@ -63,12 +63,14 @@ class GoogleDialogsDatasetReader(DatasetReader):
             'valid': self._read_from_file(Path(data_path, self._data_fname('dev'))),
             'test': self._read_from_file(Path(data_path, self._data_fname('test')))
         }
-        if evaluate_mode:
+        if mode == 'evaluate':
             data = {
                 'train': [],
                 'valid': [],
                 'test': data['train'] + data['valid'] + data['test']
             }
+        elif mode == 'full_train':
+            data['train'] = data['train'] + data['test']
         return data
 
     @classmethod
@@ -102,6 +104,8 @@ class GoogleDialogsDatasetReader(DatasetReader):
                          'slots': slots,
                          'acts': acts,
                          'act': '+'.join(str_acts)}
+                    if 'slot_values' in turn:
+                        r['slot_values'] = turn['slot_values']
                 # If u and r are nonnull, add them to overall list of turns
                 if u and r:
                     utterances.append(u)
@@ -116,6 +120,8 @@ class GoogleDialogsDatasetReader(DatasetReader):
                      'intents': intents,
                      'goals': goals,
                      'slots': slots}
+                if 'slot_values' in turn:
+                    u['slot_values'] = turn['slot_values']
                 if i == 0:
                     u['episode_done'] = True
 
@@ -160,12 +166,12 @@ class GoogleDialogsDatasetReader(DatasetReader):
         markup = ['O'] * len(tokens)
         for s in slots:
             if any(m != 'O' for m in markup[s['start']:s['exclusive_end']]):
-                raise RuntimeError('Mentions of different slots shouldn\'t intersect')
+                raise RuntimeError('Mentions of different slots shouldn\'t intersect',
+                                   tokens, markup, s)
             markup[s['start']] = 'B-{}'.format(s['slot'])
             for i in range(s['start'] + 1, s['exclusive_end']):
                 markup[i] = 'I-{}'.format(s['slot'])
         return markup
-
 
 
 @register('sim_r_reader')
@@ -186,3 +192,13 @@ class GoogleSimMDatasetReader(GoogleDialogsDatasetReader):
     def _data_fname(datatype):
         assert datatype in ('train', 'dev', 'test'), "wrong datatype name"
         return 'sim-M/{}.json'.format(datatype)
+
+
+@register('dstc2_google_reader')
+class GoogleDSTC2DatasetReader(GoogleDialogsDatasetReader):
+
+    @staticmethod
+    @overrides
+    def _data_fname(datatype):
+        assert datatype in ('train', 'dev', 'test'), "wrong datatype name"
+        return 'DSTC2/{}.json'.format(datatype)

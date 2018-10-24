@@ -114,8 +114,10 @@ class DialogStateDatasetIterator(DataLearningIterator):
                 prev_turn = {}
             u_tokens = u['text'].split()
             r_tokens = r['text'].split() if 'text' in r else []
-            u_slots = cls._biomarkup2dict(u_tokens, u['slots'])
-            r_slots = cls._biomarkup2dict(r_tokens, r.get('slots', []))
+            u_slots = u.get('slot_values',
+                            cls._biomarkup2dict(u_tokens, u['slots']))
+            r_slots = r.get('slot_values',
+                            cls._biomarkup2dict(r_tokens, r.get('slots', [])))
 
             x_tuple = (u_tokens, u_slots, u['slots'], u['intents'],
                        prev_turn.get('system_tokens', []),

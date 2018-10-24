@@ -129,7 +129,7 @@ class SlotsValuesMatrixBuilder(Component):
     def _slot2idx(self, slot):
         if slot not in self.slot_vocab:
             raise RuntimeError(f"Utterance slot {slot} doesn't match any slot"
-                               "from slo_vocab")
+                               " from slot_vocab")
         return self.slot_vocab([[slot]])[0][0]
 
     def __call__(self, cand_indexers: List[Dict[str, List[str]]]) -> List[np.ndarray]:
