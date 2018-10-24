@@ -503,8 +503,11 @@ def mnemonic_reader_answer_selection(q, context_repr, q_mask, c_mask, att_hidden
     init_state = simple_attention(q, att_hidden_size, mask=q_mask, keep_prob=keep_prob)
     state = tf.layers.dense(init_state, units=context_repr.get_shape().as_list()[-1],
                             kernel_regularizer=tf.nn.l2_loss)
+    context_repr = variational_dropout(context_repr, keep_prob=keep_prob)
+    state = tf.nn.dropout(state, keep_prob=keep_prob)
     att, logits_st = attention(context_repr, state, att_hidden_size, c_mask, use_combinations=True, scope='st_att')
     state = highway_layer(state, att, use_combinations=True, regularizer=tf.nn.l2_loss)
+    state = tf.nn.dropout(state, keep_prob=keep_prob)
     _, logits_end = attention(context_repr, state, att_hidden_size, c_mask, use_combinations=True, scope='end_att')
     return logits_st, logits_end
 
