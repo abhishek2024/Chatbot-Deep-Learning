@@ -148,7 +148,7 @@
         "in_y": ["state_matr"],
         "out": ["state_pred_matr"],
         "hidden_size": 128,
-        "dense_size": 32,
+        "dense_sizes": [128, 64],
         "num_slot_values": "#slot_filter.max_num_values",
         "embedding_matrix": "#embeddings.emb_mat",
         "num_user_actions": "#user_action_vocab.__len__()",
@@ -176,7 +176,7 @@
     "validation_patience": 20,
     "val_every_n_epochs": 1,
 
-    "log_every_n_batches": 2000,
+    "log_every_n_epochs": 1,
     "validate_best": false,
     "test_best": true,
     "tensorboard_log_dir": "logs"

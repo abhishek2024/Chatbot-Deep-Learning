@@ -17,6 +17,7 @@ import tensorflow as tf
 from tensorflow.contrib.layers import xavier_initializer as xav
 import numpy as np
 from time import time
+from typing import Tuple
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.errors import ConfigError
@@ -32,19 +33,19 @@ class StateTrackerNetwork(EnhancedTFModel):
     """
     Parameters:
         hidden_size: RNN hidden layer size.
-        dense_size:
+        dense_sizes:
         num_slot_values:
         embedding_matrix:
         **kwargs: parameters passed to a parent
                   :class:`~deeppavlov.core.models.tf_model.TFModel` class.
     """
 
-    GRAPH_PARAMS = ['hidden_size', 'dense_size', 'embedding_size',
+    GRAPH_PARAMS = ['hidden_size', 'dense_sizes', 'embedding_size',
                     'num_user_actions', 'num_system_actions', 'num_slot_values']
 
     def __init__(self,
                  hidden_size: int,
-                 dense_size: int,
+                 dense_sizes: Tuple[int, int],
                  num_slot_values: int,
                  num_user_actions: int,
                  num_system_actions: int,
@@ -58,7 +59,7 @@ class StateTrackerNetwork(EnhancedTFModel):
         # specify model options
         self.opt = {
             'hidden_size': hidden_size,
-            'dense_size': dense_size,
+            'dense_sizes': dense_sizes,
             'num_slot_values': num_slot_values,
             'num_user_actions': num_user_actions,
             'num_system_actions': num_system_actions,
@@ -82,7 +83,7 @@ class StateTrackerNetwork(EnhancedTFModel):
 
     def _init_params(self):
         self.hidden_size = self.opt['hidden_size']
-        self.dense_size = self.opt['dense_size']
+        self.dense_sizes = self.opt['dense_sizes']
         self.num_slot_vals = self.opt['num_slot_values']
         self.num_user_acts = self.opt['num_user_actions']
         self.num_sys_acts = self.opt['num_system_actions']
@@ -289,8 +290,8 @@ class StateTrackerNetwork(EnhancedTFModel):
             # [num_slots, max_num_slot_values, 8 * hidden_size + 3 * num_all_acts + 3]
             _cand_feats = tf.concat([_utt_repr_tiled, _slot_repr_tiled, _slot_val_repr],
                                     -1)
-            # _proj: [num_slots, max_num_slot_values, dense_size]
-            _proj = tf.layers.dense(_cand_feats, self.dense_size,
+            # _proj: [num_slots, max_num_slot_values, dense_size0]
+            _proj = tf.layers.dense(_cand_feats, self.dense_sizes[0],
                                     activation=tf.nn.sigmoid,
                                     kernel_initializer=xav())
             # _logits: [num_slots, max_num_slot_values]
@@ -303,8 +304,8 @@ class StateTrackerNetwork(EnhancedTFModel):
                                                (self._num_slots, 1))
                 # _dontcare_feats: [num_slots, 4 * hidden_size + 2 * num_all_acts + 2]
                 _dontcare_feats = tf.concat([_utt_repr_slot_tiled, _slot_repr], -1)
-                # _dontcare_proj: [num_slots, dense_size]
-                _dontcare_proj = tf.layers.dense(_dontcare_feats, self.dense_size,
+                # _dontcare_proj: [num_slots, dense_size1]
+                _dontcare_proj = tf.layers.dense(_dontcare_feats, self.dense_sizes[1],
                                                  activation=tf.nn.sigmoid,
                                                  kernel_initializer=xav())
                 # _dontcare_logit: [num_slots, 1]

@@ -151,7 +151,7 @@
         "in_y": ["state_matr"],
         "out": ["state_pred_matr"],
         "hidden_size": 128,
-        "dense_size": 32,
+        "dense_size": [128, 64],
         "num_slot_values": "#slot_filter.max_num_values",
         "embedding_matrix": "#embeddings.emb_mat",
         "num_user_actions": "#user_action_vocab.__len__()",
