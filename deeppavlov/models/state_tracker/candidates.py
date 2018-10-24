@@ -137,7 +137,8 @@ class SlotsValuesMatrixBuilder(Component):
         for cand_indexer in cand_indexers:
             mat = np.zeros((len(self.slot_vocab), self.max_num_values + 2),
                            dtype=np.float32)
-            for slot, cands in cand_indexer.items():
+            for i, slot in enumerate(self.slot_vocab.keys()):
+                cands = cand_indexer[slot]
                 slot_idx = self._slot2idx(slot)
                 mat[slot_idx, :len(cands)] = 1.
             utt_matrices.append(mat)
