@@ -192,6 +192,62 @@ class MultiSquadIterator(DataLearningIterator):
         return tuple(zip(*data_examples))
 
 
+@register('multi_squad_shared_norm_iterator')
+class MultiSquadIteratorSharedNorm(DataLearningIterator):
+
+    def __init__(self, data, seed: int = None, shuffle: bool = True, *args, **kwargs):
+        self.rate = kwargs.get('with_answer_rate', 0.666)
+        super().__init__(data, seed, shuffle, *args, **kwargs)
+
+    def gen_batches(self, batch_size: int, data_type: str = 'train',
+                    shuffle: bool = None):
+        # TODO: implement
+
+        if self.shuffle:
+            random.shuffle(self.data[data_type])
+
+        data = self.data[data_type]
+        data_len = len(data)
+
+        for i in range((data_len - 1) // batch_size + 1):
+            batch = []
+            for j in range(i * batch_size, (i+1) * batch_size):
+                if data_len <= j:
+                    break
+                q = data[j]['question']
+                contexts = data[j]['contexts'][:4]
+
+                n_contexts_with_answer = 0
+                while n_contexts_with_answer == 0:
+                    sampled_contexts = random.sample(contexts, k=2)
+                    n_contexts_with_answer = 0
+                    sampled_answer_text = []
+                    sampled_answer_start = []
+                    for context in sampled_contexts:
+                        answer_text = [ans['text'] for ans in context['answer']] if len(context['answer']) > 0 else ['']
+                        answer_start = [ans['answer_start'] for ans in context['answer']] if len(context['answer']) > 0 else [-1]
+                        n_contexts_with_answer += 1 if len(answer_text[0]) > 0 else 0
+                        sampled_answer_text.append(answer_text)
+                        sampled_answer_start.append(answer_start)
+
+                batch.append(((sampled_contexts[0]['context'], q),
+                              (sampled_answer_text[0], sampled_answer_start[0],
+                               sampled_contexts[1]['context'],
+                               sampled_answer_text[1], sampled_answer_start[1],
+                               )))
+            yield tuple(zip(*batch))
+
+    def get_instances(self, data_type: str = 'train'):
+        data_examples = []
+        for qcas in self.data[data_type]:  # question, contexts, answers
+            question = qcas['question']
+            for context in qcas['contexts']:
+                answer_text = list(map(lambda x: x['text'], context['answer']))
+                answer_start = list(map(lambda x: x['answer_start'], context['answer']))
+                data_examples.append(((context['context'], question), (answer_text, answer_start)))
+        return tuple(zip(*data_examples))
+
+
 @register('ner_squad_iterator')
 class NerSquadIterator(DataLearningIterator):
 

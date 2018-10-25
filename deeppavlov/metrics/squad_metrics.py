@@ -41,7 +41,7 @@ def exact_match(y_true: List[Tuple[List[str], List[int]]], y_predicted: List[Tup
         exact match score : float
     """
     EM_total = 0
-    for (ground_truth, _), (prediction, *_) in zip(y_true, y_predicted):
+    for (ground_truth, *_), (prediction, *_) in zip(y_true, y_predicted):
         EMs = [int(normalize_answer(gt) == normalize_answer(prediction)) for gt in ground_truth]
         EM_total += max(EMs)
     return 100 * EM_total / len(y_true) if len(y_true) > 0 else 0
@@ -61,7 +61,7 @@ def exact_match_v1(y_true, y_predicted):
     """
     EM_total = 0
     count = 0
-    for (ground_truth, _), (prediction, *_) in zip(y_true, y_predicted):
+    for (ground_truth, *_), (prediction, *_) in zip(y_true, y_predicted):
         if len(ground_truth[0]) == 0:
             # skip empty answers
             continue
@@ -87,7 +87,7 @@ def squad_f1(y_true: List[Tuple[List[str], List[int]]], y_predicted: List[Tuple[
         F-1 score : float
     """
     f1_total = 0.0
-    for (ground_truth, _), (prediction, *_) in zip(y_true, y_predicted):
+    for (ground_truth, *_), (prediction, *_) in zip(y_true, y_predicted):
         prediction_tokens = normalize_answer(prediction).split()
         f1s = []
         for gt in ground_truth:
@@ -122,7 +122,7 @@ def squad_f1_v1(y_true, y_predicted):
     """
     f1_total = 0.0
     count = 0
-    for (ground_truth, _), (prediction, *_) in zip(y_true, y_predicted):
+    for (ground_truth, *_), (prediction, *_) in zip(y_true, y_predicted):
         if len(ground_truth[0]) == 0:
             # skip empty answers
             continue

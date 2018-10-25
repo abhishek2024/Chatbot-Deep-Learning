@@ -181,13 +181,13 @@ class PtrNet:
         self.scope = scope
         self.keep_prob = keep_prob
 
-    def __call__(self, init, match, hidden_size, mask):
-        with tf.variable_scope(self.scope):
+    def __call__(self, init, match, hidden_size, mask, reuse=False):
+        with tf.variable_scope(self.scope, reuse=reuse):
             BS, ML, MH = tf.unstack(tf.shape(match))
             BS, IH = tf.unstack(tf.shape(init))
             match_do = tf.nn.dropout(match, keep_prob=self.keep_prob, noise_shape=[BS, 1, MH])
             dropout_mask = tf.nn.dropout(tf.ones([BS, IH], dtype=tf.float32), keep_prob=self.keep_prob)
-            inp, logits1 = attention(match_do, init * dropout_mask, hidden_size, mask)
+            inp, logits1 = attention(match_do, init * dropout_mask, hidden_size, mask, reuse=reuse)
             inp_do = tf.nn.dropout(inp, keep_prob=self.keep_prob)
             _, state = self.gru(inp_do, init)
             tf.get_variable_scope().reuse_variables()
@@ -197,7 +197,7 @@ class PtrNet:
 
 def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0,
                   use_gate=True, drop_diag=False, use_transpose_att=False, inputs_mask=None,
-                  scope="dot_attention"):
+                  scope="dot_attention", reuse=False):
     """Computes attention vector for each item in inputs:
        attention vector is a weighted sum of memory items.
        Dot product between input and memory vector is used as similarity measure.
@@ -219,7 +219,7 @@ def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0,
         attention vectors [batch_size x input_len x (feature_size + feature_size)]
 
     """
-    with tf.variable_scope(scope):
+    with tf.variable_scope(scope, reuse=reuse):
         BS, IL, IH = tf.unstack(tf.shape(inputs))
         BS, ML, MH = tf.unstack(tf.shape(memory))
 

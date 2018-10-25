@@ -769,3 +769,472 @@ class SquadModel(TFModel):
         for tokens in batch:
             tokens.extend([''] * (max_len - len(tokens)))
         return batch
+
+
+@register('squad_model_shared_norm')
+class SquadModelSharedNorm(TFModel):
+    def __init__(self, **kwargs):
+        self.opt = deepcopy(kwargs)
+        self.init_word_emb = self.opt['word_emb']
+        self.init_char_emb = self.opt['char_emb']
+        self.context_limit = self.opt['context_limit']
+        self.question_limit = self.opt['question_limit']
+        self.char_limit = self.opt['char_limit']
+        self.char_hidden_size = self.opt['char_hidden_size']
+        self.hidden_size = self.opt['encoder_hidden_size']
+        self.attention_hidden_size = self.opt['attention_hidden_size']
+        self.keep_prob = self.opt['keep_prob']
+        self.learning_rate = self.opt['learning_rate']
+        self.min_learning_rate = self.opt['min_learning_rate']
+        self.learning_rate_patience = self.opt['learning_rate_patience']
+        self.grad_clip = self.opt['grad_clip']
+        self.weight_decay = self.opt.get('weight_decay', 1.0)
+        self.squad_loss_weight = self.opt.get('squad_loss_weight', 1.0)
+        self.focal_loss_exp = self.opt.get('focal_loss_exp', 0.0)
+        self.predict_ans = self.opt.get('predict_answer', True)
+        self.noans_token = self.opt.get('noans_token', False)
+        self.scorer = self.opt.get('scorer', False)
+        self.use_features = self.opt.get('use_features', False)
+        self.use_ner_features = self.opt.get('use_ner_features', False)
+        self.features_dim = self.opt.get('features_dim', 2)
+        self.ner_features_dim = self.opt.get('ner_features_dim', 8)
+        self.ner_vocab_size = self.opt.get('ner_vocab_size', 20)
+        self.use_elmo = self.opt.get('use_elmo', False)
+        self.soft_labels = self.opt.get('soft_labels', False)
+        self.true_label_weight = self.opt.get('true_label_weight', 0.7)
+        self.use_gated_attention = self.opt.get('use_gated_attention', True)
+        self.transform_char_emb = self.opt.get('transform_char_emb', 0)
+        self.transform_word_emb = self.opt.get('transform_word_emb', 0)
+        self.drop_diag_self_att = self.opt.get('drop_diag_self_att', False)
+        self.use_birnn_after_qc_att = self.opt.get('use_birnn_after_qc_att', True)
+        self.use_transpose_att = self.opt.get('use_transpose_att', False)
+        self.hops_keep_prob = self.opt.get('hops_keep_prob', 0.6)
+        self.number_of_hops = self.opt.get('number_of_hops', 1)
+        self.legacy = self.opt.get('legacy', False)  # support old checkpoints
+        self.multihop_cell_size = self.opt.get('multihop_cell_size', 128)
+        self.num_encoder_layers = self.opt.get('num_encoder_layers', 3)
+        self.num_match_layers = self.opt.get('num_match_layers', 1)
+        self.use_focal_loss = self.opt.get('use_focal_loss', False)
+        self.share_layers = self.opt.get('share_layers', False)
+        self.concat_bigru_outputs = self.opt.get('concat_bigru_outputs', True)
+        self.shared_loss = self.opt.get('shared_loss', False)
+        self.elmo_link = self.opt.get('elmo_link', 'https://tfhub.dev/google/elmo/2')
+        self.use_soft_match_features = self.opt.get('use_soft_match_features', False)
+        self.l2_norm = self.opt.get('l2_norm', None)
+        self.top_k = self.opt.get('top_k', 1)
+        # TODO: add l2 norm to all dense layers and variables
+
+        assert self.number_of_hops > 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
+
+        self.word_emb_dim = self.init_word_emb.shape[1]
+        self.char_emb_dim = self.init_char_emb.shape[1]
+
+        self.last_impatience = 0
+        self.lr_impatience = 0
+
+        if GPU_AVAILABLE:
+            self.GRU = CudnnGRU if not self.legacy else CudnnGRULegacy
+        else:
+            self.GRU = CudnnCompatibleGRU
+
+        self.sess_config = tf.ConfigProto(allow_soft_placement=True)
+        self.sess_config.gpu_options.allow_growth = True
+        self.sess = tf.Session(config=self.sess_config)
+
+        self._init_graph()
+
+        self._init_optimizer()
+
+        if self.weight_decay < 1.0:
+            self._init_ema()
+
+        self.sess.run(tf.global_variables_initializer())
+
+        super().__init__(**kwargs)
+
+        self.tmp_model_path = self.load_path.parent / 'tmp_dir' / self.load_path.name
+
+        # Try to load the model (if there are some model files the model will be loaded from them)
+        if self.load_path is not None:
+            self.load()
+            if self.weight_decay < 1.0:
+                # TODO: it is redundant because best model is saved with assigned ema weights
+                self._assign_ema_weights()
+
+    def _init_graph(self):
+        self._init_placeholders()
+
+        # TODO: make optional and get already embedded tokens
+        self.word_emb = tf.get_variable("word_emb", initializer=tf.constant(self.init_word_emb, dtype=tf.float32),
+                                        trainable=False)
+        self.char_emb = tf.get_variable("char_emb", initializer=tf.constant(self.init_char_emb, dtype=tf.float32),
+                                        trainable=self.opt['train_char_emb'], regularizer=tf.nn.l2_loss)
+
+        self.c_left_mask = tf.cast(self.c_left_ph, tf.bool)
+        self.c_right_mask = tf.cast(self.c_right_ph, tf.bool)
+        self.q_mask = tf.cast(self.q_ph, tf.bool)
+        self.c_left_len = tf.reduce_sum(tf.cast(self.c_left_mask, tf.int32), axis=1)
+        self.c_right_len = tf.reduce_sum(tf.cast(self.c_right_mask, tf.int32), axis=1)
+        self.q_len = tf.reduce_sum(tf.cast(self.q_mask, tf.int32), axis=1)
+
+        bs = tf.shape(self.c_left_ph)[0]
+        self.c_left_maxlen = tf.reduce_max(self.c_left_len)
+        self.c_right_maxlen = tf.reduce_max(self.c_right_len)
+        self.q_maxlen = tf.reduce_max(self.q_len)
+        self.c_left = tf.slice(self.c_left_ph, [0, 0], [bs, self.c_left_maxlen])
+        self.c_right = tf.slice(self.c_right_ph, [0, 0], [bs, self.c_right_maxlen])
+        self.q = tf.slice(self.q_ph, [0, 0], [bs, self.q_maxlen])
+        self.c_left_mask = tf.slice(self.c_left_mask, [0, 0], [bs, self.c_left_maxlen])
+        self.c_right_mask = tf.slice(self.c_right_mask, [0, 0], [bs, self.c_right_maxlen])
+        self.q_mask = tf.slice(self.q_mask, [0, 0], [bs, self.q_maxlen])
+        self.cc_left = tf.slice(self.cc_left_ph, [0, 0, 0], [bs, self.c_left_maxlen, self.char_limit])
+        self.cc_right = tf.slice(self.cc_right_ph, [0, 0, 0], [bs, self.c_right_maxlen, self.char_limit])
+        self.qc = tf.slice(self.qc_ph, [0, 0, 0], [bs, self.q_maxlen, self.char_limit])
+        self.cc_left_len = tf.reshape(tf.reduce_sum(tf.cast(tf.cast(self.cc_left, tf.bool), tf.int32), axis=2), [-1])
+        self.cc_right_len = tf.reshape(tf.reduce_sum(tf.cast(tf.cast(self.cc_right, tf.bool), tf.int32), axis=2), [-1])
+        self.qc_len = tf.reshape(tf.reduce_sum(tf.cast(tf.cast(self.qc, tf.bool), tf.int32), axis=2), [-1])
+        # to remove char sequences with len equal zero (padded tokens)
+        self.cc_left_len = tf.maximum(tf.ones_like(self.cc_left_len), self.cc_left_len)
+        self.cc_right_len = tf.maximum(tf.ones_like(self.cc_right_len), self.cc_right_len)
+        self.qc_len = tf.maximum(tf.ones_like(self.qc_len), self.qc_len)
+
+        if self.predict_ans:
+            self.y1_left = tf.one_hot(self.y1_left_ph, depth=self.context_limit)
+            self.y2_left = tf.one_hot(self.y2_left_ph, depth=self.context_limit)
+            self.y1_left = tf.slice(self.y1_left, [0, 0], [bs, self.c_left_maxlen])
+            self.y2_left = tf.slice(self.y2_left, [0, 0], [bs, self.c_left_maxlen])
+
+            self.y1_right = tf.one_hot(self.y1_right_ph, depth=self.context_limit)
+            self.y2_right = tf.one_hot(self.y2_right_ph, depth=self.context_limit)
+            self.y1_right = tf.slice(self.y1_right, [0, 0], [bs, self.c_right_maxlen])
+            self.y2_right = tf.slice(self.y2_right, [0, 0], [bs, self.c_right_maxlen])
+
+        with tf.variable_scope("emb"):
+            with tf.variable_scope("char"):
+                cc_left_emb = tf.reshape(tf.nn.embedding_lookup(self.char_emb, self.cc_left),
+                                         [bs * self.c_left_maxlen, self.char_limit, self.char_emb_dim])
+
+                cc_right_emb = tf.reshape(tf.nn.embedding_lookup(self.char_emb, self.cc_right),
+                                         [bs * self.c_right_maxlen, self.char_limit, self.char_emb_dim])
+
+                qc_emb = tf.reshape(tf.nn.embedding_lookup(self.char_emb, self.qc),
+                                    [bs * self.q_maxlen, self.char_limit, self.char_emb_dim])
+
+                cc_left_emb = variational_dropout(cc_left_emb, keep_prob=self.keep_prob_ph)
+                cc_right_emb = variational_dropout(cc_right_emb, keep_prob=self.keep_prob_ph)
+                qc_emb = variational_dropout(qc_emb, keep_prob=self.keep_prob_ph)
+
+                _, (state_fw, state_bw) = cudnn_bi_gru(cc_left_emb, self.char_hidden_size, seq_lengths=self.cc_left_len,
+                                                       trainable_initial_states=True)
+                cc_left_emb = tf.concat([state_fw, state_bw], axis=1)
+
+                _, (state_fw, state_bw) = cudnn_bi_gru(cc_right_emb, self.char_hidden_size, seq_lengths=self.cc_right_len,
+                                                       trainable_initial_states=True, reuse=True)
+                cc_right_emb = tf.concat([state_fw, state_bw], axis=1)
+
+                _, (state_fw, state_bw) = cudnn_bi_gru(qc_emb, self.char_hidden_size, seq_lengths=self.qc_len,
+                                                       trainable_initial_states=True,
+                                                       reuse=True)
+
+                qc_emb = tf.concat([state_fw, state_bw], axis=1)
+
+                cc_left_emb = tf.reshape(cc_left_emb, [bs, self.c_left_maxlen, 2 * self.char_hidden_size])
+                cc_right_emb = tf.reshape(cc_right_emb, [bs, self.c_right_maxlen, 2 * self.char_hidden_size])
+                qc_emb = tf.reshape(qc_emb, [bs, self.q_maxlen, 2 * self.char_hidden_size])
+
+            with tf.name_scope("word"):
+                c_left_emb = tf.nn.embedding_lookup(self.word_emb, self.c_left)
+                c_right_emb = tf.nn.embedding_lookup(self.word_emb, self.c_right)
+                q_emb = tf.nn.embedding_lookup(self.word_emb, self.q)
+
+            c_left_emb = tf.concat([c_left_emb, cc_left_emb], axis=2)
+            c_right_emb = tf.concat([c_right_emb, cc_right_emb], axis=2)
+            q_emb = tf.concat([q_emb, qc_emb], axis=2)
+
+        with tf.variable_scope("encoding"):
+            rnn = self.GRU(num_layers=self.num_encoder_layers, num_units=self.hidden_size, batch_size=bs,
+                           input_size=q_emb.get_shape().as_list()[-1],
+                           keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
+            c_left = rnn(c_left_emb, seq_len=self.c_left_len, concat_layers=self.concat_bigru_outputs)
+            c_right = rnn(c_right_emb, seq_len=self.c_right_len, concat_layers=self.concat_bigru_outputs)
+            q = rnn(q_emb, seq_len=self.q_len, concat_layers=self.concat_bigru_outputs)
+
+        with tf.variable_scope("attention"):
+            qc_att_left = dot_attention(c_left, q, mask=self.q_mask, att_size=self.attention_hidden_size,
+                                   keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
+                                   use_transpose_att=self.use_transpose_att)
+
+            qc_att_right = dot_attention(c_right, q, mask=self.q_mask, att_size=self.attention_hidden_size,
+                                        keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
+                                        use_transpose_att=self.use_transpose_att, reuse=True)
+
+            if self.use_birnn_after_qc_att:
+                rnn = self.GRU(num_layers=self.num_match_layers, num_units=self.hidden_size, batch_size=bs,
+                               input_size=qc_att_left.get_shape().as_list()[-1],
+                               keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
+                qc_att_left = rnn(qc_att_left, seq_len=self.c_left_len, concat_layers=self.concat_bigru_outputs)
+                qc_att_right = rnn(qc_att_right, seq_len=self.c_right_len, concat_layers=self.concat_bigru_outputs)
+
+        if self.predict_ans:
+            with tf.variable_scope("match"):
+                self_att_left = dot_attention(qc_att_left, qc_att_left, mask=self.c_left_mask, att_size=self.attention_hidden_size,
+                                         keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
+                                         drop_diag=self.drop_diag_self_att, use_transpose_att=False)
+
+                self_att_right = dot_attention(qc_att_right, qc_att_right, mask=self.c_right_mask,
+                                              att_size=self.attention_hidden_size,
+                                              keep_prob=self.keep_prob_ph, use_gate=self.use_gated_attention,
+                                              drop_diag=self.drop_diag_self_att, use_transpose_att=False, reuse=True)
+
+                rnn = self.GRU(num_layers=self.num_match_layers, num_units=self.hidden_size, batch_size=bs,
+                               input_size=self_att_left.get_shape().as_list()[-1],
+                               keep_prob=self.keep_prob_ph, share_layers=self.share_layers)
+                match_left = rnn(self_att_left, seq_len=self.c_left_len, concat_layers=self.concat_bigru_outputs)
+                match_right = rnn(self_att_right, seq_len=self.c_right_len, concat_layers=self.concat_bigru_outputs)
+
+            with tf.variable_scope("pointer"):
+                # TODO: use self.attention_hidden_size
+                init = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph)
+                # default model
+                pointer = PtrNet(cell_size=init.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
+
+                logits1_left, logits2_left = pointer(init, match_left, self.hidden_size, self.c_left_mask)
+                logits1_right, logits2_right = pointer(init, match_right, self.hidden_size, self.c_right_mask, reuse=True)
+
+        with tf.variable_scope("predict"):
+            max_ans_length = tf.cast(tf.minimum(15, self.c_left_maxlen), tf.int64)
+            outer_logits = tf.exp(tf.expand_dims(logits1_left, axis=2) + tf.expand_dims(logits2_left, axis=1))
+            outer_logits = tf.matrix_band_part(outer_logits, 0, max_ans_length)
+
+            outer = tf.matmul(tf.expand_dims(tf.nn.softmax(logits1_left), axis=2),
+                              tf.expand_dims(tf.nn.softmax(logits2_left), axis=1))
+            outer = tf.matrix_band_part(outer, 0, max_ans_length)
+
+            if self.top_k == 1:
+                self.yp1 = tf.argmax(tf.reduce_max(outer, axis=2), axis=1)
+                self.yp2 = tf.argmax(tf.reduce_max(outer, axis=1), axis=1)
+                self.yp_prob = tf.reduce_max(tf.reduce_max(outer, axis=2), axis=1)
+                self.yp_logits = tf.reduce_max(tf.reduce_max(outer_logits, axis=2), axis=1)
+            else:
+                outer_reshaped = tf.reshape(outer, (bs, -1))
+                k = tf.minimum(self.top_k, tf.shape(outer_reshaped)[-1])
+
+                self.yp_prob, top_indices = tf.nn.top_k(outer_reshaped, k=k, sorted=True)
+                self.yp1, self.yp2 = tf.unstack(tf.reshape(tf.unravel_index(
+                    tf.reshape(top_indices, (-1,)), dims=(tf.shape(outer)[-2], tf.shape(outer)[-1])),
+                    (2, bs, -1)))
+                self.yp_logits = tf.gather_nd(tf.reshape(outer_logits, (bs, -1)),
+                                              indices=tf.stack([
+                                                  tf.tile(tf.expand_dims(tf.range(bs), axis=-1), [1, k]),
+                                                  top_indices], axis=-1))
+            # loss part
+            if self.predict_ans and not self.shared_loss:
+                # SQuAD loss
+                logits1 = tf.concat([logits1_left, logits1_right], axis=-1)
+                logits2 = tf.concat([logits2_left, logits2_right], axis=-1)
+                self.y1 = tf.concat([self.y1_left, self.y1_right], axis=-1)
+                self.y2 = tf.concat([self.y2_left, self.y2_right], axis=-1)
+                loss_p1 = tf.nn.softmax_cross_entropy_with_logits(logits=logits1, labels=self.y1)
+                loss_p2 = tf.nn.softmax_cross_entropy_with_logits(logits=logits2, labels=self.y2)
+                squad_loss = loss_p1 + loss_p2
+            self.loss = tf.reduce_mean(squad_loss)
+
+            if self.l2_norm is not None:
+                self.loss += self.l2_norm * tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
+
+    def _init_placeholders(self):
+        self.c_left_ph = tf.placeholder(shape=(None, None), dtype=tf.int32, name='c_left_ph')
+        self.c_right_ph = tf.placeholder(shape=(None, None), dtype=tf.int32, name='c_right_ph')
+        self.cc_left_ph = tf.placeholder(shape=(None, None, self.char_limit), dtype=tf.int32, name='cc_left_ph')
+        self.cc_right_ph = tf.placeholder(shape=(None, None, self.char_limit), dtype=tf.int32, name='cc_right_ph')
+        self.q_ph = tf.placeholder(shape=(None, None), dtype=tf.int32, name='q_ph')
+        self.qc_ph = tf.placeholder(shape=(None, None, self.char_limit), dtype=tf.int32, name='qc_ph')
+
+        if self.predict_ans:
+            self.y1_left_ph = tf.placeholder(shape=(None,), dtype=tf.int32, name='y1_left_ph')
+            self.y2_left_ph = tf.placeholder(shape=(None,), dtype=tf.int32, name='y2_left_ph')
+            self.y1_right_ph = tf.placeholder(shape=(None,), dtype=tf.int32, name='y1_right_ph')
+            self.y2_right_ph = tf.placeholder(shape=(None,), dtype=tf.int32, name='y2_right_ph')
+
+        self.lr_ph = tf.placeholder(dtype=tf.float32, shape=[], name='lr_ph')
+        self.keep_prob_ph = tf.placeholder_with_default(1.0, shape=[], name='keep_prob_ph')
+        self.hops_keep_prob_ph = tf.placeholder_with_default(1.0, shape=[], name='hops_keep_prob_ph')
+        self.is_train_ph = tf.placeholder_with_default(False, shape=[], name='is_train_ph')
+
+    def _init_optimizer(self):
+        with tf.variable_scope('Optimizer'):
+            self.global_step = tf.get_variable('global_step', shape=[], dtype=tf.int32,
+                                               initializer=tf.constant_initializer(0), trainable=False)
+            self.opt = tf.train.AdadeltaOptimizer(learning_rate=self.lr_ph, epsilon=1e-6)
+
+            if self.predict_ans and self.scorer:
+                # TODO: check if it moved from contrib
+                self.opt = tf.contrib.opt.MultitaskOptimizerWrapper(self.opt)
+
+            grads = self.opt.compute_gradients(self.loss)
+            gradients, variables = zip(*grads)
+
+            capped_grads = [tf.clip_by_norm(g, self.grad_clip) for g in gradients]
+
+            self.train_op = self.opt.apply_gradients(zip(capped_grads, variables), global_step=self.global_step)
+
+    def _init_ema(self):
+        var_ema = tf.train.ExponentialMovingAverage(self.weight_decay)
+        with tf.control_dependencies([self.train_op]):
+            self.train_op = var_ema.apply(tf.trainable_variables())
+
+        shadow_vars = []
+        global_vars = []
+        for var in tf.trainable_variables():
+            v = var_ema.average(var)
+            if v:
+                shadow_vars.append(v)
+                global_vars.append(var)
+
+        self.assign_vars = []
+        for g, v in zip(global_vars, shadow_vars):
+            self.assign_vars.append(tf.assign(g, v))
+
+    def _assign_ema_weights(self):
+        logger.info('SQuAD model: Using EMA weights.')
+        self.sess.run(self.assign_vars)
+
+    def _build_feed_dict(self, c_left_tokens, c_left_chars, q_tokens, q_chars,
+                         c_features=None, q_features=None, c_str=None, q_str=None, c_ner=None, q_ner=None,
+                         c_right_tokens=None, c_right_chars=None,
+                         y1_left=None, y2_left=None, y1_right=None, y2_right=None, y=None):
+
+        if self.use_elmo:
+            c_str = self._pad_strings(c_str, self.context_limit)
+            q_str = self._pad_strings(q_str, self.question_limit)
+
+        feed_dict = {
+            self.c_left_ph: c_left_tokens,
+            self.cc_left_ph: c_left_chars,
+            self.q_ph: q_tokens,
+            self.qc_ph: q_chars,
+        }
+        if self.use_features:
+            assert c_features is not None and q_features is not None
+            feed_dict.update({
+                self.c_f_ph: c_features,
+                self.q_f_ph: q_features,
+            })
+        if self.use_ner_features:
+            assert c_ner is not None and q_ner is not None
+            feed_dict.update({
+                self.c_ner_ph: c_ner,
+                self.q_ner_ph: q_ner,
+            })
+        if self.predict_ans and y1_left is not None and y2_left is not None:
+            feed_dict.update({
+                self.c_right_ph: c_right_tokens,
+                self.cc_right_ph: c_right_chars,
+                self.y1_left_ph: y1_left,
+                self.y2_left_ph: y2_left,
+                self.y1_right_ph: y1_right,
+                self.y2_right_ph: y2_right,
+                self.lr_ph: self.learning_rate,
+                self.keep_prob_ph: self.keep_prob,
+                self.hops_keep_prob_ph: self.hops_keep_prob,
+                self.is_train_ph: True,
+            })
+        if self.scorer and y is not None:
+            feed_dict.update({
+                self.y_ph: y,
+                self.lr_ph: self.learning_rate,
+                self.keep_prob_ph: self.keep_prob,
+                self.hops_keep_prob_ph: self.hops_keep_prob,
+                self.is_train_ph: True,
+            })
+        if self.use_elmo:
+            feed_dict.update({
+                self.c_str_ph: c_str,
+                self.q_str_ph: q_str
+            })
+
+        return feed_dict
+
+    def train_on_batch(self, c_left_tokens, c_left_chars, c_right_tokens, c_right_chars, q_tokens, q_chars,
+                       c_features=None, q_features=None, c_str=None, q_str=None, c_ner=None, q_ner=None,
+                       y1s_left=None, y2s_left=None, y1s_right=None, y2s_right=None):
+        # TODO: filter examples in batches with answer position greater self.context_limit
+        # select one answer from list of correct answers
+        # y1s, y2s are start and end positions of answer
+        y1s_left = np.array([x[0] for x in y1s_left])
+        y2s_left = np.array([x[0] for x in y2s_left])
+
+        y1s_right = np.array([x[0] for x in y1s_right])
+        y2s_right = np.array([x[0] for x in y2s_right])
+        feed_dict = self._build_feed_dict(c_left_tokens, c_left_chars, q_tokens, q_chars,
+                                          c_features, q_features, c_str, q_str, c_ner, q_ner,
+                                          c_right_tokens, c_right_chars,
+                                          y1s_left, y2s_left, y1s_right, y2s_right, None)
+        loss, _ = self.sess.run([self.loss, self.train_op], feed_dict=feed_dict)
+        return loss
+
+    def __call__(self, c_left_tokens, c_left_chars, q_tokens, q_chars,
+                 c_features=None, q_features=None, c_str=None, q_str=None, c_ner=None, q_ner=None, *args, **kwargs):
+
+        if any(np.sum(c_left_tokens, axis=-1) == 0) or any(np.sum(q_tokens, axis=-1) == 0):
+            logger.info('SQuAD model: Warning! Empty question or context was found.')
+            noanswers = -np.ones(shape=(c_left_tokens.shape[0]), dtype=np.int32)
+            zero_probs = np.zeros(shape=(c_left_tokens.shape[0]), dtype=np.float32)
+            if self.scorer and not self.predict_ans:
+                return zero_probs
+            if self.noans_token:
+                return noanswers, noanswers, zero_probs, zero_probs
+            return noanswers, noanswers, zero_probs, zero_probs
+
+        feed_dict = self._build_feed_dict(c_left_tokens, c_left_chars, q_tokens, q_chars,
+                                          c_features, q_features, c_str, q_str, c_ner, q_ner)
+
+        yp1s, yp2s, prob, logits = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_logits],
+                                                 feed_dict=feed_dict)
+
+        return yp1s, yp2s, prob.tolist(), logits.tolist()
+
+    def process_event(self, event_name: str, data) -> None:
+        """
+        Processes events sent by trainer. Implements learning rate decay.
+
+        Args:
+            event_name: event_name sent by trainer
+            data: number of examples, epochs, metrics sent by trainer
+        """
+        if event_name == "after_validation":
+            # learning rate decay
+            if data['impatience'] > self.last_impatience:
+                self.lr_impatience += 1
+            else:
+                self.lr_impatience = 0
+
+            self.last_impatience = data['impatience']
+
+            if self.lr_impatience >= self.learning_rate_patience:
+                self.lr_impatience = 0
+                self.learning_rate = max(self.learning_rate / 2, self.min_learning_rate)
+                logger.info('SQuAD model: learning_rate changed to {}'.format(self.learning_rate))
+            logger.info('SQuAD model: lr_impatience: {}, learning_rate: {}'.format(self.lr_impatience, self.learning_rate))
+        elif event_name == "before_validation":
+            if self.weight_decay < 1.0:
+                # validate model with EMA weights
+
+                # save current weights to tmp path
+                # warning: TFModel does not save optimizer params.
+                # In our case, we do this save/load operation in one session so we do not lose optimizer params.
+                self.save(path=self.tmp_model_path)
+                # load ema weights
+                self._assign_ema_weights()
+        elif event_name == "before_saving_improved_model":
+            if self.weight_decay < 1.0:
+                # load from tmp weights and do not call _assign_ema_weigts
+                self.load(path=self.tmp_model_path)
+                shutil.rmtree(self.tmp_model_path.parent)
+
+    def _pad_strings(self, batch, len_limit):
+        max_len = max(map(lambda x: len(x), batch))
+        max_len = min(max_len, len_limit)
+        for tokens in batch:
+            tokens.extend([''] * (max_len - len(tokens)))
+        return batch
