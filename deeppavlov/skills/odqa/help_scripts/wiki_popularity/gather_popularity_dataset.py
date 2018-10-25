@@ -30,11 +30,13 @@ parser.add_argument("-config_path", help="path to a JSON ranker config", type=st
 parser.add_argument("-dataset_path", help="path to a SQuAD dataset", type=str,
                     default='/media/olga/Data/datasets/squad/preproc/train-v1.1_prep_4ranker.json')
 parser.add_argument("-save_path", help="path to save a ready dataset", type=str,
-                    default='/media/olga/Data/projects/DeepPavlov/download/odqa/tfidf_pop.csv')
+                    default='/media/olga/Data/datasets/squad/tfidf_pop.csv')
 parser.add_argument("-vectorizer_path", help="path to a tfidf matrix for tfidf vectorizer", type=str,
                     default='/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki_full_chunk_tfidf.npz')
 parser.add_argument("-db_path", help="path to an iterator db path", type=str,
                     default='/media/olga/Data/projects/DeepPavlov/download/odqa/enwiki_full_chunk.db')
+parser.add_argument("-ranker_answers_path", help="path to saved ranker answers", type=str,
+                    default='/media/olga/Data/datasets/squad/ranker_tfidf_answers_chunks_top_10.json')
 
 POPULARITIES_PATH = '/media/olga/Data/datasets/squad/popularities (copy).json'
 WIKI_URL = 'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia.org/all-access/all-agents/{}/monthly/20171105/20181105'
@@ -128,9 +130,9 @@ def main():
     try:
 
         ranker_answers = ranker([i['question'] for i in dataset])
-        save_json(ranker_answers, 'ranker_answers_chunks_top_10.json')
+        save_json(ranker_answers, args.ranker_answers_path)
         del ranker
-        # ranker_answers = read_json('ranker_answers_chunks_top_10.json')
+        # ranker_answers = read_json('args.ranker_answers_path)
         iterator = SQLiteDataIterator(load_path=args.db_path)
         # iterator = ranker.pipe[1][2]
 

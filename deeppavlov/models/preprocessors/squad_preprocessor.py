@@ -19,14 +19,18 @@ import unicodedata
 from collections import Counter
 from pathlib import Path
 import string
+from multiprocessing import Pool, cpu_count
+from functools import lru_cache
 
 import numpy as np
 from nltk import word_tokenize
 from tqdm import tqdm
 import lightgbm as lgbm
 import pandas as pd
+import json
 
 from deeppavlov.core.commands.utils import expand_path
+from deeppavlov.core.commands.infer import build_model_from_config
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.utils import download
@@ -38,39 +42,31 @@ logger = get_logger(__name__)
 
 @register('squad_preprocessor')
 class SquadPreprocessor(Component):
-    def __init__(self, context_limit, question_limit, char_limit, *args, **kwargs):
+    def __init__(self, context_limit, question_limit, char_limit, n_jobs=8, *args, **kwargs):
         self.context_limit = context_limit
         self.question_limit = question_limit
         self.char_limit = char_limit
+        n_jobs = cpu_count() if n_jobs == -1 else n_jobs
+        self.pool = Pool(n_jobs)
 
     def __call__(self, contexts_raw, questions_raw, **kwargs):
-        contexts = []
-        contexts_tokens = []
-        contexts_chars = []
-        contexts_r2p = []
-        contexts_p2r = []
-        questions = []
-        questions_tokens = []
-        questions_chars = []
-        spans = []
-        for c_raw, q_raw in zip(contexts_raw, questions_raw):
-            c, r2p, p2r = SquadPreprocessor.preprocess_str(c_raw, return_mapping=True)
-            c_tokens = [token.replace("''", '"').replace("``", '"') for token in word_tokenize(c)][:self.context_limit]
-            c_chars = [list(token)[:self.char_limit] for token in c_tokens]
-            q = SquadPreprocessor.preprocess_str(q_raw)
-            q_tokens = [token.replace("''", '"').replace("``", '"') for token in word_tokenize(q)][:self.question_limit]
-            q_chars = [list(token)[:self.char_limit] for token in q_tokens]
-            contexts.append(c)
-            contexts_tokens.append(c_tokens)
-            contexts_chars.append(c_chars)
-            contexts_r2p.append(r2p)
-            contexts_p2r.append(p2r)
-            questions.append(q)
-            questions_tokens.append(q_tokens)
-            questions_chars.append(q_chars)
-            spans.append(SquadPreprocessor.convert_idx(c, c_tokens))
-        return contexts, contexts_tokens, contexts_chars, contexts_r2p, contexts_p2r, \
-               questions, questions_tokens, questions_chars, spans
+        context_limits = [self.context_limit] * len(contexts_raw)
+        question_limits = [self.question_limit] * len(contexts_raw)
+        char_limits = [self.char_limit] * len(contexts_raw)
+        args = list(zip(contexts_raw, questions_raw, context_limits, question_limits, char_limits))
+        results = self.pool.starmap(self.preprocess_example, args)
+        return list(zip(*results))
+
+    @staticmethod
+    def preprocess_example(c_raw, q_raw, context_limit, question_limit, char_limit):
+        c, r2p, p2r = SquadPreprocessor.preprocess_str(c_raw, return_mapping=True)
+        c_tokens = [token.replace("''", '"').replace('``', '"') for token in word_tokenize(c)][:context_limit]
+        c_chars = [list(token)[:char_limit] for token in c_tokens]
+        q = SquadPreprocessor.preprocess_str(q_raw)
+        q_tokens = [token.replace("''", '"').replace('``', '"') for token in word_tokenize(q)][:question_limit]
+        q_chars = [list(token)[:char_limit] for token in q_tokens]
+        span = SquadPreprocessor.convert_idx(c, c_tokens)
+        return c, c_tokens, c_chars, r2p, p2r, q, q_tokens, q_chars, span
 
     @staticmethod
     def preprocess_str(line, return_mapping=False):
@@ -84,7 +80,7 @@ class SquadPreprocessor(Component):
             preprocessed line, raw2preprocessed, preprocessed2raw
 
         """
-        line = line.replace("''", '" ').replace("``", '" ')
+        line = line.replace("''", '" ').replace('``', '" ')
         if not return_mapping:
             return ''.join(c for c in line if not unicodedata.combining(c))
 
@@ -175,8 +171,8 @@ class SquadVocabEmbedder(Estimator):
         self.char_limit = char_limit
         self.loaded = False
 
-        self.NULL = "<NULL>"
-        self.OOV = "<OOV>"
+        self.NULL = '<NULL>'
+        self.OOV = '<OOV>'
 
         self.emb_folder.mkdir(parents=True, exist_ok=True)
 
@@ -191,24 +187,24 @@ class SquadVocabEmbedder(Estimator):
             c_idxs = np.zeros([len(contexts), self.context_limit], dtype=np.int32)
             q_idxs = np.zeros([len(questions), self.question_limit], dtype=np.int32)
             for i, context in enumerate(contexts):
-                for j, token in enumerate(context):
+                for j, token in enumerate(context[:self.context_limit]):
                     c_idxs[i, j] = self._get_idx(token)
 
             for i, question in enumerate(questions):
-                for j, token in enumerate(question):
+                for j, token in enumerate(question[:self.question_limit]):
                     q_idxs[i, j] = self._get_idx(token)
 
         elif self.level == 'char':
             c_idxs = np.zeros([len(contexts), self.context_limit, self.char_limit], dtype=np.int32)
             q_idxs = np.zeros([len(questions), self.question_limit, self.char_limit], dtype=np.int32)
             for i, context in enumerate(contexts):
-                for j, token in enumerate(context):
-                    for k, char in enumerate(token):
+                for j, token in enumerate(context[:self.context_limit]):
+                    for k, char in enumerate(token[:self.char_limit]):
                         c_idxs[i, j, k] = self._get_idx(char)
 
             for i, question in enumerate(questions):
-                for j, token in enumerate(question):
-                    for k, char in enumerate(token):
+                for j, token in enumerate(question[:self.question_limit]):
+                    for k, char in enumerate(token[:self.char_limit]):
                         q_idxs[i, j, k] = self._get_idx(char)
 
         return c_idxs, q_idxs
@@ -261,6 +257,7 @@ class SquadVocabEmbedder(Estimator):
         self.save_path.parent.mkdir(parents=True, exist_ok=True)
         pickle.dump((self.emb_dim, self.emb_mat, self.token2idx_dict), self.save_path.open('wb'))
 
+    @lru_cache(maxsize=2**16)
     def _get_idx(self, el):
         """ Returns idx for el (token or char).
 
@@ -296,18 +293,39 @@ class SquadAnsPostprocessor(Component):
             postprocessed answer text, start position in raw context, end position in raw context
         """
         answers = []
-        start = []
-        end = []
+        starts = []
+        ends = []
         for a_st, a_end, c, p2r, span in zip(ans_start, ans_end, contexts, p2rs, spans):
-            if a_st == -1 or a_end == -1:
-                start.append(-1)
-                end.append(-1)
-                answers.append('')
-            else:
-                start.append(p2r[span[a_st][0]])
-                end.append(p2r[span[a_end][1]])
-                answers.append(c[start[-1]:end[-1]])
-        return answers, start, end
+            if isinstance(a_st, int) or isinstance(a_st, np.int64) or isinstance(a_st, np.int32):
+                start, end, answer = self._get_answer(a_st, a_end, p2r, span, c)
+                answers.append(answer)
+                starts.append(start)
+                ends.append(end)
+            else:  # we got list of top_k answers
+                top_answers = []
+                top_starts = []
+                top_ends = []
+                for a_st, a_end in zip(a_st, a_end):
+                    start, end, answer = self._get_answer(a_st, a_end, p2r, span, c)
+                    top_answers.append(answer)
+                    top_starts.append(start)
+                    top_ends.append(end)
+                answers.append(top_answers)
+                starts.append(top_starts)
+                ends.append(top_ends)
+        return answers, starts, ends
+
+    @staticmethod
+    def _get_answer(a_st, a_end, p2r, span, context):
+        if a_st == -1 or a_end == -1:
+            start = -1
+            end = -1
+            answer = ''
+        else:
+            start = p2r[span[a_st][0]]
+            end = p2r[span[a_end][1]]
+            answer = context[start:end]
+        return start, end, answer
 
 
 @register('squad_lgbm_scorer')
@@ -345,6 +363,9 @@ class SquadLGBMScorer(Estimator):
 
 @register('squad_features_extractor')
 class SquadFeaturesExtractor(Component):
+    """
+    Extracts exact match and token frequency features from context and question.
+    """
     def __init__(self, context_limit, question_limit, *args, **kwargs):
         self.context_limit = context_limit
         self.question_limit = question_limit
@@ -356,16 +377,18 @@ class SquadFeaturesExtractor(Component):
         q_em = np.zeros([len(questions_tokens), self.question_limit], dtype=np.float32)
         q_tf = np.zeros([len(questions_tokens), self.question_limit], dtype=np.float32)
         for i, (context_tokens, question_tokens) in enumerate(zip(contexts_tokens, questions_tokens)):
+            context_tokens = context_tokens[:self.context_limit]
+            question_tokens = question_tokens[:self.question_limit]
             context_tokens = list(map(lambda x: x.lower(), context_tokens))
             question_tokens = list(map(lambda x: x.lower(), question_tokens))
-            context_len = len(contexts_tokens)
+            context_len = len(context_tokens)
             question_len = len(question_tokens)
 
             if context_len == 0 or question_len == 0:
                 raise RuntimeError('Context or question is empty.')
 
             context_unique_tokens = Counter(context_tokens)
-            question_unique_tokens = Counter(context_tokens)
+            question_unique_tokens = Counter(question_tokens)
             for j, c_token in enumerate(context_tokens):
                 c_em[i][j] = 1 if c_token in question_unique_tokens and c_token not in self.punkt else 0
                 c_tf[i][j] = context_unique_tokens[c_token] / context_len if c_token not in self.punkt else 0
@@ -384,3 +407,37 @@ class SquadDummyFeatures(Component):
 
     def __call__(self, batch):
         return [None] * len(batch)
+
+
+@register('squad_ner_tags_preprocessor')
+class SquadNerTagsPreprocessor(Component):
+    """
+    O -> O
+    B-LOC -> LOC
+    """
+    def __init__(self, tokens_limit, *args, **kwargs):
+        self.tokens_limit = tokens_limit
+        self.PAD = '<PAD>'
+
+    def __call__(self, ner_tags_batch, **kwargs):
+        processed_batch = []
+        for ner_tags in ner_tags_batch:
+            ner_tags = [ner_tag.split('-')[-1] for ner_tag in ner_tags[:self.tokens_limit]]
+            ner_tags = ner_tags + (self.tokens_limit - len(ner_tags)) * [self.PAD]
+            processed_batch.append(ner_tags)
+        return processed_batch
+
+
+@register('squad_ner_tags_extractor')
+class SquadNerTagsExtractor(Component):
+    def __init__(self, ner_config, *args, **kwargs):
+        config = json.load(open(expand_path(ner_config)))
+        # remove tokenizer from ner pipeline
+        config['chainer']['in'] = ['x_tokens']
+        config['chainer']['pipe'] = config['chainer']['pipe'][1:]
+
+        self.ner = build_model_from_config(config)
+
+    def __call__(self, tokens_batch, **kwargs):
+        batch_tags = [tags for tokens, tags in self.ner(tokens_batch)]
+        return batch_tags

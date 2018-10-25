@@ -1,28 +1,27 @@
-"""
-Copyright 2017 Neural Networks and Deep Learning lab, MIPT
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
-from copy import deepcopy
+# Copyright 2017 Neural Networks and Deep Learning lab, MIPT
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import tensorflow as tf
 import numpy as np
 
+from copy import deepcopy
+import shutil
+
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
 from deeppavlov.models.squad.utils import dot_attention, simple_attention, PtrNet, attention, mult_attention
-from deeppavlov.models.squad.utils import CudnnGRU, CudnnCompatibleGRU, CudnnGRULegacy
+from deeppavlov.models.squad.utils import CudnnGRU, CudnnCompatibleGRU, CudnnGRULegacy, softmax_mask
 from deeppavlov.core.common.check_gpu import GPU_AVAILABLE
 from deeppavlov.core.layers.tf_layers import cudnn_bi_gru, variational_dropout
 from deeppavlov.core.common.log import get_logger
@@ -49,14 +48,17 @@ class SquadModel(TFModel):
         self.min_learning_rate = self.opt['min_learning_rate']
         self.learning_rate_patience = self.opt['learning_rate_patience']
         self.grad_clip = self.opt['grad_clip']
-        self.weight_decay = self.opt['weight_decay']
+        self.weight_decay = self.opt.get('weight_decay', 1.0)
         self.squad_loss_weight = self.opt.get('squad_loss_weight', 1.0)
         self.focal_loss_exp = self.opt.get('focal_loss_exp', 0.0)
         self.predict_ans = self.opt.get('predict_answer', True)
         self.noans_token = self.opt.get('noans_token', False)
         self.scorer = self.opt.get('scorer', False)
         self.use_features = self.opt.get('use_features', False)
+        self.use_ner_features = self.opt.get('use_ner_features', False)
         self.features_dim = self.opt.get('features_dim', 2)
+        self.ner_features_dim = self.opt.get('ner_features_dim', 8)
+        self.ner_vocab_size = self.opt.get('ner_vocab_size', 20)
         self.use_elmo = self.opt.get('use_elmo', False)
         self.soft_labels = self.opt.get('soft_labels', False)
         self.true_label_weight = self.opt.get('true_label_weight', 0.7)
@@ -68,13 +70,19 @@ class SquadModel(TFModel):
         self.use_transpose_att = self.opt.get('use_transpose_att', False)
         self.hops_keep_prob = self.opt.get('hops_keep_prob', 0.6)
         self.number_of_hops = self.opt.get('number_of_hops', 1)
-        self.legacy = self.opt.get('legacy', True)  # support old checkpoints
+        self.legacy = self.opt.get('legacy', False)  # support old checkpoints
         self.multihop_cell_size = self.opt.get('multihop_cell_size', 128)
         self.num_encoder_layers = self.opt.get('num_encoder_layers', 3)
         self.num_match_layers = self.opt.get('num_match_layers', 1)
         self.use_focal_loss = self.opt.get('use_focal_loss', False)
         self.share_layers = self.opt.get('share_layers', False)
         self.concat_bigru_outputs = self.opt.get('concat_bigru_outputs', True)
+        self.shared_loss = self.opt.get('shared_loss', False)
+        self.elmo_link = self.opt.get('elmo_link', 'https://tfhub.dev/google/elmo/2')
+        self.use_soft_match_features = self.opt.get('use_soft_match_features', False)
+        self.l2_norm = self.opt.get('l2_norm', None)
+        self.top_k = self.opt.get('top_k', 1)
+        # TODO: add l2 norm to all dense layers and variables
 
         assert self.number_of_hops > 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
 
@@ -87,7 +95,7 @@ class SquadModel(TFModel):
         if GPU_AVAILABLE:
             self.GRU = CudnnGRU if not self.legacy else CudnnGRULegacy
         else:
-            raise RuntimeError('SquadModel requires GPU')
+            self.GRU = CudnnCompatibleGRU
 
         self.sess_config = tf.ConfigProto(allow_soft_placement=True)
         self.sess_config.gpu_options.allow_growth = True
@@ -97,22 +105,30 @@ class SquadModel(TFModel):
 
         self._init_optimizer()
 
+        if self.weight_decay < 1.0:
+            self._init_ema()
+
         self.sess.run(tf.global_variables_initializer())
 
         super().__init__(**kwargs)
+
+        self.tmp_model_path = self.load_path.parent / 'tmp_dir' / self.load_path.name
+
         # Try to load the model (if there are some model files the model will be loaded from them)
         if self.load_path is not None:
             self.load()
             if self.weight_decay < 1.0:
-                 self.sess.run(self.assign_vars)
+                # TODO: it is redundant because best model is saved with assigned ema weights
+                self._assign_ema_weights()
 
     def _init_graph(self):
         self._init_placeholders()
 
+        # TODO: make optional and get already embedded tokens
         self.word_emb = tf.get_variable("word_emb", initializer=tf.constant(self.init_word_emb, dtype=tf.float32),
                                         trainable=False)
         self.char_emb = tf.get_variable("char_emb", initializer=tf.constant(self.init_char_emb, dtype=tf.float32),
-                                        trainable=self.opt['train_char_emb'])
+                                        trainable=self.opt['train_char_emb'], regularizer=tf.nn.l2_loss)
 
         self.c_mask = tf.cast(self.c_ph, tf.bool)
         self.q_mask = tf.cast(self.q_ph, tf.bool)
@@ -130,6 +146,9 @@ class SquadModel(TFModel):
         self.qc = tf.slice(self.qc_ph, [0, 0, 0], [bs, self.q_maxlen, self.char_limit])
         self.cc_len = tf.reshape(tf.reduce_sum(tf.cast(tf.cast(self.cc, tf.bool), tf.int32), axis=2), [-1])
         self.qc_len = tf.reshape(tf.reduce_sum(tf.cast(tf.cast(self.qc, tf.bool), tf.int32), axis=2), [-1])
+        # to remove char sequences with len equal zero (padded tokens)
+        self.cc_len = tf.maximum(tf.ones_like(self.cc_len), self.cc_len)
+        self.qc_len = tf.maximum(tf.ones_like(self.qc_len), self.qc_len)
 
         if self.use_features:
             self.c_f = tf.slice(self.c_f_ph, [0, 0, 0], [bs, self.c_maxlen, self.features_dim])
@@ -137,12 +156,30 @@ class SquadModel(TFModel):
             self.q_f = tf.slice(self.q_f_ph, [0, 0, 0], [bs, self.q_maxlen, self.features_dim])
             self.q_f = tf.reshape(self.q_f, shape=(bs, self.q_maxlen, self.features_dim))
 
+        if self.use_ner_features:
+            self.c_ner = tf.slice(self.c_ner_ph, [0, 0], [bs, self.c_maxlen])
+            self.c_ner = tf.reshape(self.c_ner, shape=(bs, self.c_maxlen))
+            self.q_ner = tf.slice(self.q_ner_ph, [0, 0], [bs, self.q_maxlen])
+            self.q_ner = tf.reshape(self.q_ner, shape=(bs, self.q_maxlen))
+
+            self.ner_emb = tf.get_variable("ner_emb",
+                                           initializer=tf.random_uniform(
+                                               (self.ner_vocab_size, self.ner_features_dim), -0.1, 0.1),
+                                           trainable=True, regularizer=tf.nn.l2_loss)
+
         if self.use_elmo:
             self.c_str = tf.slice(self.c_str_ph, [0, 0], [bs, self.c_maxlen])
             self.q_str = tf.slice(self.q_str_ph, [0, 0], [bs, self.q_maxlen])
 
+        if self.predict_ans:
+            self.y1 = tf.one_hot(self.y1_ph, depth=self.context_limit)
+            self.y2 = tf.one_hot(self.y2_ph, depth=self.context_limit)
+            self.y1 = tf.slice(self.y1, [0, 0], [bs, self.c_maxlen])
+            self.y2 = tf.slice(self.y2, [0, 0], [bs, self.c_maxlen])
+
         if self.noans_token:
             # we use additional 'no answer' token to allow model not to answer on question
+            # later we will add 'no answer' token as first token in context question-aware representation
             self.y1 = tf.one_hot(self.y1_ph, depth=self.context_limit + 1)
             self.y2 = tf.one_hot(self.y2_ph, depth=self.context_limit + 1)
             self.y1 = tf.slice(self.y1, [0, 0], [bs, self.c_maxlen + 1])
@@ -150,12 +187,7 @@ class SquadModel(TFModel):
         elif self.scorer:
             # we don't need to predict answer position
             self.y = self.y_ph
-
-        if self.predict_ans:
-            self.y1 = tf.one_hot(self.y1_ph, depth=self.context_limit)
-            self.y2 = tf.one_hot(self.y2_ph, depth=self.context_limit)
-            self.y1 = tf.slice(self.y1, [0, 0], [bs, self.c_maxlen])
-            self.y2 = tf.slice(self.y2, [0, 0], [bs, self.c_maxlen])
+            self.y_ohe = tf.one_hot(self.y, depth=2)
 
             if self.soft_labels:
                 center_weight = self.true_label_weight
@@ -219,9 +251,34 @@ class SquadModel(TFModel):
             c_emb = tf.concat([c_emb, cc_emb], axis=2)
             q_emb = tf.concat([q_emb, qc_emb], axis=2)
 
+            if self.use_soft_match_features:
+                # TODO: test soft match feature
+                c_emb_with_soft_match = dot_attention(c_emb, q_emb, mask=self.q_mask,
+                                                      att_size=self.attention_hidden_size,
+                                                      keep_prob=self.keep_prob_ph, use_gate=False,
+                                                      use_transpose_att=False,
+                                                      scope='c_word_attention')
+
+                q_emb_with_soft_match = dot_attention(q_emb, c_emb, mask=self.c_mask,
+                                                      att_size=self.attention_hidden_size,
+                                                      keep_prob=self.keep_prob_ph, use_gate=False,
+                                                      use_transpose_att=False,
+                                                      scope='q_word_attention')
+
+                c_emb = c_emb_with_soft_match
+                q_emb = q_emb_with_soft_match
+
             if self.use_features:
                 c_emb = tf.concat([c_emb, self.c_f], axis=2)
                 q_emb = tf.concat([q_emb, self.q_f], axis=2)
+
+            if self.use_ner_features:
+                c_ner_emb = variational_dropout(
+                    tf.nn.embedding_lookup(self.ner_emb, self.c_ner), keep_prob=self.keep_prob_ph)
+                q_ner_emb = variational_dropout(
+                    tf.nn.embedding_lookup(self.ner_emb, self.q_ner), keep_prob=self.keep_prob_ph)
+                c_emb = tf.concat([c_emb, c_ner_emb], axis=2)
+                q_emb = tf.concat([q_emb, q_ner_emb], axis=2)
 
             if self.transform_word_emb != 0:
                 c_emb = tf.layers.dense(
@@ -244,7 +301,7 @@ class SquadModel(TFModel):
             if self.use_elmo:
                 # TODO: also add elmo after encoding layer
                 import tensorflow_hub as tfhub
-                elmo = tfhub.Module("https://tfhub.dev/google/elmo/2", trainable=True)
+                elmo = tfhub.Module(self.elmo_link, trainable=True)
                 c_elmo = elmo(
                     inputs={
                         "tokens": self.c_str,
@@ -292,7 +349,8 @@ class SquadModel(TFModel):
                 match = rnn(self_att, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
 
             with tf.variable_scope("pointer"):
-                init = simple_attention(q, self.attention_hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph)
+                # TODO: use self.attention_hidden_size
+                init = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph)
                 if self.number_of_hops == 1:
                     # default model
                     pointer = PtrNet(cell_size=init.get_shape().as_list()[-1], keep_prob=self.keep_prob_ph)
@@ -339,22 +397,39 @@ class SquadModel(TFModel):
                                              axis=1)
 
         with tf.variable_scope("predict"):
-            if self.predict_ans:
+            if self.predict_ans and not self.shared_loss:
+                max_ans_length = tf.cast(tf.minimum(15, self.c_maxlen), tf.int64)
                 outer_logits = tf.exp(tf.expand_dims(logits1, axis=2) + tf.expand_dims(logits2, axis=1))
+                outer_logits = tf.matrix_band_part(outer_logits, 0, max_ans_length)
+
                 outer = tf.matmul(tf.expand_dims(tf.nn.softmax(logits1), axis=2),
                                   tf.expand_dims(tf.nn.softmax(logits2), axis=1))
-                outer = tf.matrix_band_part(outer, 0, tf.cast(tf.minimum(15, self.c_maxlen), tf.int64))
-                self.yp1 = tf.argmax(tf.reduce_max(outer, axis=2), axis=1)
-                self.yp2 = tf.argmax(tf.reduce_max(outer, axis=1), axis=1)
-                self.yp_prob = tf.reduce_max(tf.reduce_max(outer, axis=2), axis=1)
-                self.yp_logits = tf.reduce_max(tf.reduce_max(outer_logits, axis=2), axis=1)
-                if self.noans_token:
-                    self.yp_score = 1 - tf.nn.softmax(logits1)[:,0] * tf.nn.softmax(logits2)[:,0]
-                loss_p1 = tf.nn.softmax_cross_entropy_with_logits(logits=logits1, labels=self.y1)
-                loss_p2 = tf.nn.softmax_cross_entropy_with_logits(logits=logits2, labels=self.y2)
-                squad_loss = loss_p1 + loss_p2
+                outer = tf.matrix_band_part(outer, 0, max_ans_length)
 
-            if self.scorer:
+                if self.noans_token:
+                    self.yp_score = 1 - tf.nn.softmax(logits1)[:, 0] * tf.nn.softmax(logits2)[:, 0]
+
+                if self.top_k == 1:
+                    self.yp1 = tf.argmax(tf.reduce_max(outer, axis=2), axis=1)
+                    self.yp2 = tf.argmax(tf.reduce_max(outer, axis=1), axis=1)
+                    self.yp_prob = tf.reduce_max(tf.reduce_max(outer, axis=2), axis=1)
+                    self.yp_logits = tf.reduce_max(tf.reduce_max(outer_logits, axis=2), axis=1)
+                else:
+                    outer_reshaped = tf.reshape(outer, (bs, -1))
+                    k = tf.minimum(self.top_k, tf.shape(outer_reshaped)[-1])
+
+                    self.yp_prob, top_indices = tf.nn.top_k(outer_reshaped, k=k, sorted=True)
+                    self.yp1, self.yp2 = tf.unstack(tf.reshape(tf.unravel_index(
+                        tf.reshape(top_indices, (-1,)), dims=(tf.shape(outer)[-2], tf.shape(outer)[-1])),
+                        (2, bs, -1)))
+                    self.yp_logits = tf.gather_nd(tf.reshape(outer_logits, (bs, -1)),
+                                                  indices=tf.stack([
+                                                      tf.tile(tf.expand_dims(tf.range(bs), axis=-1), [1, k]),
+                                                      top_indices], axis=-1))
+                    if self.noans_token:
+                        self.yp_score = tf.tile(tf.expand_dims(self.yp_score, axis=-1), [1, k])  # make it bs x k
+
+            if self.scorer and not self.shared_loss:
                 q_att = simple_attention(q, self.hidden_size, mask=self.q_mask, keep_prob=self.keep_prob_ph,
                                          scope='q_att')
                 c_att = simple_attention(match, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph,
@@ -374,50 +449,104 @@ class SquadModel(TFModel):
                                                     kernel_initializer=tf.contrib.layers.xavier_initializer(),
                                                     name='noans_dense_1'),
                                     keep_prob=self.keep_prob_ph)
-                layer_2_logits = tf.layers.dense(layer_1_logits,
+                scorer_logits = tf.layers.dense(layer_1_logits,
                                                  activation=tf.nn.relu,
                                                  units=2,
                                                  name='noans_dense_2')
-                self.y_ohe = tf.one_hot(self.y, depth=2)
-                predict_probas = tf.nn.softmax(layer_2_logits)
+                predict_probas = tf.nn.softmax(scorer_logits)
                 self.yp = predict_probas[:,1]
                 yt_prob = tf.reduce_sum(predict_probas * self.y_ohe, axis=-1)
-                # focal loss
+
+            if self.scorer and self.shared_loss:
+                start_att_weights = tf.expand_dims(tf.nn.softmax(logits1, axis=-1), axis=-1)
+                end_att_weights = tf.expand_dims(tf.nn.softmax(logits2, axis=-1), axis=-1)
+                # not really good idea to sum only start and end tokens
+                # need some kind of sigmoid layer here
+                start_att = tf.reduce_sum(start_att_weights * match, axis=1)
+                end_att = tf.reduce_sum(end_att_weights * match, axis=1)
+                c_att = simple_attention(match, self.hidden_size, mask=self.c_mask, keep_prob=self.keep_prob_ph,
+                                         scope='c_att')
+
+                dense_input = tf.concat([start_att, end_att, c_att], -1)
+                layer_1_logits = tf.nn.dropout(
+                    tf.layers.dense(dense_input,
+                                    units=self.hidden_size,
+                                    activation=tf.nn.relu,
+                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                    name='scorer_dense_1'),
+                    keep_prob=self.keep_prob_ph)
+
+                layer_2_logits = tf.nn.dropout(
+                    tf.layers.dense(layer_1_logits,
+                                    units=self.hidden_size // 2,
+                                    activation=tf.nn.relu,
+                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                    name='scorer_dense_2'),
+                    keep_prob=self.keep_prob_ph)
+
+                scorer_logits = tf.squeeze(tf.layers.dense(layer_2_logits, units=1, name='scorer_logits'), axis=-1)
+
+            if self.scorer and self.predict_ans and self.shared_loss:
+                logits = tf.reshape(tf.expand_dims(logits1, 1) + tf.expand_dims(logits2, 2), (bs, -1))
+                all_logits = tf.concat([tf.expand_dims(scorer_logits, axis=-1), logits], axis=-1)
+
+                labels = tf.cast(
+                    tf.reshape(tf.logical_and(tf.expand_dims(tf.cast(self.y1, tf.bool), 1),
+                                              tf.expand_dims(tf.cast(self.y2, tf.bool), 2)), (bs, -1)), tf.float32)
+                # self.y 1 if answer is present, 0 otherwise
+                all_labels = tf.concat([tf.expand_dims(1-tf.cast(self.y, tf.float32), axis=-1), labels], axis=-1)
+                all_sum = tf.reduce_logsumexp(all_logits, axis=-1)
+
+                outer_logits = tf.exp(tf.expand_dims(logits1, axis=2) + tf.expand_dims(logits2, axis=1))
+                outer_logits = tf.matrix_band_part(outer_logits, 0, tf.cast(tf.minimum(15, self.c_maxlen), tf.int64))
+                self.yp1 = tf.argmax(tf.reduce_max(outer_logits, axis=2), axis=1)
+                self.yp2 = tf.argmax(tf.reduce_max(outer_logits, axis=1), axis=1)
+                self.yp_logits = tf.reduce_max(tf.reduce_max(outer_logits, axis=2), axis=1)
+                self.yp_prob = self.yp_logits / tf.exp(all_sum)
+
+                # if scorer_logits large - no ans, if zs small answer exist
+                self.yp = -tf.exp(scorer_logits)  # prob noans (its better to return logit here, to make noans score comparable)
+
+            # loss part
+            if self.predict_ans and not self.shared_loss:
+                # SQuAD loss
+                loss_p1 = tf.nn.softmax_cross_entropy_with_logits(logits=logits1, labels=self.y1)
+                loss_p2 = tf.nn.softmax_cross_entropy_with_logits(logits=logits2, labels=self.y2)
+                squad_loss = loss_p1 + loss_p2
+
+            if self.scorer and not self.shared_loss:
+                # scorer loss
+                """
                 if self.use_focal_loss:
+                    # focal loss
                     # check bug?
                     scorer_loss = tf.pow(1 - yt_prob, self.focal_loss_exp) * \
-                        tf.nn.softmax_cross_entropy_with_logits(logits=layer_2_logits, labels=self.y_ohe)
+                                  tf.nn.softmax_cross_entropy_with_logits(logits=scorer_logits, labels=self.y_ohe)
                 else:
-                    scorer_loss = tf.nn.softmax_cross_entropy_with_logits(logits=layer_2_logits, labels=self.y_ohe)
+                """
+                scorer_loss = tf.nn.softmax_cross_entropy_with_logits(logits=scorer_logits, labels=self.y_ohe)
 
                 if self.predict_ans and not self.noans_token:
                     # skip examples without answer when calculate squad_loss
                     squad_loss = tf.boolean_mask(squad_loss, self.y)
 
-            if self.predict_ans and self.scorer:
+            if self.predict_ans and self.scorer and self.shared_loss:
+                correct_sum = tf.reduce_logsumexp(softmax_mask(all_logits, all_labels), axis=-1)
+                shared_loss = -(correct_sum - all_sum)
+
+            if self.predict_ans and self.scorer and not self.shared_loss:
                 self.loss = self.squad_loss_weight * tf.reduce_mean(squad_loss) \
                             + (1 - self.squad_loss_weight) * tf.reduce_mean(scorer_loss)
+            elif self.predict_ans and self.scorer and self.shared_loss:
+                # TODO: use additional losses on qa task and noans task
+                self.loss = tf.reduce_mean(shared_loss)
             elif self.scorer:
                 self.loss = tf.reduce_mean(scorer_loss)
             else:
                 self.loss = tf.reduce_mean(squad_loss)
 
-        if self.weight_decay < 1.0:
-            self.var_ema = tf.train.ExponentialMovingAverage(self.weight_decay)
-            ema_op = self.var_ema.apply(tf.trainable_variables())
-            with tf.control_dependencies([ema_op]):
-                self.loss = tf.identity(self.loss)
-
-                self.shadow_vars = []
-                self.global_vars = []
-                for var in tf.global_variables():
-                    v = self.var_ema.average(var)
-                    if v:
-                        self.shadow_vars.append(v)
-                        self.global_vars.append(var)
-                self.assign_vars = []
-                for g, v in zip(self.global_vars, self.shadow_vars):
-                    self.assign_vars.append(tf.assign(g, v))
+            if self.l2_norm is not None:
+                self.loss += self.l2_norm * tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
 
     def _init_placeholders(self):
         self.c_ph = tf.placeholder(shape=(None, None), dtype=tf.int32, name='c_ph')
@@ -428,6 +557,10 @@ class SquadModel(TFModel):
         if self.use_features:
             self.c_f_ph = tf.placeholder(shape=(None, None, self.features_dim), dtype=tf.float32, name='c_f_ph')
             self.q_f_ph = tf.placeholder(shape=(None, None, self.features_dim), dtype=tf.float32, name='q_f_ph')
+
+        if self.use_ner_features:
+            self.c_ner_ph = tf.placeholder(shape=(None, None), dtype=tf.int32, name='c_ner_ph')
+            self.q_ner_ph = tf.placeholder(shape=(None, None), dtype=tf.int32, name='q_ner_ph')
 
         if self.use_elmo:
             self.c_str_ph = tf.placeholder(shape=(None, None), dtype=tf.string, name='c_str_ph')
@@ -462,8 +595,30 @@ class SquadModel(TFModel):
 
             self.train_op = self.opt.apply_gradients(zip(capped_grads, variables), global_step=self.global_step)
 
+    def _init_ema(self):
+        var_ema = tf.train.ExponentialMovingAverage(self.weight_decay)
+        with tf.control_dependencies([self.train_op]):
+            self.train_op = var_ema.apply(tf.trainable_variables())
+
+        shadow_vars = []
+        global_vars = []
+        for var in tf.trainable_variables():
+            v = var_ema.average(var)
+            if v:
+                shadow_vars.append(v)
+                global_vars.append(var)
+
+        self.assign_vars = []
+        for g, v in zip(global_vars, shadow_vars):
+            self.assign_vars.append(tf.assign(g, v))
+
+    def _assign_ema_weights(self):
+        logger.info('SQuAD model: Using EMA weights.')
+        self.sess.run(self.assign_vars)
+
     def _build_feed_dict(self, c_tokens, c_chars, q_tokens, q_chars,
-                         c_features=None, q_features=None, c_str=None, q_str=None, y1=None, y2=None, y=None):
+                         c_features=None, q_features=None, c_str=None, q_str=None, c_ner=None, q_ner=None,
+                         y1=None, y2=None, y=None):
 
         if self.use_elmo:
             c_str = self._pad_strings(c_str, self.context_limit)
@@ -480,6 +635,12 @@ class SquadModel(TFModel):
             feed_dict.update({
                 self.c_f_ph: c_features,
                 self.q_f_ph: q_features,
+            })
+        if self.use_ner_features:
+            assert c_ner is not None and q_ner is not None
+            feed_dict.update({
+                self.c_ner_ph: c_ner,
+                self.q_ner_ph: q_ner,
             })
         if self.predict_ans and y1 is not None and y2 is not None:
             feed_dict.update({
@@ -507,33 +668,27 @@ class SquadModel(TFModel):
         return feed_dict
 
     def train_on_batch(self, c_tokens, c_chars, q_tokens, q_chars,
-                       c_features=None, q_features=None, c_str=None, q_str=None,
+                       c_features=None, q_features=None, c_str=None, q_str=None, c_ner=None, q_ner=None,
                        y1s=None, y2s=None):
         # TODO: filter examples in batches with answer position greater self.context_limit
         # select one answer from list of correct answers
         # y1s, y2s are start and end positions of answer
-        y1s = list(map(lambda x: x[0], y1s))
-        y2s = list(map(lambda x: x[0], y2s))
+        y1s = np.array([x[0] for x in y1s])
+        y2s = np.array([x[0] for x in y2s])
         ys = None
         if self.scorer:
             ys = [int(not (y1 == -1 and y2 == -1)) for y1, y2 in zip(y1s, y2s)]
         if self.noans_token and self.predict_ans:
-            y1s_noans, y2s_noans = [], []
-            for y1, y2 in zip(y1s, y2s):
-                if y1 == -1 or y2 == -1:
-                    y1s_noans.append(0)
-                    y2s_noans.append(0)
-                else:
-                    y1s_noans.append(y1 + 1)
-                    y2s_noans.append(y2 + 1)
-            y1s, y2s = y1s_noans, y2s_noans
+            noans_mask = ((y1s != -1) * (y2s != -1))
+            y1s = (y1s + 1) * noans_mask
+            y2s = (y2s + 1) * noans_mask
         feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars,
-                                          c_features, q_features, c_str, q_str, y1s, y2s, ys)
+                                          c_features, q_features, c_str, q_str, c_ner, q_ner, y1s, y2s, ys)
         loss, _ = self.sess.run([self.loss, self.train_op], feed_dict=feed_dict)
         return loss
 
     def __call__(self, c_tokens, c_chars, q_tokens, q_chars,
-                 c_features=None, q_features=None, c_str=None, q_str=None, *args, **kwargs):
+                 c_features=None, q_features=None, c_str=None, q_str=None, c_ner=None, q_ner=None, *args, **kwargs):
 
         if any(np.sum(c_tokens, axis=-1) == 0) or any(np.sum(q_tokens, axis=-1) == 0):
             logger.info('SQuAD model: Warning! Empty question or context was found.')
@@ -546,36 +701,40 @@ class SquadModel(TFModel):
             return noanswers, noanswers, zero_probs, zero_probs
 
         feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars,
-                                          c_features, q_features, c_str, q_str)
+                                          c_features, q_features, c_str, q_str, c_ner, q_ner)
+
         if self.scorer and not self.predict_ans:
             score = self.sess.run(self.yp, feed_dict=feed_dict)
-            return [float(score) for score in score]
+            return score.tolist()
 
         if self.noans_token:
-            yp1s, yp2s, prob, score = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_score],
+            yp1, yp2, logits, score = self.sess.run([self.yp1, self.yp2, self.yp_logits, self.yp_score],
                                                     feed_dict=feed_dict)
-            yp1s_noans, yp2s_noans = [], []
-            for yp1, yp2 in zip(yp1s, yp2s):
-                if yp1 == 0 or yp2 == 0:
-                    yp1s_noans.append(-1)
-                    yp2s_noans.append(-1)
-                else:
-                    yp1s_noans.append(yp1 - 1)
-                    yp2s_noans.append(yp2 - 1)
-            yp1s, yp2s = yp1s_noans, yp2s_noans
-            return yp1s, yp2s, [float(p) for p in prob], [float(score) for score in score]
+            noans_mask = (yp1 * yp2).astype(bool)
+            yp1 = yp1 * noans_mask - 1
+            yp2 = yp2 * noans_mask - 1
+            return yp1, yp2, logits.tolist(), score.tolist()
 
         if self.predict_ans and self.scorer:
             yp1s, yp2s, prob, logits, score = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_logits, self.yp],
                                                             feed_dict=feed_dict)
-            return yp1s, yp2s, [float(p) for p in prob], [float(logit) for logit in logits], [float(s) for s in score]
+            return yp1s, yp2s, prob.tolist(), logits.tolist(), score.tolist()
 
         yp1s, yp2s, prob, logits = self.sess.run([self.yp1, self.yp2, self.yp_prob, self.yp_logits],
                                                  feed_dict=feed_dict)
-        return yp1s, yp2s, [float(p) for p in prob], [float(logit) for logit in logits]
 
-    def process_event(self, event_name, data):
+        return yp1s, yp2s, prob.tolist(), logits.tolist()
+
+    def process_event(self, event_name: str, data) -> None:
+        """
+        Processes events sent by trainer. Implements learning rate decay.
+
+        Args:
+            event_name: event_name sent by trainer
+            data: number of examples, epochs, metrics sent by trainer
+        """
         if event_name == "after_validation":
+            # learning rate decay
             if data['impatience'] > self.last_impatience:
                 self.lr_impatience += 1
             else:
@@ -588,6 +747,21 @@ class SquadModel(TFModel):
                 self.learning_rate = max(self.learning_rate / 2, self.min_learning_rate)
                 logger.info('SQuAD model: learning_rate changed to {}'.format(self.learning_rate))
             logger.info('SQuAD model: lr_impatience: {}, learning_rate: {}'.format(self.lr_impatience, self.learning_rate))
+        elif event_name == "before_validation":
+            if self.weight_decay < 1.0:
+                # validate model with EMA weights
+
+                # save current weights to tmp path
+                # warning: TFModel does not save optimizer params.
+                # In our case, we do this save/load operation in one session so we do not lose optimizer params.
+                self.save(path=self.tmp_model_path)
+                # load ema weights
+                self._assign_ema_weights()
+        elif event_name == "before_saving_improved_model":
+            if self.weight_decay < 1.0:
+                # load from tmp weights and do not call _assign_ema_weigts
+                self.load(path=self.tmp_model_path)
+                shutil.rmtree(self.tmp_model_path.parent)
 
     def _pad_strings(self, batch, len_limit):
         max_len = max(map(lambda x: len(x), batch))
@@ -595,6 +769,3 @@ class SquadModel(TFModel):
         for tokens in batch:
             tokens.extend([''] * (max_len - len(tokens)))
         return batch
-
-    def shutdown(self):
-        pass

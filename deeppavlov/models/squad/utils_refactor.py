@@ -15,6 +15,10 @@ limitations under the License.
 """
 
 import tensorflow as tf
+import tensorflow_hub as tfhub
+import numpy as np
+
+from deeppavlov.core.layers.tf_layers import cudnn_bi_gru, variational_dropout
 
 
 class CudnnGRU:
@@ -181,22 +185,22 @@ class PtrNet:
         self.scope = scope
         self.keep_prob = keep_prob
 
-    def __call__(self, init, match, hidden_size, mask):
+    def __call__(self, init, match, att_hidden_size, mask):
         with tf.variable_scope(self.scope):
             BS, ML, MH = tf.unstack(tf.shape(match))
             BS, IH = tf.unstack(tf.shape(init))
             match_do = tf.nn.dropout(match, keep_prob=self.keep_prob, noise_shape=[BS, 1, MH])
             dropout_mask = tf.nn.dropout(tf.ones([BS, IH], dtype=tf.float32), keep_prob=self.keep_prob)
-            inp, logits1 = attention(match_do, init * dropout_mask, hidden_size, mask)
+            inp, logits1 = attention(match_do, init * dropout_mask, att_hidden_size, mask)
             inp_do = tf.nn.dropout(inp, keep_prob=self.keep_prob)
             _, state = self.gru(inp_do, init)
             tf.get_variable_scope().reuse_variables()
-            _, logits2 = attention(match_do, state * dropout_mask, hidden_size, mask)
+            _, logits2 = attention(match_do, state * dropout_mask, att_hidden_size, mask)
             return logits1, logits2
 
 
 def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0,
-                  use_gate=True, drop_diag=False, use_transpose_att=False, inputs_mask=None,
+                  use_gate=True, drop_diag=False, use_transpose_att=False, inputs_mask=None, concat_inputs=True,
                   scope="dot_attention"):
     """Computes attention vector for each item in inputs:
        attention vector is a weighted sum of memory items.
@@ -223,14 +227,18 @@ def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0,
         BS, IL, IH = tf.unstack(tf.shape(inputs))
         BS, ML, MH = tf.unstack(tf.shape(memory))
 
-        d_inputs = tf.nn.dropout(inputs, keep_prob=keep_prob, noise_shape=[BS, 1, IH])
-        d_memory = tf.nn.dropout(memory, keep_prob=keep_prob, noise_shape=[BS, 1, MH])
+        d_inputs = variational_dropout(inputs, keep_prob=keep_prob)
+        d_memory = variational_dropout(memory, keep_prob=keep_prob)
 
         with tf.variable_scope("attention"):
             inputs_att = tf.layers.dense(d_inputs, att_size, use_bias=False,
-                                         activation=tf.nn.relu, kernel_regularizer=tf.nn.l2_loss)
+                                         activation=tf.nn.relu,
+                                         kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
+                                         kernel_regularizer=tf.nn.l2_loss)
             memory_att = tf.layers.dense(d_memory, att_size, use_bias=False,
-                                         activation=tf.nn.relu, kernel_regularizer=tf.nn.l2_loss)
+                                         activation=tf.nn.relu,
+                                         kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
+                                         kernel_regularizer=tf.nn.l2_loss)
             logits = tf.matmul(inputs_att, tf.transpose(memory_att, [0, 2, 1])) / (att_size ** 0.5)
 
             mask = tf.tile(tf.expand_dims(mask, axis=1), [1, IL, 1])
@@ -242,7 +250,10 @@ def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0,
             att_weights = tf.nn.softmax(softmax_mask(logits, mask))
             outputs = tf.matmul(att_weights, memory)
 
-            res = tf.concat([inputs, outputs], axis=2)
+            if concat_inputs:
+                res = tf.concat([inputs, outputs], axis=2)
+            else:
+                res = outputs
 
             # like in QA-NET and DCN: S * SS_T * C
             if use_transpose_att:
@@ -262,10 +273,63 @@ def dot_attention(inputs, memory, mask, att_size, keep_prob=1.0,
             with tf.variable_scope("gate"):
                 dim = res.get_shape().as_list()[-1]
                 d_res = tf.nn.dropout(res, keep_prob=keep_prob, noise_shape=[BS, 1, dim])
-                gate = tf.layers.dense(d_res, dim, use_bias=False, activation=tf.nn.sigmoid, kernel_regularizer=tf.nn.l2_loss)
+                gate = tf.layers.dense(d_res, dim, use_bias=False,
+                                       activation=tf.nn.sigmoid,
+                                       kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                       kernel_regularizer=tf.nn.l2_loss)
                 return res * gate
 
         return res
+
+
+def dot_reattention(inputs, memory, memory_mask, inputs_mask, att_size, E=None, B=None, gamma_init=3, keep_prob=1.0,
+                    drop_diag=False, concat_inputs=False, scope="dot_reattention"):
+    # check reinforced mnemonic reader paper for more info about E, B and re-attention
+    with tf.variable_scope(scope):
+        BS, IL, IH = tf.unstack(tf.shape(inputs))
+        BS, ML, MH = tf.unstack(tf.shape(memory))
+
+        d_inputs = variational_dropout(inputs, keep_prob=keep_prob)
+        d_memory = variational_dropout(memory, keep_prob=keep_prob)
+
+        with tf.variable_scope("attention"):
+            inputs_att = tf.layers.dense(d_inputs, att_size, use_bias=False,
+                                         activation=tf.nn.relu,
+                                         kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
+                                         kernel_regularizer=tf.nn.l2_loss)
+            memory_att = tf.layers.dense(d_memory, att_size, use_bias=False,
+                                         activation=tf.nn.relu,
+                                         kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
+                                         kernel_regularizer=tf.nn.l2_loss)
+            # BS x IL x ML
+            logits = tf.matmul(inputs_att, tf.transpose(memory_att, [0, 2, 1])) / (att_size ** 0.5)
+
+            if E is not None and B is not None:
+                gamma = tf.Variable(gamma_init, dtype=tf.float32, trainable=True, name='gamma')
+                E_softmax = tf.nn.softmax(softmax_mask(E,
+                                                       tf.tile(tf.expand_dims(inputs_mask, axis=-1), [1, 1, ML])),
+                                          axis=1)
+
+                B_softmax = tf.nn.softmax(softmax_mask(B,
+                                                       tf.tile(tf.expand_dims(inputs_mask, axis=1), [1, IL, 1])),
+                                          axis=-1)
+
+                logits = logits + gamma * tf.matmul(B_softmax, E_softmax)
+
+            memory_mask = tf.tile(tf.expand_dims(memory_mask, axis=1), [1, IL, 1])
+            if drop_diag:
+                # set mask values to zero on diag
+                memory_mask = tf.cast(memory_mask, tf.float32) * (1 - tf.diag(tf.ones(shape=(IL,), dtype=tf.float32)))
+
+            att_weights = tf.nn.softmax(softmax_mask(logits, memory_mask))
+            outputs = tf.matmul(att_weights, memory)
+
+            if concat_inputs:
+                res = tf.concat([inputs, outputs], axis=2)
+            else:
+                res = outputs
+
+        return res, logits
 
 
 def simple_attention(memory, att_size, mask, keep_prob=1.0, scope="simple_attention"):
@@ -278,7 +342,10 @@ def simple_attention(memory, att_size, mask, keep_prob=1.0, scope="simple_attent
         BS, ML, MH = tf.unstack(tf.shape(memory))
         memory_do = tf.nn.dropout(memory, keep_prob=keep_prob, noise_shape=[BS, 1, MH])
         logits = tf.layers.dense(
-            tf.layers.dense(memory_do, att_size, activation=tf.nn.tanh, kernel_regularizer=tf.nn.l2_loss),
+            tf.layers.dense(memory_do, att_size,
+                            activation=tf.nn.tanh,
+                            kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                            kernel_regularizer=tf.nn.l2_loss),
             1, use_bias=False)
         logits = softmax_mask(tf.squeeze(logits, [2]), mask)
         att_weights = tf.expand_dims(tf.nn.softmax(logits), axis=2)
@@ -286,16 +353,22 @@ def simple_attention(memory, att_size, mask, keep_prob=1.0, scope="simple_attent
         return res
 
 
-def attention(inputs, state, att_size, mask, scope="attention", reuse=False):
+def attention(inputs, state, att_size, mask, use_combinations=False, scope="attention", reuse=False):
     """Computes weighted sum of inputs conditioned on state
 
         Additive form of attention:
         a_i = v^T * tanh(W * [state, m_i] + b)
     """
     with tf.variable_scope(scope, reuse=reuse):
-        u = tf.concat([tf.tile(tf.expand_dims(state, axis=1), [1, tf.shape(inputs)[1], 1]), inputs], axis=2)
+        state_tiled = tf.tile(tf.expand_dims(state, axis=1), [1, tf.shape(inputs)[1], 1])
+        u = tf.concat([state_tiled, inputs], axis=2)
+        if use_combinations:
+            u = tf.concat([u, state_tiled, inputs * state_tiled, inputs - state_tiled], axis=2)
         logits = tf.layers.dense(
-            tf.layers.dense(u, att_size, activation=tf.nn.tanh, kernel_regularizer=tf.nn.l2_loss),
+            tf.layers.dense(u, att_size,
+                            activation=tf.nn.tanh,
+                            kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                            kernel_regularizer=tf.nn.l2_loss),
             1, use_bias=False)
         logits = softmax_mask(tf.squeeze(logits, [2]), mask)
         att_weights = tf.expand_dims(tf.nn.softmax(logits), axis=2)
@@ -322,3 +395,154 @@ def mult_attention(inputs, state, mask, scope="attention", reuse=False):
 def softmax_mask(val, mask):
     INF = 1e30
     return -INF * (1 - tf.cast(mask, tf.float32)) + val
+
+
+def embedding_layer(ids, emb_mat_init=None, vocab_size=None, emb_dim=None,
+                    trainable=False, regularizer=None, scope='embedding_layer'):
+
+    if emb_mat_init is not None:
+        init_mat = emb_mat_init.astype(np.float32)
+    else:
+        init_mat = np.random.randn(vocab_size, emb_dim).astype(np.float32) / np.sqrt(emb_dim)
+
+    with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
+        tok_emb_mat = tf.get_variable('emb_mat', initializer=init_mat,
+                                      dtype=tf.float32, trainable=trainable, regularizer=regularizer)
+        embedded_tokens = tf.nn.embedding_lookup(tok_emb_mat, ids)
+
+    return embedded_tokens
+
+
+def character_embedding_layer(ids, char_encoder_hidden_size, keep_prob, emb_mat_init=None, vocab_size=None, emb_dim=None,
+                              trainable_emb_mat=False, regularizer=None, transform_char_emb=0,
+                              scope='character_embedding_layer', reuse=False):
+    # padding is a char with id == 0
+    with tf.variable_scope(scope, reuse=reuse):
+        c_emb = embedding_layer(ids, emb_mat_init, vocab_size, emb_dim, trainable=trainable_emb_mat,
+                                         regularizer=regularizer)
+        token_dim = tf.shape(c_emb)[1]
+        char_dim = tf.shape(c_emb)[2]
+        emb_dim = c_emb.get_shape()[-1]
+        c_emb = tf.reshape(c_emb, (-1, char_dim, emb_dim))
+
+        # compute actual lengths
+        tokens_lens = tf.reshape(tf.reduce_sum(tf.cast(tf.cast(ids, tf.bool), tf.int32), axis=2), (-1,))
+        # to work with empty sequences if token len is zero (it means that token is padded)
+        tokens_lens = tf.maximum(tf.ones_like(tokens_lens), tokens_lens)
+
+        c_emb = variational_dropout(c_emb, keep_prob=keep_prob)
+
+        if transform_char_emb != 0:
+            # apply dense layer to transform pretrained vectors to another dim
+            c_emb = transform_layer(c_emb, transform_char_emb, reuse=reuse)
+
+        _, (state_fw, state_bw) = cudnn_bi_gru(c_emb, char_encoder_hidden_size, seq_lengths=tokens_lens,
+                                               trainable_initial_states=True, reuse=reuse)
+        c_emb = tf.concat([state_fw, state_bw], axis=1)
+        c_emb = tf.reshape(c_emb, [-1, token_dim, 2 * char_encoder_hidden_size])
+
+    return c_emb
+
+
+def elmo_embedding_layer(tokens, elmo_module):
+    # tokens are padded with empty strings
+    tokens_emb = elmo_module(
+        inputs={
+            "tokens": tokens,
+            "sequence_len": tf.reduce_sum(1 - tf.cast(tf.equal(tokens, ""), tf.int32), axis=-1)
+        },
+        signature="tokens",
+        as_dict=True)["elmo"]
+
+    return tokens_emb
+
+
+def transform_layer(inputs, transform_hidden_size, scope='transform_layer', reuse=False):
+    with tf.variable_scope(scope, reuse=reuse):
+        transformed = tf.layers.dense(
+            tf.layers.dense(inputs, transform_hidden_size, activation=tf.nn.relu,
+                            kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
+                            name='transform_dense_1'),
+            transform_hidden_size,
+            kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
+            name='transform_dense_2'
+        )
+    return transformed
+
+
+def highway_layer(x, y, use_combinations=False, regularizer=None, scope='highway_layer', reuse=False):
+    with tf.variable_scope(scope, reuse=reuse):
+        hidden_size = x.get_shape()[-1]
+        inputs = tf.concat([x, y], axis=-1)
+        if use_combinations:
+            inputs = tf.concat([inputs, x * y, x - y], axis=-1)
+
+        gate = tf.layers.dense(inputs, hidden_size, activation=tf.sigmoid,
+                               kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                               kernel_regularizer=regularizer,
+                               )
+
+        x_y_repr = tf.layers.dense(inputs, hidden_size, activation=tf.nn.relu,
+                                   kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
+                                   kernel_regularizer=regularizer,
+                                   )
+
+    return gate * x_y_repr + (1 - gate) * x
+
+
+def pointer_net_answer_selection(q, context_repr, q_mask, c_mask, att_hidden_size, keep_prob):
+    q_att = simple_attention(q, att_hidden_size, mask=q_mask, keep_prob=keep_prob)
+
+    pointer = PtrNet(cell_size=q_att.get_shape().as_list()[-1], keep_prob=keep_prob)
+    logits1, logits2 = pointer(q_att, context_repr, att_hidden_size, c_mask)
+
+    return logits1, logits2
+
+
+def mnemonic_reader_answer_selection(q, context_repr, q_mask, c_mask, att_hidden_size, keep_prob):
+    init_state = simple_attention(q, att_hidden_size, mask=q_mask, keep_prob=keep_prob)
+    state = tf.layers.dense(init_state, units=context_repr.get_shape().as_list()[-1],
+                            kernel_regularizer=tf.nn.l2_loss)
+    att, logits_st = attention(context_repr, state, att_hidden_size, c_mask, use_combinations=True, scope='st_att')
+    state = highway_layer(state, att, use_combinations=True, regularizer=tf.nn.l2_loss)
+    _, logits_end = attention(context_repr, state, att_hidden_size, c_mask, use_combinations=True, scope='end_att')
+    return logits_st, logits_end
+
+
+def san_answer_selection(q, context_repr, q_mask, c_mask, n_hops, att_hidden_size, answer_cell_size, keep_prob,
+                         hops_keep_prob):
+    bs = tf.shape(q)[0]
+
+    q_att = simple_attention(q, att_hidden_size, mask=q_mask, keep_prob=keep_prob)
+    q_att = tf.layers.dense(q_att, units=answer_cell_size, name='init_projection')
+    state = variational_dropout(q_att, keep_prob=keep_prob)
+    multihop_cell = tf.nn.rnn_cell.GRUCell(num_units=answer_cell_size)
+
+    hops_start_logits = []
+    hops_end_logits = []
+
+    for i in range(n_hops):
+        x, _ = mult_attention(context_repr, state, mask=c_mask, scope='multihop_cell_att', reuse=tf.AUTO_REUSE)
+        x = variational_dropout(x, keep_prob=keep_prob)
+        _, state = multihop_cell(x, state)
+
+        start_att, start_logits = mult_attention(context_repr, state, mask=c_mask, scope='start_pointer_att',
+                                                 reuse=tf.AUTO_REUSE)
+
+        _, end_logits = mult_attention(context_repr, tf.concat([state, start_att], axis=-1), mask=c_mask,
+                                       scope='end_pointer_att', reuse=tf.AUTO_REUSE)
+
+        hops_start_logits.append(start_logits)
+        hops_end_logits.append(end_logits)
+
+    hops_start_logits = tf.stack(hops_start_logits, axis=1)
+    hops_end_logits = tf.stack(hops_end_logits, axis=1)
+
+    # TODO check if dropout all zeros
+    logits1 = tf.reduce_mean(tf.nn.dropout(hops_start_logits, keep_prob=hops_keep_prob, noise_shape=(bs, n_hops, 1)),
+                             axis=1)
+
+    logits2 = tf.reduce_mean(tf.nn.dropout(hops_end_logits, keep_prob=hops_keep_prob, noise_shape=(bs, n_hops, 1)),
+                             axis=1)
+
+    return logits1, logits2

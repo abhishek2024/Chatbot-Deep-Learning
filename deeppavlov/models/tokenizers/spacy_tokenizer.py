@@ -41,7 +41,7 @@ class StreamSpacyTokenizer(Component):
     def __init__(self, disable: list = None, stopwords: Union[str, List[str]] = None,
                  batch_size: int = None, ngram_range: List[int] = None, lemmas=False,
                  n_threads: int = None, lowercase: bool = None, alphas_only: bool = None,
-                 replacers: dict = None, **kwargs):
+                 replacers: dict = None, sentences: bool = None, **kwargs):
         """
         :param disable: pipeline processors to omit; if nothing should be disabled,
          pass an empty list
@@ -84,6 +84,7 @@ class StreamSpacyTokenizer(Component):
         self.n_threads = n_threads
         self.lowercase = lowercase
         self.alphas_only = alphas_only
+        self.sentences = sentences
 
         cast_replace = {}
 
@@ -106,6 +107,8 @@ class StreamSpacyTokenizer(Component):
     def __call__(self, batch):
         if isinstance(batch[0], str):
             if self.lemmas:
+                if self.sentences:
+                    return list(self._lemmatize_with_sentences(batch))
                 return list(self._lemmatize(batch))
             else:
                 return list(self._tokenize(batch))
@@ -172,6 +175,34 @@ class StreamSpacyTokenizer(Component):
             # logger.info("Lemmatize doc {} from {}".format(i, size))
             lemmas = chain.from_iterable([sent.lemma_.split() for sent in doc.sents])
             processed_doc = self._pipe(list(lemmas))
+            yield processed_doc
+
+    def _lemmatize_with_sentences(self, data: List[str], batch_size=10000, n_threads=1) -> \
+            Generator[List[str], Any, None]:
+        """
+        Lemmatize a list of documents.
+        :param data: a list of documents to process
+        :param batch_size: the number of documents to process at once;
+        improves the spacy 'pipe' performance; shouldn't be too small
+        :param n_threads: a number of threads for parallel computing; doesn't work good
+         on a standard Python
+        :return: a single processed doc generator
+        """
+        # DEBUG
+        # size = len(data)
+        _batch_size = self.batch_size or batch_size
+        _n_threads = self.n_threads or n_threads
+
+        for i, doc in enumerate(
+                self.model.pipe(data, batch_size=_batch_size, n_threads=_n_threads)):
+            # DEBUG
+            # logger.info("Lemmatize doc {} from {}".format(i, size))
+            sent_lemmas = [sent.lemma_.split() for sent in doc.sents]
+            processed_doc = []
+            for lemmas in sent_lemmas:
+                processed = self._pipe(lemmas)
+                processed_doc += processed
+            # processed_doc = list(chain.from_iterable(processed_doc))
             yield processed_doc
 
     def _filter(self, items, alphas_only=True):

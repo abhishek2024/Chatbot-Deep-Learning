@@ -33,11 +33,12 @@ from deeppavlov.core.common.file import read_json
 
 # config_path = '/home/gureenkova/tmp/pycharm_project_196/deeppavlov/configs/odqa/en_ranker_ensemble_drones.json'
 # config_path = '/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ranker_tfidf_drones.json'
-config_path = '/media/olga/Data/projects/DeepPavlov/deeppavlov/configs/odqa/en_ranker_ensemble_drones_noapi.json'
-
+# config_path = '/media/olga/Data/projects/DeepPavlov/deeppavlov/configs/odqa/en_ranker_ensemble_drones_noapi.json'
+config_path = '/media/olga/Data/projects/DeepPavlov/deeppavlov/configs/odqa/en_ranker_tfidf_bhge_tables.json'
 # interact_model(config_path)
 #
 model = build_model_from_config(read_json(config_path))
-data=["Where can I get some?"]
+data = ["Where can I get some?", "How to convert the best sulfur to oil?"]
 res = model(data)
 print(res)
+# print('Done!')
