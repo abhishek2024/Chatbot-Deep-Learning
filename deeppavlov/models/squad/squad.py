@@ -1034,6 +1034,8 @@ class SquadModelSharedNorm(TFModel):
                 logits2 = tf.concat([logits2_left, logits2_right], axis=-1)
                 self.y1 = tf.concat([self.y1_left, self.y1_right], axis=-1)
                 self.y2 = tf.concat([self.y2_left, self.y2_right], axis=-1)
+                self.y1 = self.y1 / tf.expand_dims(tf.reduce_sum(self.y1, axis=-1), axis=-1)
+                self.y2 = self.y2 / tf.expand_dims(tf.reduce_sum(self.y2, axis=-1), axis=-1)
                 loss_p1 = tf.nn.softmax_cross_entropy_with_logits(logits=logits1, labels=self.y1)
                 loss_p2 = tf.nn.softmax_cross_entropy_with_logits(logits=logits2, labels=self.y2)
                 squad_loss = loss_p1 + loss_p2
@@ -1158,7 +1160,6 @@ class SquadModelSharedNorm(TFModel):
     def train_on_batch(self, c_left_tokens, c_left_chars, c_right_tokens, c_right_chars, q_tokens, q_chars,
                        c_features=None, q_features=None, c_str=None, q_str=None, c_ner=None, q_ner=None,
                        y1s_left=None, y2s_left=None, y1s_right=None, y2s_right=None):
-        # TODO: filter examples in batches with answer position greater self.context_limit
         # select one answer from list of correct answers
         # y1s, y2s are start and end positions of answer
         y1s_left = np.array([x[0] for x in y1s_left])
@@ -1166,11 +1167,23 @@ class SquadModelSharedNorm(TFModel):
 
         y1s_right = np.array([x[0] for x in y1s_right])
         y2s_right = np.array([x[0] for x in y2s_right])
+
+        batch_mask = (y1s_left!=-1) | (y1s_right!=-1)
+
+        # TODO: refactor or move to preprocessing
+        # filter examples in batches with answer position greater self.context_limit
+        y1s_left, y2s_left, y1s_right, y2s_right, c_left_tokens, c_left_chars,\
+                 q_tokens, q_chars, c_features, q_features, c_str, q_str, c_ner, q_ner,\
+                 c_right_tokens, c_right_chars = [np.array(el)[batch_mask] if el is not None else el for el in \
+                 [y1s_left, y2s_left, y1s_right, y2s_right, c_left_tokens, c_left_chars,
+                 q_tokens, q_chars, c_features, q_features, c_str, q_str, c_ner, q_ner, c_right_tokens, c_right_chars]]
+
         feed_dict = self._build_feed_dict(c_left_tokens, c_left_chars, q_tokens, q_chars,
                                           c_features, q_features, c_str, q_str, c_ner, q_ner,
                                           c_right_tokens, c_right_chars,
                                           y1s_left, y2s_left, y1s_right, y2s_right, None)
         loss, _ = self.sess.run([self.loss, self.train_op], feed_dict=feed_dict)
+        y1, y2 = self.sess.run([self.y1, self.y2], feed_dict=feed_dict)
         return loss
 
     def __call__(self, c_left_tokens, c_left_chars, q_tokens, q_chars,
