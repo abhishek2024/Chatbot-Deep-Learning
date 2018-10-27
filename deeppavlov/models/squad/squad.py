@@ -1183,7 +1183,6 @@ class SquadModelSharedNorm(TFModel):
                                           c_right_tokens, c_right_chars,
                                           y1s_left, y2s_left, y1s_right, y2s_right, None)
         loss, _ = self.sess.run([self.loss, self.train_op], feed_dict=feed_dict)
-        y1, y2 = self.sess.run([self.y1, self.y2], feed_dict=feed_dict)
         return loss
 
     def __call__(self, c_left_tokens, c_left_chars, q_tokens, q_chars,
