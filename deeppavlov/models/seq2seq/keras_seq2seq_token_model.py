@@ -14,7 +14,7 @@
 
 from typing import List, Tuple, Union, Optional
 import numpy as np
-import overrides
+from overrides import overrides
 from copy import deepcopy
 
 from keras.layers import Dense, Input, concatenate, Activation, Concatenate, Reshape, Embedding
@@ -45,7 +45,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         hidden_size: size of the hidden layer of encoder and decoder
         tgt_vocab_size: vocabulary size of target sequences
         tgt_pad_id: index of padding special token in target vocabulary
-        tgt_sos_id: index of start-of-sequence special token in target vocabulary
+        tgt_bos_id: index of begin-of-sequence special token in target vocabulary
         tgt_eos_id: index of end-of-sequence special token in target vocabulary
         encoder_embedding_size: embedding size of encoder's embedder
         decoder_embedder: decoder's embedder component
@@ -74,7 +74,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
                  hidden_size: int,
                  tgt_vocab_size: int,
                  tgt_pad_id: int,
-                 tgt_sos_id: int,
+                 tgt_bos_id: int,
                  tgt_eos_id: int,
                  encoder_embedding_size: int,
                  decoder_embedder: Component,
@@ -96,7 +96,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         given_opt = {"hidden_size": hidden_size,
                      "tgt_vocab_size": tgt_vocab_size,
                      "tgt_pad_id": tgt_pad_id,
-                     "tgt_sos_id": tgt_sos_id,
+                     "tgt_bos_id": tgt_bos_id,
                      "tgt_eos_id": tgt_eos_id,
                      "encoder_embedding_size": encoder_embedding_size,
                      "decoder_embedding_size": decoder_embedding_size,
@@ -155,7 +155,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
             "hidden_size",
             "src_vocab_size",
             "tgt_vocab_size",
-            "tgt_sos_id",
+            "tgt_bos_id",
             "tgt_eos_id",
             "encoder_embedding_size",
             "decoder_embedding_size",
@@ -421,7 +421,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
                                                              text_size=self.opt["src_max_length"],
                                                              embedding_size=self.opt["encoder_embedding_size"],
                                                              return_lengths=True)
-        dec_inputs = [[self.opt["tgt_sos_id"]] +
+        dec_inputs = [[self.opt["tgt_bos_id"]] +
                       list(sample) + [self.opt["tgt_eos_id"]]
                       for sample in y]  # (bs, ts + 2) of integers (tokens ids)
         text_dec_inputs = self.decoder_vocab(dec_inputs)
@@ -471,7 +471,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         for i in range(len(x)):  # batch size
             predicted_sample = []
 
-            current_token = self.decoder_embedder([[self.decoder_vocab[self.opt["tgt_sos_id"]]]])[0][0]  # (300,)
+            current_token = self.decoder_embedder([[self.decoder_vocab[self.opt["tgt_bos_id"]]]])[0][0]  # (300,)
             end_of_sequence = False
             state = encoder_state[i].reshape((1, -1))
 
