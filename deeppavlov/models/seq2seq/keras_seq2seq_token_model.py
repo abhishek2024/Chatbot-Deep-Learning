@@ -15,6 +15,7 @@
 from typing import List, Tuple, Union, Optional
 import numpy as np
 import overrides
+from copy import deepcopy
 
 from keras.layers import Dense, Input, concatenate, Activation, Concatenate, Reshape, Embedding
 from keras.layers.wrappers import Bidirectional
@@ -80,7 +81,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
                  decoder_vocab: Component,
                  src_max_length: Optional[int] = None,
                  tgt_max_length: Optional[int] = None,
-                 model_name: str = "lstm_lstm_model",
+                 model_name: str = "gru_gru_model",
                  optimizer: str = "Adam",
                  loss: str = "categorical_crossentropy",
                  learning_rate: float = 0.01,
@@ -108,6 +109,8 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
                      "learning_rate_decay": learning_rate_decay,
                      "restore_lr": restore_lr,
                      **kwargs}
+
+        self.opt = deepcopy(given_opt)
 
         super().__init__(**given_opt)
 
@@ -300,18 +303,33 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
                                              self.opt["encoder_embedding_size"]))
 
         self._encoder_inp_lengths = Input(shape=(2,), dtype='int32')
+        #
+        # _encoder_outputs, _encoder_state = GRU(
+        #     hidden_size,
+        #     activation='tanh',
+        #     return_state=True,  # get encoder's last state
+        #     return_sequences=True,
+        #     kernel_regularizer=l2(encoder_coef_reg_lstm),
+        #     dropout=encoder_dropout_rate,
+        #     recurrent_dropout=encoder_rec_dropout_rate,
+        #     name="encoder_gru")(self._encoder_emb_inp)
+        #
+        # self._encoder_state = masking_sequences(_encoder_outputs, self._encoder_inp_lengths)
 
-        _encoder_outputs, _encoder_state = GRU(
+        _encoder_outputs, _encoder_state1, _encoder_state2 = Bidirectional(GRU(
             hidden_size,
             activation='tanh',
             return_state=True,  # get encoder's last state
-            return_sequences=True,
+            return_sequences=True,  # for extracting exactly the last hidden layer
             kernel_regularizer=l2(encoder_coef_reg_lstm),
             dropout=encoder_dropout_rate,
             recurrent_dropout=encoder_rec_dropout_rate,
-            name="encoder_gru")(self._encoder_emb_inp)
+            name="encoder_gru"))(self._encoder_emb_inp)
 
-        self._encoder_state = masking_sequences(_encoder_outputs, self._encoder_inp_lengths)
+        output1 = GlobalMaxPooling1D()(_encoder_outputs)
+        output2 = GlobalAveragePooling1D()(_encoder_outputs)
+        self._encoder_state = Concatenate()([output1, output2, _encoder_state1, _encoder_state2])
+
         return None
 
     def _build_decoder(self,
@@ -337,24 +355,48 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
 
         self._decoder_input_state = Input(shape=(hidden_size,))
 
-        decoder_gru = GRU(
+        # decoder_gru = GRU(
+        #     hidden_size,
+        #     activation='tanh',
+        #     return_state=True,  # due to teacher forcing, this state is used only for inference
+        #     return_sequences=True,  # to get decoder_n_tokens outputs' representations
+        #     kernel_regularizer=l2(decoder_coef_reg_lstm),
+        #     dropout=decoder_dropout_rate,
+        #     recurrent_dropout=decoder_rec_dropout_rate,
+        #     name="decoder_gru")
+        #
+        # _train_decoder_outputs, _train_decoder_state = decoder_gru(
+        #     self._decoder_emb_inp,
+        #     initial_state=self._encoder_state)
+        # self._train_decoder_state = masking_sequences(_train_decoder_outputs, self._decoder_inp_lengths)
+        #
+        # _infer_decoder_outputs, self._infer_decoder_state = decoder_gru(
+        #     self._decoder_emb_inp,
+        #     initial_state=self._decoder_input_state)
+
+        decoder_gru = Bidirectional(GRU(
             hidden_size,
             activation='tanh',
             return_state=True,  # due to teacher forcing, this state is used only for inference
-            return_sequences=True,  # to get decoder_n_tokens outputs' representations
+            return_sequences=True,  # to get decoder_n_chars outputs' representations
             kernel_regularizer=l2(decoder_coef_reg_lstm),
             dropout=decoder_dropout_rate,
             recurrent_dropout=decoder_rec_dropout_rate,
-            name="decoder_gru")
+            name="decoder_gru"))
 
-        _train_decoder_outputs, _train_decoder_state = decoder_gru(
+        _train_decoder_outputs, _train_decoder_state1, _train_decoder_state2 = decoder_gru(
             self._decoder_emb_inp,
             initial_state=self._encoder_state)
-        self._train_decoder_state = masking_sequences(_train_decoder_outputs, self._decoder_inp_lengths)
+        output1 = GlobalMaxPooling1D()(_train_decoder_outputs)
+        output2 = GlobalAveragePooling1D()(_train_decoder_outputs)
+        self._train_decoder_state = Concatenate()([output1, output2, _train_decoder_state1, _train_decoder_state2])
 
-        _infer_decoder_outputs, self._infer_decoder_state = decoder_gru(
+        _infer_decoder_outputs, _infer_decoder_state1, _infer_decoder_state2 = decoder_gru(
             self._decoder_emb_inp,
             initial_state=self._decoder_input_state)
+        output1 = GlobalMaxPooling1D()(_infer_decoder_outputs)
+        output2 = GlobalAveragePooling1D()(_infer_decoder_outputs)
+        self._infer_decoder_state = Concatenate()([output1, output2, _infer_decoder_state1, _infer_decoder_state2])
 
         decoder_dense = Dense(self.opt["tgt_vocab_size"], name="dense_gru", activation="softmax")
         self._train_decoder_outputs = decoder_dense(_train_decoder_outputs)

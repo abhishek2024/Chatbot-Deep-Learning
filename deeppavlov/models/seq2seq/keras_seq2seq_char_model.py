@@ -15,19 +15,15 @@
 from typing import List, Tuple, Union, Optional
 import numpy as np
 import overrides
-from keras.layers import Dense, Input, concatenate, Activation, Concatenate, Reshape, Embedding
+from copy import deepcopy
+
+from keras.layers import Dense, Input, Concatenate, Embedding
 from keras.layers.wrappers import Bidirectional
-from keras.layers.recurrent import LSTM, GRU
-from keras.layers.convolutional import Conv1D
-from keras.layers.core import Dropout
-from keras.layers.normalization import BatchNormalization
-from keras.layers.pooling import GlobalMaxPooling1D, MaxPooling1D, GlobalAveragePooling1D
+from keras.layers.recurrent import GRU
+from keras.layers.pooling import GlobalMaxPooling1D,  GlobalAveragePooling1D
 from keras.models import Model
 from keras.regularizers import l2
-from keras.backend import tile
-from keras import backend as K
 
-from deeppavlov.core.models.keras_model import KerasModel
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.models.component import Component
@@ -84,7 +80,7 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
                  decoder_vocab: Component,
                  src_max_length: Optional[int] = None,
                  tgt_max_length: Optional[int] = None,
-                 model_name: str = "lstm_lstm_model",
+                 model_name: str = "gru_gru_model",
                  optimizer: str = "Adam",
                  loss: str = "categorical_crossentropy",
                  learning_rate: float = 0.01,
@@ -114,6 +110,8 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
                      "learning_rate_decay": learning_rate_decay,
                      "restore_lr": restore_lr,
                      **kwargs}
+
+        self.opt = deepcopy(given_opt)
 
         super().__init__(**given_opt)
 
