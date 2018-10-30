@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Optional
 import numpy as np
 import overrides
 
@@ -42,20 +42,22 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
 
     Args:
         hidden_size: size of the hidden layer of encoder and decoder
-        target_vocab_size: vocabulary size of target sequences
-        target_padding_index: index of padding special token in target vocabulary
-        target_start_of_sequence_index: index of start-of-sequence special token in target vocabulary
-        target_end_of_sequence_index: index of end-of-sequence special token in target vocabulary
+        tgt_vocab_size: vocabulary size of target sequences
+        tgt_pad_id: index of padding special token in target vocabulary
+        tgt_sos_id: index of start-of-sequence special token in target vocabulary
+        tgt_eos_id: index of end-of-sequence special token in target vocabulary
         encoder_embedding_size: embedding size of encoder's embedder
         decoder_embedder: decoder's embedder component
         decoder_vocab: decoder's vocab component
-        source_max_length: maximal token length of source sequence
-        target_max_length: maximal token length of target sequence
+        src_max_length: maximal token length of source sequence
+        tgt_max_length: maximal token length of target sequence
         model_name: string name of particular method of this class that builds seq2seq model
         optimizer: string name of optimizer from keras.optimizers
         loss: string name of loss from keras.losses
-        lear_rate learning rate for optimizer
-        lear_rate_decay: learning rate decay for optimizer
+        learning_rate learning rate for optimizer
+        learning_rate_decay: learning rate decay for optimizer
+        restore_lr: whether to reinitialize learning rate value  \
+            within the final stored in model_opt.json (if model was loaded)
         **kwargs: additional arguments
 
     Attributes:
@@ -69,50 +71,45 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
     """
     def __init__(self,
                  hidden_size: int,
-                 target_vocab_size: int,
-                 target_padding_index: int,
-                 target_start_of_sequence_index: int,
-                 target_end_of_sequence_index: int,
+                 tgt_vocab_size: int,
+                 tgt_pad_id: int,
+                 tgt_sos_id: int,
+                 tgt_eos_id: int,
                  encoder_embedding_size: int,
                  decoder_embedder: Component,
                  decoder_vocab: Component,
-                 source_max_length: int = None,
-                 target_max_length: int = None,
+                 src_max_length: Optional[int] = None,
+                 tgt_max_length: Optional[int] = None,
                  model_name: str = "lstm_lstm_model",
                  optimizer: str = "Adam",
                  loss: str = "categorical_crossentropy",
-                 lear_rate: float = 0.01,
-                 lear_rate_decay: float = 0.,
+                 learning_rate: float = 0.01,
+                 learning_rate_decay: float = 0.,
                  restore_lr: bool = False,
-                 **kwargs):
+                 **kwargs) -> None:
         """
         Initialize models for training and infering using parameters from config.
         """
         decoder_embedding_size = kwargs.pop("decoder_embedding_size", decoder_embedder.dim)
 
-        super().__init__(hidden_size=hidden_size,
-                         tgt_vocab_size=target_vocab_size,
-                         tgt_pad_id=target_padding_index,
-                         tgt_sos_id=target_start_of_sequence_index,
-                         tgt_eos_id=target_end_of_sequence_index,
-                         encoder_embedding_size=encoder_embedding_size,
-                         decoder_embedding_size=decoder_embedding_size,
-                         src_max_length=source_max_length,
-                         tgt_max_length=target_max_length,
-                         model_name=model_name,
-                         optimizer=optimizer,
-                         loss=loss,
-                         lear_rate=lear_rate,
-                         lear_rate_decay=lear_rate_decay,
-                         restore_lr=restore_lr,
-                         **kwargs)
+        given_opt = {"hidden_size": hidden_size,
+                     "tgt_vocab_size": tgt_vocab_size,
+                     "tgt_pad_id": tgt_pad_id,
+                     "tgt_sos_id": tgt_sos_id,
+                     "tgt_eos_id": tgt_eos_id,
+                     "encoder_embedding_size": encoder_embedding_size,
+                     "decoder_embedding_size": decoder_embedding_size,
+                     "src_max_length": src_max_length,
+                     "tgt_max_length": tgt_max_length,
+                     "model_name": model_name,
+                     "optimizer": optimizer,
+                     "loss": loss,
+                     "learning_rate": learning_rate,
+                     "learning_rate_decay": learning_rate_decay,
+                     "restore_lr": restore_lr,
+                     **kwargs}
 
-        # Parameters required to init model
-        params = {"model_name": self.opt.get('model_name'),
-                  "optimizer_name": self.opt.get('optimizer'),
-                  "loss_name": self.opt.get('loss'),
-                  "lear_rate": self.opt.get('lear_rate'),
-                  "lear_rate_decay": self.opt.get('lear_rate_decay')}
+        super().__init__(**given_opt)
 
         self.decoder_embedder = decoder_embedder
         self.decoder_vocab = decoder_vocab
@@ -120,36 +117,24 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         self.encoder_model = None
         self.decoder_model = None
 
-        self.model = self.load(model_name=model_name)
+        self.load(model_name=model_name)
 
         if restore_lr:
-            lear_rate = self.opt.get("final_lear_rate", lear_rate)
+            learning_rate = self.opt.get("final_learning_rate", learning_rate)
 
         self.model = self.compile(self.model, optimizer_name=optimizer, loss_name=loss,
-                                  lear_rate=lear_rate, lear_rate_decay=lear_rate_decay)
+                                  learning_rate=learning_rate, learning_rate_decay=learning_rate_decay)
 
         self.encoder_model = self.compile(self.encoder_model, optimizer_name=optimizer, loss_name=loss,
-                                          lear_rate=lear_rate, lear_rate_decay=lear_rate_decay)
+                                          learning_rate=learning_rate, learning_rate_decay=learning_rate_decay)
         self.decoder_model = self.compile(self.decoder_model, optimizer_name=optimizer, loss_name=loss,
-                                          lear_rate=lear_rate, lear_rate_decay=lear_rate_decay)
+                                          learning_rate=learning_rate, learning_rate_decay=learning_rate_decay)
 
-        self._change_not_fixed_params(hidden_size=hidden_size,
-                                      tgt_vocab_size=target_vocab_size,
-                                      tgt_pad_id=target_padding_index,
-                                      tgt_sos_id=target_start_of_sequence_index,
-                                      tgt_eos_id=target_end_of_sequence_index,
-                                      encoder_embedding_size=encoder_embedding_size,
-                                      decoder_embedding_size=decoder_embedding_size,
-                                      src_max_length=source_max_length,
-                                      tgt_max_length=target_max_length,
-                                      model_name=model_name,
-                                      optimizer=optimizer,
-                                      loss=loss,
-                                      lear_rate=lear_rate,
-                                      lear_rate_decay=lear_rate_decay,
-                                      restore_lr=restore_lr,
-                                      **kwargs)
-        return
+        self._change_not_fixed_params(**given_opt)
+
+        summary = ['Model was successfully initialized!', 'Model summary:']
+        self.model.summary(print_fn=summary.append)
+        log.info('\n'.join(summary))
 
     @overrides
     def _change_not_fixed_params(self, **kwargs) -> None:

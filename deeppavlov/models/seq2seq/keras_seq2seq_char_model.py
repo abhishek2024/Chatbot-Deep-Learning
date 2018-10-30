@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Optional
 import numpy as np
 import overrides
 from keras.layers import Dense, Input, concatenate, Activation, Concatenate, Reshape, Embedding
@@ -44,20 +44,23 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
 
     Args:
         hidden_size: size of the hidden layer of encoder and decoder
-        source_vocab_size: vocabulary size of source sequences
-        target_vocab_size: vocabulary size of target sequences
-        target_start_of_sequence_index: index of start-of-sequence special char in target vocabulary
-        target_end_of_sequence_index: index of end-of-sequence special char in target vocabulary
+        src_vocab_size: vocabulary size of source sequences
+        tgt_vocab_size: vocabulary size of target sequences
+        src_pad_id: index of padding special token in source vocabulary
+        tgt_pad_id: index of padding special token in target vocabulary
+        tgt_sos_id: index of start-of-sequence special char in target vocabulary
+        tgt_eos_id: index of end-of-sequence special char in target vocabulary
         encoder_embedding_size: embedding size of encoder's embedder
-        decoder_embedder: decoder's embedder component
         decoder_vocab: decoder's vocab component
-        source_max_length: maximal char length of source sequence
-        target_max_length: maximal char length of target sequence
+        src_max_length: maximal char length of source sequence
+        tgt_max_length: maximal char length of target sequence
         model_name: string name of particular method of this class that builds seq2seq model
         optimizer: string name of optimizer from keras.optimizers
         loss: string name of loss from keras.losses
-        lear_rate learning rate for optimizer
-        lear_rate_decay: learning rate decay for optimizer
+        learning_rate: learning rate for optimizer
+        learning_rate_decay: learning rate decay for optimizer
+        restore_lr: whether to reinitialize learning rate value  \
+            within the final stored in model_opt.json (if model was loaded)
         **kwargs: additional arguments
 
     Attributes:
@@ -71,91 +74,72 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
     """
     def __init__(self,
                  hidden_size: int,
-                 source_vocab_size: int,
-                 target_vocab_size: int,
-                 source_padding_index: int,
-                 target_padding_index: int,
-                 target_start_of_sequence_index: int,
-                 target_end_of_sequence_index: int,
+                 src_vocab_size: int,
+                 tgt_vocab_size: int,
+                 src_pad_id: int,
+                 tgt_pad_id: int,
+                 tgt_sos_id: int,
+                 tgt_eos_id: int,
                  encoder_embedding_size: int,
                  decoder_vocab: Component,
-                 source_max_length: int = None,
-                 target_max_length: int = None,
+                 src_max_length: Optional[int] = None,
+                 tgt_max_length: Optional[int] = None,
                  model_name: str = "lstm_lstm_model",
                  optimizer: str = "Adam",
                  loss: str = "categorical_crossentropy",
-                 lear_rate: float = 0.01,
-                 lear_rate_decay: float = 0.,
+                 learning_rate: float = 0.01,
+                 learning_rate_decay: float = 0.,
                  restore_lr: bool = False,
-                 **kwargs):
+                 **kwargs) -> None:
         """
         Initialize models for training and infering using parameters from config.
         """
         decoder_embedding_size = kwargs.pop("decoder_embedding_size")
 
-        super().__init__(hidden_size=hidden_size,
-                         src_vocab_size=source_vocab_size,
-                         tgt_vocab_size=target_vocab_size,
-                         src_pad_id=source_padding_index,
-                         tgt_pad_id=target_padding_index,
-                         tgt_sos_id=target_start_of_sequence_index,
-                         tgt_eos_id=target_end_of_sequence_index,
-                         encoder_embedding_size=encoder_embedding_size,
-                         decoder_embedding_size=decoder_embedding_size,
-                         src_max_length=source_max_length,
-                         tgt_max_length=target_max_length,
-                         model_name=model_name,
-                         optimizer=optimizer,
-                         loss=loss,
-                         lear_rate=lear_rate,
-                         lear_rate_decay=lear_rate_decay,
-                         restore_lr=restore_lr,
-                         **kwargs)
+        given_opt = {"hidden_size": hidden_size,
+                     "src_vocab_size": src_vocab_size,
+                     "tgt_vocab_size": tgt_vocab_size,
+                     "src_pad_id": src_pad_id,
+                     "tgt_pad_id": tgt_pad_id,
+                     "tgt_sos_id": tgt_sos_id,
+                     "tgt_eos_id": tgt_eos_id,
+                     "encoder_embedding_size": encoder_embedding_size,
+                     "decoder_embedding_size": decoder_embedding_size,
+                     "src_max_length": src_max_length,
+                     "tgt_max_length": tgt_max_length,
+                     "model_name": model_name,
+                     "optimizer": optimizer,
+                     "loss": loss,
+                     "learning_rate": learning_rate,
+                     "learning_rate_decay": learning_rate_decay,
+                     "restore_lr": restore_lr,
+                     **kwargs}
 
-        # Parameters required to init model
-        params = {"model_name": self.opt.get('model_name'),
-                  "optimizer_name": self.opt.get('optimizer'),
-                  "loss_name": self.opt.get('loss'),
-                  "lear_rate": self.opt.get('lear_rate'),
-                  "lear_rate_decay": self.opt.get('lear_rate_decay')}
+        super().__init__(**given_opt)
 
         self.decoder_vocab = decoder_vocab
 
         self.encoder_model = None
         self.decoder_model = None
 
-        self.model = self.load(model_name=model_name)
+        self.load(model_name=model_name)
 
         if restore_lr:
-            lear_rate = self.opt.get("final_lear_rate", lear_rate)
+            learning_rate = self.opt.get("final_learning_rate", learning_rate)
 
         self.model = self.compile(self.model, optimizer_name=optimizer, loss_name=loss,
-                                  lear_rate=lear_rate, lear_rate_decay=lear_rate_decay)
+                                  learning_rate=learning_rate, learning_rate_decay=learning_rate_decay)
 
         self.encoder_model = self.compile(self.encoder_model, optimizer_name=optimizer, loss_name=loss,
-                                          lear_rate=lear_rate, lear_rate_decay=lear_rate_decay)
+                                          learning_rate=learning_rate, learning_rate_decay=learning_rate_decay)
         self.decoder_model = self.compile(self.decoder_model, optimizer_name=optimizer, loss_name=loss,
-                                          lear_rate=lear_rate, lear_rate_decay=lear_rate_decay)
+                                          learning_rate=learning_rate, learning_rate_decay=learning_rate_decay)
 
-        self._change_not_fixed_params(hidden_size=hidden_size,
-                                      src_vocab_size=source_vocab_size,
-                                      tgt_vocab_size=target_vocab_size,
-                                      src_pad_id=source_padding_index,
-                                      tgt_pad_id=target_padding_index,
-                                      tgt_sos_id=target_start_of_sequence_index,
-                                      tgt_eos_id=target_end_of_sequence_index,
-                                      encoder_embedding_size=encoder_embedding_size,
-                                      decoder_embedding_size=decoder_embedding_size,
-                                      src_max_length=source_max_length,
-                                      tgt_max_length=target_max_length,
-                                      model_name=model_name,
-                                      optimizer=optimizer,
-                                      loss=loss,
-                                      lear_rate=lear_rate,
-                                      lear_rate_decay=lear_rate_decay,
-                                      restore_lr=restore_lr,
-                                      **kwargs)
-        return
+        self._change_not_fixed_params(**given_opt)
+
+        summary = ['Model was successfully initialized!', 'Model summary:']
+        self.model.summary(print_fn=summary.append)
+        log.info('\n'.join(summary))
 
     @overrides
     def _change_not_fixed_params(self, **kwargs) -> None:
@@ -289,7 +273,18 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
                                      output_dim=self.opt["encoder_embedding_size"],
                                      input_length=self.opt["src_max_length"])(self._encoder_inp)
 
-        _encoder_outputs, _encoder_state = GRU(
+        # _encoder_outputs, _encoder_state = GRU(
+        #     hidden_size,
+        #     activation='tanh',
+        #     return_state=True,  # get encoder's last state
+        #     return_sequences=True,  # for extracting exactly the last hidden layer
+        #     kernel_regularizer=l2(encoder_coef_reg_lstm),
+        #     dropout=encoder_dropout_rate,
+        #     recurrent_dropout=encoder_rec_dropout_rate,
+        #     name="encoder_gru")(_encoder_emb_inp)
+        # self._encoder_state = masking_sequences(_encoder_outputs, self._encoder_inp_lengths)
+
+        _encoder_outputs, _encoder_state1, _encoder_state2 = Bidirectional(GRU(
             hidden_size,
             activation='tanh',
             return_state=True,  # get encoder's last state
@@ -297,9 +292,12 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
             kernel_regularizer=l2(encoder_coef_reg_lstm),
             dropout=encoder_dropout_rate,
             recurrent_dropout=encoder_rec_dropout_rate,
-            name="encoder_gru")(_encoder_emb_inp)
+            name="encoder_gru"))(_encoder_emb_inp)
 
-        self._encoder_state = masking_sequences(_encoder_outputs, self._encoder_inp_lengths)
+        output1 = GlobalMaxPooling1D()(_encoder_outputs)
+        output2 = GlobalAveragePooling1D()(_encoder_outputs)
+        self._encoder_state = Concatenate()([output1, output2, _encoder_state1, _encoder_state2])
+
         return None
 
     def _build_decoder(self,
@@ -326,9 +324,28 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
         _decoder_emb_inp = Embedding(input_dim=self.opt["tgt_vocab_size"],
                                      output_dim=self.opt["decoder_embedding_size"])(self._decoder_inp)
 
-        self._decoder_input_state = Input(shape=(hidden_size,))
+        self._decoder_input_state = Input(shape=(4 * hidden_size,))
 
-        decoder_gru = GRU(
+        # decoder_gru = GRU(
+        #     hidden_size,
+        #     activation='tanh',
+        #     return_state=True,  # due to teacher forcing, this state is used only for inference
+        #     return_sequences=True,  # to get decoder_n_chars outputs' representations
+        #     kernel_regularizer=l2(decoder_coef_reg_lstm),
+        #     dropout=decoder_dropout_rate,
+        #     recurrent_dropout=decoder_rec_dropout_rate,
+        #     name="decoder_gru")
+        #
+        # _train_decoder_outputs, _train_decoder_state = decoder_gru(
+        #     _decoder_emb_inp,
+        #     initial_state=self._encoder_state)
+        # self._train_decoder_state = masking_sequences(_train_decoder_outputs, self._decoder_inp_lengths)
+        #
+        # _infer_decoder_outputs, self._infer_decoder_state = decoder_gru(
+        #     _decoder_emb_inp,
+        #     initial_state=self._decoder_input_state)
+
+        decoder_gru = Bidirectional(GRU(
             hidden_size,
             activation='tanh',
             return_state=True,  # due to teacher forcing, this state is used only for inference
@@ -336,16 +353,21 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
             kernel_regularizer=l2(decoder_coef_reg_lstm),
             dropout=decoder_dropout_rate,
             recurrent_dropout=decoder_rec_dropout_rate,
-            name="decoder_gru")
+            name="decoder_gru"))
 
-        _train_decoder_outputs, _train_decoder_state = decoder_gru(
+        _train_decoder_outputs, _train_decoder_state1, _train_decoder_state2 = decoder_gru(
             _decoder_emb_inp,
             initial_state=self._encoder_state)
-        self._train_decoder_state = masking_sequences(_train_decoder_outputs, self._decoder_inp_lengths)
+        output1 = GlobalMaxPooling1D()(_train_decoder_outputs)
+        output2 = GlobalAveragePooling1D()(_train_decoder_outputs)
+        self._train_decoder_state = Concatenate()([output1, output2, _train_decoder_state1, _train_decoder_state2])
 
-        _infer_decoder_outputs, self._infer_decoder_state = decoder_gru(
+        _infer_decoder_outputs, _infer_decoder_state1, _infer_decoder_state2 = decoder_gru(
             _decoder_emb_inp,
             initial_state=self._decoder_input_state)
+        output1 = GlobalMaxPooling1D()(_infer_decoder_outputs)
+        output2 = GlobalAveragePooling1D()(_infer_decoder_outputs)
+        self._infer_decoder_state = Concatenate()([output1, output2, _infer_decoder_state1, _infer_decoder_state2])
 
         decoder_dense = Dense(self.opt["tgt_vocab_size"], name="dense_lstm", activation="softmax")
         self._train_decoder_outputs = decoder_dense(_train_decoder_outputs)
