@@ -13,9 +13,9 @@
 # limitations under the License.
 
 from typing import List, Tuple, Union
-import json
 import numpy as np
-import scipy.sparse as sp
+import overrides
+
 from keras.layers import Dense, Input, concatenate, Activation, Concatenate, Reshape, Embedding
 from keras.layers.wrappers import Bidirectional
 from keras.layers.recurrent import LSTM, GRU
@@ -25,20 +25,18 @@ from keras.layers.normalization import BatchNormalization
 from keras.layers.pooling import GlobalMaxPooling1D, MaxPooling1D, GlobalAveragePooling1D
 from keras.models import Model
 from keras.regularizers import l2
-from keras.backend import tile
-from keras import backend as K
 
-from deeppavlov.core.models.keras_model import KerasModel
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.layers.keras_layers import masking_sequences
+from deeppavlov.models.classifiers.keras_classification_model import KerasClassificationModel
 
 log = get_logger(__name__)
 
 
 @register("keras_seq2seq_token_model")
-class KerasSeq2SeqTokenModel(KerasModel):
+class KerasSeq2SeqTokenModel(KerasClassificationModel):
     """
     Class implements Keras model for seq2seq task on token-level
 
@@ -153,6 +151,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
                                       **kwargs)
         return
 
+    @overrides
     def _change_not_fixed_params(self, **kwargs) -> None:
         """
         Change changable parameters from saved model to given ones.
@@ -208,6 +207,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
 
         return embeddings_batch
 
+    @overrides
     def pad_texts(self, sentences: Union[List[List[np.ndarray]], List[List[int]]],
                   text_size: int, embedding_size: int = None,
                   padding_token_id: int = 0,
@@ -377,6 +377,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
 
         return None
 
+    @overrides
     def train_on_batch(self, x: Tuple[List[np.ndarray]], y: Tuple[List[int]], **kwargs) -> Union[float, List[float]]:
         """
         Train the self.model on the given batch using teacher forcing
@@ -419,6 +420,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
                                                    pad_onehot_dec_outputs)
         return metrics_values
 
+    @overrides
     def infer_on_batch(self, x: List[List[np.ndarray]], **kwargs) -> List[List[int]]:
         """
         Infer self.encoder_model and self.decoder_model on the given data (no teacher forcing)
@@ -462,6 +464,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
 
         return predicted_batch
 
+    @overrides
     def __call__(self, x: List[List[np.ndarray]], **kwargs) -> np.ndarray:
         """
         Infer self.encoder_model and self.decoder_model on the given data (no teacher forcing)

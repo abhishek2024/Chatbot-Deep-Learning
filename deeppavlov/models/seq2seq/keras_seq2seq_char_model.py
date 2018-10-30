@@ -13,9 +13,8 @@
 # limitations under the License.
 
 from typing import List, Tuple, Union
-import json
 import numpy as np
-import scipy.sparse as sp
+import overrides
 from keras.layers import Dense, Input, concatenate, Activation, Concatenate, Reshape, Embedding
 from keras.layers.wrappers import Bidirectional
 from keras.layers.recurrent import LSTM, GRU
@@ -33,12 +32,13 @@ from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.layers.keras_layers import masking_sequences
+from deeppavlov.models.classifiers.keras_classification_model import KerasClassificationModel
 
 log = get_logger(__name__)
 
 
 @register("keras_seq2seq_char_model")
-class KerasSeq2SeqCharModel(KerasModel):
+class KerasSeq2SeqCharModel(KerasClassificationModel):
     """
     Class implements Keras model for seq2seq task on char-level
 
@@ -157,6 +157,7 @@ class KerasSeq2SeqCharModel(KerasModel):
                                       **kwargs)
         return
 
+    @overrides
     def _change_not_fixed_params(self, **kwargs) -> None:
         """
         Change changable parameters from saved model to given ones.
@@ -184,6 +185,7 @@ class KerasSeq2SeqCharModel(KerasModel):
                 self.opt[param] = kwargs.get(param)
         return
 
+    @overrides
     def pad_texts(self, sentences: List[List[int]], text_size: int,
                   padding_char_id: int = 0, return_lengths=False) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
         """
@@ -351,6 +353,7 @@ class KerasSeq2SeqCharModel(KerasModel):
 
         return None
 
+    @overrides
     def train_on_batch(self, x: Tuple[List[int]], y: Tuple[List[int]], **kwargs) -> Union[float, List[float]]:
         """
         Train the self.model on the given batch using teacher forcing
@@ -387,6 +390,7 @@ class KerasSeq2SeqCharModel(KerasModel):
                                                    pad_onehot_dec_outputs)
         return metrics_values
 
+    @overrides
     def infer_on_batch(self, x: List[List[int]], **kwargs) -> List[List[int]]:
         """
         Infer self.encoder_model and self.decoder_model on the given data (no teacher forcing)
@@ -429,6 +433,7 @@ class KerasSeq2SeqCharModel(KerasModel):
 
         return predicted_batch
 
+    @overrides
     def __call__(self, x: List[List[int]], **kwargs) -> np.ndarray:
         """
         Infer self.encoder_model and self.decoder_model on the given data (no teacher forcing)
