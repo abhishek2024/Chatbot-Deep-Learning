@@ -15,6 +15,7 @@
   "dataset_iterator": {
     "name": "basic_classification_iterator",
     "seed": 42,
+    "split_seed": 23,
     "field_to_split": "train",
     "split_fields": [
       "train",
@@ -72,10 +73,10 @@
         "name": "simple_vocab",
         "pad_with_zeros": false,
         "special_tokens": [
+          "<PAD>",
           "<UNK>",
-          "<SOS>",
           "<BOS>",
-          "<PAD>"
+          "<EOS>"
         ],
         "fit_on": [
           "y_tok"
@@ -102,8 +103,8 @@
         "out": "y_tok_ind_pred",
         "main": true,
         "name": "keras_seq2seq_token_model",
-        "save_path": "seq2seq/rus-eng/token_lstm_lstm_model_v0",
-        "load_path": "seq2seq/rus-eng/token_lstm_lstm_model_v0",
+        "save_path": "seq2seq/rus-eng/token_gru_gru_model_v0",
+        "load_path": "seq2seq/rus-eng/token_gru_gru_model_v0",
         "encoder_embedding_size": "#my_embedder.dim",
         "decoder_embedding_size": "#dec_embedder.dim",
         "tgt_vocab_size": "#y_tokens_vocab.__len__()",
