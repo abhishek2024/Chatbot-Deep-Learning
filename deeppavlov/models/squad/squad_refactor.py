@@ -265,6 +265,7 @@ class SquadModelRef(TFModel):
                                                                  self.number_of_answer_hops, self.attention_hidden_size,
                                                                  self.answer_cell_size, self.keep_prob_ph,
                                                                  self.hops_keep_prob_ph)
+
         if self.scorer:
             with tf.variable_scope('scorer'):
                 start_att_weights = tf.expand_dims(tf.nn.softmax(logits_st, axis=-1), axis=-1)
@@ -724,7 +725,6 @@ class SquadModelRef(TFModel):
                 # load from tmp weights and do not call _assign_ema_weigts
                 self.load(path=self.tmp_model_path)
                 shutil.rmtree(self.tmp_model_path.parent)
-
 
     def _pad_strings(self, batch, len_limit):
         max_len = max(map(lambda x: len(x), batch))

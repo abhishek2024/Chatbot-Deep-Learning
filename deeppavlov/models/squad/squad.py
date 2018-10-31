@@ -822,6 +822,7 @@ class SquadModelSharedNorm(TFModel):
         self.use_soft_match_features = self.opt.get('use_soft_match_features', False)
         self.l2_norm = self.opt.get('l2_norm', None)
         self.top_k = self.opt.get('top_k', 1)
+        self.sum_objective = self.opt.get('sum_objective', False)
         # TODO: add l2 norm to all dense layers and variables
 
         assert self.number_of_hops > 0, "Number of hops is {}, but should be > 0".format(self.number_of_hops)
@@ -1028,16 +1029,25 @@ class SquadModelSharedNorm(TFModel):
                                                   tf.tile(tf.expand_dims(tf.range(bs), axis=-1), [1, k]),
                                                   top_indices], axis=-1))
             # loss part
+            logits1 = tf.concat([logits1_left, logits1_right], axis=-1)
+            logits2 = tf.concat([logits2_left, logits2_right], axis=-1)
+            self.y1 = tf.concat([self.y1_left, self.y1_right], axis=-1)
+            self.y2 = tf.concat([self.y2_left, self.y2_right], axis=-1)
             if self.predict_ans and not self.shared_loss:
                 # SQuAD loss
-                logits1 = tf.concat([logits1_left, logits1_right], axis=-1)
-                logits2 = tf.concat([logits2_left, logits2_right], axis=-1)
-                self.y1 = tf.concat([self.y1_left, self.y1_right], axis=-1)
-                self.y2 = tf.concat([self.y2_left, self.y2_right], axis=-1)
                 self.y1 = self.y1 / tf.expand_dims(tf.reduce_sum(self.y1, axis=-1), axis=-1)
                 self.y2 = self.y2 / tf.expand_dims(tf.reduce_sum(self.y2, axis=-1), axis=-1)
                 loss_p1 = tf.nn.softmax_cross_entropy_with_logits(logits=logits1, labels=self.y1)
                 loss_p2 = tf.nn.softmax_cross_entropy_with_logits(logits=logits2, labels=self.y2)
+                squad_loss = loss_p1 + loss_p2
+            elif self.predict_ans and self.sum_objective:
+                # sum objective
+                all_sum1 = tf.reduce_logsumexp(logits1, axis=-1)
+                all_sum2 = tf.reduce_logsumexp(logits2, axis=-1)
+                correct_sum1 = tf.reduce_logsumexp(softmax_mask(logits1, self.y1), axis=-1)
+                correct_sum2 = tf.reduce_logsumexp(softmax_mask(logits2, self.y2), axis=-1)
+                loss_p1 = -(correct_sum1 - all_sum1)
+                loss_p2 = -(correct_sum2 - all_sum2)
                 squad_loss = loss_p1 + loss_p2
             self.loss = tf.reduce_mean(squad_loss)
 
@@ -1168,13 +1178,13 @@ class SquadModelSharedNorm(TFModel):
         y1s_right = np.array([x[0] for x in y1s_right])
         y2s_right = np.array([x[0] for x in y2s_right])
 
-        batch_mask = (y1s_left!=-1) | (y1s_right!=-1)
+        batch_mask = (y1s_left != -1) | (y1s_right != -1)
 
         # TODO: refactor or move to preprocessing
         # filter examples in batches with answer position greater self.context_limit
         y1s_left, y2s_left, y1s_right, y2s_right, c_left_tokens, c_left_chars,\
                  q_tokens, q_chars, c_features, q_features, c_str, q_str, c_ner, q_ner,\
-                 c_right_tokens, c_right_chars = [np.array(el)[batch_mask] if el is not None else el for el in \
+                 c_right_tokens, c_right_chars = [np.array(el)[batch_mask] if el is not None else el for el in
                  [y1s_left, y2s_left, y1s_right, y2s_right, c_left_tokens, c_left_chars,
                  q_tokens, q_chars, c_features, q_features, c_str, q_str, c_ner, q_ner, c_right_tokens, c_right_chars]]
 
