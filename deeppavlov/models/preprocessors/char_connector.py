@@ -29,10 +29,9 @@ log = get_logger(__name__)
 
 @register('char_connector')
 class CharConnector(Component):
-    def __init__(self,
-                 save_path: str = None,
-                 load_path: str = None,
-                 **kwargs) -> None:
+    """ Component tranforms batch of sequences of characters to batch of strings \
+            connecting characters without other symbols"""
+    def __init__(self, **kwargs) -> None:
         pass
 
     def __call__(self, batch: List[List[str]], **kwargs) -> List[str]:

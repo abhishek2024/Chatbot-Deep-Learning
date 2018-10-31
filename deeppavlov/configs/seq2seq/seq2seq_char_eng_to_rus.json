@@ -5,7 +5,10 @@
     "train": "rus.txt",
     "sep": "\t",
     "header": null,
-    "names": ["eng", "rus"],
+    "names": [
+      "eng",
+      "rus"
+    ],
     "x": "eng",
     "y": "rus"
   },
@@ -41,20 +44,9 @@
       },
       {
         "in": "x_prep",
-        "id": "x_chars_vocab",
-        "name": "simple_vocab",
-        "pad_with_zeros": false,
-        "fit_on": [
-          "x_prep"
-        ],
-        "save_path": "seq2seq/rus-eng/x_chars.dict",
-        "load_path": "seq2seq/rus-eng/x_chars.dict",
-        "special_tokens": [
-          "<UNK>",
-          "<PAD>"
-        ],
-        "min_freq": 50,
-        "out": "x_chars_ind"
+        "out": "x_char",
+        "name": "char_splitter",
+        "id": "my_splitter"
       },
       {
         "in": "y",
@@ -63,17 +55,39 @@
       },
       {
         "in": "y_prep",
+        "out": "y_char",
+        "ref": "my_splitter"
+      },
+      {
+        "in": "x_char",
+        "id": "x_chars_vocab",
+        "name": "simple_vocab",
+        "pad_with_zeros": false,
+        "fit_on": [
+          "x_char"
+        ],
+        "save_path": "seq2seq/rus-eng/x_chars.dict",
+        "load_path": "seq2seq/rus-eng/x_chars.dict",
+        "special_tokens": [
+          "<PAD>",
+          "<UNK>"
+        ],
+        "min_freq": 50,
+        "out": "x_chars_ind"
+      },
+      {
+        "in": "y_char",
         "id": "y_chars_vocab",
         "name": "simple_vocab",
         "pad_with_zeros": false,
         "special_tokens": [
+          "<PAD>",
           "<UNK>",
           "<BOS>",
-          "<EOS>",
-          "<PAD>"
+          "<EOS>"
         ],
         "fit_on": [
-          "y_prep"
+          "y_char"
         ],
         "save_path": "seq2seq/rus-eng/y_chars.dict",
         "load_path": "seq2seq/rus-eng/y_chars.dict",

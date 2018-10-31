@@ -17,19 +17,28 @@ from overrides import overrides
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.log import get_logger
+from deeppavlov.core.common.errors import ConfigError
 
 log = get_logger(__name__)
 
 
 @register('char_splitter')
 class CharSplitter(Component):
-    """This component transforms batch of sequences of tokens into batch of sequences of character sequences."""
-    def __init__(self, **kwargs):
+    """This component transforms batch of sequences of tokens into batch of sequences of character sequences or \
+        batch of strings into batch of sequences of characters"""
+    def __init__(self, **kwargs) -> None:
         pass
 
     @overrides
     def __call__(self, batch, *args, **kwargs):
         char_batch = []
-        for tokens_sequence in batch:
-            char_batch.append([list(tok) for tok in tokens_sequence])
-        return char_batch
+        if isinstance(batch[0], list):
+            for tokens_sequence in batch:
+                char_batch.append([list(tok) for tok in tokens_sequence])
+            return char_batch
+        elif isinstance(batch[0], str):
+            for sentence in batch:
+                char_batch.append(list(sentence))
+            return char_batch
+        else:
+            raise ConfigError("CharSplitter can not split given data type: {}".format(type(batch[0])))
