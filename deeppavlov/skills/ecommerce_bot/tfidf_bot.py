@@ -180,6 +180,8 @@ class EcommerceTfidfBot(Component):
                             'start': 0,
                             'stop': 5,
                             }
+                else:
+                    print('we have the same query')
             else:
                 print('history is empty')
 
@@ -211,6 +213,8 @@ class EcommerceTfidfBot(Component):
             answer_ids = np.argsort(scores)[::-1]
             answer_ids_filtered = [idx for idx in answer_ids if scores[idx] >= self.min_similarity]
 
+            answer_ids = _state_based_filter(answer_ids, state)
+            
             items.append([self.ec_data[idx] for idx in answer_ids[state['start']:state['stop']]])
 
             #confidences.append([cos_distance[idx] for idx in answer_ids[state['start']:state['stop']]])
@@ -240,7 +244,29 @@ class EcommerceTfidfBot(Component):
         cos_similarities = cos_similarities[0]
         cos_similarities = np.nan_to_num(cos_similarities)
         return cos_similarities
-        
+
+    def _state_based_filter(self, ids, state):
+        for key, value in state.items():
+            log.debug(f"Filtering for {key}:{value}")
+
+            if key == 'Price':
+                price = value
+                log.debug(f"Items before price filtering {len(ids)} with price {price}")
+                ids = [idx for idx in ids
+                        if self.preprocess.price(self.ec_data[idx]) >= price[0] and
+                        self.preprocess.price(self.ec_data[idx]) <= price[1] and
+                        self.preprocess.price(self.ec_data[idx]) != 0]
+                log.debug(f"Items after price filtering {len(ids)}")
+
+            elif key in ['query', 'start', 'stop']:
+                continue
+
+            else:
+                ids = [idx for idx in ids
+                        if key in self.ec_data[idx]
+                        if self.ec_data[idx][key].lower() == value.lower()]
+        return ids
+
     def _entropy_subquery(self, results_args: List[int]) -> List[Tuple[float, str, List[Tuple[str, int]]]]:
         """Calculate entropy of selected attributes for items from the catalog.
 
