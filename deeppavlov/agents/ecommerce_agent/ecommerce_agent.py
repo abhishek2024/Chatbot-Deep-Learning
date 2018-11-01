@@ -82,7 +82,11 @@ class EcommerceAgent(Agent):
                 log.debug(f'Actions: {parts}')
 
                 if command == "@details":
-                    rich_message.add_control(PlainText(show_details(self.history[id_][int(parts[0])][0][int(parts[1])])))
+                    batch_index = int(parts[0])
+                    item_index = int(parts[1])
+                    # parts[0] the batch index in history list
+                    # parts[1] the index in batch
+                    rich_message.add_control(PlainText(show_details(self.history[id_][batch_index][item_index])))
                     continue
 
                 if command == "@entropy":
@@ -126,10 +130,14 @@ class EcommerceAgent(Agent):
             items_batch, entropy_batch = responses_batch
 
             # update history 
-            self.history[id_].append(responses_batch)
-            self.history[id_].append(self.states[id_])
+#            self.history[id_].append(responses_batch)
+#            self.history[id_].append(self.states[id_])
             
             for batch_idx, items in enumerate(items_batch):
+
+                self.history[id_].append(items)
+                self.history[id_].append(self.states[id_])
+
                 for idx, item in enumerate(items):
 
                     title = item['Title']
@@ -175,6 +183,8 @@ def show_details(item_data: Dict[Any, Any]) -> List[RichMessage]:
         [rich_message]: list of formatted rich message
     """
 
+    print("show_details")
+    print(item_data)
     txt = ""
     
     for key, value in item_data.items():
@@ -190,8 +200,8 @@ def make_agent() -> EcommerceAgent:
         agent: created Ecommerce agent
     """
 
-    config_path = find_config('ecommerce_tfidf')
-    #config_path = find_config('ecommerce_bot')
+    #config_path = find_config('ecommerce_tfidf')
+    config_path = find_config('ecommerce_bleu')
     skill = build_model_from_config(config_path, as_component=True)
     agent = EcommerceAgent(skills=[skill])
     return agent
