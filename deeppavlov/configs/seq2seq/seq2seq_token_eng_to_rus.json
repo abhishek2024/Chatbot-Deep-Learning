@@ -136,8 +136,8 @@
     "out": "y_text"
   },
   "train": {
-    "epochs": 10,
-    "batch_size": 64,
+    "epochs": 100,
+    "batch_size": 512,
     "metrics": [
       "bleu",
       "per_token_accuracy"
@@ -147,7 +147,8 @@
     "log_every_n_epochs": 1,
     "show_examples": true,
     "validate_best": true,
-    "test_best": true
+    "test_best": true,
+    "tensorboard_log_dir": "./seq2seq./rus-eng/token_logs/"
   },
   "metadata": {
     "requirements": [
@@ -158,6 +159,10 @@
       "http://files.deeppavlov.ai/datasets/rus-eng.tar.gz",
       {
         "url": "http://files.deeppavlov.ai/deeppavlov_data/embeddings/wiki.en.bin",
+        "subdir": "embeddings"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
         "subdir": "embeddings"
       }
     ]

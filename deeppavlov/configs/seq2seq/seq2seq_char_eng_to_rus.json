@@ -134,8 +134,8 @@
     "out": "y_texts"
   },
   "train": {
-    "epochs": 10,
-    "batch_size": 64,
+    "epochs": 100,
+    "batch_size": 512,
     "metrics": [
       "bleu",
       "per_token_accuracy"
@@ -145,7 +145,8 @@
     "log_every_n_epochs": 1,
     "show_examples": true,
     "validate_best": true,
-    "test_best": false
+    "test_best": false,
+    "tensorboard_log_dir": "./seq2seq/rus-eng/char_logs/"
   },
   "metadata": {
     "requirements": [
