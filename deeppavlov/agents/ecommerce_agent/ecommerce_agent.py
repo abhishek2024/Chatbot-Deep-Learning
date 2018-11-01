@@ -121,8 +121,7 @@ class EcommerceAgent(Agent):
 
             # update `self.states` with retrieved results
             self.states[id_] = state_batch[0]
-            #self.states[id_]["query"] = utt
-
+            self.states[id_]["query"] = utt
         
             items_batch, entropy_batch = responses_batch
 
