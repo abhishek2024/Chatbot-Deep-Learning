@@ -25,7 +25,7 @@
         "in": "query",
         "id": "my_tokenizer",
         "lemmas": true,
-	"alphas_only": false,
+        "alphas_only": false,
         "out": "q_token_lemmas"
       },
       {
@@ -45,8 +45,8 @@
         ],
         "id": "tfidf_vec",
         "name": "sklearn_component",
-        "save_path": "vectorizer/tfidf_vectorizer_ecommerce.pkl",
-        "load_path": "vectorizer/tfidf_vectorizer_ecommerce.pkl",
+        "save_path": "ecommerce_bot/tfidf_vectorizer_ecommerce.pkl",
+        "load_path": "ecommerce_bot/tfidf_vectorizer_ecommerce.pkl",
         "model_name": "sklearn.feature_extraction.text:TfidfVectorizer",
         "infer_method": "transform",
         "analyzer": "word",
@@ -91,6 +91,14 @@
         "../dp_requirements/en_core_web_sm.txt"
       ],
     "download": [
+      {
+        "url": "http://files.deeppavlov.ai/ecommerce_bot/ecommerce_tfidf_model.pkl",
+        "subdir": "ecommerce_bot"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/ecommerce_bot/tfidf_vectorizer_ecommerce.pkl",
+        "subdir": "ecommerce_bot"
+      }
     ]
   }
 }
