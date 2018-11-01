@@ -189,7 +189,7 @@ class EcommerceBleuBot(Skill):
                                         self.preprocess.price(self.ec_data[idx]) != 0]
                     log.debug(f"Items after price filtering {len(results_args_sim)}")
 
-                elif key in ['query', 'start', 'stop']:
+                elif key in ['query', 'start', 'stop', 'history']:
                     continue
 
                 else:
