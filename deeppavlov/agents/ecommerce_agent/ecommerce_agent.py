@@ -26,8 +26,10 @@ from deeppavlov.deep import find_config
 from utils.ms_bot_framework_utils.server import run_ms_bot_framework_server
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-i", "--ms-id", help="microsoft bot framework app id", type=str)
-parser.add_argument("-s", "--ms-secret", help="microsoft bot framework app secret", type=str)
+parser.add_argument(
+    "-i", "--ms-id", help="microsoft bot framework app id", type=str)
+parser.add_argument("-s", "--ms-secret",
+                    help="microsoft bot framework app secret", type=str)
 
 log = get_logger(__name__)
 
@@ -51,10 +53,8 @@ class EcommerceAgent(Agent):
         super(EcommerceAgent, self).__init__(skills=skills)
         # self.history: dict = defaultdict(list)
         self.states: dict = defaultdict(lambda: [{"start": 0, "stop": 5} for _ in self.skills])
-        print("init")
 
-
-    def _call(self, utterances_batch: list, utterances_ids: list=None) -> list:
+    def _call(self, utterances_batch: list, utterances_ids: list = None) -> list:
         """Processes batch of utterances and returns corresponding responses batch.
 
         Args:
@@ -82,9 +82,10 @@ class EcommerceAgent(Agent):
                 log.debug(f'Actions: {parts}')
 
                 if command == "@details":
-                    batch_index = int(parts[0]) # batch index in history list
-                    item_index = int(parts[1]) # index in batch
-                    rich_message.add_control(PlainText(show_details(self.history[id_][batch_index][item_index])))
+                    batch_index = int(parts[0])  # batch index in history list
+                    item_index = int(parts[1])  # index in batch
+                    rich_message.add_control(PlainText(show_details(
+                        self.history[id_][batch_index][item_index])))
                     continue
 
                 if command == "@entropy":
@@ -93,8 +94,6 @@ class EcommerceAgent(Agent):
                     state["start"] = 0
                     state["stop"] = 5
                     utt = state['query']
-                    print("updated state")
-                    print(state)
                     self.states[id_] = state
 
                 if command == "@next":
@@ -103,13 +102,6 @@ class EcommerceAgent(Agent):
                     state['stop'] = state['stop']+5
                     utt = state['query']
                     self.states[id_] = state
-
-#                if command == "@previous":
-#                    state = self.history[id_][int(parts[0])]
-#                    state['stop'] = state['start']
-#                    state['start'] = state['start']-5
-#                    utt = state['query']
-#                    self.states[id_] = state
             else:
                 if id_ not in self.states:
                     self.states[id_] = {}
@@ -126,7 +118,7 @@ class EcommerceAgent(Agent):
             # update `self.states` with retrieved results
             self.states[id_] = state_batch[0]
             self.states[id_]["query"] = utt
-        
+
             items_batch, entropy_batch = responses_batch
 
             for batch_idx, items in enumerate(items_batch):
@@ -138,7 +130,8 @@ class EcommerceAgent(Agent):
 
                     title = item['Title']
                     if 'ListPrice' in item:
-                        title += " - **$" + item['ListPrice'].split('$')[1]+"**"
+                        title += " - **$" + \
+                            item['ListPrice'].split('$')[1]+"**"
 
                     buttons_frame = ButtonsFrame(text=title)
                     buttons_frame.add_button(
@@ -146,12 +139,9 @@ class EcommerceAgent(Agent):
                     rich_message.add_control(buttons_frame)
 
                 buttons_frame = ButtonsFrame(text="")
-#                if self.states[id_]["start"] > 0:
- #                   buttons_frame.add_button(
-  #                      Button('Previous', "@previous:"+str(len(self.history[id_])-1)))
 
                 caption = ""
-                if len(items)==self.states[id_]['stop'] - self.states[id_]['start']:
+                if len(items) == self.states[id_]['stop'] - self.states[id_]['start']:
                     buttons_frame.add_button(
                         Button('More', "@next:"+str(len(self.history[id_])-1)))
                     caption = "Press More "
@@ -160,8 +150,8 @@ class EcommerceAgent(Agent):
                         entropy = entropy_batch[batch_idx]
                         caption += "specify a " + entropy[0][1]
                         for ent_value in entropy[0][2][:4]:
-                            button_a = Button(ent_value[0], 
-                                f'@entropy:{len(self.history[id_])-1}:{entropy[0][1]}:{ent_value[0]}')
+                            button_a = Button(ent_value[0],
+                                              f'@entropy:{len(self.history[id_])-1}:{entropy[0][1]}:{ent_value[0]}')
 
                             buttons_frame.add_button(button_a)
 
@@ -183,7 +173,7 @@ def show_details(item_data: Dict[Any, Any]) -> List[RichMessage]:
     """
 
     txt = ""
-    
+
     for key, value in item_data.items():
         txt += "**" + str(key) + "**" + ': ' + str(value) + "  \n"
 
@@ -198,7 +188,7 @@ def make_agent() -> EcommerceAgent:
     """
 
     config_path = find_config('ecommerce_tfidf')
-    #config_path = find_config('ecommerce_bleu')
+    # config_path = find_config('ecommerce_bleu')
     skill = build_model_from_config(config_path, as_component=True)
     agent = EcommerceAgent(skills=[skill])
     return agent
