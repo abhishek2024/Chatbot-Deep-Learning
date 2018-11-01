@@ -30,7 +30,7 @@ from deeppavlov.core.common.file import save_pickle, load_pickle
 from deeppavlov.core.commands.utils import expand_path, make_all_dirs, is_file_exist
 from deeppavlov.core.models.estimator import Component
 
-logger = get_logger(__name__)
+log = get_logger(__name__)
 
 @register("ecommerce_tfidf_bot")
 class EcommerceTfidfBot(Component):
@@ -84,7 +84,7 @@ class EcommerceTfidfBot(Component):
         
     def save(self) -> None:
         """Save classifier parameters"""
-        logger.info("Saving to {}".format(self.save_path))
+        log.info("Saving to {}".format(self.save_path))
         path = expand_path(self.save_path)
         make_all_dirs(path)
 
@@ -95,7 +95,7 @@ class EcommerceTfidfBot(Component):
 
     def load(self) -> None:
         """Load classifier parameters"""
-        logger.info("Loading from {}".format(self.load_path))
+        log.info("Loading from {}".format(self.load_path))
         self.ec_data, self.x_train_features = load_pickle(expand_path(self.load_path))
 
  #       print("densing")
@@ -117,7 +117,7 @@ class EcommerceTfidfBot(Component):
             state: dialog state
         """
 
-        logger.info(f"Total catalog {len(self.ec_data)}")
+        log.info(f"Total catalog {len(self.ec_data)}")
 
         if not isinstance(q_vects, list):
             q_vects = [q_vects]
@@ -135,7 +135,7 @@ class EcommerceTfidfBot(Component):
 
         for idx, q_vect in enumerate(q_vects):
 
-            logger.info(f"Search query {q_vect}")
+            log.info(f"Search query {q_vect}")
             print(q_vect)
             # b = vstack([q_vect, q_vect])
             # print(b)
@@ -159,7 +159,7 @@ class EcommerceTfidfBot(Component):
             if 'history' not in state:
                 state['history'] = []
 
-            logger.info(f"Current state {state}")
+            log.info(f"Current state {state}")
 
             if len(state['history'])>0:
                 if not np.array_equal(state['history'][-1].todense(), q_vect.todense()):
@@ -211,9 +211,9 @@ class EcommerceTfidfBot(Component):
 
             scores = self._similarity(q_vect)
             answer_ids = np.argsort(scores)[::-1]
-            answer_ids_filtered = [idx for idx in answer_ids if scores[idx] >= self.min_similarity]
+            answer_ids = [idx for idx in answer_ids if scores[idx] >= self.min_similarity]
 
-            answer_ids = _state_based_filter(answer_ids, state)
+            answer_ids = self._state_based_filter(answer_ids, state)
             
             items.append([self.ec_data[idx] for idx in answer_ids[state['start']:state['stop']]])
 
@@ -221,7 +221,7 @@ class EcommerceTfidfBot(Component):
             confidences.append([scores[idx] for idx in answer_ids[state['start']:state['stop']]])
 
             back_states.append(state)
-            entropies.append(self._entropy_subquery(answer_ids_filtered))
+            entropies.append(self._entropy_subquery(answer_ids))
 
         print(items)
         print(confidences)
@@ -258,7 +258,7 @@ class EcommerceTfidfBot(Component):
                         self.preprocess.price(self.ec_data[idx]) != 0]
                 log.debug(f"Items after price filtering {len(ids)}")
 
-            elif key in ['query', 'start', 'stop']:
+            elif key in ['query', 'start', 'stop', 'history']:
                 continue
 
             else:
