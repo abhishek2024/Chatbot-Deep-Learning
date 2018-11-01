@@ -83,7 +83,7 @@
         ],
         "save_path": "seq2seq/rus-eng/y_tokens.dict",
         "load_path": "seq2seq/rus-eng/y_tokens.dict",
-        "min_freq": 1,
+        "min_freq": 10,
         "out": "y_tok_ind"
       },
       {
@@ -145,7 +145,7 @@
     "validation_patience": 5,
     "val_every_n_epochs": 1,
     "log_every_n_epochs": 1,
-    "show_examples": false,
+    "show_examples": true,
     "validate_best": true,
     "test_best": true
   },
