@@ -116,51 +116,52 @@ class EcommerceAgent(Agent):
             print("before state")
             print(self.states[id_])
 
-            responses, confidences, state = self.skills[0](
+            responses_batch, confidences_batch, state_batch = self.skills[0](
                 [utt], self.history[id_], [self.states[id_]], [])
 
             # update `self.states` with retrieved results
-            self.states[id_] = state[0]
+            self.states[id_] = state_batch[0]
             #self.states[id_]["query"] = utt
 
-            print("afte rstate")
-            print(self.states[id_])
+        
+            items_batch, entropy_batch = responses_batch
 
-            items_batch, entropy_batch = responses
-
-            self.history[id_].append(responses)
+            # update history 
+            self.history[id_].append(responses_batch)
             self.history[id_].append(self.states[id_])
             
-            for idx, item in enumerate(items):
+            for batch_idx, items in enumerate(items_batch):
+                for idx, item in enumerate(items):
 
-                title = item['Title']
-                if 'ListPrice' in item:
-                    title += " - **$" + item['ListPrice'].split('$')[1]+"**"
+                    title = item['Title']
+                    if 'ListPrice' in item:
+                        title += " - **$" + item['ListPrice'].split('$')[1]+"**"
 
-                buttons_frame = ButtonsFrame(text=title)
+                    buttons_frame = ButtonsFrame(text=title)
+                    buttons_frame.add_button(
+                        Button('Show details', "@details:"+str(len(self.history[id_])-2)+":"+str(idx)))
+                    rich_message.add_control(buttons_frame)
+
+                buttons_frame = ButtonsFrame(text="")
+                if self.states[id_]["start"] > 0:
+                    buttons_frame.add_button(
+                        Button('Previous', "@previous:"+str(len(self.history[id_])-1)))
+
                 buttons_frame.add_button(
-                    Button('Show details', "@details:"+str(len(self.history[id_])-2)+":"+str(idx)))
+                    Button('Next', "@next:"+str(len(self.history[id_])-1)))
                 rich_message.add_control(buttons_frame)
 
-            buttons_frame = ButtonsFrame(text="")
-            if self.states[id_]["start"] > 0:
-                buttons_frame.add_button(
-                    Button('Previous', "@previous:"+str(len(self.history[id_])-1)))
+                if entropy_batch[batch_idx]:
+                    entropy = entropy_batch[batch_idx]
+                    buttons_frame = ButtonsFrame(
+                        text="Please specify a "+entropy[0][1])
+                    for ent_value in entropy[0][2][:3]:
+                        button_a = Button(ent_value[0], 
+                            f'@entropy:{len(self.history[id_])-1}:{entropy[0][1]}:{ent_value[0]}')
 
-            buttons_frame.add_button(
-                Button('Next', "@next:"+str(len(self.history[id_])-1)))
-            rich_message.add_control(buttons_frame)
+                        buttons_frame.add_button(button_a)
 
-            if entropy:
-                buttons_frame = ButtonsFrame(
-                    text="Please specify a "+entropy[0][1])
-                for ent_value in entropy[0][2][:3]:
-                    button_a = Button(ent_value[0], 
-                        f'@entropy:{len(self.history[id_])-1}:{entropy[0][1]}:{ent_value[0]}')
-
-                    buttons_frame.add_button(button_a)
-
-                rich_message.add_control(buttons_frame)
+                    rich_message.add_control(buttons_frame)
 
         return [rich_message]
 
