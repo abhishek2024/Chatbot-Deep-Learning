@@ -27,7 +27,7 @@
   "dstc2_reader": "deeppavlov.dataset_readers.dstc2_reader:DSTC2DatasetReader",
   "dstc_slotfilling": "deeppavlov.models.slotfill.slotfill:DstcSlotFillingNetwork",
   "ecommerce_preprocess": "deeppavlov.models.preprocessors.ecommerce_preprocess:EcommercePreprocess",
-  "ecommerce_bleu_bot": "deeppavlov.skills.ecommerce_bot.bot:EcommerceBleuBot",
+  "ecommerce_bleu_bot": "deeppavlov.skills.ecommerce_bot.bleu_bot:EcommerceBleuBot",
   "ecommerce_tfidf_bot": "deeppavlov.skills.ecommerce_bot.tfidf_bot:EcommerceTfidfBot",
   "elmo": "deeppavlov.models.embedders.elmo_embedder:ELMoEmbedder",
   "emb_mat_assembler": "deeppavlov.models.preprocessors.assemble_embeddings_matrix:EmbeddingsMatrixAssembler",
