@@ -46,7 +46,7 @@ class EcommerceBleuBot(Skill):
         min_entropy: min entropy threshold for specifying
     """
 
-    def __init__(self, preprocess: Component, save_path: str, load_path: str, 
+    def __init__(self, preprocess: Component, save_path: str, load_path: str,
                  entropy_fields: list, min_similarity: float = 0.5,
                  min_entropy: float = 0.5, **kwargs) -> None:
         self.preprocess = preprocess
@@ -76,9 +76,9 @@ class EcommerceBleuBot(Skill):
 
         log.info(f"Items to nlp: {len(data)}")
         self.ec_data = [dict(item, **{
-                                    'title_nlped': self.preprocess.spacy2dict(self.preprocess.analyze(item['Title'])),
-                                    'feat_nlped': self.preprocess.spacy2dict(self.preprocess.analyze(item['Title']+'. '+item['Feature']))
-                                      }) for item in data]
+            'title_nlped': self.preprocess.spacy2dict(self.preprocess.analyze(item['Title'])),
+            'feat_nlped': self.preprocess.spacy2dict(self.preprocess.analyze(item['Title']+'. '+item['Feature']))
+        }) for item in data]
         log.info('Data are nlped')
 
     def save(self, **kwargs) -> None:
@@ -108,7 +108,7 @@ class EcommerceBleuBot(Skill):
             states: list of dialog state
 
         Returns:
-            response:   items:      list of retrieved items 
+            response:   items:      list of retrieved items
                         entropies:  list of entropy attributes with corresponding values
 
             confidence: list of similarity scores
@@ -125,7 +125,7 @@ class EcommerceBleuBot(Skill):
         log.debug(f"queries: {queries} states: {states}")
 
         for item_idx, query in enumerate(queries):
-        
+
             state = states[item_idx]
 
             if isinstance(state, str):
@@ -152,12 +152,14 @@ class EcommerceBleuBot(Skill):
                 state['Price'] = money_range
 
             score_title = [bleu_advanced(self.preprocess.lemmas(item['title_nlped']),
-                           self.preprocess.lemmas(self.preprocess.filter_nlp_title(query)),
-                           weights=(1,), penalty=False) for item in self.ec_data]
+                                         self.preprocess.lemmas(
+                                             self.preprocess.filter_nlp_title(query)),
+                                         weights=(1,), penalty=False) for item in self.ec_data]
 
             score_feat = [bleu_advanced(self.preprocess.lemmas(item['feat_nlped']),
-                          self.preprocess.lemmas(self.preprocess.filter_nlp(query)),
-                          weights=(0.3, 0.7), penalty=False) for idx, item in enumerate(self.ec_data)]
+                                        self.preprocess.lemmas(
+                                            self.preprocess.filter_nlp(query)),
+                                        weights=(0.3, 0.7), penalty=False) for idx, item in enumerate(self.ec_data)]
 
             scores = np.mean(
                 [score_feat, score_title], axis=0).tolist()
@@ -174,7 +176,7 @@ class EcommerceBleuBot(Skill):
             results_args_sim = [
                 idx for idx in results_args if scores[idx] >= self.min_similarity]
 
-            log.debug(f"Items before similarity filtering {len(results_args)} and after {len(results_args_sim)} with th={self.min_similarity} "+
+            log.debug(f"Items before similarity filtering {len(results_args)} and after {len(results_args_sim)} with th={self.min_similarity} " +
                       f"the best one has score {scores[results_args[0]]} with title {self.ec_data[results_args[0]]['Title']}")
 
             for key, value in state.items():
@@ -197,7 +199,6 @@ class EcommerceBleuBot(Skill):
                                         if key in self.ec_data[idx]
                                         if self.ec_data[idx][key].lower() == value.lower()]
 
-            
             local_response = []
             for idx in results_args_sim[start:stop]:
                 temp = copy.copy(self.ec_data[idx])
@@ -208,8 +209,8 @@ class EcommerceBleuBot(Skill):
             response.append(local_response)
 
             confidence.append([(score_title[idx], score_feat[idx])
-                          for idx in results_args_sim[start:stop]])
-            
+                               for idx in results_args_sim[start:stop]])
+
             entropies.append(self._entropy_subquery(results_args_sim))
             log.debug(f"Total number of relevant answers {len(results_args_sim)}")
             back_states.append(state)

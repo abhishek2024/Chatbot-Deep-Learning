@@ -32,6 +32,7 @@ from deeppavlov.core.models.estimator import Component
 
 log = get_logger(__name__)
 
+
 @register("ecommerce_tfidf_bot")
 class EcommerceTfidfBot(Component):
     """Class to retrieve product items from `load_path` catalogs
@@ -48,13 +49,13 @@ class EcommerceTfidfBot(Component):
         min_entropy: min entropy threshold for specifying
     """
 
-    def __init__(self, 
-                save_path: str, 
-                load_path: str, 
-                entropy_fields: list, 
-                min_similarity: float = 0.5,
-                min_entropy: float = 0.5, 
-                **kwargs) -> None:
+    def __init__(self,
+                 save_path: str,
+                 load_path: str,
+                 entropy_fields: list,
+                 min_similarity: float = 0.5,
+                 min_entropy: float = 0.5,
+                 **kwargs) -> None:
 
         self.save_path = expand_path(save_path)
         self.load_path = expand_path(load_path)
@@ -67,9 +68,6 @@ class EcommerceTfidfBot(Component):
             self.load()
 
     def fit(self, data, query) -> None:
-
-        # print(query)
-        # pass
         """Preprocess items `title` and `description` from the `data`
 
         Parameters:
@@ -78,28 +76,22 @@ class EcommerceTfidfBot(Component):
         Returns:
             None
         """
-    
+
         self.x_train_features = vstack(list(query))
         self.ec_data = data
-        
+
     def save(self) -> None:
         """Save classifier parameters"""
         log.info("Saving to {}".format(self.save_path))
         path = expand_path(self.save_path)
         make_all_dirs(path)
-
-#        print("densing")
- #       self.x_train_features = [x.todense() for x in self.x_train_features]
-
         save_pickle((self.ec_data, self.x_train_features), path)
 
     def load(self) -> None:
         """Load classifier parameters"""
         log.info("Loading from {}".format(self.load_path))
-        self.ec_data, self.x_train_features = load_pickle(expand_path(self.load_path))
-
- #       print("densing")
-  #      self.x_train_features = [x.todense() for x in self.x_train_features]
+        self.ec_data, self.x_train_features = load_pickle(
+            expand_path(self.load_path))
 
     def __call__(self, q_vects, histories, states):
         """Retrieve catalog items according to the TFIDF measure
@@ -136,17 +128,8 @@ class EcommerceTfidfBot(Component):
         for idx, q_vect in enumerate(q_vects):
 
             log.info(f"Search query {q_vect}")
-            print(q_vect)
-            # b = vstack([q_vect, q_vect])
-            # print(b)
-            # print(type(q_vect))
-            # print(type(b))
 
-            # print(q_vect.shape)
-            # print(b.shape)     
-            # q_comp = vstack([state['history'][-1],q_vect]).toarray()
-
-            if len(states)>=idx+1:
+            if len(states) >= idx+1:
                 state = states[idx]
             else:
                 state = {'start': 0, 'stop': 5}
@@ -161,13 +144,11 @@ class EcommerceTfidfBot(Component):
 
             log.info(f"Current state {state}")
 
-            if len(state['history'])>0:
+            if len(state['history']) > 0:
                 if not np.array_equal(state['history'][-1].todense(), q_vect.todense()):
                     q_comp = q_vect.maximum(state['history'][-1])
-                    print("complex query")
-                    print(q_comp)
                     complex_bool = self._take_complex_query(q_comp, q_vect)
-                    print(complex_bool)
+                    log.info(f"Complex query:{complex_bool}")
 
                     if complex_bool is True:
                         q_vect = q_comp
@@ -179,73 +160,79 @@ class EcommerceTfidfBot(Component):
                             'history': [],
                             'start': 0,
                             'stop': 5,
-                            }
+                        }
                 else:
-                    print('we have the same query')
+                    log.info("the save query came")
             else:
-                print('history is empty')
+                log.info("history is empty")
 
             state['history'].append(q_vect)
-
-#            q_vect_dense = q_vect.todense()
-
-            #cos_distance = [cosine(q_vect_dense, x.todense()) for x in self.x_train_features]
-            # print("cosining")
-            #cos_distance = [cosine(q_vect_dense, x) for x in self.x_train_features]
-            # norm = sparse_norm(q_vect) * sparse_norm(self.x_train_features, axis=1)
-            # cos_similarities = np.array(q_vect.dot(self.x_train_features.T).todense())/norm
-
-            # cos_similarities = cos_similarities[0]
-            # cos_similarities = np.nan_to_num(cos_similarities)
-        
-   #         scores = [(cos, len(self.ec_data[idx]['Title'])) for idx, cos in enumerate(cos_distance)]
-    #        print("calc cosine")
-
-    #        raw_scores = np.array(scores, dtype=[('x', 'float_'), ('y', 'int_')])
-
-     #       answer_ids = np.argsort(raw_scores, order=('x', 'y'))
-      #      print("sorted")
-
-            print('final query')
-            print(q_vect)
+            log.info(f"Final query {q_vect}")
 
             scores = self._similarity(q_vect)
             answer_ids = np.argsort(scores)[::-1]
-            answer_ids = [idx for idx in answer_ids if scores[idx] >= self.min_similarity]
+            answer_ids = [idx for idx in answer_ids if scores[idx]
+                          >= self.min_similarity]
 
             answer_ids = self._state_based_filter(answer_ids, state)
-            
-            items.append([self.ec_data[idx] for idx in answer_ids[state['start']:state['stop']]])
 
-            #confidences.append([cos_distance[idx] for idx in answer_ids[state['start']:state['stop']]])
-            confidences.append([scores[idx] for idx in answer_ids[state['start']:state['stop']]])
-
+            items.append([self.ec_data[idx]
+                          for idx in answer_ids[state['start']:state['stop']]])
+            confidences.append(
+                [scores[idx] for idx in answer_ids[state['start']:state['stop']]])
             back_states.append(state)
+
             entropies.append(self._entropy_subquery(answer_ids))
-
-        print(items)
-        print(confidences)
-
         return (items, entropies), confidences, back_states
 
     def _take_complex_query(self, q_prev: csr_matrix, q_cur: csr_matrix) -> bool:
+        """Decides whether to use the long compound query or the current short query
+
+        Parameters:
+            q_prev: previous query
+            q_cur: current query
+
+        Returns:
+            Bool: whether to use the compound query
+        """
+
         prev_sim = self._similarity(q_prev)
         cur_sim = self._similarity(q_cur)
 
-        if prev_sim.max()>cur_sim.max():
+        if prev_sim.max() > cur_sim.max():
             return True
 
         return False
 
     def _similarity(self, q_vect: Union[csr_matrix, List]) -> List[float]:
+        """Calculates cosine similarity between the user's query and product items.
+
+        Parameters:
+            q_cur: user's query
+
+        Returns:
+            cos_similarities: lits of similarity scores
+        """
+
         norm = sparse_norm(q_vect) * sparse_norm(self.x_train_features, axis=1)
-        cos_similarities = np.array(q_vect.dot(self.x_train_features.T).todense())/norm
+        cos_similarities = np.array(q_vect.dot(
+            self.x_train_features.T).todense())/norm
 
         cos_similarities = cos_similarities[0]
         cos_similarities = np.nan_to_num(cos_similarities)
         return cos_similarities
 
     def _state_based_filter(self, ids, state):
+        """Filters the candidates based on the key-values from the state
+
+        Parameters:
+            ids: list of candidates
+            state: dialog state
+
+        Returns:
+            ids: filtered list of candidates
+        """
+
         for key, value in state.items():
             log.debug(f"Filtering for {key}:{value}")
 
@@ -253,9 +240,9 @@ class EcommerceTfidfBot(Component):
                 price = value
                 log.debug(f"Items before price filtering {len(ids)} with price {price}")
                 ids = [idx for idx in ids
-                        if self.preprocess.price(self.ec_data[idx]) >= price[0] and
-                        self.preprocess.price(self.ec_data[idx]) <= price[1] and
-                        self.preprocess.price(self.ec_data[idx]) != 0]
+                       if self.preprocess.price(self.ec_data[idx]) >= price[0] and
+                       self.preprocess.price(self.ec_data[idx]) <= price[1] and
+                       self.preprocess.price(self.ec_data[idx]) != 0]
                 log.debug(f"Items after price filtering {len(ids)}")
 
             elif key in ['query', 'start', 'stop', 'history']:
@@ -263,8 +250,8 @@ class EcommerceTfidfBot(Component):
 
             else:
                 ids = [idx for idx in ids
-                        if key in self.ec_data[idx]
-                        if self.ec_data[idx][key].lower() == value.lower()]
+                       if key in self.ec_data[idx]
+                       if self.ec_data[idx][key].lower() == value.lower()]
         return ids
 
     def _entropy_subquery(self, results_args: List[int]) -> List[Tuple[float, str, List[Tuple[str, int]]]]:
@@ -298,6 +285,3 @@ class EcommerceTfidfBot(Component):
                      >= self.min_entropy]
 
         return entropies
-
-
-
