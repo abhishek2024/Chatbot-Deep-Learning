@@ -197,15 +197,19 @@ class EcommerceBleuBot(Skill):
                                         if key in self.ec_data[idx]
                                         if self.ec_data[idx][key].lower() == value.lower()]
 
-            response = []
+            
+            local_response = []
             for idx in results_args_sim[start:stop]:
                 temp = copy.copy(self.ec_data[idx])
                 del temp['title_nlped']
                 del temp['feat_nlped']
-                response.append(temp)
+                local_response.append(temp)
 
-            confidence = [(score_title[idx], score_feat[idx])
-                          for idx in results_args_sim[start:stop]]
+            response.append(local_response)
+
+            confidence.append([(score_title[idx], score_feat[idx])
+                          for idx in results_args_sim[start:stop]])
+            
             entropies.append(self._entropy_subquery(results_args_sim))
             log.debug(f"Total number of relevant answers {len(results_args_sim)}")
             back_states.append(state)
