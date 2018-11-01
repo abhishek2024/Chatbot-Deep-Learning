@@ -169,17 +169,17 @@ class EcommerceTfidfBot(Component):
                     complex_bool = self._take_complex_query(q_comp, q_vect)
                     print(complex_bool)
 
-                if complex_bool is True:
-                    q_vect = q_comp
-                    state['start'] = 0
-                    state['stop'] = 5
-                else:
-                    # current short query wins that means that the state should be zeroed
-                    state = {
-                        'history': [],
-                        'start': 0,
-                        'stop': 5,
-                        }
+                    if complex_bool is True:
+                        q_vect = q_comp
+                        state['start'] = 0
+                        state['stop'] = 5
+                    else:
+                        # current short query wins that means that the state should be zeroed
+                        state = {
+                            'history': [],
+                            'start': 0,
+                            'stop': 5,
+                            }
             else:
                 print('history is empty')
 
