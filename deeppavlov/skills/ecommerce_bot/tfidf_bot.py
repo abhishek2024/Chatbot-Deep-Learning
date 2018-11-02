@@ -199,6 +199,9 @@ class EcommerceTfidfBot(Component):
         prev_sim = self._similarity(q_prev)
         cur_sim = self._similarity(q_cur)
 
+        log.debug(f"prev_sim.max(): {prev_sim.max()}")
+        log.debug(f"cur_sim.max(): {cur_sim.max()}")
+
         if prev_sim.max() > cur_sim.max():
             return True
 
