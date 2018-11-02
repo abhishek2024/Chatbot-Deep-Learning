@@ -114,10 +114,10 @@
         "tgt_max_length": 50,
         "decoder_vocab": "#y_chars_vocab",
         "optimizer": "RMSprop",
-        "lear_rate": 0.001,
+        "lear_rate": 0.01,
         "lear_rate_decay": 0.0001,
         "loss": "categorical_crossentropy",
-        "hidden_size": 128,
+        "hidden_size": 256,
         "model_name": "gru_gru_model"
       },
       {
