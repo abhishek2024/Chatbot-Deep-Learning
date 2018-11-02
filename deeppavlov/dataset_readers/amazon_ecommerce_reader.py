@@ -86,7 +86,7 @@ class AmazonEcommerceReader(DatasetReader):
             for line in file:
                 if new_item_re.match(line):
                     if len(item.keys()) > 0:
-                        if 'Title' in item:
+                        if 'Title' in item and 'Feature' in item:
                             ec_data.append(item)
                     item = {'Item': int(line[5:]), 'Category': fname.name.split("_")[1]}
                 else:
