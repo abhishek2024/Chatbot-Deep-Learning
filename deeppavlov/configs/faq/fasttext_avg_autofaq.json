@@ -6,7 +6,17 @@
     "data_url": "http://files.deeppavlov.ai/faq/school/faq_school.csv"
   },
   "dataset_iterator": {
-    "name": "data_learning_iterator"
+    "name": "basic_classification_iterator",
+    "seed": 42,
+    "field_to_split": "train",
+    "split_fields": [
+      "train",
+      "valid"
+    ],
+    "split_proportions": [
+      0.7,
+      0.3
+    ]
   },
   "chainer": {
     "in": "question",
@@ -46,7 +56,10 @@
     ]
   },
   "train": {
-    "validate_best": false,
+    "metrics": [
+      "accuracy"
+    ],
+    "validate_best": true,
     "test_best": false
   },
   "metadata": {

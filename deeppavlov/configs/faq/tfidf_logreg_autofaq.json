@@ -14,8 +14,8 @@
       "valid"
     ],
     "split_proportions": [
-      0.9,
-      0.1
+      0.7,
+      0.3
     ]
   },
   "chainer": {
