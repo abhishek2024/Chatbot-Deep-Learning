@@ -128,10 +128,10 @@
       {
         "name": "char_connector",
         "in": "y_pred_chars",
-        "out": "y_texts"
+        "out": "y_text"
       }
     ],
-    "out": "y_texts"
+    "out": "y_text"
   },
   "train": {
     "epochs": 100,
