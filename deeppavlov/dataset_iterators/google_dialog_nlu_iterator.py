@@ -19,12 +19,13 @@ from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.data_learning_iterator import DataLearningIterator
 
 
-@register('google_dial_ner_iterator')
-class GoogleDialogsNerDatasetIterator(DataLearningIterator):
+@register('google_dialog_nlu_iterator')
+class GoogleDialogsNLUDatasetIterator(DataLearningIterator):
     """
-    Iterates over user utterances for Google Dialogs NER task.
+    Iterates over user utterances for Google Dialogs NLU task.
     Dataset takes a dict with fields 'train', 'test', 'valid'.
-    A list of pairs (utterance tokens, ner bio tags) is stored in each field.
+    A list of pairs (utterance tokens, (ner bio tags, list of intents)) is stored
+    in each field.
     """
     @overrides
     def split(self, *args, **kwargs):
@@ -35,16 +36,24 @@ class GoogleDialogsNerDatasetIterator(DataLearningIterator):
     @classmethod
     def _preprocess(cls, turns):
         utter_slots = {}
+        utter_acts = {}
         for turn in turns:
-            for utter, slots in cls._get_slots(turn):
+            for utter, slots, acts in cls._iter_samples(turn):
                 # remove duplicate pairs (utterance, slots)
                 if slots not in utter_slots.get(utter, []):
                     utter_slots[utter] = utter_slots.get(utter, []) + [slots]
-        return [(u.split(), s) for u in utter_slots.keys() for s in utter_slots[u]]
+                    utter_acts[utter] = acts
+        return [(u.split(), (s, utter_acts[u]))
+                for u in utter_slots.keys() for s in utter_slots[u]]
 
-    @staticmethod
-    def _get_slots(turn):
+    @classmethod
+    def _iter_samples(cls, turn):
         x, y = turn
         # for utter in [x, y]:
         for utter in [x]:
-            yield (utter['text'], utter['slots'])
+            acts = utter['intents'] if 'intents' in utter else utter['acts']
+            yield (utter['text'], utter['slots'], cls._format_acts(acts))
+
+    @staticmethod
+    def _format_acts(acts):
+        return [a['act'] for a in acts]

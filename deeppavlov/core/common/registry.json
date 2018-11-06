@@ -39,7 +39,7 @@
   "featurized_tracker": "deeppavlov.models.go_bot.tracker:FeaturizedTracker",
   "glove": "deeppavlov.models.embedders.glove_embedder:GloVeEmbedder",
   "go_bot_rnn": "deeppavlov.models.go_bot.network:GoalOrientedBotNetwork",
-  "google_dial_ner_iterator": "deeppavlov.dataset_iterators.google_dial_ner_iterator:GoogleDialogsNerDatasetIterator",
+  "google_dialog_nlu_iterator": "deeppavlov.dataset_iterators.google_dialog_nlu_iterator:GoogleDialogsNLUDatasetIterator",
   "hashing_tfidf_vectorizer": "deeppavlov.models.vectorizers.hashing_tfidf_vectorizer:HashingTfIdfVectorizer",
   "insurance_reader": "deeppavlov.dataset_readers.insurance_reader:InsuranceReader",
   "kenlm_elector": "deeppavlov.models.spelling_correction.electors.kenlm_elector:KenlmElector",
