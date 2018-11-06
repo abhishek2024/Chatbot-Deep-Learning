@@ -5,7 +5,10 @@
     "train": "rus.txt",
     "sep": "\t",
     "header": null,
-    "names": ["eng", "rus"],
+    "names": [
+      "eng",
+      "rus"
+    ],
     "x": "eng",
     "y": "rus"
   },
@@ -41,20 +44,9 @@
       },
       {
         "in": "x_prep",
-        "id": "x_chars_vocab",
-        "name": "simple_vocab",
-        "pad_with_zeros": false,
-        "fit_on": [
-          "x_prep"
-        ],
-        "save_path": "seq2seq/rus-eng/x_chars.dict",
-        "load_path": "seq2seq/rus-eng/x_chars.dict",
-        "special_tokens": [
-          "<UNK>",
-          "<PAD>"
-        ],
-        "min_freq": 50,
-        "out": "x_chars_ind"
+        "out": "x_char",
+        "name": "char_splitter",
+        "id": "my_splitter"
       },
       {
         "in": "y",
@@ -63,17 +55,39 @@
       },
       {
         "in": "y_prep",
+        "out": "y_char",
+        "ref": "my_splitter"
+      },
+      {
+        "in": "x_char",
+        "id": "x_chars_vocab",
+        "name": "simple_vocab",
+        "pad_with_zeros": false,
+        "fit_on": [
+          "x_char"
+        ],
+        "save_path": "seq2seq/rus-eng/x_chars.dict",
+        "load_path": "seq2seq/rus-eng/x_chars.dict",
+        "special_tokens": [
+          "<PAD>",
+          "<UNK>"
+        ],
+        "min_freq": 50,
+        "out": "x_chars_ind"
+      },
+      {
+        "in": "y_char",
         "id": "y_chars_vocab",
         "name": "simple_vocab",
         "pad_with_zeros": false,
         "special_tokens": [
+          "<PAD>",
           "<UNK>",
-          "<SOS>",
-          "<EOS>",
-          "<PAD>"
+          "<BOS>",
+          "<EOS>"
         ],
         "fit_on": [
-          "y_prep"
+          "y_char"
         ],
         "save_path": "seq2seq/rus-eng/y_chars.dict",
         "load_path": "seq2seq/rus-eng/y_chars.dict",
@@ -86,24 +100,24 @@
         "out": "y_chars_ind_pred",
         "main": true,
         "name": "keras_seq2seq_char_model",
-        "save_path": "seq2seq/rus-eng/char_lstm_lstm_model_v0",
-        "load_path": "seq2seq/rus-eng/char_lstm_lstm_model_v0",
+        "save_path": "seq2seq/rus-eng/char_gru_gru_model_v0",
+        "load_path": "seq2seq/rus-eng/char_gru_gru_model_v0",
         "encoder_embedding_size": 100,
         "decoder_embedding_size": 100,
-        "source_vocab_size": "#x_chars_vocab.__len__()",
-        "target_vocab_size": "#y_chars_vocab.__len__()",
-        "source_padding_index": "#x_chars_vocab.__getitem__('<PAD>')",
-        "target_padding_index": "#y_chars_vocab.__getitem__('<PAD>')",
-        "target_start_of_sequence_index": "#y_chars_vocab.__getitem__('<SOS>')",
-        "target_end_of_sequence_index": "#y_chars_vocab.__getitem__('<EOS>')",
-        "source_max_length": 50,
-        "target_max_length": 50,
+        "src_vocab_size": "#x_chars_vocab.__len__()",
+        "tgt_vocab_size": "#y_chars_vocab.__len__()",
+        "src_pad_id": "#x_chars_vocab.__getitem__('<PAD>')",
+        "tgt_pad_id": "#y_chars_vocab.__getitem__('<PAD>')",
+        "tgt_bos_id": "#y_chars_vocab.__getitem__('<BOS>')",
+        "tgt_eos_id": "#y_chars_vocab.__getitem__('<EOS>')",
+        "src_max_length": 50,
+        "tgt_max_length": 50,
         "decoder_vocab": "#y_chars_vocab",
         "optimizer": "RMSprop",
-        "lear_rate": 0.001,
+        "lear_rate": 0.01,
         "lear_rate_decay": 0.0001,
         "loss": "categorical_crossentropy",
-        "hidden_size": 128,
+        "hidden_size": 256,
         "model_name": "gru_gru_model"
       },
       {
@@ -120,8 +134,8 @@
     "out": "y_texts"
   },
   "train": {
-    "epochs": 10,
-    "batch_size": 64,
+    "epochs": 100,
+    "batch_size": 512,
     "metrics": [
       "bleu",
       "per_token_accuracy"
@@ -129,9 +143,10 @@
     "validation_patience": 5,
     "val_every_n_epochs": 1,
     "log_every_n_epochs": 1,
-    "show_examples": false,
+    "show_examples": true,
     "validate_best": true,
-    "test_best": false
+    "test_best": false,
+    "tensorboard_log_dir": "./seq2seq/rus-eng/char_logs/"
   },
   "metadata": {
     "requirements": [

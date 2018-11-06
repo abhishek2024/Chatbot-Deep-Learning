@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Tuple, Union
-import json
+from typing import List, Tuple, Union, Optional
 import numpy as np
-import scipy.sparse as sp
+from overrides import overrides
+from copy import deepcopy
+
 from keras.layers import Dense, Input, concatenate, Activation, Concatenate, Reshape, Embedding
 from keras.layers.wrappers import Bidirectional
 from keras.layers.recurrent import LSTM, GRU
@@ -25,39 +26,39 @@ from keras.layers.normalization import BatchNormalization
 from keras.layers.pooling import GlobalMaxPooling1D, MaxPooling1D, GlobalAveragePooling1D
 from keras.models import Model
 from keras.regularizers import l2
-from keras.backend import tile
-from keras import backend as K
 
-from deeppavlov.core.models.keras_model import KerasModel
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.layers.keras_layers import masking_sequences
+from deeppavlov.models.classifiers.keras_classification_model import KerasClassificationModel
 
 log = get_logger(__name__)
 
 
 @register("keras_seq2seq_token_model")
-class KerasSeq2SeqTokenModel(KerasModel):
+class KerasSeq2SeqTokenModel(KerasClassificationModel):
     """
     Class implements Keras model for seq2seq task on token-level
 
     Args:
         hidden_size: size of the hidden layer of encoder and decoder
-        target_vocab_size: vocabulary size of target sequences
-        target_padding_index: index of padding special token in target vocabulary
-        target_start_of_sequence_index: index of start-of-sequence special token in target vocabulary
-        target_end_of_sequence_index: index of end-of-sequence special token in target vocabulary
+        tgt_vocab_size: vocabulary size of target sequences
+        tgt_pad_id: index of padding special token in target vocabulary
+        tgt_bos_id: index of begin-of-sequence special token in target vocabulary
+        tgt_eos_id: index of end-of-sequence special token in target vocabulary
         encoder_embedding_size: embedding size of encoder's embedder
         decoder_embedder: decoder's embedder component
         decoder_vocab: decoder's vocab component
-        source_max_length: maximal token length of source sequence
-        target_max_length: maximal token length of target sequence
+        src_max_length: maximal token length of source sequence
+        tgt_max_length: maximal token length of target sequence
         model_name: string name of particular method of this class that builds seq2seq model
         optimizer: string name of optimizer from keras.optimizers
         loss: string name of loss from keras.losses
-        lear_rate learning rate for optimizer
-        lear_rate_decay: learning rate decay for optimizer
+        learning_rate learning rate for optimizer
+        learning_rate_decay: learning rate decay for optimizer
+        restore_lr: whether to reinitialize learning rate value  \
+            within the final stored in model_opt.json (if model was loaded)
         **kwargs: additional arguments
 
     Attributes:
@@ -71,50 +72,47 @@ class KerasSeq2SeqTokenModel(KerasModel):
     """
     def __init__(self,
                  hidden_size: int,
-                 target_vocab_size: int,
-                 target_padding_index: int,
-                 target_start_of_sequence_index: int,
-                 target_end_of_sequence_index: int,
+                 tgt_vocab_size: int,
+                 tgt_pad_id: int,
+                 tgt_bos_id: int,
+                 tgt_eos_id: int,
                  encoder_embedding_size: int,
                  decoder_embedder: Component,
                  decoder_vocab: Component,
-                 source_max_length: int = None,
-                 target_max_length: int = None,
-                 model_name: str = "lstm_lstm_model",
+                 src_max_length: Optional[int] = None,
+                 tgt_max_length: Optional[int] = None,
+                 model_name: str = "gru_gru_model",
                  optimizer: str = "Adam",
                  loss: str = "categorical_crossentropy",
-                 lear_rate: float = 0.01,
-                 lear_rate_decay: float = 0.,
+                 learning_rate: float = 0.01,
+                 learning_rate_decay: float = 0.,
                  restore_lr: bool = False,
-                 **kwargs):
+                 **kwargs) -> None:
         """
         Initialize models for training and infering using parameters from config.
         """
         decoder_embedding_size = kwargs.pop("decoder_embedding_size", decoder_embedder.dim)
 
-        super().__init__(hidden_size=hidden_size,
-                         tgt_vocab_size=target_vocab_size,
-                         tgt_pad_id=target_padding_index,
-                         tgt_sos_id=target_start_of_sequence_index,
-                         tgt_eos_id=target_end_of_sequence_index,
-                         encoder_embedding_size=encoder_embedding_size,
-                         decoder_embedding_size=decoder_embedding_size,
-                         src_max_length=source_max_length,
-                         tgt_max_length=target_max_length,
-                         model_name=model_name,
-                         optimizer=optimizer,
-                         loss=loss,
-                         lear_rate=lear_rate,
-                         lear_rate_decay=lear_rate_decay,
-                         restore_lr=restore_lr,
-                         **kwargs)
+        given_opt = {"hidden_size": hidden_size,
+                     "tgt_vocab_size": tgt_vocab_size,
+                     "tgt_pad_id": tgt_pad_id,
+                     "tgt_bos_id": tgt_bos_id,
+                     "tgt_eos_id": tgt_eos_id,
+                     "encoder_embedding_size": encoder_embedding_size,
+                     "decoder_embedding_size": decoder_embedding_size,
+                     "src_max_length": src_max_length,
+                     "tgt_max_length": tgt_max_length,
+                     "model_name": model_name,
+                     "optimizer": optimizer,
+                     "loss": loss,
+                     "learning_rate": learning_rate,
+                     "learning_rate_decay": learning_rate_decay,
+                     "restore_lr": restore_lr,
+                     **kwargs}
 
-        # Parameters required to init model
-        params = {"model_name": self.opt.get('model_name'),
-                  "optimizer_name": self.opt.get('optimizer'),
-                  "loss_name": self.opt.get('loss'),
-                  "lear_rate": self.opt.get('lear_rate'),
-                  "lear_rate_decay": self.opt.get('lear_rate_decay')}
+        self.opt = deepcopy(given_opt)
+
+        super(KerasClassificationModel, self).__init__(**given_opt)
 
         self.decoder_embedder = decoder_embedder
         self.decoder_vocab = decoder_vocab
@@ -122,37 +120,26 @@ class KerasSeq2SeqTokenModel(KerasModel):
         self.encoder_model = None
         self.decoder_model = None
 
-        self.model = self.load(model_name=model_name)
+        self.load(model_name=model_name)
 
         if restore_lr:
-            lear_rate = self.opt.get("final_lear_rate", lear_rate)
+            learning_rate = self.opt.get("final_learning_rate", learning_rate)
 
         self.model = self.compile(self.model, optimizer_name=optimizer, loss_name=loss,
-                                  lear_rate=lear_rate, lear_rate_decay=lear_rate_decay)
+                                  learning_rate=learning_rate, learning_rate_decay=learning_rate_decay)
 
         self.encoder_model = self.compile(self.encoder_model, optimizer_name=optimizer, loss_name=loss,
-                                          lear_rate=lear_rate, lear_rate_decay=lear_rate_decay)
+                                          learning_rate=learning_rate, learning_rate_decay=learning_rate_decay)
         self.decoder_model = self.compile(self.decoder_model, optimizer_name=optimizer, loss_name=loss,
-                                          lear_rate=lear_rate, lear_rate_decay=lear_rate_decay)
+                                          learning_rate=learning_rate, learning_rate_decay=learning_rate_decay)
 
-        self._change_not_fixed_params(hidden_size=hidden_size,
-                                      tgt_vocab_size=target_vocab_size,
-                                      tgt_pad_id=target_padding_index,
-                                      tgt_sos_id=target_start_of_sequence_index,
-                                      tgt_eos_id=target_end_of_sequence_index,
-                                      encoder_embedding_size=encoder_embedding_size,
-                                      decoder_embedding_size=decoder_embedding_size,
-                                      src_max_length=source_max_length,
-                                      tgt_max_length=target_max_length,
-                                      model_name=model_name,
-                                      optimizer=optimizer,
-                                      loss=loss,
-                                      lear_rate=lear_rate,
-                                      lear_rate_decay=lear_rate_decay,
-                                      restore_lr=restore_lr,
-                                      **kwargs)
-        return
+        self._change_not_fixed_params(**given_opt)
 
+        summary = ['Model was successfully initialized!', 'Model summary:']
+        self.model.summary(print_fn=summary.append)
+        log.info('\n'.join(summary))
+
+    @overrides
     def _change_not_fixed_params(self, **kwargs) -> None:
         """
         Change changable parameters from saved model to given ones.
@@ -168,7 +155,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
             "hidden_size",
             "src_vocab_size",
             "tgt_vocab_size",
-            "tgt_sos_id",
+            "tgt_bos_id",
             "tgt_eos_id",
             "encoder_embedding_size",
             "decoder_embedding_size",
@@ -208,6 +195,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
 
         return embeddings_batch
 
+    @overrides
     def pad_texts(self, sentences: Union[List[List[np.ndarray]], List[List[int]]],
                   text_size: int, embedding_size: int = None,
                   padding_token_id: int = 0,
@@ -315,18 +303,32 @@ class KerasSeq2SeqTokenModel(KerasModel):
                                              self.opt["encoder_embedding_size"]))
 
         self._encoder_inp_lengths = Input(shape=(2,), dtype='int32')
+        #
+        # _encoder_outputs, _encoder_state = GRU(
+        #     hidden_size,
+        #     activation='tanh',
+        #     return_state=True,  # get encoder's last state
+        #     return_sequences=True,
+        #     kernel_regularizer=l2(encoder_coef_reg_lstm),
+        #     dropout=encoder_dropout_rate,
+        #     recurrent_dropout=encoder_rec_dropout_rate,
+        #     name="encoder_gru")(self._encoder_emb_inp)
+        #
+        # self._encoder_state = masking_sequences(_encoder_outputs, self._encoder_inp_lengths)
 
         _encoder_outputs, _encoder_state = GRU(
             hidden_size,
             activation='tanh',
             return_state=True,  # get encoder's last state
-            return_sequences=True,
+            return_sequences=True,  # for extracting exactly the last hidden layer
             kernel_regularizer=l2(encoder_coef_reg_lstm),
             dropout=encoder_dropout_rate,
             recurrent_dropout=encoder_rec_dropout_rate,
             name="encoder_gru")(self._encoder_emb_inp)
 
-        self._encoder_state = masking_sequences(_encoder_outputs, self._encoder_inp_lengths)
+        self._encoder_state = GlobalMaxPooling1D()(_encoder_outputs)
+        # self._encoder_state = GlobalAveragePooling1D()(_encoder_outputs)
+
         return None
 
     def _build_decoder(self,
@@ -352,11 +354,30 @@ class KerasSeq2SeqTokenModel(KerasModel):
 
         self._decoder_input_state = Input(shape=(hidden_size,))
 
+        # decoder_gru = GRU(
+        #     hidden_size,
+        #     activation='tanh',
+        #     return_state=True,  # due to teacher forcing, this state is used only for inference
+        #     return_sequences=True,  # to get decoder_n_tokens outputs' representations
+        #     kernel_regularizer=l2(decoder_coef_reg_lstm),
+        #     dropout=decoder_dropout_rate,
+        #     recurrent_dropout=decoder_rec_dropout_rate,
+        #     name="decoder_gru")
+        #
+        # _train_decoder_outputs, _train_decoder_state = decoder_gru(
+        #     self._decoder_emb_inp,
+        #     initial_state=self._encoder_state)
+        # self._train_decoder_state = masking_sequences(_train_decoder_outputs, self._decoder_inp_lengths)
+        #
+        # _infer_decoder_outputs, self._infer_decoder_state = decoder_gru(
+        #     self._decoder_emb_inp,
+        #     initial_state=self._decoder_input_state)
+
         decoder_gru = GRU(
             hidden_size,
             activation='tanh',
             return_state=True,  # due to teacher forcing, this state is used only for inference
-            return_sequences=True,  # to get decoder_n_tokens outputs' representations
+            return_sequences=True,  # to get decoder_n_chars outputs' representations
             kernel_regularizer=l2(decoder_coef_reg_lstm),
             dropout=decoder_dropout_rate,
             recurrent_dropout=decoder_rec_dropout_rate,
@@ -365,11 +386,14 @@ class KerasSeq2SeqTokenModel(KerasModel):
         _train_decoder_outputs, _train_decoder_state = decoder_gru(
             self._decoder_emb_inp,
             initial_state=self._encoder_state)
-        self._train_decoder_state = masking_sequences(_train_decoder_outputs, self._decoder_inp_lengths)
+        self._train_decoder_state = GlobalMaxPooling1D()(_train_decoder_outputs)
+        # self._train_decoder_state = GlobalAveragePooling1D()(_train_decoder_outputs)
 
-        _infer_decoder_outputs, self._infer_decoder_state = decoder_gru(
+        _infer_decoder_outputs, _infer_decoder_state = decoder_gru(
             self._decoder_emb_inp,
             initial_state=self._decoder_input_state)
+        self._infer_decoder_state = GlobalMaxPooling1D()(_infer_decoder_outputs)
+        # self._infer_decoder_state = GlobalAveragePooling1D()(_infer_decoder_outputs)
 
         decoder_dense = Dense(self.opt["tgt_vocab_size"], name="dense_gru", activation="softmax")
         self._train_decoder_outputs = decoder_dense(_train_decoder_outputs)
@@ -377,6 +401,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
 
         return None
 
+    @overrides
     def train_on_batch(self, x: Tuple[List[np.ndarray]], y: Tuple[List[int]], **kwargs) -> Union[float, List[float]]:
         """
         Train the self.model on the given batch using teacher forcing
@@ -393,7 +418,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
                                                              text_size=self.opt["src_max_length"],
                                                              embedding_size=self.opt["encoder_embedding_size"],
                                                              return_lengths=True)
-        dec_inputs = [[self.opt["tgt_sos_id"]] +
+        dec_inputs = [[self.opt["tgt_bos_id"]] +
                       list(sample) + [self.opt["tgt_eos_id"]]
                       for sample in y]  # (bs, ts + 2) of integers (tokens ids)
         text_dec_inputs = self.decoder_vocab(dec_inputs)
@@ -419,6 +444,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
                                                    pad_onehot_dec_outputs)
         return metrics_values
 
+    @overrides
     def infer_on_batch(self, x: List[List[np.ndarray]], **kwargs) -> List[List[int]]:
         """
         Infer self.encoder_model and self.decoder_model on the given data (no teacher forcing)
@@ -442,7 +468,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
         for i in range(len(x)):  # batch size
             predicted_sample = []
 
-            current_token = self.decoder_embedder([[self.decoder_vocab[self.opt["tgt_sos_id"]]]])[0][0]  # (300,)
+            current_token = self.decoder_embedder([[self.decoder_vocab[self.opt["tgt_bos_id"]]]])[0][0]  # (300,)
             end_of_sequence = False
             state = encoder_state[i].reshape((1, -1))
 
@@ -462,6 +488,7 @@ class KerasSeq2SeqTokenModel(KerasModel):
 
         return predicted_batch
 
+    @overrides
     def __call__(self, x: List[List[np.ndarray]], **kwargs) -> np.ndarray:
         """
         Infer self.encoder_model and self.decoder_model on the given data (no teacher forcing)

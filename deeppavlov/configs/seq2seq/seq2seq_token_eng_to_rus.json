@@ -15,6 +15,7 @@
   "dataset_iterator": {
     "name": "basic_classification_iterator",
     "seed": 42,
+    "split_seed": 23,
     "field_to_split": "train",
     "split_fields": [
       "train",
@@ -72,17 +73,17 @@
         "name": "simple_vocab",
         "pad_with_zeros": false,
         "special_tokens": [
+          "<PAD>",
           "<UNK>",
-          "<SOS>",
-          "<EOS>",
-          "<PAD>"
+          "<BOS>",
+          "<EOS>"
         ],
         "fit_on": [
           "y_tok"
         ],
         "save_path": "seq2seq/rus-eng/y_tokens.dict",
         "load_path": "seq2seq/rus-eng/y_tokens.dict",
-        "min_freq": 1,
+        "min_freq": 10,
         "out": "y_tok_ind"
       },
       {
@@ -102,21 +103,21 @@
         "out": "y_tok_ind_pred",
         "main": true,
         "name": "keras_seq2seq_token_model",
-        "save_path": "seq2seq/rus-eng/token_lstm_lstm_model_v0",
-        "load_path": "seq2seq/rus-eng/token_lstm_lstm_model_v0",
+        "save_path": "seq2seq/rus-eng/token_gru_gru_model_v0",
+        "load_path": "seq2seq/rus-eng/token_gru_gru_model_v0",
         "encoder_embedding_size": "#my_embedder.dim",
         "decoder_embedding_size": "#dec_embedder.dim",
-        "target_vocab_size": "#y_tokens_vocab.__len__()",
-        "target_padding_index": "#y_tokens_vocab.__getitem__('<PAD>')",
-        "target_start_of_sequence_index": "#y_tokens_vocab.__getitem__('<SOS>')",
-        "target_end_of_sequence_index": "#y_tokens_vocab.__getitem__('<EOS>')",
-        "source_max_length": 12,
-        "target_max_length": 12,
+        "tgt_vocab_size": "#y_tokens_vocab.__len__()",
+        "tgt_pad_id": "#y_tokens_vocab.__getitem__('<PAD>')",
+        "tgt_bos_id": "#y_tokens_vocab.__getitem__('<BOS>')",
+        "tgt_eos_id": "#y_tokens_vocab.__getitem__('<EOS>')",
+        "src_max_length": 12,
+        "tgt_max_length": 12,
         "decoder_embedder": "#dec_embedder",
         "decoder_vocab": "#y_tokens_vocab",
         "optimizer": "RMSprop",
-        "lear_rate": 0.001,
-        "lear_rate_decay": 0,
+        "learning_rate": 0.001,
+        "learning_rate_decay": 0,
         "loss": "categorical_crossentropy",
         "hidden_size": 256,
         "model_name": "gru_gru_model"
@@ -135,8 +136,8 @@
     "out": "y_text"
   },
   "train": {
-    "epochs": 10,
-    "batch_size": 64,
+    "epochs": 100,
+    "batch_size": 512,
     "metrics": [
       "bleu",
       "per_token_accuracy"
@@ -144,9 +145,10 @@
     "validation_patience": 5,
     "val_every_n_epochs": 1,
     "log_every_n_epochs": 1,
-    "show_examples": false,
+    "show_examples": true,
     "validate_best": true,
-    "test_best": true
+    "test_best": true,
+    "tensorboard_log_dir": "./seq2seq./rus-eng/token_logs/"
   },
   "metadata": {
     "requirements": [
@@ -157,6 +159,10 @@
       "http://files.deeppavlov.ai/datasets/rus-eng.tar.gz",
       {
         "url": "http://files.deeppavlov.ai/deeppavlov_data/embeddings/wiki.en.bin",
+        "subdir": "embeddings"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
         "subdir": "embeddings"
       }
     ]
