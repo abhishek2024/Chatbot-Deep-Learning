@@ -107,6 +107,7 @@ class StateTrackerNetwork(EnhancedTFModel):
         # self._probs = _logits_exp / _logits_exp_sum
 
         # _prediction: [num_slots]
+        self._logits = _logits
         self._prediction = tf.argmax(_logits, axis=-1, name='prediction')
 
         _loss_tensor = \
@@ -121,7 +122,7 @@ class StateTrackerNetwork(EnhancedTFModel):
         self._summary = tf.summary.merge_all()
         self._train_writer = tf.summary.FileWriter(f"logs/train_{time()}", self.graph)
         self._test_writer = tf.summary.FileWriter(f"logs/test_{time()}")
-        self._train_op = self.get_train_op(self._loss, clip_norm=10.)
+        self._train_op = self.get_train_op(self._loss, clip_norm=2.)
 
     def _add_placeholders(self):
         # _utt_token_idx: [2, num_tokens]
@@ -370,6 +371,8 @@ class StateTrackerNetwork(EnhancedTFModel):
                                                        axis=0, pad_axis=2)
         # print(f"utt_token_idx: {utt_token_idx}")
         # print(f"utt_slot_idx_mat: {utt_slot_idx}")
+        # prediction, logits = self.sess.run(
+        #    [self._prediction, self._logits],
         prediction = self.sess.run(
             self._prediction,
             feed_dict={
@@ -387,6 +390,8 @@ class StateTrackerNetwork(EnhancedTFModel):
 # TODO: implement infer probabilities
         if prob:
             raise NotImplementedError("Probs not available for now.")
+        # logits = np.reshape(logits, [1, -1])
+        # return prediction, logits
         return prediction
 
     def calc_loss(self, u_utt_token_idx, u_utt_slot_tok_val_idx, u_act_idx,

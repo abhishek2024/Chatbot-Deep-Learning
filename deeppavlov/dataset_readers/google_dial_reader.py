@@ -71,6 +71,11 @@ class GoogleDialogsDatasetReader(DatasetReader):
             }
         elif mode == 'full_train':
             data['train'] = data['train'] + data['test']
+        elif mode == 'full_train2':
+            data['train'] = data['train'] + data['valid']
+            tmp = data['valid']
+            data['valid'] = data['test']
+            data['test'] = tmp
         return data
 
     @classmethod

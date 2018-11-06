@@ -119,8 +119,11 @@ class SlotsValuesMatrixBuilder(Component):
     @staticmethod
     def _value2idx(slot, value, candidates):
         if value not in candidates[slot]:
-            raise RuntimeError(f"'{slot}' slot's value '{value}' doesn't match"
-                               " any value from candidates {candidates}.")
+            # log.info(f"slot's '{slot}' value '{value}' doesn't match"
+            #         f" any value from candidates {candidates}.")
+            # raise RuntimeError(f"'{slot}' slot's value '{value}' doesn't match"
+            #                   " any value from candidates {candidates}.")
+            return 0
         return candidates[slot].index(value)
 
     @staticmethod

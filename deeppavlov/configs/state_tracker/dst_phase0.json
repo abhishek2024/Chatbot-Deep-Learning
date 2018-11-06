@@ -157,7 +157,7 @@
         "learning_rate_decay": "linear",
         "learning_rate_decay_epochs": 20,
         "optimizer": "tf.train:MomentumOptimizer",
-        "momentum": 0.94
+        "momentum": 0.96
       },
       {
         "class": "deeppavlov.models.state_tracker.preprocessors:SlotsValuesMatrix2Dict",
@@ -177,8 +177,8 @@
     "val_every_n_epochs": 1,
 
     "log_every_n_epochs": 1,
-    "validate_best": false,
-    "test_best": true,
+    "validate_best": true,
+    "test_best": false,
     "tensorboard_log_dir": "logs"
   },
   "metadata": {
