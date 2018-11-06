@@ -17,20 +17,15 @@ import numpy as np
 from overrides import overrides
 from copy import deepcopy
 
-from keras.layers import Dense, Input, concatenate, Activation, Concatenate, Reshape, Embedding
-from keras.layers.wrappers import Bidirectional
-from keras.layers.recurrent import LSTM, GRU
-from keras.layers.convolutional import Conv1D
-from keras.layers.core import Dropout
-from keras.layers.normalization import BatchNormalization
-from keras.layers.pooling import GlobalMaxPooling1D, MaxPooling1D, GlobalAveragePooling1D
+from keras.layers import Dense, Input
+from keras.layers.recurrent import GRU
+from keras.layers.pooling import GlobalMaxPooling1D
 from keras.models import Model
 from keras.regularizers import l2
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.models.component import Component
-from deeppavlov.core.layers.keras_layers import masking_sequences
 from deeppavlov.models.classifiers.keras_classification_model import KerasClassificationModel
 
 log = get_logger(__name__)
@@ -304,19 +299,6 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
                                              self.opt["encoder_embedding_size"]))
 
         self._encoder_inp_lengths = Input(shape=(2,), dtype='int32')
-        #
-        # _encoder_outputs, _encoder_state = GRU(
-        #     hidden_size,
-        #     activation='tanh',
-        #     return_state=True,  # get encoder's last state
-        #     return_sequences=True,
-        #     kernel_regularizer=l2(encoder_coef_reg_lstm),
-        #     dropout=encoder_dropout_rate,
-        #     recurrent_dropout=encoder_rec_dropout_rate,
-        #     name="encoder_gru")(self._encoder_emb_inp)
-        #
-        # self._encoder_state = masking_sequences(_encoder_outputs, self._encoder_inp_lengths)
-
         _encoder_outputs, _encoder_state = GRU(
             hidden_size,
             activation='tanh',
@@ -328,7 +310,6 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
             name="encoder_gru")(self._encoder_emb_inp)
 
         self._encoder_state = GlobalMaxPooling1D()(_encoder_outputs)
-        # self._encoder_state = GlobalAveragePooling1D()(_encoder_outputs)
 
         return None
 
@@ -355,25 +336,6 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
 
         self._decoder_input_state = Input(shape=(hidden_size,))
 
-        # decoder_gru = GRU(
-        #     hidden_size,
-        #     activation='tanh',
-        #     return_state=True,  # due to teacher forcing, this state is used only for inference
-        #     return_sequences=True,  # to get decoder_n_tokens outputs' representations
-        #     kernel_regularizer=l2(decoder_coef_reg_lstm),
-        #     dropout=decoder_dropout_rate,
-        #     recurrent_dropout=decoder_rec_dropout_rate,
-        #     name="decoder_gru")
-        #
-        # _train_decoder_outputs, _train_decoder_state = decoder_gru(
-        #     self._decoder_emb_inp,
-        #     initial_state=self._encoder_state)
-        # self._train_decoder_state = masking_sequences(_train_decoder_outputs, self._decoder_inp_lengths)
-        #
-        # _infer_decoder_outputs, self._infer_decoder_state = decoder_gru(
-        #     self._decoder_emb_inp,
-        #     initial_state=self._decoder_input_state)
-
         decoder_gru = GRU(
             hidden_size,
             activation='tanh',
@@ -388,13 +350,11 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
             self._decoder_emb_inp,
             initial_state=self._encoder_state)
         self._train_decoder_state = GlobalMaxPooling1D()(_train_decoder_outputs)
-        # self._train_decoder_state = GlobalAveragePooling1D()(_train_decoder_outputs)
 
         _infer_decoder_outputs, _infer_decoder_state = decoder_gru(
             self._decoder_emb_inp,
             initial_state=self._decoder_input_state)
         self._infer_decoder_state = GlobalMaxPooling1D()(_infer_decoder_outputs)
-        # self._infer_decoder_state = GlobalAveragePooling1D()(_infer_decoder_outputs)
 
         decoder_dense = Dense(self.opt["tgt_vocab_size"], name="dense_gru", activation="softmax")
         self._train_decoder_outputs = decoder_dense(_train_decoder_outputs)
