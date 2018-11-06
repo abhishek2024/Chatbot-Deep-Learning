@@ -2,7 +2,7 @@
   "dataset_reader": {
     "name": "basic_dataset_reader",
     "data_path": "./rus-eng",
-    "train": "rus.txt",
+    "train": "rus_very_short.txt",
     "sep": "\t",
     "header": null,
     "names": [
@@ -110,8 +110,8 @@
         "tgt_pad_id": "#y_chars_vocab.__getitem__('<PAD>')",
         "tgt_bos_id": "#y_chars_vocab.__getitem__('<BOS>')",
         "tgt_eos_id": "#y_chars_vocab.__getitem__('<EOS>')",
-        "src_max_length": 50,
-        "tgt_max_length": 50,
+        "src_max_length": 100,
+        "tgt_max_length": 100,
         "decoder_vocab": "#y_chars_vocab",
         "optimizer": "RMSprop",
         "lear_rate": 0.01,
