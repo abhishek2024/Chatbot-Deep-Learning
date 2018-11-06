@@ -112,6 +112,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
 
         self.opt = deepcopy(given_opt)
 
+        # calling init of KerasModel (not KerasClassificationModel)
         super(KerasClassificationModel, self).__init__(**given_opt)
 
         self.decoder_embedder = decoder_embedder

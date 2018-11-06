@@ -113,6 +113,7 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
 
         self.opt = deepcopy(given_opt)
 
+        # calling init of KerasModel (not KerasClassificationModel)
         super(KerasClassificationModel, self).__init__(**given_opt)
 
         self.decoder_vocab = decoder_vocab
