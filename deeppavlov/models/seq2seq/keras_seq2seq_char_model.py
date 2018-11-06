@@ -272,17 +272,6 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
                                      output_dim=self.opt["encoder_embedding_size"],
                                      input_length=self.opt["src_max_length"])(self._encoder_inp)
 
-        # _encoder_outputs, _encoder_state = GRU(
-        #     hidden_size,
-        #     activation='tanh',
-        #     return_state=True,  # get encoder's last state
-        #     return_sequences=True,  # for extracting exactly the last hidden layer
-        #     kernel_regularizer=l2(encoder_coef_reg_lstm),
-        #     dropout=encoder_dropout_rate,
-        #     recurrent_dropout=encoder_rec_dropout_rate,
-        #     name="encoder_gru")(_encoder_emb_inp)
-        # self._encoder_state = masking_sequences(_encoder_outputs, self._encoder_inp_lengths)
-
         _encoder_outputs, _encoder_state = GRU(
             hidden_size,
             activation='tanh',
@@ -294,7 +283,6 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
             name="encoder_gru")(_encoder_emb_inp)
 
         self._encoder_state = GlobalMaxPooling1D()(_encoder_outputs)
-        # self._encoder_state = GlobalAveragePooling1D()(_encoder_outputs)
 
         return None
 
@@ -324,25 +312,6 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
 
         self._decoder_input_state = Input(shape=(hidden_size,))
 
-        # decoder_gru = GRU(
-        #     hidden_size,
-        #     activation='tanh',
-        #     return_state=True,  # due to teacher forcing, this state is used only for inference
-        #     return_sequences=True,  # to get decoder_n_chars outputs' representations
-        #     kernel_regularizer=l2(decoder_coef_reg_lstm),
-        #     dropout=decoder_dropout_rate,
-        #     recurrent_dropout=decoder_rec_dropout_rate,
-        #     name="decoder_gru")
-        #
-        # _train_decoder_outputs, _train_decoder_state = decoder_gru(
-        #     _decoder_emb_inp,
-        #     initial_state=self._encoder_state)
-        # self._train_decoder_state = masking_sequences(_train_decoder_outputs, self._decoder_inp_lengths)
-        #
-        # _infer_decoder_outputs, self._infer_decoder_state = decoder_gru(
-        #     _decoder_emb_inp,
-        #     initial_state=self._decoder_input_state)
-
         decoder_gru = GRU(
             hidden_size,
             activation='tanh',
@@ -357,13 +326,11 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
             _decoder_emb_inp,
             initial_state=self._encoder_state)
         self._train_decoder_state = GlobalMaxPooling1D()(_train_decoder_outputs)
-        # self._train_decoder_state = GlobalAveragePooling1D()(_train_decoder_outputs)
 
         _infer_decoder_outputs, _infer_decoder_state = decoder_gru(
             _decoder_emb_inp,
             initial_state=self._decoder_input_state)
         self._infer_decoder_state = GlobalMaxPooling1D()(_infer_decoder_outputs)
-        # self._infer_decoder_state = GlobalAveragePooling1D()(_infer_decoder_outputs)
 
         decoder_dense = Dense(self.opt["tgt_vocab_size"], name="dense_gru", activation="softmax")
         self._train_decoder_outputs = decoder_dense(_train_decoder_outputs)
@@ -484,7 +451,7 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
         return ids_data
 
     @staticmethod
-    def _ids2onehot(data: Union[List[List[int]], Tuple[List[int]]], vocab_size: int) -> np.ndarray:
+    def _ids2onehot(data: Union[List[List[int]], Tuple[List[int]], np.ndarray], vocab_size: int) -> np.ndarray:
         """
         Convert token ids to one-hot representations in vocabulary of size vocab_size
 
