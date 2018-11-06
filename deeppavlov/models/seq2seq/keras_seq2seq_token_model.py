@@ -439,11 +439,12 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
                                                                   state])
                 current_token_id = self._probas2ids(token_probas)[0][0]
                 current_token = self.decoder_embedder(self.decoder_vocab([[current_token_id]]))[0][0]
-                predicted_sample.append(current_token_id)
                 if (current_token_id == self.opt["tgt_eos_id"] or
                         current_token_id == self.opt["tgt_pad_id"] or
                         len(predicted_sample) == self.opt["tgt_max_length"]):
                     end_of_sequence = True
+                else:
+                    predicted_sample.append(current_token_id)
 
             predicted_batch.append(predicted_sample)
 

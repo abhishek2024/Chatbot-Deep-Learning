@@ -408,11 +408,12 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
                                                                  np.array([0, 1], dtype="int").reshape(1, 2),
                                                                  state])
                 current_char = self._probas2ids(char_probas)[0][0]
-                predicted_sample.append(current_char)
                 if (current_char == self.opt["tgt_eos_id"] or
                         current_char == self.opt["tgt_pad_id"] or
                         len(predicted_sample) == self.opt["tgt_max_length"]):
                     end_of_sequence = True
+                else:
+                    predicted_sample.append(current_char)
 
             predicted_batch.append(predicted_sample)
 
