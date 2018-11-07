@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Dict, Any, Union
+from typing import List, Dict, Any, Union, Tuple
 from itertools import chain
 import numpy as np
 
@@ -20,6 +20,7 @@ from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.simple_vocab import SimpleVocabulary
 from deeppavlov.core.common.log import get_logger
+from deeppavlov.dataset_iterators.dialog_iterator import DialogStateDatasetIterator
 
 log = get_logger(__name__)
 
@@ -172,6 +173,24 @@ class SlotsActionsMatrixBuilder(Component):
         return utt_matrices
 
 
+class SlotsBioMarkup2Dict(Component):
+    """
+    Converts batch of tuples (utterance tokens, slot tags) to dictionary
+    with slots as keys and slot mentions as values.
+    Tags can be of three types: 'O' -- out of slot, 'B-slot' -- begin of slot 'slot',
+    'I-slot' -- inside of slot 'slot'.
+    """
+    def __init__(self, **kwargs) -> None:
+        pass
+
+    def __call__(self, utter: Union[List[str], List[List[str]]],
+                 tags: Union[List[str], List[List[str]]]):
+        if isinstance(utter[0], str):
+            return DialogStateDatasetIterator._biomarkup2dict(utter, tags)
+        return [DialogStateDatasetIterator._biomarkup2dict(u, t)
+                for u, t in zip(utter, tags)]
+
+
 class SlotsValuesMatrix2Dict(Component):
     """
     Converts matrix of slot values of shape [num_slots, max_num_values]
@@ -217,5 +236,5 @@ class ActionVocabulary(SimpleVocabulary):
         super().fit([actions])
 
     def __call__(self, batch: List[List[Union[Dict, int]]], **kwargs) ->\
-                 List[List[Union[Dict, int]]]:
+            List[List[Union[Dict, int]]]:
         return super().__call__([map(self._format_action, chain(*batch))])
