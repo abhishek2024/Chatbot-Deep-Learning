@@ -112,7 +112,6 @@ class GoalOrientedBotNetwork(EnhancedTFModel):
                  tokenizer: Component,
                  tracker: Tracker,
                  template_path: str,
-                 save_path: str,
                  hidden_size: int,
                  obs_size: int = None,
                  action_size: int = None,
@@ -120,7 +119,6 @@ class GoalOrientedBotNetwork(EnhancedTFModel):
                  l2_reg_coef: float = 0.,
                  dense_size: int = None,
                  attention_mechanism: dict = None,
-                 load_path: str = None,
                  template_type: str = "DefaultTemplate",
                  word_vocab: Component = None,
                  bow_embedder: Component = None,
@@ -132,7 +130,7 @@ class GoalOrientedBotNetwork(EnhancedTFModel):
                  use_action_mask: bool = False,
                  debug: bool = False,
                  **kwargs):
-        super().__init__(load_path=load_path, save_path=save_path, **kwargs)
+        super().__init__(**kwargs)
 
         self.tokenizer = tokenizer
         self.tracker = tracker

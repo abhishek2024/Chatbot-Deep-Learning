@@ -17,8 +17,8 @@
         "name": "default_vocab",
         "level": "token",
         "tokenizer": { "name": "split_tokenizer" },
-        "save_path": "vocabs/token.dict",
-        "load_path": "vocabs/token.dict"
+        "save_path": "gobot_dstc2_best/token.dict",
+        "load_path": "gobot_dstc2_best/token.dict"
       },
       {
         "id": "restaurant_database",
@@ -38,11 +38,10 @@
         "fit_valid_rate": 0.2,
         "fit_learning_rate_div": 10.0,
         "fit_linear": false,
-        "fit_min_batches": 15,
-        "fit_num_batches": 256,
-        "learning_rate": [0.00185, 0.0185],
+        "fit_num_batches": 64,
+        "learning_rate": [1e-6, 10], 
         "learning_rate_decay": ["1cycle", 0.8],
-        "learning_rate_decay_epochs": 18,
+        "learning_rate_decay_batches": 9000,
         "optimizer": "tensorflow.train:AdamOptimizer",
         "dropout_rate": 0.55,
         "l2_reg_coef": 2e-3,
@@ -83,7 +82,8 @@
         }
       },
       {
-        "ref": "go_bot_network"
+        "ref": "go_bot_network",
+        "fit_on": ["x", "y"]
       },
       {
         "ref": "go_bot_network",
@@ -103,8 +103,7 @@
     "validation_patience": 30,
     "val_every_n_epochs": 1,
 
-    "log_every_n_batches": -1,
-    "log_every_n_epochs": 1,
+    "log_every_n_batches": 100,
     "show_examples": false,
     "tensorboard_log_dir": "dp_logs_gobot_best"
   },
