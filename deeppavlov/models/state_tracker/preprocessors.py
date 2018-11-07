@@ -31,7 +31,7 @@ def tag2slot(tag):
         return tag[2:]
 
 
-class Delexicalizator(Component):
+class Delexicalizor(Component):
     """Given an utterance replaces mentions of slots with #slot"""
     def __init__(self, **kwargs):
         pass
