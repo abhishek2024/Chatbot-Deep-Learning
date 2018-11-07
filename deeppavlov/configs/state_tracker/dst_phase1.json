@@ -8,8 +8,8 @@
     "name": "dialog_state_iterator"
   },
   "chainer": {
-    "in": ["u_utter", "u_slots", "u_slots_bio", "u_acts",
-      "s_tokens", "s_slots", "s_slots_bio", "s_acts", "prev_state"],
+    "in": ["u_utter", "u_slots_bio", "u_acts", "s_tokens", "s_slots_bio", "s_acts",
+      "prev_state"],
     "in_y": ["state"],
     "out": ["state_pred"],
     "pipe": [
@@ -77,6 +77,16 @@
           "load_path": "embeddings/glove.6B.100d.txt"
         },
         "vocab": "#word_vocab" 
+      },
+      {
+        "class": "deeppavlov.models.state_tracker.preprocessors:SlotsBioMarkup2Dict",
+        "in": ["u_tokens", "u_slots_bio"],
+        "out": ["u_slots"]
+      },
+      {
+        "class": "deeppavlov.models.state_tracker.preprocessors:SlotsBioMarkup2Dict",
+        "in": ["s_tokens", "s_slots_bio"],
+        "out": ["s_slots"]
       },
       {
         "name": "slot_value_filter",
