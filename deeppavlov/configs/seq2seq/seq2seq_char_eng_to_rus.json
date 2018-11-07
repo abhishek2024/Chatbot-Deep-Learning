@@ -2,7 +2,7 @@
   "dataset_reader": {
     "name": "basic_dataset_reader",
     "data_path": "./rus-eng",
-    "train": "rus_very_short.txt",
+    "train": "rus.txt",
     "sep": "\t",
     "header": null,
     "names": [
@@ -38,23 +38,12 @@
     "pipe": [
       {
         "in": "x",
-        "out": "x_prep",
-        "id": "my_preprocessor",
-        "name": "str_lower"
-      },
-      {
-        "in": "x_prep",
         "out": "x_char",
         "name": "char_splitter",
         "id": "my_splitter"
       },
       {
         "in": "y",
-        "out": "y_prep",
-        "ref": "my_preprocessor"
-      },
-      {
-        "in": "y_prep",
         "out": "y_char",
         "ref": "my_splitter"
       },
@@ -115,7 +104,7 @@
         "decoder_vocab": "#y_chars_vocab",
         "optimizer": "RMSprop",
         "lear_rate": 0.001,
-        "lear_rate_decay": 0.0001,
+        "lear_rate_decay": 0.001,
         "loss": "categorical_crossentropy",
         "hidden_size": 128,
         "model_name": "gru_gru_model"
@@ -135,13 +124,13 @@
   },
   "train": {
     "epochs": 100,
-    "batch_size": 32,
+    "batch_size": 64,
     "metrics": [
-      "bleu",
-      "per_token_accuracy"
+      "per_token_accuracy",
+      "google_bleu"
     ],
     "validation_patience": 5,
-    "val_every_n_epochs": 1,
+    "val_every_n_epochs": 5,
     "log_every_n_epochs": 1,
     "show_examples": true,
     "validate_best": true,
