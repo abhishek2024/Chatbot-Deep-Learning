@@ -45,12 +45,12 @@
         "out": ["u_tokens"]
       },
       {
-        "class": "deeppavlov.models.state_tracker.preprocessors:Delexicalizator",
+        "class": "deeppavlov.models.state_tracker.preprocessors:Delexicalizor",
         "in": ["u_tokens", "u_slots_bio"],
         "out": ["u_norm_tokens"]
       },
       {
-        "class": "deeppavlov.models.state_tracker.preprocessors:Delexicalizator",
+        "class": "deeppavlov.models.state_tracker.preprocessors:Delexicalizor",
         "in": ["s_tokens", "s_slots_bio"],
         "out": ["s_norm_tokens"]
       },

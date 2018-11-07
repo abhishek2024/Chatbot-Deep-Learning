@@ -110,8 +110,8 @@
         "fit_linear": false,
         "fit_num_batches": 512,
         "learning_rate": [1e-6, 10],
-        "learning_rate_decay": ["1cycle", 0.8],
-        "learning_rate_decay_epochs": 18,
+        "learning_rate_decay": ["1cycle", 0.6],
+        "learning_rate_decay_batches": 20000,
         "optimizer": "tf.train:AdamOptimizer",
         "dropout_keep_prob": 0.7,
         "fit_on": ["x_emb", "mask", "x_char_ind", "cap", "y_ind"]
@@ -133,7 +133,7 @@
     "validation_patience": 7,
     "val_every_n_epochs": 1,
 
-    "log_every_n_epochs": 1,
+    "log_every_n_batches": 300,
     "show_examples": false,
 
     "tensorboard_log_dir": "dp_logs_ner_ontonotes"
