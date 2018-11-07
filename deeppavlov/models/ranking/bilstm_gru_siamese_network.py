@@ -87,7 +87,7 @@ class BiLSTMGRUSiameseNetwork(BiLSTMSiameseNetwork):
         cr = self.model.inputs
         if self.triplet_mode:
             emb_c = self.model.get_layer("gru").output
-            emb_r = self.model.get_layer("pooling").get_output(-1)
+            emb_r = self.model.get_layer("pooling").output
             dist_score = Lambda(lambda x: self.euclidian_dist(x), name="score_model")
             score = dist_score([emb_c, emb_r])
         else:
