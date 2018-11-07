@@ -106,6 +106,7 @@
   "typos_wikipedia_reader": "deeppavlov.dataset_readers.typos_reader:TyposWikipedia",
   "ubuntu_v2_reader": "deeppavlov.dataset_readers.ubuntu_v2_reader:UbuntuV2Reader",
   "ubuntu_v2_mt_reader": "deeppavlov.dataset_readers.ubuntu_v2_mt_reader:UbuntuV2MTReader",
+  "ubuntu_v2_mt_triplet_reader": "deeppavlov.dataset_readers.ubuntu_v2_mt_triplet_reader:UbuntuV2MTTripletReader",
   "wiki_sqlite_vocab": "deeppavlov.vocabs.wiki_sqlite:WikiSQLiteVocab",
   "wikitionary_100K_vocab": "deeppavlov.vocabs.typos:Wiki100KDictionary"
 }
