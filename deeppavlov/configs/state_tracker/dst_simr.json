@@ -179,7 +179,7 @@
     "validation_patience": 20,
     "val_every_n_epochs": 1,
 
-    "log_every_n_batches": 2000,
+    "log_every_n_epochs": 1,
     "validate_best": true,
     "test_best": true,
     "tensorboard_log_dir": "logs"

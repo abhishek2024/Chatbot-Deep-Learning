@@ -184,9 +184,9 @@ class SlotsBioMarkup2Dict(Component):
         pass
 
     def __call__(self, utter: Union[List[str], List[List[str]]],
-                 tags: Union[List[str], List[List[str]]]):
+                 tags: Union[List[str], List[List[str]]]) -> List[Dict[str, str]]:
         if isinstance(utter[0], str):
-            return DialogStateDatasetIterator._biomarkup2dict(utter, tags)
+            return [DialogStateDatasetIterator._biomarkup2dict(utter, tags)]
         return [DialogStateDatasetIterator._biomarkup2dict(u, t)
                 for u, t in zip(utter, tags)]
 
@@ -219,6 +219,45 @@ class SlotsValuesMatrix2Dict(Component):
             if value not in self.exclude_values:
                 slot_dict[slot] = value
         return [slot_dict]
+
+
+class ActionSlotsMatcher(Component):
+    """
+    Matches slots with actions.
+    Inputs list of slots and list of string actions from NLU model.
+    Outputs list of actions matched with slots.
+    """
+
+    def __init__(self, matched_actions: List[str] = [], **kwargs) -> None:
+        self.matched_actions = matched_actions
+
+    def _get_priority(self, action):
+        if action in self.matched_actions:
+            return len(self.matched_actions) - self.matched_actions.index(action)
+        return 0
+
+    def __call__(self, actions: Union[List[str], List[List[str]],
+                                      List[List[Dict[str, Any]]]],
+                 slots: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
+        if isinstance(actions[0], str):
+            actions = [actions]
+        new_actions = []
+        for a_list, s in zip(actions, slots):
+            if a_list and isinstance(a_list[0], dict):
+                a_list = [a['act'] for a in a_list]
+            new_actions.append([])
+            matched = False
+            for a in sorted(a_list, key=self._get_priority, reverse=True):
+                if a in self.matched_actions:
+                    if not matched:
+                        new_actions[-1].append({'act': a, 'slots': s})
+                        matched = True
+                    else:
+                        print(f"Couldn't match slots {slots} with"
+                              f" actions {actions}.")
+                else:
+                    new_actions[-1].append({'act': a, 'slots': []})
+        return new_actions
 
 
 @register('action_vocab')
