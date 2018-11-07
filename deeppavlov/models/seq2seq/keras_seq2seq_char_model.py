@@ -17,17 +17,15 @@ import numpy as np
 from overrides import overrides
 from copy import deepcopy
 
-from keras.layers import Dense, Input, Concatenate, Embedding
-from keras.layers.wrappers import Bidirectional
+from keras.layers import Dense, Input, Embedding
 from keras.layers.recurrent import GRU
-from keras.layers.pooling import GlobalMaxPooling1D,  GlobalAveragePooling1D
+from keras.layers.pooling import GlobalMaxPooling1D
 from keras.models import Model
 from keras.regularizers import l2
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.models.component import Component
-from deeppavlov.core.layers.keras_layers import masking_sequences
 from deeppavlov.models.classifiers.keras_classification_model import KerasClassificationModel
 
 log = get_logger(__name__)
@@ -77,6 +75,7 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
                  tgt_bos_id: int,
                  tgt_eos_id: int,
                  encoder_embedding_size: int,
+                 decoder_embedding_size: int,
                  decoder_vocab: Component,
                  src_max_length: Optional[int] = None,
                  tgt_max_length: Optional[int] = None,
@@ -90,8 +89,6 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
         """
         Initialize models for training and infering using parameters from config.
         """
-        decoder_embedding_size = kwargs.pop("decoder_embedding_size")
-
         given_opt = {"hidden_size": hidden_size,
                      "src_vocab_size": src_vocab_size,
                      "tgt_vocab_size": tgt_vocab_size,
@@ -186,7 +183,7 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
         """
 
         cutted_batch = [sen[:text_size] for sen in sentences]
-        cutted_batch = [list(tokens) + [padding_char_id] * (text_size - len(tokens)) for tokens in cutted_batch]
+        cutted_batch = [list(chars) + [padding_char_id] * (text_size - len(chars)) for chars in cutted_batch]
         if return_lengths:
             lengths = np.array([min(len(sen), text_size) for sen in sentences], dtype='int')
             return np.asarray(cutted_batch), lengths

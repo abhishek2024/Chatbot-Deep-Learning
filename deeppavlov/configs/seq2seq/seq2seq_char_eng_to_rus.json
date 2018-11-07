@@ -72,7 +72,7 @@
           "<PAD>",
           "<UNK>"
         ],
-        "min_freq": 50,
+        "min_freq": 5,
         "out": "x_chars_ind"
       },
       {
@@ -91,7 +91,7 @@
         ],
         "save_path": "seq2seq/rus-eng/y_chars.dict",
         "load_path": "seq2seq/rus-eng/y_chars.dict",
-        "min_freq": 50,
+        "min_freq": 5,
         "out": "y_chars_ind"
       },
       {
