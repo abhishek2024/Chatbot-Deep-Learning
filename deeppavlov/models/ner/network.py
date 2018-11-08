@@ -345,3 +345,103 @@ class NerNetwork(EnhancedTFModel):
                 log.info('Dropping learning rate from {:.1e} to {:.1e}'.format(self.get_learning_rate(),
                                                                                self.get_learning_rate() * self._lr_drop_value))
                 self.load()
+
+
+@register('ner_zero_shot')
+class GoogleDialogues(NerNetwork):
+    def __init__(self,
+
+                 n_tags: int,  # Features dimensions
+                 mean_emb: np.ndarray = np.random.randn(10, 10),
+                 token_emb_dim: int = None,
+                 char_emb_dim: int = None,
+                 capitalization_dim: int = None,
+                 cell_type: str = 'lstm',
+                 two_dense_on_top: bool = False,
+                 n_hidden: int = 128,
+                 use_crf: bool = False,
+                 token_emb_mat: np.ndarray = None,
+                 char_emb_mat: np.ndarray = None,
+                 dropout_keep_prob: float = 0.5,  # Regularization
+                 embeddings_dropout: bool = False,
+                 top_dropout: bool = False,
+                 intra_layer_dropout: bool = False,
+                 l2_reg: float = 0.0,
+                 clip_grad_norm: float = 5.0,
+                 gpu: int = None,
+                 seed: int = None,
+                 lr_drop_patience: int = 5,
+                 lr_drop_value: float = 0.1,
+                 conditioning_method='concat',
+                 **kwargs) -> None:
+        tf.set_random_seed(seed)
+        np.random.seed(seed)
+        super(NerNetwork, self).__init__(**kwargs)
+        self._lr_drop_patience = lr_drop_patience
+        self._lr_drop_value = lr_drop_value
+        self._add_training_placeholders(dropout_keep_prob)
+        self._xs_ph_list = []
+        self._y_ph = tf.placeholder(tf.int32, [None, None], name='y_ph')
+        self._input_features = []
+
+        # ================ Building input features =================
+
+        # Token embeddings
+        self._add_word_embeddings(token_emb_mat, token_emb_dim)
+
+        # Masks for different lengths utterances
+        self.mask_ph = self._add_mask()
+
+        # Char embeddings using highway CNN with max pooling
+        if char_emb_mat is not None and char_emb_dim is not None:
+            self._add_char_embeddings(char_emb_mat)
+
+        # Capitalization features
+        if capitalization_dim is not None:
+            self._add_capitalization(capitalization_dim)
+
+        #  Mean entities embeddings
+        # [emb_dim, n_tags]
+        self.mean_emb = tf.Variable(mean_emb, dtype=tf.float32, trainable=False, name='mean_emb')
+
+        features = tf.concat(self._input_features, axis=2)
+        if embeddings_dropout:
+            features = variational_dropout(features, self._dropout_ph)
+
+        # ================== Building the network ==================
+        with tf.variable_scope('PreCoder'):
+            sequence_lengths = tf.to_int32(tf.reduce_sum(self.mask_ph, axis=1))
+            precoder_units_tuple, last_states = cudnn_bi_lstm(features, n_hidden, sequence_lengths, reuse=tf.AUTO_REUSE)
+            precoder_units = tf.concat(precoder_units_tuple, 2)
+            # last states can be used for classificaction
+        with tf.variable_scope('PostCoder'):
+            logits_list = []
+            shape = tf.shape(self.mask_ph)
+            batch_size, seq_len = shape[0], shape[1]
+            mean_emb_expanded = tf.expand_dims(tf.expand_dims(self.mean_emb, 0), 0)
+            mean_emb_tiled = tf.tile(mean_emb_expanded, (batch_size, seq_len, 1, 1))
+            for q in range(n_tags):
+                tag_emb = mean_emb_tiled[..., q]
+                if conditioning_method == 'concat':
+                    units = tf.concat([tag_emb, precoder_units], 2)
+                else:
+                    raise NotImplementedError
+                units = tf.layers.dense(units, n_hidden, activation=tf.nn.relu, name='Project', reuse=tf.AUTO_REUSE)
+                units = self._build_cudnn_rnn(units, [n_hidden], cell_type, intra_layer_dropout, self.mask_ph)
+                l = self._build_top(units, n_tags, n_hidden, top_dropout, two_dense_on_top)
+                logits_list.append(l)
+
+        self._logits = tf.concat(logits_list, 2)
+        self.train_op, self.loss = self._build_train_predict(self._logits, self.mask_ph, n_tags,
+                                                             use_crf, clip_grad_norm, l2_reg)
+        self.predict = self.predict_crf if use_crf else self.predict_no_crf
+
+        # ================= Initialize the session =================
+
+        sess_config = tf.ConfigProto(allow_soft_placement=True)
+        sess_config.gpu_options.allow_growth = True
+        if gpu is not None:
+            sess_config.gpu_options.visible_device_list = str(gpu)
+        self.sess = tf.Session()  # TODO: add sess_config
+        self.sess.run(tf.global_variables_initializer())
+        self.load()
