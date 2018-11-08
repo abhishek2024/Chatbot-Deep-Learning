@@ -8,8 +8,8 @@
     "name": "dialog_state_iterator"
   },
   "chainer": {
-    "in": ["u_utter", "u_slots", "u_slots_bio", "u_acts",
-      "s_tokens", "s_slots", "s_slots_bio", "s_acts", "prev_state"],
+    "in": ["u_utter", "u_slots_bio", "u_acts", "s_tokens", "s_slots_bio", "s_acts",
+      "prev_state"],
     "in_y": ["state"],
     "out": [],
     "pipe": [
@@ -25,12 +25,12 @@
         "out": ["u_tokens"]
       },
       {
-        "class": "deeppavlov.models.state_tracker.preprocessors:Delexicalizator",
+        "class": "deeppavlov.models.state_tracker.preprocessors:Delexicalizor",
         "in": ["u_tokens", "u_slots_bio"],
         "out": ["u_norm_tokens"]
       },
       {
-        "class": "deeppavlov.models.state_tracker.preprocessors:Delexicalizator",
+        "class": "deeppavlov.models.state_tracker.preprocessors:Delexicalizor",
         "in": ["s_tokens", "s_slots_bio"],
         "out": ["s_norm_tokens"]
       },

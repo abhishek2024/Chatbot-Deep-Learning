@@ -18,6 +18,10 @@ from typing import List, Tuple
 import numpy as np
 
 from deeppavlov.core.common.metrics_registry import register_metric
+from deeppavlov.core.common.log import get_logger
+
+
+log = get_logger(__name__)
 
 
 @register_metric('accuracy')
@@ -33,7 +37,19 @@ def accuracy(y_true, y_predicted):
         portion of absolutely coincidental samples
     """
     examples_len = len(y_true)
-    correct = sum([y1 == y2 for y1, y2 in zip(y_true, y_predicted)])
+    correct = 0
+    incorrect = 0
+    pr = 0
+    for y1, y2 in zip(y_true, y_predicted):
+        if isinstance(y2, tuple):
+            y2, pr = y2
+        if y1 == y2:
+            correct += 1
+        else:
+            incorrect += 1
+            if incorrect < 10:
+                log.info(f"y_true={sorted(y1.items())}, y_predicted={sorted(y2.items())}"
+                         f", y_probs={pr}")
     return correct / examples_len if examples_len else 0
 
 

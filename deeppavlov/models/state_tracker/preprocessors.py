@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Dict, Any, Union
+from typing import List, Dict, Any, Union, Tuple
 from itertools import chain
 import numpy as np
 
@@ -20,6 +20,7 @@ from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.simple_vocab import SimpleVocabulary
 from deeppavlov.core.common.log import get_logger
+from deeppavlov.dataset_iterators.dialog_iterator import DialogStateDatasetIterator
 
 log = get_logger(__name__)
 
@@ -31,7 +32,7 @@ def tag2slot(tag):
         return tag[2:]
 
 
-class Delexicalizator(Component):
+class Delexicalizor(Component):
     """Given an utterance replaces mentions of slots with #slot"""
     def __init__(self, **kwargs):
         pass
@@ -172,6 +173,24 @@ class SlotsActionsMatrixBuilder(Component):
         return utt_matrices
 
 
+class SlotsBioMarkup2Dict(Component):
+    """
+    Converts batch of tuples (utterance tokens, slot tags) to dictionary
+    with slots as keys and slot mentions as values.
+    Tags can be of three types: 'O' -- out of slot, 'B-slot' -- begin of slot 'slot',
+    'I-slot' -- inside of slot 'slot'.
+    """
+    def __init__(self, **kwargs) -> None:
+        pass
+
+    def __call__(self, utter: Union[List[str], List[List[str]]],
+                 tags: Union[List[str], List[List[str]]]) -> List[Dict[str, str]]:
+        if isinstance(utter[0], str):
+            return [DialogStateDatasetIterator._biomarkup2dict(utter, tags)]
+        return [DialogStateDatasetIterator._biomarkup2dict(u, t)
+                for u, t in zip(utter, tags)]
+
+
 class SlotsValuesMatrix2Dict(Component):
     """
     Converts matrix of slot values of shape [num_slots, max_num_values]
@@ -202,6 +221,45 @@ class SlotsValuesMatrix2Dict(Component):
         return [slot_dict]
 
 
+class ActionSlotsMatcher(Component):
+    """
+    Matches slots with actions.
+    Inputs list of slots and list of string actions from NLU model.
+    Outputs list of actions matched with slots.
+    """
+
+    def __init__(self, matched_actions: List[str] = [], **kwargs) -> None:
+        self.matched_actions = matched_actions
+
+    def _get_priority(self, action):
+        if action in self.matched_actions:
+            return len(self.matched_actions) - self.matched_actions.index(action)
+        return 0
+
+    def __call__(self, actions: Union[List[str], List[List[str]],
+                                      List[List[Dict[str, Any]]]],
+                 slots: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
+        if isinstance(actions[0], str):
+            actions = [actions]
+        new_actions = []
+        for a_list, s in zip(actions, slots):
+            if a_list and isinstance(a_list[0], dict):
+                a_list = [a['act'] for a in a_list]
+            new_actions.append([])
+            matched = False
+            for a in sorted(a_list, key=self._get_priority, reverse=True):
+                if a in self.matched_actions:
+                    if not matched:
+                        new_actions[-1].append({'act': a, 'slots': s})
+                        matched = True
+                    else:
+                        print(f"Couldn't match slots {slots} with"
+                              f" actions {actions}.")
+                else:
+                    new_actions[-1].append({'act': a, 'slots': []})
+        return new_actions
+
+
 @register('action_vocab')
 class ActionVocabulary(SimpleVocabulary):
     """Implements action vocabulary."""
@@ -217,5 +275,5 @@ class ActionVocabulary(SimpleVocabulary):
         super().fit([actions])
 
     def __call__(self, batch: List[List[Union[Dict, int]]], **kwargs) ->\
-                 List[List[Union[Dict, int]]]:
+            List[List[Union[Dict, int]]]:
         return super().__call__([map(self._format_action, chain(*batch))])
