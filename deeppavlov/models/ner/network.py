@@ -207,14 +207,14 @@ class NerNetwork(EnhancedTFModel):
             self._xs_ph_list.append(feat_ph)
             self._input_features.append(feat_ph)
 
-    def _build_cudnn_rnn(self, units, n_hidden_list, cell_type, intra_layer_dropout, mask):
+    def _build_cudnn_rnn(self, units, n_hidden_list, cell_type, intra_layer_dropout, mask, reuse=tf.AUTO_REUSE):
         sequence_lengths = tf.to_int32(tf.reduce_sum(mask, axis=1))
         for n, n_hidden in enumerate(n_hidden_list):
             with tf.variable_scope(cell_type.upper() + '_' + str(n)):
                 if cell_type.lower() == 'lstm':
-                    units, _ = cudnn_bi_lstm(units, n_hidden, sequence_lengths)
+                    units, _ = cudnn_bi_lstm(units, n_hidden, sequence_lengths, reuse=reuse)
                 elif cell_type.lower() == 'gru':
-                    units, _ = cudnn_bi_gru(units, n_hidden, sequence_lengths)
+                    units, _ = cudnn_bi_gru(units, n_hidden, sequence_lengths, reuse=reuse)
                 else:
                     raise RuntimeError('Wrong cell type "{}"! Only "gru" and "lstm"!'.format(cell_type))
                 units = tf.concat(units, -1)
