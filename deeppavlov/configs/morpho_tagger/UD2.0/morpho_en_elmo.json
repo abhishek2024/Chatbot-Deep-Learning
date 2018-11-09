@@ -37,7 +37,7 @@
         "pad_zero": true,
         "elmo_output_names": ["lstm_outputs1"],
         "mini_batch_size": 32,
-        "spec": "https://tfhub.dev/google/elmo/2"
+        "spec": "embeddings/elmo_ru"
       },
       {
         "id": "lowercase_preprocessor",

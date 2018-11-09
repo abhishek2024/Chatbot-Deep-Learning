@@ -1,7 +1,7 @@
 {
   "dataset_reader": {
     "name": "unimorph_dataset_reader",
-    "data_path": "UniMorph/turkish"
+    "data_path": "/home/alexeysorokin/data/Data/UniMorph/turkish"
   },
   "dataset_iterator": {
     "name": "data_learning_iterator"
@@ -15,8 +15,11 @@
         "in": ["x"],
         "name": "unimorph_vectorizer",
         "out": ["x_vect"],
-        "save_path": "morpho_tagger/UniMorph/tr_unimorph",
-        "load_path": "morpho_tagger/UniMorph/tr_unimorph",
+        "save_path": "morpho_tagger/UniMorph/tr_unimorph_suff",
+        "load_path": "morpho_tagger/UniMorph/tr_unimorph_suff",
+        "use_last_word": true,
+        "use_suffixes": true,
+        "max_suffix_length": 8,
         "fit_on": ["x"]
       }
     ],

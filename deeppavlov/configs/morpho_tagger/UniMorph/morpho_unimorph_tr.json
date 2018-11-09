@@ -73,8 +73,8 @@
       {
         "id": "unimorph_vectorizer",
         "name": "unimorph_vectorizer",
-        "save_path": "morpho_tagger/UniMorph/tr_unimorph",
-        "load_path": "morpho_tagger/UniMorph/tr_unimorph",
+        "save_path": "morpho_tagger/UniMorph/tr_unimorph_suff",
+        "load_path": "morpho_tagger/UniMorph/tr_unimorph_suff",
         "in": [
           "x_tokens"
         ],
@@ -95,8 +95,8 @@
         ],
         "name": "morpho_tagger",
         "main": true,
-        "save_path": "morpho_tagger/UD2.0/tr/model_unimorph.hdf5",
-        "load_path": "morpho_tagger/UD2.0/tr/model_unimorph.hdf5",
+        "save_path": "morpho_tagger/UD2.0/tr/model_unimorph_suff.hdf5",
+        "load_path": "morpho_tagger/UD2.0/tr/model_unimorph_suff.hdf5",
         "tags": "#tag_vocab",
         "symbols": "#char_vocab",
         "verbose": 1,
@@ -147,7 +147,7 @@
     ]
   },
   "train": {
-    "epochs": 3,
+    "epochs": 50,
     "batch_size": 32,
     "metrics": [
       {
@@ -171,7 +171,7 @@
   },
   "predict": {
     "batch_size": 32,
-    "outfile": "results/ud-unimorph_tr_test.res"
+    "outfile": "results/ud-unimorph-suff_tr_test.res"
   },
   "metadata": {
     "requirements": [

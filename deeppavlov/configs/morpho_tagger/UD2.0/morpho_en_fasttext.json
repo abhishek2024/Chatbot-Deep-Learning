@@ -82,7 +82,6 @@
       },
       {
         "in": [
-          "x_processed",
           "x_emb"
         ],
         "in_y": [
@@ -93,8 +92,8 @@
         ],
         "name": "morpho_tagger",
         "main": true,
-        "save_path": "morpho_tagger/UD2.0/en/model_fasttext.hdf5",
-        "load_path": "morpho_tagger/UD2.0/en/model_fasttext.hdf5",
+        "save_path": "morpho_tagger/UD2.0/en/model_fasttext_only.hdf5",
+        "load_path": "morpho_tagger/UD2.0/en/model_fasttext_only.hdf5",
         "tags": "#tag_vocab",
         "symbols": "#char_vocab",
         "verbose": 1,
