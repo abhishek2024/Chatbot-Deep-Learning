@@ -37,7 +37,7 @@
         "pad_zero": true,
         "elmo_output_names": ["lstm_outputs1"],
         "mini_batch_size": 32,
-        "spec": "embeddings/elmo_ru"
+        "spec": "elmo-1b-benchmark_test"
       },
       {
         "id": "lowercase_preprocessor",
@@ -181,10 +181,6 @@
       {
         "url": "http://files.deeppavlov.ai/datasets/UD2.0_source/en.tar.gz",
         "subdir": "UD2.0_source/en"
-      },
-      {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/elmo-1b-benchmark_test.tar.gz",
-        "subdir": "embeddings"
       }
     ],
     "telegram_utils": "MorphoTaggerModel"
