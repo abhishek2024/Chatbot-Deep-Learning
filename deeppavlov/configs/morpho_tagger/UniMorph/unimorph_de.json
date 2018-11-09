@@ -1,0 +1,36 @@
+{
+  "dataset_reader": {
+    "name": "unimorph_dataset_reader",
+    "data_path": "/home/alexeysorokin/data/Data/UniMorph/german"
+  },
+  "dataset_iterator": {
+    "name": "data_learning_iterator"
+  },
+  "chainer": {
+    "in": [
+      "x"
+    ],
+    "pipe": [
+      {
+        "in": ["x"],
+        "name": "unimorph_vectorizer",
+        "out": ["x_vect"],
+        "save_path": "morpho_tagger/UniMorph/de_unimorph",
+        "load_path": "morpho_tagger/UniMorph/de_unimorph",
+        "fit_on": ["x"]
+      }
+    ],
+    "out": [
+      "x_vect"
+    ]
+  },
+  "train": {
+    },
+  "metadata": {
+    "requirements": [
+      "../dp_requirements/tf.txt"
+    ],
+    "download": [],
+    "telegram_utils": "UnimorphVectorizer"
+  }
+}
