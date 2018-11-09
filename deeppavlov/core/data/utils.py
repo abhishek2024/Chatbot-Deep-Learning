@@ -156,7 +156,7 @@ def ungzip(file_path, extract_path: Path=None):
 
     with gzip.open(file_path, 'rb') as fin, extract_path.open('wb') as fout:
         while True:
-            block = fin.read(CHUNK)
+            block = fin.read(CHUNK, )
             if not block:
                 break
             fout.write(block)

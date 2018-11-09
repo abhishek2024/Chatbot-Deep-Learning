@@ -11,8 +11,6 @@
   "char_splitter": "deeppavlov.models.preprocessors.char_splitter:CharSplitter",
   "conll2003_reader": "deeppavlov.dataset_readers.conll2003_reader:Conll2003DatasetReader",
   "cos_sim_classifier": "deeppavlov.models.classifiers.cos_sim_classifier:CosineSimilarityClassifier",
-  "data_fitting_iterator": "deeppavlov.core.data.data_fitting_iterator:DataFittingIterator",
-  "data_learning_iterator": "deeppavlov.core.data.data_learning_iterator:DataLearningIterator",
   "default_vocab": "deeppavlov.core.data.vocab:DefaultVocabulary",
   "dialog_db_result_iterator": "deeppavlov.dataset_iterators.dialog_iterator:DialogDBResultDatasetIterator",
   "dialog_iterator": "deeppavlov.dataset_iterators.dialog_iterator:DialogDatasetIterator",
@@ -104,6 +102,8 @@
   "typos_wikipedia_reader": "deeppavlov.dataset_readers.typos_reader:TyposWikipedia",
   "ubuntu_v2_mt_reader": "deeppavlov.dataset_readers.ubuntu_v2_mt_reader:UbuntuV2MTReader",
   "ubuntu_v2_reader": "deeppavlov.dataset_readers.ubuntu_v2_reader:UbuntuV2Reader",
+  "unimorph_dataset_reader": "deeppavlov.dataset_readers.morphotagging_dataset_reader:UnimorphDatasetReader",
+  "unimorph_vectorizer": "deeppavlov.models.morpho_tagger.unimorph:UnimorphDictionaryVectorizer",
   "wiki_sqlite_vocab": "deeppavlov.vocabs.wiki_sqlite:WikiSQLiteVocab",
   "wikitionary_100K_vocab": "deeppavlov.vocabs.typos:Wiki100KDictionary"
 }

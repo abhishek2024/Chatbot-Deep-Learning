@@ -34,8 +34,8 @@ class DataLearningIterator:
     def split(self, *args, **kwargs):
         pass
 
-    def __init__(self, data: Dict[str, List[Tuple[Any, Any]]], seed: int = None, shuffle: bool = True,
-                 *args, **kwargs) -> None:
+    def __init__(self, data: Dict[str, List[Tuple[Any, Any]]], seed: int = None,
+                 shuffle: bool = True, *args, **kwargs) -> None:
         self.shuffle = shuffle
 
         self.random = Random(seed)
@@ -92,4 +92,5 @@ class DataLearningIterator:
              a tuple of all inputs for a data type and all expected outputs for a data type
         """
         data = self.data[data_type]
-        return tuple(zip(*data))
+        answer = tuple(zip(*data))
+        return answer

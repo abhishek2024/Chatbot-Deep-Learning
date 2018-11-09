@@ -161,3 +161,20 @@ class MorphotaggerDatasetReader(DatasetReader):
                 mode = "valid"
             data[mode] = read_infile(filepath, **kwargs)
         return data
+
+
+@register('unimorph_dataset_reader')
+class UnimorphDatasetReader(DatasetReader):
+
+    def read(self, data_path: str, **kwargs):
+        data = {"train": [], "valid": [], "test": []}
+        with open(data_path, "r", encoding="utf8") as fin:
+            for line in fin:
+                line = line.strip()
+                splitted = tuple(line.split("\t"))
+                if len(splitted) != 3:
+                    continue
+                # we add `None` to make Chainer correct
+                data["train"].append((splitted, None))
+        return data
+

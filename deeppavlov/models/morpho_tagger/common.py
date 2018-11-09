@@ -45,7 +45,7 @@ def predict_with_model(config_path: [Path, str]) -> List[Optional[List[str]]]:
             answers[i] = elem
     outfile = config['predict'].get("outfile")
     if outfile is not None:
-        outfile = Path(outfile)
+        outfile = Path("../../..") / Path(outfile)
         if not outfile.exists():
             outfile.parent.mkdir(parents=True, exist_ok=True)
         with open(outfile, "w", encoding="utf8") as fout:

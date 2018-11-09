@@ -80,6 +80,7 @@ class CharacterTagger:
                  intermediate_dropout: float = 0.0,
                  lstm_dropout: float = 0.0,
                  word_vectorizers: List[Tuple[int, int]] = None,
+                 vectorizer_dropouts: List[float] = None,
                  word_lstm_layers: int = 1,
                  word_lstm_units: Union[int, List[int]] = 128,
                  word_dropout: float = 0.0,
@@ -100,6 +101,7 @@ class CharacterTagger:
         self.lstm_dropout = lstm_dropout
         self.word_dropout = word_dropout
         self.word_vectorizers = word_vectorizers  # a list of additional vectorizer dimensions
+        self.vectorizer_dropouts = vectorizer_dropouts
         self.word_lstm_layers = word_lstm_layers
         self.word_lstm_units = word_lstm_units
         self.regularizer = regularizer
@@ -120,6 +122,8 @@ class CharacterTagger:
             raise ValueError("There should be the same number of lstm layer units and lstm layers")
         if self.word_vectorizers is None:
             self.word_vectorizers = []
+        if self.vectorizer_dropouts is None:
+            self.vectorizer_dropouts = [0.0] * len(self.word_vectorizers)
         if self.regularizer is not None:
             self.regularizer = kreg.l2(self.regularizer)
         if self.verbose > 0:
@@ -141,15 +145,27 @@ class CharacterTagger:
         """Builds the network using Keras.
         """
         word_inputs = kl.Input(shape=(None, MAX_WORD_LENGTH+2), dtype="int32")
-        inputs = [word_inputs]
-        word_outputs = self._build_word_cnn(word_inputs)
+        if self.word_rnn not in [None, "None", ""]:
+            inputs = [word_inputs]
+            word_outputs = [self._build_word_cnn(word_inputs)]
+        else:
+            inputs, word_outputs = [], []
         if len(self.word_vectorizers) > 0:
             additional_word_inputs = [kl.Input(shape=(None, input_dim), dtype="float32")
                                       for input_dim, dense_dim in self.word_vectorizers]
             inputs.extend(additional_word_inputs)
-            additional_word_embeddings = [kl.Dense(dense_dim)(additional_word_inputs[i])
-                                          for i, (_, dense_dim) in enumerate(self.word_vectorizers)]
-            word_outputs = kl.Concatenate()([word_outputs] + additional_word_embeddings)
+            additional_word_embeddings = additional_word_inputs[:]
+            for i, (_, dense_dim) in enumerate(self.word_vectorizers):
+                if dense_dim > 0:
+                    additional_word_embeddings[i] = kl.Dense(dense_dim)(additional_word_inputs[i])
+            for i, embedding in enumerate(additional_word_embeddings):
+                if self.vectorizer_dropouts[i] > 0.0:
+                    additional_word_embeddings[i] = kl.Dropout(self.vectorizer_dropouts[i])(embedding)
+            word_outputs = word_outputs + additional_word_embeddings
+        if len(word_outputs) > 1:
+            word_outputs = kl.Concatenate(axis=-1)(word_outputs)
+        else:
+            word_outputs = word_outputs[0]
         outputs, lstm_outputs = self._build_basic_network(word_outputs)
         compile_args = {"optimizer": ko.nadam(lr=0.002, clipnorm=5.0),
                         "loss": "categorical_crossentropy", "metrics": ["accuracy"]}
@@ -219,10 +235,14 @@ class CharacterTagger:
         return pre_outputs, lstm_outputs
 
     def _transform_batch(self, data, labels=None, transform_to_one_hot=True):
-        data, additional_data = data[0], data[1:]
-        L = max(len(x) for x in data)
-        X = np.array([self._make_sent_vector(x, L) for x in data])
-        X = [X] + [np.array(x) for x in additional_data]
+        if self.word_rnn not in [None, "None", ""]:
+            data, additional_data = data[0], data[1:]
+            L = max(len(x) for x in data)
+            X = np.array([self._make_sent_vector(x, L) for x in data])
+            X = [X] + [np.array(x) for x in additional_data]
+        else:
+            X = [np.array(x) for x in data]
+            L = X[0].shape[1]
         if labels is not None:
             Y = np.array([self._make_tags_vector(y, L) for y in labels])
             if transform_to_one_hot:
