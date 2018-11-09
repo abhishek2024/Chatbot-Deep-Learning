@@ -37,7 +37,7 @@
         "pad_zero": true,
         "elmo_output_names": ["lstm_outputs1"],
         "mini_batch_size": 32,
-        "spec": "elmo-1b-benchmark_test"
+        "spec": "embeddings/elmo-1b-benchmark_test"
       },
       {
         "id": "lowercase_preprocessor",
