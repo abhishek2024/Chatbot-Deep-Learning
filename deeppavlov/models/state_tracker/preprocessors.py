@@ -59,8 +59,9 @@ class SlotsTokensMatrixBuilder(Component):
 
     def _slot2idx(self, slot):
         if slot not in self.slot_vocab:
-            raise RuntimeError(f"Utterance slot {slot} doesn't match any slot"
-                               " from slot_vocab.")
+            return 0
+            #raise RuntimeError(f"Utterance slot {slot} doesn't match any slot"
+            #                   " from slot_vocab.")
         #print(f"slot '{slot}' has idx =", list(self.slot_vocab.keys()).index(slot))
         #print(f"returning idx =", self.slot_vocab([[slot]])[0][0])
         return self.slot_vocab([[slot]])[0][0]
@@ -236,25 +237,27 @@ class ActionSlotsMatcher(Component):
             return len(self.matched_actions) - self.matched_actions.index(action)
         return 0
 
-    def __call__(self, actions: Union[List[str], List[List[str]],
-                                      List[List[Dict[str, Any]]]],
+    def __call__(self, actions: Union[List[List[str]], List[List[Dict[str, Any]]]],
                  slots: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
-        if isinstance(actions[0], str):
-            actions = [actions]
+        # dirty hack to fix that everything must be a batch
+        if len(slots) != 1:
+            raise NotImplementedError("not implemented for slots with length > 1")
+        slot_names = [s['slot'] for s in slots[0]]
         new_actions = []
-        for a_list, s in zip(actions, slots):
-            if a_list and isinstance(a_list[0], dict):
-                a_list = [a['act'] for a in a_list]
+        for a_list in actions:
             new_actions.append([])
             matched = False
+            if a_list and isinstance(a_list[0], dict):
+                a_list = [a['act'] for a in a_list]
             for a in sorted(a_list, key=self._get_priority, reverse=True):
                 if a in self.matched_actions:
                     if not matched:
-                        new_actions[-1].append({'act': a, 'slots': s})
+                        new_actions[-1].append({'act': a, 'slots': slot_names})
                         matched = True
                     else:
-                        print(f"Couldn't match slots {slots} with"
-                              f" actions {actions}.")
+                        new_actions[-1].append({'act': a, 'slots': []})
+                        # print(f"Couldn't match slots {slots} with"
+                        #      f" actions {actions}.")
                 else:
                     new_actions[-1].append({'act': a, 'slots': []})
         return new_actions

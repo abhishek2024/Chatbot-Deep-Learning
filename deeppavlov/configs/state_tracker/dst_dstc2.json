@@ -1,7 +1,6 @@
 {
   "dataset_reader": {
     "name": "dstc2_google_reader",
-    "mode": "full_train",
     "data_path": "google-dialogues"
   },
   "dataset_iterator": {
@@ -189,8 +188,8 @@
     "validation_patience": 20,
     "val_every_n_epochs": 1,
 
-    "log_every_n_batches": 2000,
-    "validate_best": false,
+    "log_every_n_epochs": 1,
+    "validate_best": true,
     "test_best": true,
     "tensorboard_log_dir": "logs"
   },
