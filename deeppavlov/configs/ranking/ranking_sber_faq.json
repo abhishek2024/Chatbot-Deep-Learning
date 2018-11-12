@@ -4,9 +4,9 @@
     "data_path": "./sber_faq_data"
   },
   "dataset_iterator": {
-    "name": "ranking_iterator",
+    "name": "siamese_iterator",
     "random_batches": true,
-    "batches_per_epoch": 72,
+    "batches_per_epoch": 6270,
     "seed": 243
   },
   "chainer": {
@@ -83,7 +83,7 @@
     "metrics": ["r@1", "r@5", "r@10", "rank_response", "loss"],
     "validation_patience": 5,
     "val_every_n_epochs": 1,
-    "log_every_n_batches": 10
+    "log_every_n_batches": 627
 
 
   },

@@ -1,18 +1,19 @@
-from deeppavlov.core.data.dataset_reader import DatasetReader
 from pathlib import Path
-from deeppavlov.core.common.registry import register
-from deeppavlov.core.data.utils import download_decompress, mark_done, is_done
-import random
 import csv
 import re
+import random
+from collections import defaultdict
+
+import numpy as np
+
+from deeppavlov.core.common.registry import register
+from deeppavlov.core.data.dataset_reader import DatasetReader
 
 
 @register('sber_faq_reader')
 class SberFAQReader(DatasetReader):
     
     def read(self, data_path):
-        # data_path = expand_path(data_path)
-        # self.download_data(data_path)
         dataset = {'train': None, 'valid': None, 'test': None}
         train_fname = Path(data_path) / 'sber_faq_train_50.csv'
         valid_fname = Path(data_path) / 'sber_faq_val_50.csv'
@@ -21,91 +22,30 @@ class SberFAQReader(DatasetReader):
         self.classes_vocab_train = {}
         self.classes_vocab_valid = {}
         self.classes_vocab_test = {}
-        self._build_sen2int_classes_vocabs(train_fname, valid_fname, test_fname)
-        dataset["train"] = self.preprocess_data(train_fname, 'train', num_neg=1000)
-        dataset["valid"] = self.preprocess_data(valid_fname, 'valid')
-        dataset["test"] = self.preprocess_data(test_fname, 'test')
+        dataset["train"] = self.preprocess_data(train_fname)
+        dataset["valid"] = self.preprocess_data(valid_fname, type='valid', num_ranking_samples=9)
+        dataset["test"] = self.preprocess_data(test_fname, type='test', num_ranking_samples=9)
         return dataset
-    
-    def download_data(self, data_path):
-        if not is_done(Path(data_path)):
-            download_decompress(url="http://lnsigo.mipt.ru/export/datasets/insuranceQA-master.zip",
-                                download_path=data_path)
-            mark_done(data_path)
 
-    def _build_sen2int_classes_vocabs(self, train_fname, valid_fname, test_fname):
-        sen_train = []
-        label_train = []
-        sen_valid = []
-        label_valid = []
-        sen_test = []
-        label_test = []
-
-        with open(train_fname, 'r') as f:
-            reader = csv.reader(f, delimiter='\t')
-            for el in reader:
-                sen_train.append(el[0])
-                label_train.append(el[1])
-        with open(valid_fname, 'r') as f:
-            reader = csv.reader(f, delimiter='\t')
-            for el in reader:
-                sen_valid.append(el[0])
-                label_valid.append(el[1])
-        with open(test_fname, 'r') as f:
-            reader = csv.reader(f, delimiter='\t')
-            for el in reader:
-                sen_test.append(el[0])
-                label_test.append(el[1])
-
-        self.classes_vocab_train = {el: set() for el in set(label_train)}
-        for el in zip(label_train, sen_train):
-            self.classes_vocab_train[el[0]].add(self.sen2int_vocab[el[1]])
-
-        self.classes_vocab_valid = {el: set() for el in set(label_valid)}
-        for el in zip(label_valid, sen_valid):
-            self.classes_vocab_valid[el[0]].add(self.sen2int_vocab[el[1]])
-
-        self.classes_vocab_test = {el: set() for el in set(label_test)}
-        for el in zip(label_test, sen_test):
-            self.classes_vocab_test[el[0]].add(self.sen2int_vocab[el[1]])
-
-
-    def preprocess_data(self, fname, type, num_neg=9):
-
-        if type == 'train':
-            classes_vocab = self.classes_vocab_train
-        elif type == 'valid':
-            classes_vocab = self.classes_vocab_valid
-        elif type == 'test':
-            classes_vocab = self.classes_vocab_test
-
-        contexts = []
-        responses = []
-        positive_responses_pool = []
-        negative_responses_pool = []
-        sen = []
-        label = []
+    def preprocess_data(self, fname, type='train', num_ranking_samples=1):
+        data = []
+        classes_vocab = defaultdict(set)
         with open(fname, 'r') as f:
             reader = csv.reader(f, delimiter='\t')
             for el in reader:
-                sen.append(el[0])
-                label.append(el[1])
+                classes_vocab[int(el[1])].add(self.clean_sen(el[0]))
         for k, v in classes_vocab.items():
             sen_li = list(v)
-            neg_resps = self._get_neg_resps(classes_vocab, k)
-            for s1 in sen_li:
-                contexts.append(s1)
-                s2 = random.choice(list(v - {s1}))
-                responses.append(s2)
-                positive_responses_pool.append(list(v - {s1}))
-
-                nr = random.choices(neg_resps, k=num_neg)
-                negative_responses_pool.append(nr)
-
-        data = [{"context": el[0], "response": el[1],
-                "pos_pool": el[2], "neg_pool": el[3]}
-                for el in zip(contexts, responses,
-                positive_responses_pool, negative_responses_pool)]
+            pos_pairs = self._get_pairs(sen_li)
+            neg_resps = self._get_neg_resps(classes_vocab, k, num_neg_resps = num_ranking_samples*len(pos_pairs))
+            neg_resps = [neg_resps[i:i+num_ranking_samples] for i in range(0, len(neg_resps), num_ranking_samples)]
+            if type=='train':
+                neg_pairs = [[el[0][0]] + el[1] for el in zip(pos_pairs, neg_resps)]
+                data += list(zip(pos_pairs, list(np.ones(len(pos_pairs), dtype='int')))) + \
+                         list(zip(neg_pairs, list(np.zeros(len(neg_pairs), dtype='int'))))
+            else:
+                lists = [el[0] + el[1] for el in zip(pos_pairs, neg_resps)]
+                data += list(zip(lists, list(np.ones(len(lists), dtype='int'))))
         return data
 
     def clean_sen(self, sen):
@@ -114,12 +54,19 @@ class SberFAQReader(DatasetReader):
             replace('&amp laquo ', '').replace('&amp raquo ', '').\
             replace('&amp quot ', '').replace('&amp, quot, ', '').strip()
 
-    def _get_neg_resps(self, classes_vocab, label, num_neg_resps=10):
+    def _get_neg_resps(self, classes_vocab, label, num_neg_resps):
         neg_resps = []
         for k, v in classes_vocab.items():
             if k != label:
                 neg_resps.append(list(v))
         neg_resps = [x for el in neg_resps for x in el]
+        neg_resps = random.choices(neg_resps, k=num_neg_resps)
         return neg_resps
 
     def _get_pairs(self, sen_list):
+        pairs = []
+        for i in range(len(sen_list)-1):
+            for j in range(i+1, len(sen_list)):
+                pairs.append([sen_list[i], sen_list[j]])
+                pairs.append([sen_list[j], sen_list[i]])
+        return pairs
