@@ -1,0 +1,102 @@
+{
+  "dataset_reader": {
+    "name": "sber_faq_reader",
+    "data_path": "./sber_faq_data"
+  },
+  "dataset_iterator": {
+    "name": "ranking_iterator",
+    "random_batches": true,
+    "batches_per_epoch": 72,
+    "seed": 243
+  },
+  "chainer": {
+    "in": ["x"],
+    "in_y": ["y"],
+    "pipe": [
+      {
+        "id": "preproc",
+        "name": "siamese_preprocessor",
+        "use_matrix": false,
+        "num_ranking_samples": 10,
+        "max_sequence_length": 80,
+        "fit_on": ["x"],
+        "in": ["x"],
+        "out": ["x_proc"],
+        "sent_vocab":
+        {
+          "id": "siam_sent_vocab",
+          "name":"simple_vocab",
+          "save_path": "sber_faq_vocabs/sent.dict",
+          "load_path": "sber_faq_vocabs/sent.dict"
+        },
+        "tokenizer":
+        {
+          "name": "nltk_tokenizer"
+        },
+        "vocab":
+        {
+          "id": "siam_vocab",
+          "name":"simple_vocab",
+          "save_path": "sber_faq_vocabs/tok.dict",
+          "load_path": "sber_faq_vocabs/tok.dict"
+        },
+        "embedder":
+        {
+          "id": "siam_embedder",
+          "name": "fasttext",
+          "load_path": "embeddings/ft_sber_sg_300.bin"
+        }
+      },
+      {
+        "id": "embeddings",
+        "name": "emb_mat_assembler",
+        "embedder": "#siam_embedder",
+        "vocab": "#siam_vocab"
+      },
+      {
+        "in": ["x"],
+        "in_y": ["y"],
+        "out": ["y_predicted"],
+        "name": "bilstm_nn",
+        "len_vocab": "#siam_vocab.len",
+        "embedding_dim": "#siam_embedder.dim",
+        "use_matrix": "#preproc.use_matrix",
+        "seed": 243,
+        "max_sequence_length": "#preproc.max_sequence_length",
+        "max_pooling": true,
+        "type_of_weights": "shared",
+        "hidden_dim": 300,
+        "learning_rate": 1e-3,
+        "triplet_loss": false,
+        "margin": 0.1,
+        "save_path": "sber_faq_ranking/model_weights.h5",
+        "load_path": "sber_faq_ranking/model_weights.h5"
+      }
+    ],
+    "out": ["y_predicted"]
+  },
+  "train": {
+    "epochs": 200,
+    "batch_size": 256,
+    "pytest_max_batches": 2,
+    "train_metrics": [],
+    "metrics": ["r@1", "r@5", "r@10", "rank_response", "loss"],
+    "validation_patience": 5,
+    "val_every_n_epochs": 1,
+    "log_every_n_batches": 10
+
+
+  },
+  "metadata": {
+    "labels": {
+      "telegram_utils": "RankingModel",
+      "server_utils": "Ranker"
+    },
+    "download": [
+      {
+        "url": "http://lnsigo.mipt.ru/export/embeddings/ft_sber_sg_300.bin",
+        "subdir": "embeddings"
+      }
+    ]
+  }
+}
