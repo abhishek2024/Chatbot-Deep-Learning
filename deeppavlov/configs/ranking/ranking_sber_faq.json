@@ -31,7 +31,7 @@
         },
         "tokenizer":
         {
-          "name": "nltk_tokenizer"
+          "name": "ru_tokenizer"
         },
         "vocab":
         {
