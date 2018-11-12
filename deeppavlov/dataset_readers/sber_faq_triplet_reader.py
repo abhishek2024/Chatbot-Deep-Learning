@@ -10,8 +10,8 @@ from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.dataset_reader import DatasetReader
 
 
-@register('negative_sber_faq_reader')
-class NegativeSberFAQReader(DatasetReader):
+@register('sber_faq_triplet_reader')
+class SberFAQTripletReader(DatasetReader):
 
     def read(self, data_path):
         dataset = {'train': None, 'valid': None, 'test': None}

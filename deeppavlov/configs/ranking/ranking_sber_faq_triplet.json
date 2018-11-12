@@ -1,6 +1,6 @@
 {
   "dataset_reader": {
-    "name": "negative_sber_faq_reader",
+    "name": "sber_faq_triplet_reader",
     "data_path": "./sber_faq_data"
   },
   "dataset_iterator": {
@@ -68,10 +68,10 @@
         "hidden_dim": 300,
         "learning_rate": 1e-3,
         "triplet_loss": true,
-        "hard_triplets": true,
+        "hard_triplets": false,
         "margin": 0.1,
-        "save_path": "sber_faq_ranking/model_weights.h5",
-        "load_path": "sber_faq_ranking/model_weights.h5"
+        "save_path": "sber_faq_triplet_ranking/model_weights.h5",
+        "load_path": "sber_faq_triplet_ranking/model_weights.h5"
       }
     ],
     "out": ["y_predicted"]
