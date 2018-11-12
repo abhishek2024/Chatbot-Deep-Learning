@@ -45,6 +45,7 @@ class SquadDatasetReader(DatasetReader):
     url_multi_squad = 'http://files.deeppavlov.ai/datasets/multiparagraph_squad.tar.gz'
     url_multi_squad_chunks = 'http://files.deeppavlov.ai/datasets/multiparagraph_squad_chunks.tar.gz'
     url_ner_squad = 'http://files.deeppavlov.ai/datasets/squad-tokens-ner-v1.1.tar.gz'
+    url_sent_squad = 'http://files.deeppavlov.ai/datasets/squad-tokens-sent-v1.1.tar.gz'
     url_ner_sber_squad = 'http://files.deeppavlov.ai/datasets/sber_squad-tokens-ner-v1.1.tar.gz'
 
     def read(self, dir_path: str, dataset: str = 'SQuAD', *args, **kwargs) -> Dict[str, Dict[str, Any]]:
@@ -79,6 +80,9 @@ class SquadDatasetReader(DatasetReader):
         elif dataset == 'NERSberSQuAD':
             self.url = self.url_ner_sber_squad
             required_files = ['{}-tokens-ner-v1.1.json'.format(dt) for dt in ['train', 'dev']]
+        elif dataset == 'SQuAD+Sent':
+            self.url = self.url_sent_squad
+            required_files = ['{}-tokens-sent-v1.1.json'.format(dt) for dt in ['train', 'dev']]
         else:
             raise RuntimeError('Dataset {} is unknown'.format(dataset))
 
@@ -92,12 +96,13 @@ class SquadDatasetReader(DatasetReader):
         dataset = {}
         for f in required_files:
             data = json.load((dir_path / f).open('r'))
-            if f in (['dev-v{}.json'.format(v) for v in ['1.1', '2.0']] + ['dev-tokens-ner-v1.1.json']):
+            if 'dev' in f:
                 dataset['valid'] = data
             else:
                 dataset['train'] = data
 
         return dataset
+
 
 @register('squad_scorer_dataset_reader')
 class SquadScorerDatasetReader(DatasetReader):

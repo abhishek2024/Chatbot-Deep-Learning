@@ -24,6 +24,7 @@ from deeppavlov.models.squad.utils_refactor import *
 from deeppavlov.core.common.check_gpu import GPU_AVAILABLE
 from deeppavlov.core.layers.tf_layers import variational_dropout
 from deeppavlov.core.common.log import get_logger
+from deeppavlov.core.data.utils import zero_pad
 
 logger = get_logger(__name__)
 
@@ -90,6 +91,7 @@ class SquadModelRef(TFModel):
         self.use_reattention = self.opt.get('use_reattention', False)
         self.answer_selector = self.opt.get('answer_selector', 'pointer_net')
         self.init_with_poolings = self.opt.get('init_with_poolings', False)
+        self.use_USE = self.opt.get('USE', False)
 
         # TODO: add l2 norm to all dense layers and variables
 
@@ -127,6 +129,9 @@ class SquadModelRef(TFModel):
             self._init_ema()
 
         self.sess.run(tf.global_variables_initializer())
+
+        if self.use_USE:
+            self.sess.run(tf.tables_initializer())
 
         super().__init__(**kwargs)
 
@@ -167,6 +172,27 @@ class SquadModelRef(TFModel):
                            keep_prob=self.input_keep_prob_ph, share_layers=self.share_layers)
             c = rnn(c_emb, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
             q = rnn(q_emb, seq_len=self.q_len, concat_layers=self.concat_bigru_outputs)
+
+        if self.use_USE:
+            import tensorflow_hub as tfhub
+            # works with tf1.8
+            # in tf1.10 it is not possible to load model with visible gpu
+            with tf.device('/cpu:0'):
+                USE_module = tfhub.Module('https://tfhub.dev/google/universal-sentence-encoder/2', trainable=False)
+
+            self.c_sent_emb = USE_module(tf.reshape(self.c_sents_ph, (-1, )))
+            self.c_sent_emb = tf.reshape(self.c_sent_emb,
+                                         (self.bs, -1, self.c_sent_emb.get_shape()[-1]))
+            self.q_sent_emb = USE_module(self.q_sent_ph)
+
+            c_indices_nd = tf.stack(
+                [
+                    tf.tile(tf.expand_dims(tf.range(self.bs), axis=-1), [1, self.c_maxlen]),
+                    self.c_tok2sent_idx
+                ], axis=-1)
+
+            c = tf.concat([c, tf.gather_nd(self.c_sent_emb, c_indices_nd)], axis=-1, name='c_concat')
+            q = tf.concat([q, tf.tile(tf.expand_dims(self.q_sent_emb, axis=1), (1, self.q_maxlen, 1))], axis=-1, name='q_concat')
 
         context_representations = [c]
         E = None  # check reinforced mnemonic reader paper for more info about E, B and re-attention
@@ -396,6 +422,11 @@ class SquadModelRef(TFModel):
             self.c_str_ph = tf.placeholder(shape=(None, None), dtype=tf.string, name='c_str_ph')
             self.q_str_ph = tf.placeholder(shape=(None, None), dtype=tf.string, name='q_str_ph')
 
+        if self.use_USE:
+            self.c_sents_ph = tf.placeholder(shape=(None, None), dtype=tf.string, name='c_sents_ph')
+            self.c_tok2sent_idx_ph = tf.placeholder(shape=(None, None), dtype=tf.int32, name='c_tok2sent_idx_ph')
+            self.q_sent_ph = tf.placeholder(shape=(None, ), dtype=tf.string, name='q_sent_ph')
+
         if self.scorer:
             self.y_ph = tf.placeholder(shape=(None, ), dtype=tf.int32, name='y_ph')
 
@@ -438,6 +469,9 @@ class SquadModelRef(TFModel):
         if self.use_elmo:
             self.c_str = tf.slice(self.c_str_ph, [0, 0], [self.bs, self.c_maxlen])
             self.q_str = tf.slice(self.q_str_ph, [0, 0], [self.bs, self.q_maxlen])
+
+        if self.use_USE:
+            self.c_tok2sent_idx = self.c_tok2sent_idx_ph[:self.bs, :self.c_maxlen]
 
         if self.noans_token:
             # we use additional 'no answer' token to allow model not to answer on question
@@ -576,6 +610,7 @@ class SquadModelRef(TFModel):
 
     def _build_feed_dict(self, c_tokens, c_chars, q_tokens, q_chars,
                          c_features=None, q_features=None, c_str=None, q_str=None, c_ner=None, q_ner=None,
+                         c_sentences=None, c_sent_st_token_idxs=None, c_sent_end_token_idxs=None, q_sentence=None,
                          y1=None, y2=None, y=None):
 
         if self.use_elmo:
@@ -599,6 +634,21 @@ class SquadModelRef(TFModel):
             feed_dict.update({
                 self.c_ner_ph: c_ner,
                 self.q_ner_ph: q_ner,
+            })
+
+        if self.use_USE:
+            assert c_sentences is not None and c_sent_st_token_idxs is not None
+            c_sentences = self._pad_strings(c_sentences)
+            tok2s = []
+            for starts, ends in zip(c_sent_st_token_idxs, c_sent_end_token_idxs):
+                indices = []
+                for i, (s, e) in enumerate(zip(starts, ends)):
+                    indices.extend([i] * (e - s + 1))
+                tok2s.append(indices)
+            feed_dict.update({
+                self.c_sents_ph: c_sentences,
+                self.c_tok2sent_idx_ph: zero_pad(tok2s),
+                self.q_sent_ph: q_sentence,
             })
         if self.predict_ans and y1 is not None and y2 is not None:
             feed_dict.update({
@@ -629,6 +679,8 @@ class SquadModelRef(TFModel):
 
     def train_on_batch(self, c_tokens, c_chars, q_tokens, q_chars,
                        c_features=None, q_features=None, c_str=None, q_str=None, c_ner=None, q_ner=None,
+                       c_sentences=None, c_sent_st_token_idxs=None, c_sent_end_token_idxs=None,
+                       q_sentence=None,
                        y1s=None, y2s=None):
         # TODO: filter examples in batches with answer position greater self.context_limit
         # select one answer from list of correct answers
@@ -649,12 +701,17 @@ class SquadModelRef(TFModel):
                     y2s_noans.append(y2 + 1)
             y1s, y2s = y1s_noans, y2s_noans
         feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars,
-                                          c_features, q_features, c_str, q_str, c_ner, q_ner, y1s, y2s, ys)
+                                          c_features, q_features, c_str, q_str, c_ner, q_ner,
+                                          c_sentences, c_sent_st_token_idxs, c_sent_end_token_idxs, q_sentence,
+                                          y1s, y2s, ys)
         loss, _ = self.sess.run([self.loss, self.train_op], feed_dict=feed_dict)
         return loss
 
     def __call__(self, c_tokens, c_chars, q_tokens, q_chars,
-                 c_features=None, q_features=None, c_str=None, q_str=None, c_ner=None, q_ner=None, *args, **kwargs):
+                 c_features=None, q_features=None, c_str=None, q_str=None, c_ner=None, q_ner=None,
+                 c_sentences=None, c_sent_st_token_idxs=None, c_sent_end_token_idxs=None,
+                 q_sentence=None,
+                 *args, **kwargs):
 
         if any(np.sum(c_tokens, axis=-1) == 0) or any(np.sum(q_tokens, axis=-1) == 0):
             logger.info('SQuAD model: Warning! Empty question or context was found.')
@@ -667,7 +724,8 @@ class SquadModelRef(TFModel):
             return noanswers, noanswers, zero_probs, zero_probs
 
         feed_dict = self._build_feed_dict(c_tokens, c_chars, q_tokens, q_chars,
-                                          c_features, q_features, c_str, q_str, c_ner, q_ner)
+                                          c_features, q_features, c_str, q_str, c_ner, q_ner,
+                                          c_sentences, c_sent_st_token_idxs, c_sent_end_token_idxs, q_sentence)
         if self.scorer and not self.predict_ans:
             score = self.sess.run(self.noans_prob, feed_dict=feed_dict)
             return [float(score) for score in score]
@@ -726,9 +784,11 @@ class SquadModelRef(TFModel):
                 self.load(path=self.tmp_model_path)
                 shutil.rmtree(self.tmp_model_path.parent)
 
-    def _pad_strings(self, batch, len_limit):
+    @staticmethod
+    def _pad_strings(batch, len_limit=None):
         max_len = max(map(lambda x: len(x), batch))
-        max_len = min(max_len, len_limit)
+        if len_limit is not None:
+            max_len = min(max_len, len_limit)
         for tokens in batch:
             tokens.extend([''] * (max_len - len(tokens)))
         return batch

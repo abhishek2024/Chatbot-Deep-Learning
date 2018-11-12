@@ -217,9 +217,8 @@ class MultiSquadIterator(DataLearningIterator):
 
 @register('multi_squad_shared_norm_iterator')
 class MultiSquadIteratorSharedNorm(DataLearningIterator):
-    def __init__(self, data, seed: Optional[int] = None, shuffle: bool = True, with_answer_rate: float = 0.666,
+    def __init__(self, data, seed: Optional[int] = None, shuffle: bool = True,
                  *args, **kwargs) -> None:
-        self.with_answer_rate = with_answer_rate
         self.seed = seed
         self.np_random = np.random.RandomState(seed)
         super().__init__(data, seed, shuffle, *args, **kwargs)
@@ -324,82 +323,52 @@ class NerSquadIterator(DataLearningIterator):
         return cqas
 
 
-@register('multi_squad_iterator')
-class MultiSquadIterator(DataLearningIterator):
-    """Dataset iterator for multiparagraph-SQuAD dataset.
+@register('sent_squad_iterator')
+class SentSquadIterator(DataLearningIterator):
 
-    With ``with_answer_rate`` rate samples context with answer and with ``1 - with_answer_rate`` samples context
-    from the same article, but without an answer. Contexts without an answer are sampled according to
-    their tfidf scores (tfidf score between question and context).
+    def split(self, *args, **kwargs) -> None:
+        for dt in ['train', 'valid', 'test']:
+            setattr(self, dt, self._extract_cqas(getattr(self, dt)))
 
-    It extracts ``context``, ``question``, ``answer_text`` and ``answer_start`` position from dataset.
-    Example from a dataset is a tuple of ``(context, question)`` and ``(answer_text, answer_start)``. If there is
-    no answer in context, then ``answer_text`` is empty string and `answer_start` is equal to -1.
+    @staticmethod
+    def _extract_cqas(data: Dict[str, Any]) -> List[Tuple[Tuple[str, str], Tuple[List[str], List[int]]]]:
+        cqas = []
+        if data:
+            for article in data['data']:
+                for par in article['paragraphs']:
+                    context = par['context']
+                    c_processed = par['context_clean']
+                    c_tokens = par['context_tokens']
+                    c_chars = par['context_chars']
+                    spans = par['spans']
+                    r2p = par['r2p']
+                    p2r = par['p2r']
+                    c_sentences = par['sentences']
+                    c_sent_st_token_idx = par['sent_st_token']
+                    c_sent_end_token_idx = par['sent_end_token']
+                    for qa in par['qas']:
+                        q = qa['question']
+                        q_processed = qa['question_clean']
+                        q_tokens = qa['question_tokens']
+                        q_chars = qa['question_chars']
 
-    Args:
-        data: dict with keys ``'train'``, ``'valid'`` and ``'test'`` and values
-        seed: random seed for data shuffling
-        shuffle: whether to shuffle data during batching
-        with_answer_rate: sampling rate of contexts with answer
+                        x = (context, c_processed, c_tokens, c_chars,
+                             c_sentences, c_sent_st_token_idx, c_sent_end_token_idx,
+                             q, q_processed, q_tokens, q_chars,
+                             spans, r2p, p2r)
 
-    Attributes:
-        shuffle: whether to shuffle data during batching
-        random: instance of ``Random`` initialized with a seed
-    """
+                        ["context_raw", "context", "context_tokens", "context_chars", "context_sentences",
+                         "c_sent_st_token_idxs", "c_sent_end_token_idxs", "question_tokens", "question_chars",
+                         "spans", "c_r2p", "c_p2r"]
 
-    def __init__(self, data, seed: Optional[int] = None, shuffle: bool = True, with_answer_rate: float = 0.666,
-                 *args, **kwargs) -> None:
-        self.with_answer_rate = with_answer_rate
-        self.seed = seed
-        self.np_random = np.random.RandomState(seed)
-        super().__init__(data, seed, shuffle, *args, **kwargs)
-
-    def gen_batches(self, batch_size: int, data_type: str = 'train', shuffle: bool = None)\
-            -> Generator[Tuple[Tuple[Tuple[str, str]], Tuple[List[str], List[int]]], None, None]:
-
-        if shuffle is None:
-            shuffle = self.shuffle
-
-        if data_type == 'train':
-            random = self.np_random
-        else:
-            random = np.random.RandomState(self.seed)
-
-        if shuffle:
-            random.shuffle(self.data[data_type])
-
-        data = self.data[data_type]
-        data_len = len(data)
-
-        for i in range((data_len - 1) // batch_size + 1):
-            batch = []
-            for j in range(i * batch_size, min((i+1) * batch_size, data_len)):
-                q = data[j]['question']
-                contexts = data[j]['contexts']
-                ans_contexts = [c for c in contexts if len(c['answer']) > 0]
-                noans_contexts = [c for c in contexts if len(c['answer']) == 0]
-                # sample context with answer or without answer
-                if random.rand() < self.with_answer_rate or len(noans_contexts) == 0:
-                    # select random context with answer
-                    context = random.choice(ans_contexts)
-                else:
-                    # select random context without answer
-                    # prob ~ context tfidf score
-                    noans_scores = np.array([x['score'] for x in noans_contexts])
-                    noans_scores = noans_scores / np.sum(noans_scores)
-                    context = noans_contexts[np.argmax(random.multinomial(1, noans_scores))]
-
-                answer_text = [ans['text'] for ans in context['answer']] if len(context['answer']) > 0 else ['']
-                answer_start = [ans['answer_start'] for ans in context['answer']] if len(context['answer']) > 0 else [-1]
-                batch.append(((context['context'], q), (answer_text, answer_start)))
-            yield tuple(zip(*batch))
-
-    def get_instances(self, data_type: str = 'train') -> Tuple[Tuple[Tuple[str, str]], Tuple[List[str], List[int]]]:
-        data_examples = []
-        for qcas in self.data[data_type]:  # question, contexts, answers
-            question = qcas['question']
-            for context in qcas['contexts']:
-                answer_text = [x['text'] for x in context['answer']]
-                answer_start = [x['answer_start'] for x in context['answer']]
-                data_examples.append(((context['context'], question), (answer_text, answer_start)))
-        return tuple(zip(*data_examples))
+                        ans_text = []
+                        ans_start = []
+                        if len(qa['answers']) == 0:
+                            # squad 2.0 has questions without an answer
+                            cqas.append((x, ([''], [-1])))
+                        else:
+                            for answer in qa['answers']:
+                                ans_text.append(answer['text'])
+                                ans_start.append(answer['answer_start'])
+                            cqas.append((x, (ans_text, ans_start)))
+        return cqas
