@@ -54,7 +54,7 @@
         "vocab": "#siam_vocab"
       },
       {
-        "in": ["x"],
+        "in": ["x_proc"],
         "in_y": ["y"],
         "out": ["y_predicted"],
         "name": "bilstm_nn",
