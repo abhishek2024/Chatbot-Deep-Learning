@@ -7,8 +7,7 @@
   "dataset_iterator": {
     "name": "multi_squad_shared_norm_iterator",
     "seed": 1337,
-    "shuffle": true,
-    "with_answer_rate": 0.666
+    "shuffle": true
   },
   "chainer": {
     "in": ["context_0_raw", "question_raw"],
@@ -151,7 +150,7 @@
       "server_utils": "SquadModel"
     },
     "download": [
-      "http://files.deeppavlov.ai/deeppavlov_data/squad_model_1.4_cpu_compatible.tar.gz",
+      "http://TODO",
       {
         "url": "http://files.deeppavlov.ai/embeddings/wiki-news-300d-1M.vec",
         "subdir": "embeddings"
