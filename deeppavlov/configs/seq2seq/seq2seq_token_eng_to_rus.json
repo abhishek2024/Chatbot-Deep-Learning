@@ -81,8 +81,8 @@
         "fit_on": [
           "y_tok"
         ],
-        "save_path": "seq2seq/rus-eng/y_tokens.dict",
-        "load_path": "seq2seq/rus-eng/y_tokens.dict",
+        "save_path": "seq2seq/rus-eng/token_level/y_tokens.dict",
+        "load_path": "seq2seq/rus-eng/token_level/y_tokens.dict",
         "min_freq": 10,
         "out": "y_tok_ind"
       },
@@ -103,8 +103,8 @@
         "out": "y_tok_ind_pred",
         "main": true,
         "name": "keras_seq2seq_token_model",
-        "save_path": "seq2seq/rus-eng/token_gru_gru_model_v0",
-        "load_path": "seq2seq/rus-eng/token_gru_gru_model_v0",
+        "save_path": "seq2seq/rus-eng/token_level/model_v0",
+        "load_path": "seq2seq/rus-eng/token_level/model_v0",
         "encoder_embedding_size": "#my_embedder.dim",
         "decoder_embedding_size": "#dec_embedder.dim",
         "tgt_vocab_size": "#y_tokens_vocab.__len__()",
@@ -148,7 +148,7 @@
     "show_examples": true,
     "validate_best": true,
     "test_best": true,
-    "tensorboard_log_dir": "./seq2seq./rus-eng/token_logs/"
+    "tensorboard_log_dir": "./seq2seq/rus-eng/token_level/"
   },
   "metadata": {
     "requirements": [
@@ -164,6 +164,10 @@
       {
         "url": "http://files.deeppavlov.ai/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
         "subdir": "embeddings"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/seq2seq/rus-eng/token_level.tar.gz",
+        "subdir": "seq2seq/rus-eng"
       }
     ]
   }
