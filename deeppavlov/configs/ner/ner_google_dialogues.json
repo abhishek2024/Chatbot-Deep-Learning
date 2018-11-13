@@ -1,6 +1,6 @@
 {
   "dataset_reader": {
-    "name": "sim_r_reader",
+    "name": "dstc2_google_reader",
     "data_path": "/home/mikhail/Projects/Pilot/google_dialogue_data"
   },
   "dataset_iterator": {
@@ -65,6 +65,12 @@
         "load_path": "embeddings/glove.6B.100d.txt",
 
         "out": ["x_emb"]
+      },
+      {
+        "name": "zero_shot_description_assembler",
+        "embedder": "#glove_emb",
+        "tag_vocab": "#tag_vocab",
+        "dataset_name": "dstc2"
       },
       {
         "id": "embeddings_char",
