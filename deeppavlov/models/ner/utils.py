@@ -51,7 +51,7 @@ class ZeroShotDescriptionEmbeddingAssembler:
         if dataset_name == 'dstc2':
             self._descr = dict(area='area',
                                food='food',
-                               pricerange='pricerange',
+                               pricerange='price range',
                                name='restaurant name')
         elif dataset_name == 'simm':
             self._descr = dict(movie='movie',
