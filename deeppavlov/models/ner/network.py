@@ -234,16 +234,20 @@ class NerNetwork(EnhancedTFModel):
         units = stacked_cnn(units, n_hidden_list, cnn_filter_width, use_batch_norm, training_ph=self.training_ph)
         return units
 
-    def _build_top(self, units, n_tags, n_hididden, top_dropout, two_dense_on_top):
+    def _build_top(self, units, n_tags, n_hididden, top_dropout, two_dense_on_top, name='Top', reuse=tf.AUTO_REUSE):
         if top_dropout:
             units = variational_dropout(units, self._dropout_ph)
         if two_dense_on_top:
             units = tf.layers.dense(units, n_hididden, activation=tf.nn.relu,
                                     kernel_initializer=INITIALIZER(),
-                                    kernel_regularizer=tf.nn.l2_loss)
+                                    kernel_regularizer=tf.nn.l2_loss,
+                                    name='Second_' + name,
+                                    reuse=reuse)
         logits = tf.layers.dense(units, n_tags, activation=None,
                                  kernel_initializer=INITIALIZER(),
-                                 kernel_regularizer=tf.nn.l2_loss)
+                                 kernel_regularizer=tf.nn.l2_loss,
+                                 name=name,
+                                 reuse=reuse)
         return logits
 
     def _build_train_predict(self, logits, mask, n_tags, use_crf, clip_grad_norm, l2_reg):
