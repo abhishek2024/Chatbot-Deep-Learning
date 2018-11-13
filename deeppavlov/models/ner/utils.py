@@ -18,7 +18,6 @@ limitations under the License.
 from typing import Union
 
 import numpy as np
-from sklearn.decomposition import PCA
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.simple_vocab import SimpleVocabulary
@@ -28,23 +27,14 @@ from deeppavlov.models.embedders.glove_embedder import GloVeEmbedder
 
 @register('zero_shot_description_assembler')
 class ZeroShotDescriptionEmbeddingAssembler:
-    """Given a list of classes each equipped with description this class
+    """Given a list of classes each equipped with description this class this class will assemble
+    the matrix of mean embeddings of descriptions for each class
 
     Args:
         embedder: an instance of the class that convertes tokens to vectors.
             For example :class:`~deeppavlov.models.embedders.fasttext_embedder.FasttextEmbedder` or
             :class:`~deeppavlov.models.embedders.glove_embedder.GloVeEmbedder`
-        vocab: instance of :class:`~deeppavlov.core.data.SimpleVocab`. The matrix of embeddings
-            will be assembled relying on every token in the vocabulary. the indexing will match
-            vocabulary indexing.
-        character_level: whether to perform assembling on character level. This procedure will
-            assemble matrix with embeddings for every character using averaged embeddings of
-            words, that contain this character.
-        emb_dim: dimensionality of the resulting embeddings. If not `None` it should be less
-            or equal to the dimensionality of the embeddings provided by `Embedder`. The
-            reduction of dimensionality is performed by taking main components of PCA.
-        estimate_by_n: how much samples to use to estimate covariance matrix for PCA.
-            10000 seems to be enough.
+        vocab: instance of :class:`~deeppavlov.core.data.SimpleVocab`. tag vocabulary
 
     Attributes:
         dim: dimensionality of the embeddings (can be less than dimensionality of
@@ -53,46 +43,45 @@ class ZeroShotDescriptionEmbeddingAssembler:
 
     def __init__(self,
                  embedder: Union[FasttextEmbedder, GloVeEmbedder],
-                 vocab: SimpleVocabulary,
-                 character_level: bool = False,
-                 emb_dim: int = None,
-                 estimate_by_n: int = 10000,
+                 tag_vocab: SimpleVocabulary,
+                 dataset_name: str,
                  *args,
                  **kwargs) -> None:
-        if emb_dim is None:
-            emb_dim = embedder.dim
-        self.emb_mat = np.zeros([len(vocab), emb_dim], dtype=np.float32)
-        tokens_for_estimation = list(embedder)[:estimate_by_n]
-        estimation_matrix = np.array([embedder([[word]])[0][0] for word in tokens_for_estimation], dtype=np.float32)
-        emb_std = np.std(estimation_matrix)
-
-        if emb_dim < embedder.dim:
-            pca = PCA(n_components=emb_dim)
-            pca.fit(estimation_matrix)
-        elif emb_dim > embedder.dim:
-            raise RuntimeError(f'Model dimension must be greater then requsted embeddings '
-                               'dimension! model_dim = {embedder.dim}, requested_dim = {emb_dim}')
+        self.embedder = embedder
+        if dataset_name == 'dstc2':
+            self._descr = dict(area='area',
+                               food='food',
+                               pricerange='pricerange',
+                               name='restaurant name')
+        elif dataset_name == 'simm':
+            self._descr = dict(movie='movie',
+                               theatre_name='theatre name',
+                               num_tickets='number of tickets',
+                               date='date',
+                               time='time')
+        elif dataset_name == 'simr':
+            self._descr = dict(time='time',
+                               date='date',
+                               restaurant_name='restaurant name',
+                               num_people='number of people',
+                               location='location',
+                               price_range='price range',
+                               category='category',
+                               meal='meal',
+                               rating='rating')
         else:
-            pca = None
-        for n, token in enumerate(vocab):
-            if character_level:
-                char_in_word_bool = np.array([token in word for word in tokens_for_estimation], dtype=bool)
-                all_words_with_character = estimation_matrix[char_in_word_bool]
-                if len(all_words_with_character) != 0:
-                    if pca is not None:
-                        all_words_with_character = pca.transform(all_words_with_character)
-                    self.emb_mat[n] = sum(all_words_with_character) / len(all_words_with_character)
-                else:
-                    self.emb_mat[n] = np.random.randn(emb_dim) * np.std(self.emb_mat[:n])
-            else:
-                try:
-                    if pca is not None:
-                        self.emb_mat[n] = pca(embedder([[token]])[0])[0]
-                    else:
-                        self.emb_mat[n] = embedder([[token]])[0][0]
-                except KeyError:
-                    self.emb_mat[n] = np.random.randn(emb_dim) * emb_std
+            raise RuntimeError('The dataset_name must be in: '
+                               '{"dstc2", "simm", "simr"}, '
+                               f'however, dataset_name = {dataset_name}')
+        self.mat = np.zeros([len(tag_vocab), self.dim])
+        for n, tag in enumerate(tag_vocab):
+            if tag != 'O':
+                if tag.startswith('B-') or tag.startswith('I-'):
+                    tag = tag[2:]
+                self.mat[n] = np.mean(self.embedder([self._descr[tag].split()])[0], axis=0)
+        print('Success')
 
     @property
     def dim(self):
-        return self.emb_mat.shape[1]
+        return self.embedder.dim
+
