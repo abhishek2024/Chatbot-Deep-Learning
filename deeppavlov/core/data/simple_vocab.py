@@ -135,6 +135,10 @@ class SimpleVocabulary(Estimator):
     def __len__(self):
         return len(self._i2t)
 
+    def __iter__(self):
+        for token in self._i2t:
+            yield token
+
     def is_str_batch(self, batch):
         if not self.is_empty(batch):
             non_empty = [item for item in batch if len(item) > 0]
