@@ -28,7 +28,12 @@
         "out": ["x_san"]
       },
       {
+        "name": "ner_bio_converter",
         "in": ["y"],
+        "out": ["y_no_bio"]
+      },
+      {
+        "in": ["y_no_bio"],
         "id": "tag_vocab",
         "name": "simple_vocab",
         "pad_with_zeros": true,
@@ -119,10 +124,15 @@
         "ref": "tag_vocab",
         "in": ["y_predicted"],
         "out": ["tags"]
+      },
+      {
+        "name": "ner_bio_converter",
+        "in": ["tags"],
+        "out": ["tags_bio"]
       }
     ],
 
-    "out": ["x_tokens", "tags"]
+    "out": ["x_tokens", "tags_bio"]
   },
   "train": {
     "epochs": 100,
