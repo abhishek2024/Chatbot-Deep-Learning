@@ -73,12 +73,16 @@ class ZeroShotDescriptionEmbeddingAssembler:
             raise RuntimeError('The dataset_name must be in: '
                                '{"dstc2", "simm", "simr"}, '
                                f'however, dataset_name = {dataset_name}')
-        self.mat = np.zeros([len(tag_vocab), self.dim])
+        self.emb_mat = np.zeros([len(tag_vocab), self.dim])
         for n, tag in enumerate(tag_vocab):
             if tag != 'O':
                 if tag.startswith('B-') or tag.startswith('I-'):
                     tag = tag[2:]
-                self.mat[n] = np.mean(self.embedder([self._descr[tag].split()])[0], axis=0)
+                embeddings = self.embedder([self._descr[tag].split()])[0]
+                print(tag)
+                print(embeddings)
+                self.emb_mat[n] = np.mean(embeddings, axis=0)
+        # import pdb; pdb.set_trace()
         print('Success')
 
     @property
