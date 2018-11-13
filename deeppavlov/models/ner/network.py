@@ -386,6 +386,7 @@ class GoogleDialogues(NerNetwork):
         self._xs_ph_list = []
         self._y_ph = tf.placeholder(tf.int32, [None, None], name='y_ph')
         self._input_features = []
+        print(mean_emb.shape, n_tags)
 
         # ================ Building input features =================
 
@@ -431,7 +432,7 @@ class GoogleDialogues(NerNetwork):
                     raise NotImplementedError
                 units = tf.layers.dense(units, n_hidden, activation=tf.nn.relu, name='Project', reuse=tf.AUTO_REUSE)
                 units = self._build_cudnn_rnn(units, [n_hidden], cell_type, intra_layer_dropout, self.mask_ph)
-                l = self._build_top(units, n_tags, n_hidden, top_dropout, two_dense_on_top)
+                l = self._build_top(units, 1, n_hidden, top_dropout, two_dense_on_top)
                 logits_list.append(l)
 
         self._logits = tf.concat(logits_list, 2)
