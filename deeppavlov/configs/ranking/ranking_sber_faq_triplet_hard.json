@@ -61,6 +61,7 @@
         "len_vocab": "#siam_vocab.len",
         "embedding_dim": "#siam_embedder.dim",
         "use_matrix": "#preproc.use_matrix",
+        "emb_matrix": "#embeddings.emb_mat",
         "seed": 243,
         "max_sequence_length": "#preproc.max_sequence_length",
         "max_pooling": true,
