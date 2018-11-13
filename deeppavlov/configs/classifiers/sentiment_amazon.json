@@ -36,10 +36,13 @@
         "tokenizer": "wordpunct_tokenize"
       },
       {
-        "in": "x_tok",
-        "out": "x_emb",
+        "in": ["x_tok"],
+        "out": ["x_emb"],
         "id": "my_embedder",
         "name": "elmo",
+        "elmo_output_names": [
+          "elmo"
+        ],
         "mini_batch_size": 16,
         "spec": "https://tfhub.dev/google/elmo/2"
       },
