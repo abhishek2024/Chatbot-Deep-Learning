@@ -20,6 +20,7 @@ from itertools import chain
 @register_metric('ner_f1')
 def ner_f1(y_true, y_predicted):
     _, y_predicted = zip(*y_predicted)
+    y_true, _ = zip(*y_true)
     y_true = list(chain(*y_true))
     y_predicted = list(chain(*y_predicted))
     results = precision_recall_f1(y_true,
