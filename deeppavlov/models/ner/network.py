@@ -350,9 +350,8 @@ class NerNetwork(EnhancedTFModel):
 @register('ner_zero_shot')
 class GoogleDialogues(NerNetwork):
     def __init__(self,
-
                  n_tags: int,  # Features dimensions
-                 mean_emb: np.ndarray = np.random.randn(10, 10),
+                 mean_emb: np.ndarray,
                  token_emb_dim: int = None,
                  char_emb_dim: int = None,
                  capitalization_dim: int = None,
@@ -372,7 +371,7 @@ class GoogleDialogues(NerNetwork):
                  seed: int = None,
                  lr_drop_patience: int = 5,
                  lr_drop_value: float = 0.1,
-                 conditioning_method='concat',
+                 conditioning_method: str = 'concat',
                  **kwargs) -> None:
         tf.set_random_seed(seed)
         np.random.seed(seed)
@@ -413,15 +412,15 @@ class GoogleDialogues(NerNetwork):
             sequence_lengths = tf.to_int32(tf.reduce_sum(self.mask_ph, axis=1))
             precoder_units_tuple, last_states = cudnn_bi_lstm(features, n_hidden, sequence_lengths, reuse=tf.AUTO_REUSE)
             precoder_units = tf.concat(precoder_units_tuple, 2)
-            # last states can be used for classificaction
+            # last states can be used for classification
         with tf.variable_scope('PostCoder'):
             logits_list = []
             shape = tf.shape(self.mask_ph)
             batch_size, seq_len = shape[0], shape[1]
-            mean_emb_expanded = tf.expand_dims(tf.expand_dims(self.mean_emb, 0), 0)
-            mean_emb_tiled = tf.tile(mean_emb_expanded, (batch_size, seq_len, 1, 1))
+            mean_emb_expanded = tf.expand_dims(tf.expand_dims(self.mean_emb, 1), 1)
+            mean_emb_tiled = tf.tile(mean_emb_expanded, (1, batch_size, seq_len, 1))
             for q in range(n_tags):
-                tag_emb = mean_emb_tiled[..., q]
+                tag_emb = mean_emb_tiled[q]
                 if conditioning_method == 'concat':
                     units = tf.concat([tag_emb, precoder_units], 2)
                 else:
