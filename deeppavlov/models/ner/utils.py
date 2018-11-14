@@ -79,10 +79,7 @@ class ZeroShotDescriptionEmbeddingAssembler:
                 if tag.startswith('B-') or tag.startswith('I-'):
                     tag = tag[2:]
                 embeddings = self.embedder([self._descr[tag].split()])[0]
-                print(tag)
-                print(embeddings)
                 self.emb_mat[n] = np.mean(embeddings, axis=0)
-        # import pdb; pdb.set_trace()
         print('Success')
 
     @property
