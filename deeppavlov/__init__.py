@@ -98,6 +98,7 @@ import deeppavlov.dataset_readers.ontonotes_reader
 import deeppavlov.dataset_readers.basic_neural_ranker_reader
 import deeppavlov.dataset_iterators.basic_neural_ranker_iterator
 import deeppavlov.skills.odqa.basic_neural_ranker
+import deeppavlov.skills.odqa.logit_ranker
 
 import deeppavlov.metrics.accuracy
 import deeppavlov.metrics.fmeasure
