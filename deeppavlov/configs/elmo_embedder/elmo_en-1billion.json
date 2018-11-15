@@ -10,13 +10,13 @@
         "out": ["tokens"]
       },
       {
-        "name": "elmo",
+        "name": "elmo_embedder",
         "elmo_output_names": ["lstm_outputs1", "lstm_outputs2", "word_emb"],
         "mini_batch_size": 32,
         "in": [
           "tokens"
         ],
-        "spec": "http://files.deeppavlov.ai/deeppavlov_data/elmo_ru-wiki_600k_steps.tar.gz",
+        "spec": "https://tfhub.dev/google/elmo/2",
         "out": [
           "tokens_emb"
         ]
