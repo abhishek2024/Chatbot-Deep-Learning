@@ -109,7 +109,9 @@
         "lear_rate_decay": 0.001,
         "loss": "categorical_crossentropy",
         "hidden_size": 128,
-        "model_name": "gru_gru_model"
+        "model_name": "encoder_decoder_model",
+        "encoder_name": "gru_encoder_model",
+        "decoder_name": "gru_decoder_model"
       },
       {
         "ref": "y_chars_vocab",
