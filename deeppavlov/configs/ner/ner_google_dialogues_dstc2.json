@@ -1,7 +1,7 @@
 {
   "dataset_reader": {
     "name": "dstc2_google_reader",
-    "data_path": "/home/mikhail/Projects/Pilot/google_dialogue_data"
+    "data_path": "google_dialogue_data"
   },
   "dataset_iterator": {
     "name": "google_dialog_nlu_iterator",
@@ -93,7 +93,9 @@
         "intra_layer_dropout": true,
         "l2_reg": 0,
         "dropout_keep_prob": 0.5,
-	    "learning_rate": 1e-2
+	    "learning_rate": 1e-2,
+        "learning_rate_drop_div": 10.0,
+        "learning_rate_drop_patience": 5
       },
       {
         "ref": "tag_vocab",
@@ -114,7 +116,12 @@
     "epochs": 100,
     "batch_size": 64,
 
-    "metrics": ["ner_f1"],
+    "metrics": [
+      {
+        "name": "ner_f1",
+        "inputs": ["y", "tags_bio"]
+      }
+    ],
     "validation_patience": 7,
     "val_every_n_epochs": 1,
 
