@@ -184,16 +184,16 @@ class DecayScheduler():
         if self.end_val is None and not (self.dec_type in [1, 4]):
             self.end_val = 0
         if self.dec_type == DecayType.ONECYCLE:
-            self.extra = extra or 0.
-            self.cycle_nb = math.ceil(self.nb * (1 - self.extra) / 2)
+            self.cycle_nb = math.ceil(self.nb / 2)
             self.div = self.end_val / self.start_val
 
     def __str__(self):
         return f"DecayScheduler(start_val={self.start_val}, end_val={self.end_val}"\
-            f", dec_type={self.dec_type}, num_it={self.nb}, extra={self.extra})"
+            f", dec_type={self.dec_type.name}, num_it={self.nb}, extra={self.extra})"
 
     def next_val(self):
         self.iters = min(self.iters + 1, self.nb)
+        # print(f"iters = {self.iters}/{self.nb}")
         if self.dec_type == DecayType.NO:
             return self.start_val
         elif self.dec_type == DecayType.LINEAR:
@@ -209,11 +209,7 @@ class DecayScheduler():
             delta_val = self.start_val - self.end_val
             return self.end_val + delta_val * (1 - self.iters / self.nb) ** self.extra
         elif self.dec_type == DecayType.ONECYCLE:
-            if self.iters > self.cycle_nb * 2:
-                # decaying from start_val to start_val/(100*div) for extra*num_it steps
-                pct = (self.iters - 2 * self.cycle_nb) / (self.nb - 2 * self.cycle_nb)
-                return self.start_val * (1 + pct * (1 / 100 - self.div) / self.div)
-            elif self.iters > self.cycle_nb:
+            if self.iters > self.cycle_nb:
                 # decaying from end_val to start_val for cycle_nb steps
                 pct = 1 - (self.iters - self.cycle_nb) / self.cycle_nb
                 return self.start_val * (1 + pct * (self.div - 1))
@@ -230,15 +226,16 @@ class EnhancedTFModel(TFModel, Estimator):
                  learning_rate_decay: Union[str, DecayType, List[Any]] = DecayType.NO,
                  learning_rate_decay_epochs: int = 0,
                  learning_rate_decay_batches: int = 0,
+                 learning_rate_drop_div: float = 2.0,
+                 learning_rate_drop_patience: int = None,
                  momentum: Union[float, Tuple[float, float]] = None,
                  momentum_decay: Union[str, DecayType, List[Any]] = DecayType.NO,
                  momentum_decay_epochs: int = 0,
                  momentum_decay_batches: int = 0,
                  optimizer: str = 'AdamOptimizer',
                  fit_batch_size: int = None,
-                 fit_valid_rate: float = 0.3,
+                 fit_beta: float = 0.98,
                  fit_learning_rate_div: float = 10.,
-                 fit_linear: bool = True,
                  fit_min_batches: int = 10,
                  fit_num_batches: int = None,
                  *args, **kwargs) -> None:
@@ -285,14 +282,18 @@ class EnhancedTFModel(TFModel, Estimator):
 
         try:
             self._optimizer = cls_from_str(optimizer)
-        except:
+        except Exception:
             self._optimizer = getattr(tf.train, optimizer.split(':')[-1])
         if not issubclass(self._optimizer, tf.train.Optimizer):
             raise ConfigError("`optimizer` should be tensorflow.train.Optimizer subclass")
 
+        self._learning_rate_drop_patience = learning_rate_drop_patience
+        self._learning_rate_drop_div = learning_rate_drop_div
+        self._learning_rate_cur_impatience = 0.
+        self._learning_rate_last_impatience = 0.
+        self._learning_rate_cur_div = 1.
         self._fit_batch_size = fit_batch_size
-        self._fit_valid_rate = fit_valid_rate
-        self._fit_linear = fit_linear
+        self._fit_beta = fit_beta
         self._fit_lr_div = fit_learning_rate_div
         self._fit_min_batches = fit_min_batches
         self._fit_num_batches = fit_num_batches
@@ -303,39 +304,48 @@ class EnhancedTFModel(TFModel, Estimator):
         if self._fit_batch_size is None:
             raise ConfigError("in order to use fit() method"
                               " set `fit_batch_size` parameter")
-        bs, valid_rate = self._fit_batch_size, self._fit_valid_rate
+        if self._optimizer != tf.train.MomentumOptimizer:
+            log.warning("MomentumOptimizer is suggested to be used during fitting")
+        bs, beta = self._fit_batch_size, self._fit_beta
         lr_div, min_batches = self._fit_lr_div, self._fit_min_batches
 
-        train_len = int(len(data) * (1 - valid_rate))
-        train_data, valid_data = data[:train_len], data[train_len:]
-        num_train_batches = (train_len - 1) // bs + 1
-        num_batches = self._fit_num_batches or num_train_batches
-        best_loss = 1e9
-        self._mom = 0.9 if self._mom is not None else None
-        _lr_find_dec_type = "linear" if self._fit_linear else "exponential"
+        data_len = len(data)
+        num_batches = self._fit_num_batches or ((data_len - 1) // bs + 1)
+        avg_loss = 0.
+        best_loss = 0.
+        lrs, losses = [], []
+        self._mom = 0. if self._mom is not None else None
         _lr_find_schedule = DecayScheduler(start_val=self._lr_schedule.start_val,
                                            end_val=self._lr_schedule.end_val,
-                                           dec_type=_lr_find_dec_type,
+                                           dec_type="exponential",
                                            num_it=num_batches)
         self._lr = _lr_find_schedule.start_val
         best_lr = _lr_find_schedule.start_val
         for i in range(num_batches):
-            batch_start = (i * bs) % train_len
+            batch_start = (i * bs) % data_len
             batch_end = batch_start + bs
-            self.train_on_batch(*zip(*train_data[batch_start: batch_end]))
-            valid_report = self.calc_loss(*zip(*valid_data))
-            if not isinstance(valid_report, dict):
-                valid_report = {'loss': valid_report}
-            log.info(f"Batch {i + 1}/{num_batches}: valid_loss = {valid_report['loss']}"
+            report = self.train_on_batch(*zip(*data[batch_start: batch_end]))
+            if not isinstance(report, dict):
+                report = {'loss': report}
+            # Calculating smoothed loss
+            avg_loss = beta * avg_loss + (1 - beta) * report['loss']
+            smoothed_loss = avg_loss / (1 - beta**(i + 1))
+            lrs.append(self._lr)
+            losses.append(smoothed_loss)
+            log.info(f"Batch {i + 1}/{num_batches}: smooth_loss = {smoothed_loss}"
                      f", lr = {self._lr}, best_lr = {best_lr}")
-            if math.isnan(valid_report['loss']) or (valid_report['loss'] > best_loss * 4):
-                continue
-                # break
-            if (valid_report['loss'] < best_loss) and (i > min_batches):
-                best_loss = valid_report['loss']
+            if i == 0:
+                best_loss = smoothed_loss
                 best_lr = self._lr
+            else:
+                if math.isnan(smoothed_loss) or (smoothed_loss > 4 * best_loss):
+                    break
+                if (smoothed_loss < best_loss) and (i >= min_batches):
+                    best_loss = smoothed_loss
+                    best_lr = self._lr
             self._lr = _lr_find_schedule.next_val()
-        best_lr /= 3
+        # best_lr /= 10
+        best_lr = self._get_best(lrs, losses)
 
         self._lr_schedule = DecayScheduler(start_val=best_lr / lr_div,
                                            end_val=best_lr,
@@ -348,9 +358,15 @@ class EnhancedTFModel(TFModel, Estimator):
         self._mom = self._mom_schedule.start_val
         self.load()
 
-    @abstractmethod
-    def calc_loss(self, *args, **kwargs):
-        pass
+    @staticmethod
+    def _get_best(values, losses, max_loss_div=0.9, min_val_div=10.0):
+        assert len(values) == len(losses), "lengths of values and losses should be equal"
+        min_ind = np.argmin(losses)
+        for i in range(min_ind - 1, 0, -1):
+            if (losses[i] * max_loss_div > losses[min_ind]) or\
+                    (values[i] * min_val_div < values[min_ind]):
+                return values[i + 1]
+        return values[min_ind] / min_val_div
 
     def get_train_op(self,
                      *args,
@@ -367,14 +383,30 @@ class EnhancedTFModel(TFModel, Estimator):
         return super().get_train_op(*args, **kwargs)
 
     def process_event(self, event_name, data):
+        if event_name == "after_validation":
+            if data['impatience'] > self._learning_rate_last_impatience:
+                self._learning_rate_cur_impatience += 1
+            else:
+                self._learning_rate_cur_impatience = 0
+
+            self._learning_rate_last_impatience = data['impatience']
+
+            if (self._learning_rate_drop_patience is not None) and\
+                    (self._learning_rate_cur_impatience >=
+                     self._learning_rate_drop_patience):
+                self._learning_rate_cur_impatience = 0
+                self._learning_rate_cur_div *= self._learning_rate_drop_div
+                log.info(f"New dropping learning rate"
+                         f" {self._learning_rate_cur_div} times")
         if event_name == 'after_batch':
             if self._lr_update_on_batch:
-                self._lr = self._lr_schedule.next_val()
+                self._lr = self._lr_schedule.next_val() / self._learning_rate_cur_div
+                # print(f"new learning rate = {self._lr}")
             if self._mom_update_on_batch and (self.get_momentum() is not None):
                 self._mom = min(1., max(0., self._mom_schedule.next_val()))
         if event_name == 'after_epoch':
             if not self._lr_update_on_batch:
-                self._lr = self._lr_schedule.next_val()
+                self._lr = self._lr_schedule.next_val() / self._learning_rate_cur_div
             if not self._mom_update_on_batch and (self.get_momentum() is not None):
                 self._mom = min(1., max(0., self._mom_schedule.next_val()))
 

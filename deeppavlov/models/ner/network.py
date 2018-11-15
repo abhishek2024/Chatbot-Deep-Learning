@@ -144,7 +144,7 @@ class NerNetwork(EnhancedTFModel):
         if net_type == 'rnn':
             if use_cudnn_rnn:
                 if l2_reg > 0:
-                    raise Warning('cuDNN RNN are not l2 regularizable')
+                    log.warning('cuDNN RNN are not l2 regularizable')
                 units = self._build_cudnn_rnn(features, n_hidden_list, cell_type, intra_layer_dropout, self.mask_ph)
             else:
                 units = self._build_rnn(features, n_hidden_list, cell_type, intra_layer_dropout, self.mask_ph)
@@ -162,7 +162,7 @@ class NerNetwork(EnhancedTFModel):
         sess_config.gpu_options.allow_growth = True
         if gpu is not None:
             sess_config.gpu_options.visible_device_list = str(gpu)
-        self.sess = tf.Session()   # TODO: add sess_config
+        self.sess = tf.Session(config=sess_config)
         self.sess.run(tf.global_variables_initializer())
         self.load()
 
@@ -222,9 +222,11 @@ class NerNetwork(EnhancedTFModel):
                     units = variational_dropout(units, self._dropout_ph)
             return units
 
-    def _build_rnn(self, units, n_hidden_list, cell_type, intra_layer_dropout):
+    def _build_rnn(self, units, n_hidden_list, cell_type, intra_layer_dropout, mask):
+        sequence_lengths = tf.to_int32(tf.reduce_sum(mask, axis=1))
         for n, n_hidden in enumerate(n_hidden_list):
-            units, _ = bi_rnn(units, n_hidden, cell_type=cell_type, name='Layer_' + str(n))
+            units, _ = bi_rnn(units, n_hidden, cell_type=cell_type,
+                              seq_lengths=sequence_lengths, name='Layer_' + str(n))
             units = tf.concat(units, -1)
             if intra_layer_dropout and n != len(n_hidden_list) - 1:
                 units = variational_dropout(units, self._dropout_ph)
@@ -343,12 +345,6 @@ class NerNetwork(EnhancedTFModel):
                 self._impatience = 0
             else:
                 self._impatience += 1
-
-            if self._impatience >= self._lr_drop_patience:
-                self._impatience = 0
-                log.info('Dropping learning rate from {:.1e} to {:.1e}'.format(self.get_learning_rate(),
-                                                                               self.get_learning_rate() * self._lr_drop_value))
-                self.load()
 
 
 @register('ner_zero_shot')
