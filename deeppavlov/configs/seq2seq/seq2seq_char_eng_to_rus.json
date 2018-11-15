@@ -2,7 +2,7 @@
   "dataset_reader": {
     "name": "basic_dataset_reader",
     "data_path": "./rus-eng",
-    "train": "rus.txt",
+    "train": "rus_short.txt",
     "sep": "\t",
     "header": null,
     "names": [
@@ -61,7 +61,8 @@
           "<PAD>",
           "<UNK>"
         ],
-        "min_freq": 5,
+        "unk_token": "<UNK>",
+        "min_freq": 1,
         "out": "x_chars_ind"
       },
       {
@@ -75,12 +76,13 @@
           "<BOS>",
           "<EOS>"
         ],
+        "unk_token": "<UNK>",
         "fit_on": [
           "y_char"
         ],
         "save_path": "seq2seq/rus-eng/char_level/y_chars.dict",
         "load_path": "seq2seq/rus-eng/char_level/y_chars.dict",
-        "min_freq": 5,
+        "min_freq": 1,
         "out": "y_chars_ind"
       },
       {
@@ -103,7 +105,7 @@
         "tgt_max_length": 100,
         "decoder_vocab": "#y_chars_vocab",
         "optimizer": "RMSprop",
-        "lear_rate": 0.001,
+        "lear_rate": 10,
         "lear_rate_decay": 0.001,
         "loss": "categorical_crossentropy",
         "hidden_size": 128,
@@ -126,8 +128,8 @@
     "epochs": 100,
     "batch_size": 64,
     "metrics": [
-      "per_token_accuracy",
-      "google_bleu"
+      "google_bleu",
+      "per_token_accuracy"
     ],
     "validation_patience": 5,
     "val_every_n_epochs": 5,

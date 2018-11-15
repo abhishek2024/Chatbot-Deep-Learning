@@ -2,7 +2,7 @@
   "dataset_reader": {
     "name": "basic_dataset_reader",
     "data_path": "./rus-eng",
-    "train": "rus.txt",
+    "train": "rus_short.txt",
     "sep": "\t",
     "header": null,
     "names": [
@@ -78,12 +78,13 @@
           "<BOS>",
           "<EOS>"
         ],
+        "unk_token": "<UNK>",
         "fit_on": [
           "y_tok"
         ],
         "save_path": "seq2seq/rus-eng/token_level/y_tokens.dict",
         "load_path": "seq2seq/rus-eng/token_level/y_tokens.dict",
-        "min_freq": 10,
+        "min_freq": 2,
         "out": "y_tok_ind"
       },
       {
