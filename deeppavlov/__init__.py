@@ -91,6 +91,7 @@ import deeppavlov.models.preprocessors.capitalization
 import deeppavlov.models.preprocessors.field_getter
 import deeppavlov.models.preprocessors.sanitizer
 import deeppavlov.models.preprocessors.lazy_tokenizer
+import deeppavlov.models.preprocessors.odqa_preprocessors
 import deeppavlov.models.slotfill.slotfill_raw
 import deeppavlov.models.slotfill.slotfill
 import deeppavlov.models.preprocessors.one_hotter
@@ -99,6 +100,7 @@ import deeppavlov.dataset_readers.basic_neural_ranker_reader
 import deeppavlov.dataset_iterators.basic_neural_ranker_iterator
 import deeppavlov.skills.odqa.basic_neural_ranker
 import deeppavlov.skills.odqa.logit_ranker
+import deeppavlov.skills.odqa.pop_ranker
 
 import deeppavlov.metrics.accuracy
 import deeppavlov.metrics.fmeasure
