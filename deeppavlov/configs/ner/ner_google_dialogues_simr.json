@@ -38,8 +38,8 @@
         "name": "simple_vocab",
         "pad_with_zeros": true,
         "fit_on": ["y_no_bio"],
-        "save_path": "ner_google_dialogues/tag.dict",
-        "load_path": "ner_google_dialogues/tag.dict",
+        "save_path": "ner_google_dialogues/simr_tag.dict",
+        "load_path": "ner_google_dialogues/simr_tag.dict",
         "out": ["y_ind"]
       },
       {
