@@ -27,6 +27,7 @@ from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.models.component import Component
 from deeppavlov.models.classifiers.keras_classification_model import KerasClassificationModel
+from deeppavlov.core.layers.keras_layers import multiplicative_self_attention
 
 log = get_logger(__name__)
 
@@ -47,7 +48,9 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         decoder_vocab: decoder's vocab component
         src_max_length: maximal token length of source sequence
         tgt_max_length: maximal token length of target sequence
-        model_name: string name of particular method of this class that builds seq2seq model
+        model_name: string name of particular method of this class that builds connection between encoder and decoder
+        encoder_name: string name of particular method of this class that builds encoder model
+        decoder_name: string name of particular method of this class that builds decoder model
         optimizer: string name of optimizer from keras.optimizers
         loss: string name of loss from keras.losses
         learning_rate learning rate for optimizer
@@ -76,7 +79,9 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
                  decoder_vocab: Component,
                  src_max_length: Optional[int] = None,
                  tgt_max_length: Optional[int] = None,
-                 model_name: str = "gru_gru_model",
+                 model_name: str = "encoder_decoder_model",
+                 encoder_name: str = "gru_encoder_model",
+                 decoder_name: str = "gru_decoder_model",
                  optimizer: str = "Adam",
                  loss: str = "categorical_crossentropy",
                  learning_rate: float = 0.01,
@@ -98,6 +103,8 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
                      "src_max_length": src_max_length,
                      "tgt_max_length": tgt_max_length,
                      "model_name": model_name,
+                     "encoder_name": model_name,
+                     "decoder_name": model_name,
                      "optimizer": optimizer,
                      "loss": loss,
                      "learning_rate": learning_rate,
@@ -106,6 +113,9 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
                      **kwargs}
 
         self.opt = deepcopy(given_opt)
+
+        self.encoder_method = getattr(self, encoder_name, None)
+        self.decoder_method = getattr(self, decoder_name, None)
 
         # calling init of KerasModel (not KerasClassificationModel)
         super(KerasClassificationModel, self).__init__(**given_opt)
@@ -223,15 +233,15 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
 
         return np.asarray(cutted_batch)
 
-    def gru_gru_model(self,
-                      hidden_size: int = 300,
-                      encoder_coef_reg_lstm: float = 0.,
-                      encoder_dropout_rate: float = 0.,
-                      encoder_rec_dropout_rate: float = 0.,
-                      decoder_coef_reg_lstm: float = 0.,
-                      decoder_dropout_rate: float = 0.,
-                      decoder_rec_dropout_rate: float = 0.,
-                      **kwargs) -> Model:
+    def encoder_decoder_model(self,
+                              hidden_size: int = 300,
+                              encoder_coef_reg_lstm: float = 0.,
+                              encoder_dropout_rate: float = 0.,
+                              encoder_rec_dropout_rate: float = 0.,
+                              decoder_coef_reg_lstm: float = 0.,
+                              decoder_dropout_rate: float = 0.,
+                              decoder_rec_dropout_rate: float = 0.,
+                              **kwargs) -> Model:
         """
         Build keras models for training and infering
 
@@ -249,39 +259,35 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
             keras model for training, also initializes encoder and decoder model separately for infering
         """
 
-        self._build_encoder(hidden_size,
+        self.encoder_method(hidden_size,
                             encoder_coef_reg_lstm,
                             encoder_dropout_rate,
                             encoder_rec_dropout_rate)
 
-        self._build_decoder(hidden_size,
+        self.decoder_method(hidden_size,
                             decoder_coef_reg_lstm,
                             decoder_dropout_rate,
                             decoder_rec_dropout_rate)
 
         encoder_decoder_model = Model(inputs=[self._encoder_emb_inp,
-                                              self._encoder_inp_lengths,
-                                              self._decoder_emb_inp,
-                                              self._decoder_inp_lengths],
+                                              self._decoder_emb_inp],
                                       outputs=self._train_decoder_outputs)
 
-        self.encoder_model = Model(inputs=[self._encoder_emb_inp,
-                                           self._encoder_inp_lengths],
+        self.encoder_model = Model(inputs=[self._encoder_emb_inp],
                                    outputs=self._encoder_state)
 
         self.decoder_model = Model(inputs=[self._decoder_emb_inp,
-                                           self._decoder_inp_lengths,
                                            self._decoder_input_state],
                                    outputs=[self._infer_decoder_outputs,
                                             self._infer_decoder_state])
 
         return encoder_decoder_model
 
-    def _build_encoder(self,
-                       hidden_size: int,
-                       encoder_coef_reg_lstm: float,
-                       encoder_dropout_rate: float,
-                       encoder_rec_dropout_rate: float) -> None:
+    def gru_encoder_model(self,
+                          hidden_size: int,
+                          encoder_coef_reg_lstm: float,
+                          encoder_dropout_rate: float,
+                          encoder_rec_dropout_rate: float) -> None:
         """
         Initialize encoder layers for GRU encoder
 
@@ -298,7 +304,6 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         self._encoder_emb_inp = Input(shape=(self.opt["src_max_length"],
                                              self.opt["encoder_embedding_size"]))
 
-        self._encoder_inp_lengths = Input(shape=(2,), dtype='int32')
         _encoder_outputs, _encoder_state = GRU(
             hidden_size,
             activation='tanh',
@@ -313,11 +318,11 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
 
         return None
 
-    def _build_decoder(self,
-                       hidden_size: int,
-                       decoder_coef_reg_lstm: float,
-                       decoder_dropout_rate: float,
-                       decoder_rec_dropout_rate: float) -> None:
+    def gru_decoder_model(self,
+                          hidden_size: int,
+                          decoder_coef_reg_lstm: float,
+                          decoder_dropout_rate: float,
+                          decoder_rec_dropout_rate: float) -> None:
         """
         Initialize decoder layers for GRU decoder
 
@@ -332,7 +337,6 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         """
 
         self._decoder_emb_inp = Input(shape=(None, self.opt["decoder_embedding_size"]))
-        self._decoder_inp_lengths = Input(shape=(2,), dtype='int32')
 
         self._decoder_input_state = Input(shape=(hidden_size,))
 
@@ -375,20 +379,18 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         Returns:
             metrics values on the given batch
         """
-        pad_emb_enc_inputs, enc_inp_lengths = self.pad_texts(x,
-                                                             text_size=self.opt["src_max_length"],
-                                                             embedding_size=self.opt["encoder_embedding_size"],
-                                                             return_lengths=True)
+        pad_emb_enc_inputs = self.pad_texts(x,
+                                            text_size=self.opt["src_max_length"],
+                                            embedding_size=self.opt["encoder_embedding_size"])
         dec_inputs = [[self.opt["tgt_bos_id"]] +
                       list(sample) + [self.opt["tgt_eos_id"]]
                       for sample in y]  # (bs, ts + 2) of integers (tokens ids)
         text_dec_inputs = self.decoder_vocab(dec_inputs)
 
-        pad_emb_dec_inputs, dec_inp_lengths = self.texts2decoder_embeddings(
+        pad_emb_dec_inputs = self.texts2decoder_embeddings(
             text_dec_inputs,
             text_size=self.opt["tgt_max_length"],
-            embedding_size=self.opt["decoder_embedding_size"],
-            return_lengths=True)
+            embedding_size=self.opt["decoder_embedding_size"])
 
         pad_dec_outputs = self.pad_texts(y,
                                          text_size=self.opt["tgt_max_length"],
@@ -397,11 +399,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         pad_onehot_dec_outputs = self._ids2onehot(pad_dec_outputs, vocab_size=self.opt["tgt_vocab_size"])
 
         metrics_values = self.model.train_on_batch([pad_emb_enc_inputs,
-                                                    np.hstack((np.arange(len(enc_inp_lengths)).reshape(-1, 1),
-                                                               enc_inp_lengths.reshape(-1, 1))),
-                                                    pad_emb_dec_inputs,
-                                                    np.hstack((np.arange(len(dec_inp_lengths)).reshape(-1, 1),
-                                                               dec_inp_lengths.reshape(-1, 1)))],
+                                                    pad_emb_dec_inputs],
                                                    pad_onehot_dec_outputs)
         return metrics_values
 
@@ -417,13 +415,10 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         Returns:
             list of decoder predictions where each prediction is a list of indices of tokens
         """
-        pad_emb_enc_inputs, enc_inp_lengths = self.pad_texts(x,
-                                                             text_size=self.opt["src_max_length"],
-                                                             embedding_size=self.opt["encoder_embedding_size"],
-                                                             return_lengths=True)
-        encoder_state = self.encoder_model.predict([pad_emb_enc_inputs,
-                                                    np.hstack((np.arange(len(enc_inp_lengths)).reshape(-1, 1),
-                                                               enc_inp_lengths.reshape(-1, 1)))])
+        pad_emb_enc_inputs = self.pad_texts(x,
+                                            text_size=self.opt["src_max_length"],
+                                            embedding_size=self.opt["encoder_embedding_size"])
+        encoder_state = self.encoder_model.predict([pad_emb_enc_inputs])
 
         predicted_batch = []
         for i in range(len(x)):  # batch size
@@ -435,7 +430,6 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
 
             while not end_of_sequence:
                 token_probas, state = self.decoder_model.predict([np.array([[current_token]]),
-                                                                  np.array([[0, 1]], dtype='int').reshape(1, 2),
                                                                   state])
                 current_token_id = self._probas2ids(token_probas)[0][0]
                 current_token = self.decoder_embedder(self.decoder_vocab([[current_token_id]]))[0][0]
