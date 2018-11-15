@@ -406,7 +406,8 @@ class GoogleDialogues(NerNetwork):
 
         #  Mean entities embeddings
         # [emb_dim, n_tags]
-        self.mean_emb = tf.Variable(mean_emb, dtype=tf.float32, trainable=False, name='mean_emb')
+        with tf.variable_scope('DescriptionsEmb'):
+            self.mean_emb = tf.Variable(mean_emb, dtype=tf.float32, trainable=False, name='mean_emb')
 
         features = tf.concat(self._input_features, axis=2)
         if embeddings_dropout:
@@ -448,4 +449,4 @@ class GoogleDialogues(NerNetwork):
             sess_config.gpu_options.visible_device_list = str(gpu)
         self.sess = tf.Session()  # TODO: add sess_config
         self.sess.run(tf.global_variables_initializer())
-        self.load()
+        self.load(exclude_scopes=['DescriptionsEmb', 'Optimizer'])
