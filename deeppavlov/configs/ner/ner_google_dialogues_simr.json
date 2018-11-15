@@ -1,7 +1,7 @@
 {
   "dataset_reader": {
     "name": "sim_r_reader",
-    "data_path": "/home/mikhail/Projects/Pilot/google_dialogue_data"
+    "data_path": "google_dialogue_data"
   },
   "dataset_iterator": {
     "name": "google_dialog_nlu_iterator",
@@ -114,7 +114,12 @@
     "epochs": 100,
     "batch_size": 64,
 
-    "metrics": ["ner_f1"],
+    "metrics": [
+      {
+        "name": "ner_f1",
+        "inputs": ["y", "tags_bio"]
+      }
+    ],
     "validation_patience": 7,
     "val_every_n_epochs": 1,
 
