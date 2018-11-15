@@ -1,7 +1,7 @@
 {
   "dataset_reader": {
-    "name": "sim_r_reader",
-    "data_path": "google_dialogue_data"
+    "name": "dstc2_google_reader",
+    "data_path": "/home/mikhail/Projects/Pilot/google_dialogue_data"
   },
   "dataset_iterator": {
     "name": "google_dialog_nlu_iterator",
@@ -57,11 +57,11 @@
         "out": ["x_emb"]
       },
       {
-	"id": "entity_embeddings",
+	    "id": "entity_embeddings",
         "name": "zero_shot_description_assembler",
         "embedder": "#glove_emb",
         "tag_vocab": "#tag_vocab",
-        "dataset_name": "simr"
+        "dataset_name": "dstc2"
       },
       {
         "id": "capitalization",
@@ -114,13 +114,8 @@
     "epochs": 100,
     "batch_size": 64,
 
-    "metrics": [
-      {
-        "name": "ner_f1",
-        "inputs": ["y", "tags_bio"]
-      }
-    ],
-    "validation_patience": 15,
+    "metrics": ["ner_f1"],
+    "validation_patience": 7,
     "val_every_n_epochs": 1,
 
     "log_every_n_epochs": 1,
