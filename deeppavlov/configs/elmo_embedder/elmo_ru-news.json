@@ -10,13 +10,13 @@
         "out": ["tokens"]
       },
       {
-        "name": "elmo",
+        "name": "elmo_embedder",
         "elmo_output_names": ["lstm_outputs1", "lstm_outputs2", "word_emb"],
         "mini_batch_size": 32,
         "in": [
           "tokens"
         ],
-        "spec": "https://tfhub.dev/google/elmo/2",
+        "spec": "http://files.deeppavlov.ai/deeppavlov_data/elmo_ru-news_wmt11-16_1.5M_steps.tar.gz",
         "out": [
           "tokens_emb"
         ]
