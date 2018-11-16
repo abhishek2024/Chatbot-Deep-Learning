@@ -295,7 +295,8 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
                           hidden_size: int,
                           encoder_coef_reg_lstm: float,
                           encoder_dropout_rate: float,
-                          encoder_rec_dropout_rate: float) -> None:
+                          encoder_rec_dropout_rate: float,
+                          **kwargs) -> None:
         """
         Initialize encoder layers for GRU encoder
 
@@ -328,7 +329,8 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
                           hidden_size: int,
                           decoder_coef_reg_lstm: float,
                           decoder_dropout_rate: float,
-                          decoder_rec_dropout_rate: float) -> None:
+                          decoder_rec_dropout_rate: float,
+                          **kwargs) -> None:
         """
         Initialize decoder layers for GRU decoder
 
@@ -510,7 +512,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
                                    encoder_rec_dropout_rate: float,
                                    self_att_enc_hid: int,
                                    self_att_enc_out: int,
-                                   ) -> None:
+                                   **kwargs) -> None:
         """
         Initialize encoder layers for GRU encoder
 
@@ -552,7 +554,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
                                    decoder_rec_dropout_rate: float,
                                    self_att_dec_hid: int,
                                    self_att_dec_out: int,
-                                   ) -> None:
+                                   **kwargs) -> None:
         """
         Initialize decoder layers for GRU decoder
 
