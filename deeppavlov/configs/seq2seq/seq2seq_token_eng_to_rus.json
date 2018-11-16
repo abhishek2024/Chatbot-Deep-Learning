@@ -82,8 +82,8 @@
         "fit_on": [
           "y_tok"
         ],
-        "save_path": "seq2seq/rus-eng/token_level/y_tokens.dict",
-        "load_path": "seq2seq/rus-eng/token_level/y_tokens.dict",
+        "save_path": "seq2seq/rus-eng/token_level/model_v0/y_tokens.dict",
+        "load_path": "seq2seq/rus-eng/token_level/model_v0/y_tokens.dict",
         "min_freq": 1,
         "out": "y_tok_ind"
       },
@@ -104,8 +104,8 @@
         "out": "y_tok_ind_pred",
         "main": true,
         "name": "keras_seq2seq_token_model",
-        "save_path": "seq2seq/rus-eng/token_level/model_v0",
-        "load_path": "seq2seq/rus-eng/token_level/model_v0",
+        "save_path": "seq2seq/rus-eng/token_level/model_v0/model",
+        "load_path": "seq2seq/rus-eng/token_level/model_v0/model",
         "encoder_embedding_size": "#my_embedder.dim",
         "decoder_embedding_size": "#dec_embedder.dim",
         "tgt_vocab_size": "#y_tokens_vocab.__len__()",
@@ -151,7 +151,7 @@
     "show_examples": true,
     "validate_best": true,
     "test_best": true,
-    "tensorboard_log_dir": "./seq2seq/rus-eng/token_level/"
+    "tensorboard_log_dir": "./seq2seq/rus-eng/token_level/model_v0/"
   },
   "metadata": {
     "requirements": [

@@ -55,14 +55,14 @@
         "fit_on": [
           "x_char"
         ],
-        "save_path": "seq2seq/rus-eng/char_level/x_chars.dict",
-        "load_path": "seq2seq/rus-eng/char_level/x_chars.dict",
+        "save_path": "seq2seq/rus-eng/char_level/model_v0/x_chars.dict",
+        "load_path": "seq2seq/rus-eng/char_level/model_v0/x_chars.dict",
         "special_tokens": [
           "<PAD>",
           "<UNK>"
         ],
         "unk_token": "<UNK>",
-        "min_freq": 1,
+        "min_freq": 5,
         "out": "x_chars_ind"
       },
       {
@@ -80,9 +80,9 @@
         "fit_on": [
           "y_char"
         ],
-        "save_path": "seq2seq/rus-eng/char_level/y_chars.dict",
-        "load_path": "seq2seq/rus-eng/char_level/y_chars.dict",
-        "min_freq": 1,
+        "save_path": "seq2seq/rus-eng/char_level/model_v0/y_chars.dict",
+        "load_path": "seq2seq/rus-eng/char_level/model_v0/y_chars.dict",
+        "min_freq": 5,
         "out": "y_chars_ind"
       },
       {
@@ -91,8 +91,8 @@
         "out": "y_chars_ind_pred",
         "main": true,
         "name": "keras_seq2seq_char_model",
-        "save_path": "seq2seq/rus-eng/char_level/model_v0",
-        "load_path": "seq2seq/rus-eng/char_level/model_v0",
+        "save_path": "seq2seq/rus-eng/char_level/model_v0/model",
+        "load_path": "seq2seq/rus-eng/char_level/model_v0/model",
         "encoder_embedding_size": 100,
         "decoder_embedding_size": 100,
         "src_vocab_size": "#x_chars_vocab.__len__()",
@@ -105,7 +105,7 @@
         "tgt_max_length": 100,
         "decoder_vocab": "#y_chars_vocab",
         "optimizer": "RMSprop",
-        "lear_rate": 10,
+        "lear_rate": 0.1,
         "lear_rate_decay": 0.001,
         "loss": "categorical_crossentropy",
         "hidden_size": 128,
@@ -139,7 +139,7 @@
     "show_examples": true,
     "validate_best": true,
     "test_best": false,
-    "tensorboard_log_dir": "./seq2seq/rus-eng/char_level/"
+    "tensorboard_log_dir": "./seq2seq/rus-eng/char_level/model_v0/"
   },
   "metadata": {
     "requirements": [
