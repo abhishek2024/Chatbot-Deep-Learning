@@ -130,8 +130,8 @@
     "epochs": 100,
     "batch_size": 64,
     "metrics": [
-      "google_bleu",
-      "per_token_accuracy"
+      "per_token_accuracy",
+      "google_bleu"
     ],
     "validation_patience": 5,
     "val_every_n_epochs": 5,
