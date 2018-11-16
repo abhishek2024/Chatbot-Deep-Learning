@@ -18,6 +18,7 @@
       },
       {
         "name": "pop_ranker",
+        "top_n": 10,
         "in": ["rank_text_score_id"],
         "out": ["reranked"],
         "pop_dict_path": "/media/olga/Data/datasets/squad/popularities.json",
@@ -45,6 +46,7 @@
       },
       {
         "name": "logit_ranker",
+        "filter_noans": false,
         "squad_model": {
           "config_path": "../deeppavlov/configs/squad/multi_squad_noans.json"
         },
