@@ -2,7 +2,7 @@
   "dataset_reader": {
     "name": "basic_dataset_reader",
     "data_path": "./rus-eng",
-    "train": "rus_short.txt",
+    "train": "rus_very_short.txt",
     "sep": "\t",
     "header": null,
     "names": [
@@ -38,12 +38,23 @@
     "pipe": [
       {
         "in": "x",
+        "out": "x_prep",
+        "id": "my_preprocessor",
+        "name": "str_lower"
+      },
+      {
+        "in": "x_prep",
         "out": "x_char",
         "name": "char_splitter",
         "id": "my_splitter"
       },
       {
         "in": "y",
+        "out": "y_prep",
+        "ref": "my_preprocessor"
+      },
+      {
+        "in": "y_prep",
         "out": "y_char",
         "ref": "my_splitter"
       },
@@ -122,6 +133,17 @@
         "name": "char_connector",
         "in": "y_pred_chars",
         "out": "y_text"
+      },
+      {
+        "in": "y_prep",
+        "out": "y_tok",
+        "id": "my_tokenizer",
+        "name": "nltk_moses_tokenizer"
+      },
+      {
+        "ref": "my_tokenizer",
+        "in": "y_text",
+        "out": "y_tok_text"
       }
     ],
     "out": "y_text"
@@ -130,8 +152,10 @@
     "epochs": 100,
     "batch_size": 64,
     "metrics": [
-      "per_token_accuracy",
-      "google_bleu"
+      {
+        "name": "per_token_accuracy",
+        "inputs": ["y_tok", "y_tok_text"]
+      }
     ],
     "validation_patience": 5,
     "val_every_n_epochs": 5,

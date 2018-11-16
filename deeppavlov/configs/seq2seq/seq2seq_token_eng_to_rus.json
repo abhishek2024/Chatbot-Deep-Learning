@@ -140,10 +140,12 @@
   },
   "train": {
     "epochs": 100,
-    "batch_size": 512,
+    "batch_size": 64,
     "metrics": [
-      "per_token_accuracy",
-      "google_bleu"
+      {
+        "name": "per_token_accuracy",
+        "inputs": ["y_tok", "y_spec_tokens"]
+      }
     ],
     "validation_patience": 5,
     "val_every_n_epochs": 5,
