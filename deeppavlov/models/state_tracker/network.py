@@ -394,37 +394,6 @@ class StateTrackerNetwork(EnhancedTFModel):
         # return prediction, logits
         return prediction
 
-    def calc_loss(self, u_utt_token_idx, u_utt_slot_tok_val_idx, u_act_idx,
-                  u_slot_act_mask,
-                  s_utt_token_idx, s_utt_slot_tok_val_idx, s_act_idx,
-                  s_slot_act_mask,
-                  slot_val_mask, prev_pred_mat, true_state_mat, **kwargs):
-        utt_token_idx, utt_seq_length = self._concat_and_pad([u_utt_token_idx,
-                                                              s_utt_token_idx],
-                                                             axis=0, pad_axis=1)
-        u_utt_slot_tok_val_idx = np.expand_dims(u_utt_slot_tok_val_idx[0], axis=0)
-        s_utt_slot_tok_val_idx = np.expand_dims(s_utt_slot_tok_val_idx[0], axis=0)
-        utt_slot_tok_val_idx, _ = self._concat_and_pad([u_utt_slot_tok_val_idx,
-                                                        s_utt_slot_tok_val_idx],
-                                                       pad_length=max(utt_seq_length),
-                                                       axis=0, pad_axis=2)
-        loss_value = self.sess.run(
-            self._loss,
-            feed_dict={
-                self._u_utt_action_idx: u_act_idx,
-                self._u_utt_slot_action_mask: u_slot_act_mask[0],
-                self._s_utt_action_idx: s_act_idx,
-                self._s_utt_slot_action_mask: s_slot_act_mask[0],
-                self._utt_token_idx: utt_token_idx,
-                self._utt_seq_length: utt_seq_length,
-                self._utt_slot_tok_val_idx: utt_slot_tok_val_idx,
-                self._prev_pred: prev_pred_mat[0],
-                self._slot_val_mask: slot_val_mask[0],
-                self._true_state: true_state_mat[0]
-            }
-        )
-        return {'loss': loss_value}
-
     def train_on_batch(self, u_utt_token_idx, u_utt_slot_tok_val_idx, u_act_idx,
                        u_slot_act_mask,
                        s_utt_token_idx, s_utt_slot_tok_val_idx, s_act_idx,
@@ -444,9 +413,9 @@ class StateTrackerNetwork(EnhancedTFModel):
             feed_dict={
                 self.get_learning_rate_ph(): self.get_learning_rate(),
                 self.get_momentum_ph(): self.get_momentum(),
-                self._u_utt_action_idx: u_act_idx[0],
+                self._u_utt_action_idx: u_act_idx,
                 self._u_utt_slot_action_mask: u_slot_act_mask[0],
-                self._s_utt_action_idx: s_act_idx[0],
+                self._s_utt_action_idx: s_act_idx,
                 self._s_utt_slot_action_mask: s_slot_act_mask[0],
                 self._utt_token_idx: utt_token_idx,
                 self._utt_seq_length: utt_seq_length,
