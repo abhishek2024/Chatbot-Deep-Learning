@@ -43,7 +43,7 @@
         "elmo_output_names": [
           "elmo"
         ],
-        "mini_batch_size": 16,
+        "mini_batch_size": 8,
         "spec": "https://tfhub.dev/google/elmo/2"
       },
       {
@@ -78,7 +78,7 @@
         "learning_rate": 0.01,
         "learning_rate_decay": 0.1,
         "loss": "categorical_crossentropy",
-        "text_size": 100,
+        "text_size": 50,
         "last_layer_activation": "softmax",
         "coef_reg_cnn": 1e-3,
         "coef_reg_den": 1e-2,
@@ -104,7 +104,7 @@
   },
   "train": {
     "epochs": 100,
-    "batch_size": 64,
+    "batch_size": 512,
     "metrics": [
       "sets_accuracy",
       "f1_macro",
