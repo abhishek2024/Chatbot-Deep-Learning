@@ -1,12 +1,12 @@
 {
       "dataset_reader": {
-        "name": "quickthought_reader",
+        "name": "file_paths_reader",
         "data_path": "/data/language_modeling/wikitext_ru/sentences",
-      	"expand_path": false
+        "train": "train_shards/*",
+        "valid": "valid.txt"
       },
       "dataset_iterator": {
-        "name": "siamese_iterator",
-        "random_batches": false,
+        "name": "quickthought_iterator",
         "seed": 243
       },
       "chainer": {
@@ -19,7 +19,6 @@
             "use_matrix": false,
             "num_ranking_samples": 500,
             "max_sequence_length": 200,
-            "fit_on": ["x"],
             "in": ["x"],
             "out": ["x_proc"],
             "sent_vocab":
@@ -82,7 +81,7 @@
         "out": ["y_predicted"]
       },
       "train": {
-        "epochs": 200,
+        "epochs": 2,
         "batch_size": 256,
         "pytest_max_batches": 2,
         "train_metrics": [],
@@ -96,15 +95,12 @@
           "../dp_requirements/tf.txt",
           "../dp_requirements/gensim.txt"
         ],
-        "labels": {
-          "telegram_utils": "SiameseModel",
-          "server_utils": "Ranker"
-        },
         "download": [
           {
-            "url": "http://files.deeppavlov.ai/deeppavlov_data/embeddings/wiki.en.bin",
+            "url": "http://files.deeppavlov.ai/deeppavlov_data/embeddings/wiki.ru.bin",
             "subdir": "embeddings"
           }
         ]
       }
+
     }

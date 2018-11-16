@@ -5,7 +5,6 @@ from deeppavlov.core.data.dataset_reader import DatasetReader
 from deeppavlov.core.data.data_learning_iterator import DataLearningIterator
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.commands.utils import expand_path as expand_path_fn
-from deeppavlov.core.commands.infer import build_model_from_config
 from deeppavlov.core.commands.train import train_evaluate_model_from_config
 
 
@@ -33,7 +32,7 @@ class QuickThoughtReader(DatasetReader):
     def read(self, data_path,
              train_fname='train.txt', valid_fname='valid.txt', expand_path=True, seed=42,
              *args, **kwargs):
-        self.seed = 42
+        self.seed = seed
 
         data_path = Path(data_path)
         if expand_path:
