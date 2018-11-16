@@ -311,7 +311,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         self._encoder_emb_inp = Input(shape=(self.opt["src_max_length"],
                                              self.opt["encoder_embedding_size"]))
 
-        _encoder_outputs, _encoder_state = Bidirectional(GRU(
+        _encoder_outputs = Bidirectional(GRU(
             hidden_size,
             activation='tanh',
             return_sequences=True,  # for extracting exactly the last hidden layer
@@ -354,12 +354,12 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
             recurrent_dropout=decoder_rec_dropout_rate,
             name="decoder_gru"))
 
-        _train_decoder_outputs, _train_decoder_state = decoder_gru(
+        _train_decoder_outputs = decoder_gru(
             self._decoder_emb_inp,
             initial_state=self._encoder_state)
         self._train_decoder_state = GlobalMaxPooling1D()(_train_decoder_outputs)
 
-        _infer_decoder_outputs, _infer_decoder_state = decoder_gru(
+        _infer_decoder_outputs = decoder_gru(
             self._decoder_emb_inp,
             initial_state=self._decoder_input_state)
         self._infer_decoder_state = GlobalMaxPooling1D()(_infer_decoder_outputs)
@@ -529,7 +529,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         self._encoder_emb_inp = Input(shape=(self.opt["src_max_length"],
                                              self.opt["encoder_embedding_size"]))
 
-        _encoder_outputs, _encoder_state = Bidirectional(GRU(
+        _encoder_outputs = Bidirectional(GRU(
             hidden_size,
             activation='tanh',
             return_sequences=True,  # for extracting exactly the last hidden layer
@@ -580,14 +580,14 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
             recurrent_dropout=decoder_rec_dropout_rate,
             name="decoder_gru"))
 
-        _train_decoder_outputs, _train_decoder_state = decoder_gru(
+        _train_decoder_outputs = decoder_gru(
             self._decoder_emb_inp,
             initial_state=self._encoder_state)
         _train_decoder_outputs = multiplicative_self_attention(_train_decoder_outputs, n_hidden=self_att_dec_hid,
                                                                n_output_features=self_att_dec_out)
         self._train_decoder_state = GlobalMaxPooling1D()(_train_decoder_outputs)
 
-        _infer_decoder_outputs, _infer_decoder_state = decoder_gru(
+        _infer_decoder_outputs = decoder_gru(
             self._decoder_emb_inp,
             initial_state=self._decoder_input_state)
         _infer_decoder_outputs = multiplicative_self_attention(_infer_decoder_outputs, n_hidden=self_att_dec_hid,

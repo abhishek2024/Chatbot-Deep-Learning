@@ -262,7 +262,8 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
                           hidden_size: int,
                           encoder_coef_reg_lstm: float,
                           encoder_dropout_rate: float,
-                          encoder_rec_dropout_rate: float) -> None:
+                          encoder_rec_dropout_rate: float,
+                          **kwargs) -> None:
         """
         Initialize encoder layers for GRU encoder
 
@@ -275,21 +276,20 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
         Returns:
             None
         """
-
         self._encoder_inp = Input(shape=(self.opt["src_max_length"],))
 
         _encoder_emb_inp = Embedding(input_dim=self.opt["src_vocab_size"],
                                      output_dim=self.opt["encoder_embedding_size"],
                                      input_length=self.opt["src_max_length"])(self._encoder_inp)
 
-        _encoder_outputs, _encoder_state = Bidirectional(GRU(
+        _encoder_outputs = GRU(
             hidden_size,
             activation='tanh',
             return_sequences=True,
             kernel_regularizer=l2(encoder_coef_reg_lstm),
             dropout=encoder_dropout_rate,
             recurrent_dropout=encoder_rec_dropout_rate,
-            name="encoder_gru"))(_encoder_emb_inp)
+            name="encoder_gru")(_encoder_emb_inp)
 
         self._encoder_state = GlobalMaxPooling1D()(_encoder_outputs)
 
@@ -299,7 +299,8 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
                           hidden_size: int,
                           decoder_coef_reg_lstm: float,
                           decoder_dropout_rate: float,
-                          decoder_rec_dropout_rate: float) -> None:
+                          decoder_rec_dropout_rate: float,
+                          **kwargs) -> None:
         """
         Initialize decoder layers for GRU decoder
 
@@ -312,7 +313,6 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
         Returns:
             None
         """
-
         self._decoder_inp = Input(shape=(None,))
 
         _decoder_emb_inp = Embedding(input_dim=self.opt["tgt_vocab_size"],
@@ -320,14 +320,14 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
 
         self._decoder_input_state = Input(shape=(hidden_size,))
 
-        decoder_gru = Bidirectional(GRU(
+        decoder_gru = GRU(
             hidden_size,
             activation='tanh',
             return_sequences=True,
             kernel_regularizer=l2(decoder_coef_reg_lstm),
             dropout=decoder_dropout_rate,
             recurrent_dropout=decoder_rec_dropout_rate,
-            name="decoder_gru"))
+            name="decoder_gru")
 
         _train_decoder_outputs = decoder_gru(
             _decoder_emb_inp,
@@ -478,7 +478,7 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
                                    encoder_rec_dropout_rate: float,
                                    self_att_enc_hid: int,
                                    self_att_enc_out: int,
-                                   ) -> None:
+                                   **kwargs) -> None:
         """
         Initialize encoder layers for GRU encoder
 
@@ -523,7 +523,7 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
                                    decoder_rec_dropout_rate: float,
                                    self_att_dec_hid: int,
                                    self_att_dec_out: int,
-                                   ) -> None:
+                                   **kwargs) -> None:
         """
         Initialize decoder layers for GRU decoder
 
