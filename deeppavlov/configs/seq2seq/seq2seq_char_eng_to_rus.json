@@ -2,7 +2,7 @@
   "dataset_reader": {
     "name": "basic_dataset_reader",
     "data_path": "./rus-eng",
-    "train": "rus_very_short.txt",
+    "train": "rus_short.txt",
     "sep": "\t",
     "header": null,
     "names": [
