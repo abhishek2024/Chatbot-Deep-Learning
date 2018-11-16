@@ -118,7 +118,7 @@
         "decoder_vocab": "#y_tokens_vocab",
         "optimizer": "RMSprop",
         "learning_rate": 0.001,
-        "learning_rate_decay": 0,
+        "learning_rate_decay": 0.00001,
         "loss": "categorical_crossentropy",
         "hidden_size": 256,
         "model_name": "encoder_decoder_model",
