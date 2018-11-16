@@ -128,7 +128,7 @@
     "log_every_n_epochs": 1,
     "show_examples": false,
 
-    "tensorboard_log_dir": "dp_logs_ner_ontonotes"
+    "tensorboard_log_dir": "dp_logs_ner_google_dialogues"
   },
   "metadata": {
     "requirements": [

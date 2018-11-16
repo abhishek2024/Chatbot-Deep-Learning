@@ -122,13 +122,13 @@
         "inputs": ["y", "tags_bio"]
       }
     ],
-    "validation_patience": 7,
+    "validation_patience": 15,
     "val_every_n_epochs": 1,
 
     "log_every_n_epochs": 1,
     "show_examples": false,
 
-    "tensorboard_log_dir": "dp_logs_ner_ontonotes"
+    "tensorboard_log_dir": "dp_logs_ner_google_dialogues"
   },
   "metadata": {
     "requirements": [
