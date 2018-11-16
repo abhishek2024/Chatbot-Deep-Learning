@@ -1,6 +1,6 @@
 {
   "dataset_reader": {
-    "name": "dstc2_google_reader",
+    "name": "sim_r_reader",
     "data_path": "google_dialogue_data"
   },
   "dataset_iterator": {
@@ -38,8 +38,8 @@
         "name": "simple_vocab",
         "pad_with_zeros": true,
         "fit_on": ["y_no_bio"],
-        "save_path": "ner_google_dialogues/dstc2_tag.dict",
-        "load_path": "ner_google_dialogues/dstc2_tag.dict",
+        "save_path": "ner_google_dialogues/tag.dict",
+        "load_path": "ner_google_dialogues/tag.dict",
         "out": ["y_ind"]
       },
       {
@@ -57,11 +57,11 @@
         "out": ["x_emb"]
       },
       {
-	    "id": "entity_embeddings",
+	"id": "entity_embeddings",
         "name": "zero_shot_description_assembler",
         "embedder": "#glove_emb",
         "tag_vocab": "#tag_vocab",
-        "dataset_name": "dstc2"
+        "dataset_name": "simr"
       },
       {
         "id": "capitalization",
@@ -93,9 +93,7 @@
         "intra_layer_dropout": true,
         "l2_reg": 0,
         "dropout_keep_prob": 0.5,
-	    "learning_rate": 1e-2,
-        "learning_rate_drop_div": 10.0,
-        "learning_rate_drop_patience": 4
+	    "learning_rate": 1e-2
       },
       {
         "ref": "tag_vocab",
@@ -116,6 +114,7 @@
     "epochs": 100,
     "batch_size": 64,
 
+<<<<<<< HEAD
     "metrics": [
       {
         "name": "ner_f1",
@@ -123,6 +122,10 @@
       }
     ],
     "validation_patience": 7,
+=======
+    "metrics": ["ner_f1"],
+    "validation_patience": 15,
+>>>>>>> 1053f2c668c71327d1a54b0f797ce36979ea3f6a
     "val_every_n_epochs": 1,
 
     "log_every_n_epochs": 1,

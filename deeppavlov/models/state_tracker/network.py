@@ -376,9 +376,9 @@ class StateTrackerNetwork(EnhancedTFModel):
         prediction = self.sess.run(
             self._prediction,
             feed_dict={
-                self._u_utt_action_idx: u_act_idx[0],
+                self._u_utt_action_idx: u_act_idx,
                 self._u_utt_slot_action_mask: u_slot_act_mask[0],
-                self._s_utt_action_idx: s_act_idx[0],
+                self._s_utt_action_idx: s_act_idx,
                 self._s_utt_slot_action_mask: s_slot_act_mask[0],
                 self._utt_token_idx: utt_token_idx,
                 self._utt_seq_length: utt_seq_length,
@@ -411,9 +411,9 @@ class StateTrackerNetwork(EnhancedTFModel):
         loss_value = self.sess.run(
             self._loss,
             feed_dict={
-                self._u_utt_action_idx: u_act_idx[0],
+                self._u_utt_action_idx: u_act_idx,
                 self._u_utt_slot_action_mask: u_slot_act_mask[0],
-                self._s_utt_action_idx: s_act_idx[0],
+                self._s_utt_action_idx: s_act_idx,
                 self._s_utt_slot_action_mask: s_slot_act_mask[0],
                 self._utt_token_idx: utt_token_idx,
                 self._utt_seq_length: utt_seq_length,

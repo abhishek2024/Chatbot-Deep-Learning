@@ -167,7 +167,7 @@ class SlotsActionsMatrixBuilder(Component):
         for utt_acts in actions:
             mat = np.zeros((len(self.slot_vocab), len(self.action_vocab)), dtype=float)
             for a in utt_acts:
-                act_idx = self.action_vocab([[a['act']]])[0][0]
+                act_idx = self.action_vocab[a['act']]
                 slot_idxs = self.slot_vocab([a.get('slots', [])])[0]
                 mat[slot_idxs, act_idx] = 1.
             utt_matrices.append(mat)
@@ -274,9 +274,11 @@ class ActionVocabulary(SimpleVocabulary):
         return a
 
     def fit(self, *args):
-        actions = map(self._format_action, chain(*chain(*args)))
+        actions = [self._format_action(a) for a in chain(*chain(*args))]
         super().fit([actions])
 
     def __call__(self, batch: List[List[Union[Dict, int]]], **kwargs) ->\
             List[List[Union[Dict, int]]]:
-        return super().__call__([map(self._format_action, chain(*batch))])
+        if isinstance(batch, (str, int)):
+            return super().__call__(batch)
+        return super().__call__([self._format_action(a) for a in chain(*batch)])
