@@ -396,8 +396,10 @@ class EnhancedTFModel(TFModel, Estimator):
                      self._learning_rate_drop_patience):
                 self._learning_rate_cur_impatience = 0
                 self._learning_rate_cur_div *= self._learning_rate_drop_div
-                log.info(f"New dropping learning rate"
-                         f" {self._learning_rate_cur_div} times")
+                self._lr /= self._learning_rate_drop_div
+                log.info(f"Ran out of lr patience. New dropping equals"
+                         f" {self._learning_rate_cur_div} times. New"
+                         f" learning rate = {self._lr}")
         if event_name == 'after_batch':
             if self._lr_update_on_batch:
                 self._lr = self._lr_schedule.next_val() / self._learning_rate_cur_div
