@@ -312,14 +312,14 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         self._encoder_emb_inp = Input(shape=(self.opt["src_max_length"],
                                              self.opt["encoder_embedding_size"]))
 
-        _encoder_outputs = Bidirectional(GRU(
+        _encoder_outputs = GRU(
             hidden_size,
             activation='tanh',
             return_sequences=True,  # for extracting exactly the last hidden layer
             kernel_regularizer=l2(encoder_coef_reg_lstm),
             dropout=encoder_dropout_rate,
             recurrent_dropout=encoder_rec_dropout_rate,
-            name="encoder_gru"))(self._encoder_emb_inp)
+            name="encoder_gru")(self._encoder_emb_inp)
 
         self._encoder_state = GlobalMaxPooling1D()(_encoder_outputs)
 
@@ -347,14 +347,14 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
 
         self._decoder_input_state = Input(shape=(hidden_size,))
 
-        decoder_gru = Bidirectional(GRU(
+        decoder_gru = GRU(
             hidden_size,
             activation='tanh',
             return_sequences=True,
             kernel_regularizer=l2(decoder_coef_reg_lstm),
             dropout=decoder_dropout_rate,
             recurrent_dropout=decoder_rec_dropout_rate,
-            name="decoder_gru"))
+            name="decoder_gru")
 
         _train_decoder_outputs = decoder_gru(
             self._decoder_emb_inp,
@@ -531,14 +531,14 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         self._encoder_emb_inp = Input(shape=(self.opt["src_max_length"],
                                              self.opt["encoder_embedding_size"]))
 
-        _encoder_outputs = Bidirectional(GRU(
+        _encoder_outputs = GRU(
             hidden_size,
             activation='tanh',
             return_sequences=True,  # for extracting exactly the last hidden layer
             kernel_regularizer=l2(encoder_coef_reg_lstm),
             dropout=encoder_dropout_rate,
             recurrent_dropout=encoder_rec_dropout_rate,
-            name="encoder_gru"))(self._encoder_emb_inp)
+            name="encoder_gru")(self._encoder_emb_inp)
 
         _encoder_outputs = multiplicative_self_attention(_encoder_outputs, n_hidden=self_att_enc_hid,
                                                          n_output_features=self_att_enc_out)
@@ -573,14 +573,14 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
 
         self._decoder_input_state = Input(shape=(hidden_size,))
 
-        decoder_gru = Bidirectional(GRU(
+        decoder_gru = GRU(
             hidden_size,
             activation='tanh',
             return_sequences=True,
             kernel_regularizer=l2(decoder_coef_reg_lstm),
             dropout=decoder_dropout_rate,
             recurrent_dropout=decoder_rec_dropout_rate,
-            name="decoder_gru"))
+            name="decoder_gru")
 
         _train_decoder_outputs = decoder_gru(
             self._decoder_emb_inp,
