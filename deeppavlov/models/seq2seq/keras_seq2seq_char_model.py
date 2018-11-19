@@ -17,7 +17,7 @@ import numpy as np
 from overrides import overrides
 from copy import deepcopy
 
-from keras.layers import Dense, Input, Embedding, Bidirectional
+from keras.layers import Dense, Input, Embedding
 from keras.layers.recurrent import GRU
 from keras.layers.pooling import GlobalMaxPooling1D
 from keras.models import Model
@@ -251,7 +251,7 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
         self.encoder_model = Model(inputs=[self._encoder_inp],
                                    outputs=self._encoder_state)
 
-        self.decoder_model = Model(inputs=[self._decoder_inp,
+        self.decoder_model = Model(inputs=[self._decoder_infer_inp,
                                            self._decoder_input_state],
                                    outputs=[self._infer_decoder_outputs,
                                             self._infer_decoder_state])
@@ -313,10 +313,13 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
         Returns:
             None
         """
-        self._decoder_inp = Input(shape=(None,))
+        self._decoder_inp = Input(shape=(self.opt["tgt_max_length"],))
+        self._decoder_infer_inp = Input(shape=(1,))
 
         _decoder_emb_inp = Embedding(input_dim=self.opt["tgt_vocab_size"],
                                      output_dim=self.opt["decoder_embedding_size"])(self._decoder_inp)
+        _decoder_infer_emb_inp = Embedding(input_dim=self.opt["tgt_vocab_size"],
+                                           output_dim=self.opt["decoder_embedding_size"])(self._decoder_infer_inp)
 
         self._decoder_input_state = Input(shape=(hidden_size,))
 
@@ -335,7 +338,7 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
         self._train_decoder_state = GlobalMaxPooling1D()(_train_decoder_outputs)
 
         _infer_decoder_outputs = decoder_gru(
-            _decoder_emb_inp,
+            _decoder_infer_emb_inp,
             initial_state=self._decoder_input_state)
         self._infer_decoder_state = GlobalMaxPooling1D()(_infer_decoder_outputs)
 
@@ -538,11 +541,13 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
         Returns:
             None
         """
-
-        self._decoder_inp = Input(shape=(None,))
+        self._decoder_inp = Input(shape=(self.opt["tgt_max_length"],))
+        self._decoder_infer_inp = Input(shape=(1,))
 
         _decoder_emb_inp = Embedding(input_dim=self.opt["tgt_vocab_size"],
                                      output_dim=self.opt["decoder_embedding_size"])(self._decoder_inp)
+        _decoder_infer_emb_inp = Embedding(input_dim=self.opt["tgt_vocab_size"],
+                                           output_dim=self.opt["decoder_embedding_size"])(self._decoder_infer_inp)
 
         self._decoder_input_state = Input(shape=(hidden_size,))
 
@@ -563,7 +568,7 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
         self._train_decoder_state = GlobalMaxPooling1D()(_train_decoder_outputs)
 
         _infer_decoder_outputs = decoder_gru(
-            _decoder_emb_inp,
+            _decoder_infer_emb_inp,
             initial_state=self._decoder_input_state)
         _infer_decoder_outputs = multiplicative_self_attention(_infer_decoder_outputs, n_hidden=self_att_dec_hid,
                                                                n_output_features=self_att_dec_out)
