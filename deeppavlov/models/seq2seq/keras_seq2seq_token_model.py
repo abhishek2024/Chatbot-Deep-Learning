@@ -151,6 +151,15 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
 
         self.encoder_model = None
         self.decoder_model = None
+        self._encoder_emb_inp = None
+        self._encoder_state = None
+        self._decoder_emb_inp = None
+        self._decoder_infer_emb_inp = None
+        self._decoder_input_state = None
+        self._train_decoder_state = None
+        self._infer_decoder_state = None
+        self._train_decoder_outputs = None
+        self._infer_decoder_outputs = None
 
         self.load(model_name=model_name)
 
