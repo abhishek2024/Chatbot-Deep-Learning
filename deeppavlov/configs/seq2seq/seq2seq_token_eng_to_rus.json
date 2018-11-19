@@ -171,8 +171,8 @@
         "subdir": "embeddings"
       },
       {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/seq2seq/rus-eng/token_level.tar.gz",
-        "subdir": "seq2seq/rus-eng"
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/seq2seq/rus-eng/token_level/model_v0.tar.gz",
+        "subdir": "seq2seq/rus-eng/token_level/"
       }
     ]
   }
