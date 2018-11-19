@@ -124,7 +124,9 @@
         "encoder_name": "self_att_gru_encoder_model",
         "decoder_name": "self_att_gru_decoder_model",
         "self_att_enc_hid": 128,
-        "self_att_enc_out": 128
+        "self_att_enc_out": 128,
+        "self_att_dec_hid": 128,
+        "self_att_dec_out": 128
       },
       {
         "ref": "y_chars_vocab",
