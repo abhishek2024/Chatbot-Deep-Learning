@@ -1,14 +1,14 @@
 {
       "dataset_reader": {
         "name": "file_paths_reader",
-        "data_path": "/data/language_modeling/wikitext_ru/sentences",
+        "data_path": "/cephfs/home/lyalin/data/wikitext_ru",
         "train": "train_shards/*",
-        "valid": "valid.txt"
+        "valid": "valid_small.txt"
       },
       "dataset_iterator": {
         "name": "quickthought_iterator",
         "seed": 243,
-	"batch_size": 1 
+	"batch_size": 512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512512 
       },
       "chainer": {
         "in": ["x"],
@@ -18,8 +18,8 @@
             "id": "preproc",
             "name": "siamese_preprocessor",
             "use_matrix": false,
-            "num_ranking_samples": 500,
-            "max_sequence_length": 200,
+            "num_ranking_samples": 5,
+            "max_sequence_length": 64,
             "in": ["x"],
             "out": ["x_proc"],
             "sent_vocab":
@@ -44,7 +44,7 @@
             {
               "id": "siam_embedder",
               "name": "fasttext",
-              "load_path": "/data/embeddings/wiki.simple.bin"
+              "load_path": "embeddings/wiki.ru.bin"
             }
           },
           {
@@ -73,16 +73,15 @@
             "hard_triplets": false,
             "margin": 0.1,
             "batch_size": 256,
-            "save_path": "insurance_model/model_weights.h5",
-            "load_path": "insurance_model/model_weights.h5",
-            "preprocess": "#preproc.__call__",
-            "interact_pred_num": 3
+            "save_path": "quickthought/model_weights.h5",
+            "load_path": "quickthought/model_weights.h5",
+            "preprocess": "#preproc.__call__"
           }
         ],
         "out": ["y_predicted"]
       },
       "train": {
-        "epochs": 1,
+        "epochs": 10,
         "batch_size": 256,
         "pytest_max_batches": 2,
         "train_metrics": [],
