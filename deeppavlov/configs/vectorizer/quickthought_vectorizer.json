@@ -7,7 +7,8 @@
       },
       "dataset_iterator": {
         "name": "quickthought_iterator",
-        "seed": 243
+        "seed": 243,
+	"batch_size": 1 
       },
       "chainer": {
         "in": ["x"],
@@ -81,14 +82,15 @@
         "out": ["y_predicted"]
       },
       "train": {
-        "epochs": 2,
+        "epochs": 1,
         "batch_size": 256,
         "pytest_max_batches": 2,
         "train_metrics": [],
         "metrics": ["f1", "acc", "log_loss"],
         "validation_patience": 5,
         "val_every_n_epochs": 5,
-        "log_every_n_batches": 24
+        "log_every_n_batches": 24,
+        "tensorboard_log_dir": "runs"
       },
       "metadata": {
         "requirements": [
