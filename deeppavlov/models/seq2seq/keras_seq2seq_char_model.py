@@ -371,7 +371,7 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
             metrics values on the given batch
         """
         pad_enc_inputs = self.pad_texts(x,
-                                        self.opt["src_max_length"],
+                                        text_size=self.opt["src_max_length"],
                                         padding_char_id=self.opt["src_pad_id"])
         dec_inputs = [[self.opt["tgt_bos_id"]] + list(sample) + [self.opt["tgt_eos_id"]]
                       for sample in y]  # (bs, ts + 2) of integers (tokens ids)
@@ -379,9 +379,9 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
                                         self.opt["tgt_max_length"],
                                         padding_char_id=self.opt["tgt_pad_id"])
         pad_dec_outputs = self.pad_texts(y,
-                                         self.opt["tgt_max_length"],
+                                         text_size=self.opt["tgt_max_length"],
                                          padding_char_id=self.opt["tgt_pad_id"])
-        pad_onehot_dec_outputs = self._ids2onehot(pad_dec_outputs, self.opt["tgt_vocab_size"])
+        pad_onehot_dec_outputs = self._ids2onehot(pad_dec_outputs, vocab_size=self.opt["tgt_vocab_size"])
 
         metrics_values = self.model.train_on_batch([pad_enc_inputs,
                                                     pad_dec_inputs],
@@ -401,7 +401,7 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
             list of decoder predictions where each prediction is a list of indices of chars
         """
         pad_enc_inputs = self.pad_texts(x,
-                                        self.opt["src_max_length"],
+                                        text_size=self.opt["src_max_length"],
                                         padding_char_id=self.opt["src_pad_id"])
         encoder_state = self.encoder_model.predict([pad_enc_inputs])
 

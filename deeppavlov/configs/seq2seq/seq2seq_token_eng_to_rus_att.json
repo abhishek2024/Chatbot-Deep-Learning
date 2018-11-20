@@ -2,7 +2,7 @@
   "dataset_reader": {
     "class_name": "basic_dataset_reader",
     "data_path": "{DOWNLOADS_PATH}/rus-eng",
-    "train": "rus.txt",
+    "train": "rus_short.txt",
     "sep": "\t",
     "header": null,
     "names": [
@@ -120,14 +120,14 @@
         "learning_rate": 0.001,
         "learning_rate_decay": 0.00001,
         "loss": "categorical_crossentropy",
-        "hidden_size": 128,
+        "hidden_size": 256,
         "model_name": "encoder_decoder_model",
         "encoder_name": "self_att_gru_encoder_model",
         "decoder_name": "self_att_gru_decoder_model",
-        "self_att_enc_hid": 128,
-        "self_att_enc_out": 128,
-        "self_att_dec_hid": 128,
-        "self_att_dec_out": 128
+        "self_att_enc_hid": 256,
+        "self_att_enc_out": 256,
+        "self_att_dec_hid": 256,
+        "self_att_dec_out": 256
       },
       {
         "ref": "y_tokens_vocab",
