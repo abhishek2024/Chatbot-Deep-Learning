@@ -1,7 +1,7 @@
 {
   "dataset_reader": {
-    "name": "basic_dataset_reader",
-    "data_path": "./rus-eng",
+    "class_name": "basic_dataset_reader",
+    "data_path": "{DOWNLOADS_PATH}/rus-eng",
     "train": "rus.txt",
     "sep": "\t",
     "header": null,
@@ -13,7 +13,7 @@
     "y": "rus"
   },
   "dataset_iterator": {
-    "name": "basic_classification_iterator",
+    "class_name": "basic_classification_iterator",
     "seed": 42,
     "split_seed": 23,
     "field_to_split": "train",
@@ -40,21 +40,21 @@
         "in": "x",
         "out": "x_prep",
         "id": "my_preprocessor",
-        "name": "str_lower"
+        "class_name": "str_lower"
       },
       {
         "in": "x_prep",
         "out": "x_tok",
         "id": "my_tokenizer",
-        "name": "nltk_moses_tokenizer"
+        "class_name": "nltk_moses_tokenizer"
       },
       {
         "in": "x_tok",
         "out": "x_emb",
         "id": "my_embedder",
-        "name": "fasttext",
+        "class_name": "fasttext",
         "pad_zero": false,
-        "load_path": "embeddings/wiki.en.bin",
+        "load_path": "{DOWNLOADS_PATH}/embeddings/wiki.en.bin",
         "dim": 300
       },
       {
@@ -70,7 +70,7 @@
       {
         "in": "y_tok",
         "id": "y_tokens_vocab",
-        "name": "simple_vocab",
+        "class_name": "simple_vocab",
         "pad_with_zeros": false,
         "special_tokens": [
           "<PAD>",
@@ -82,8 +82,8 @@
         "fit_on": [
           "y_tok"
         ],
-        "save_path": "seq2seq/rus-eng/token_level/model_v1/y_tokens.dict",
-        "load_path": "seq2seq/rus-eng/token_level/model_v1/y_tokens.dict",
+        "save_path": "{MODELS_PATH}/seq2seq/rus-eng/token_level/model_v1/y_tokens.dict",
+        "load_path": "{MODELS_PATH}/seq2seq/rus-eng/token_level/model_v1/y_tokens.dict",
         "min_freq": 1,
         "out": "y_tok_ind"
       },
@@ -94,8 +94,8 @@
       },
       {
         "id": "dec_embedder",
-        "name": "fasttext",
-        "load_path": "embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
+        "class_name": "fasttext",
+        "load_path": "{DOWNLOADS_PATH}/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
         "dim": 300
       },
       {
@@ -103,9 +103,9 @@
         "in_y": "y_tok_ind",
         "out": "y_tok_ind_pred",
         "main": true,
-        "name": "keras_seq2seq_token_model",
-        "save_path": "seq2seq/rus-eng/token_level/model_v1/model",
-        "load_path": "seq2seq/rus-eng/token_level/model_v1/model",
+        "class_name": "keras_seq2seq_token_model",
+        "save_path": "{MODELS_PATH}/seq2seq/rus-eng/token_level/model_v1/model",
+        "load_path": "{MODELS_PATH}/seq2seq/rus-eng/token_level/model_v1/model",
         "encoder_embedding_size": "#my_embedder.dim",
         "decoder_embedding_size": "#dec_embedder.dim",
         "tgt_vocab_size": "#y_tokens_vocab.__len__()",
@@ -157,26 +157,34 @@
     "show_examples": true,
     "validate_best": true,
     "test_best": true,
-    "tensorboard_log_dir": "./seq2seq/rus-eng/token_level/model_v1/"
+    "tensorboard_log_dir": "{MODELS_PATH}/seq2seq/rus-eng/token_level/model_v1/"
   },
   "metadata": {
+    "variables": {
+      "ROOT_PATH": "~/.deeppavlov",
+      "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
+      "MODELS_PATH": "{ROOT_PATH}/models"
+    },
     "requirements": [
-      "../dp_requirements/tf.txt",
-      "../dp_requirements/fasttext.txt"
+      "{DEEPPAVLOV_PATH}/requirements/tf.txt",
+      "{DEEPPAVLOV_PATH}/requirements/fasttext.txt"
     ],
     "download": [
-      "http://files.deeppavlov.ai/datasets/rus-eng.tar.gz",
+      {
+        "url": "http://files.deeppavlov.ai/datasets/rus-eng.tar.gz",
+        "subdir": "{DOWNLOADS_PATH}/"
+      },
       {
         "url": "http://files.deeppavlov.ai/deeppavlov_data/embeddings/wiki.en.bin",
-        "subdir": "embeddings"
+        "subdir": "{DOWNLOADS_PATH}/embeddings"
       },
       {
         "url": "http://files.deeppavlov.ai/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
-        "subdir": "embeddings"
+        "subdir": "{DOWNLOADS_PATH}/embeddings"
       },
       {
         "url": "http://files.deeppavlov.ai/deeppavlov_data/seq2seq/rus-eng/token_level.tar.gz",
-        "subdir": "seq2seq/rus-eng"
+        "subdir": "{MODELS_PATH}/seq2seq/rus-eng"
       }
     ]
   }

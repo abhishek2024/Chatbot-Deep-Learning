@@ -1,7 +1,7 @@
 {
   "dataset_reader": {
-    "name": "basic_dataset_reader",
-    "data_path": "./rus-eng",
+    "class_name": "basic_dataset_reader",
+    "data_path": "{DOWNLOADS_PATH}/rus-eng",
     "train": "rus.txt",
     "sep": "\t",
     "header": null,
@@ -13,7 +13,7 @@
     "y": "rus"
   },
   "dataset_iterator": {
-    "name": "basic_classification_iterator",
+    "class_name": "basic_classification_iterator",
     "seed": 42,
     "split_seed": 23,
     "field_to_split": "train",
@@ -40,12 +40,12 @@
         "in": "x",
         "out": "x_prep",
         "id": "my_preprocessor",
-        "name": "str_lower"
+        "class_name": "str_lower"
       },
       {
         "in": "x_prep",
         "out": "x_char",
-        "name": "char_splitter",
+        "class_name": "char_splitter",
         "id": "my_splitter"
       },
       {
@@ -61,13 +61,13 @@
       {
         "in": "x_char",
         "id": "x_chars_vocab",
-        "name": "simple_vocab",
+        "class_name": "simple_vocab",
         "pad_with_zeros": false,
         "fit_on": [
           "x_char"
         ],
-        "save_path": "seq2seq/rus-eng/char_level/model_v1/x_chars.dict",
-        "load_path": "seq2seq/rus-eng/char_level/model_v1/x_chars.dict",
+        "save_path": "{MODELS_PATH}/seq2seq/rus-eng/char_level/model_v1/x_chars.dict",
+        "load_path": "{MODELS_PATH}/seq2seq/rus-eng/char_level/model_v1/x_chars.dict",
         "special_tokens": [
           "<PAD>",
           "<UNK>"
@@ -79,7 +79,7 @@
       {
         "in": "y_char",
         "id": "y_chars_vocab",
-        "name": "simple_vocab",
+        "class_name": "simple_vocab",
         "pad_with_zeros": false,
         "special_tokens": [
           "<PAD>",
@@ -91,8 +91,8 @@
         "fit_on": [
           "y_char"
         ],
-        "save_path": "seq2seq/rus-eng/char_level/model_v1/y_chars.dict",
-        "load_path": "seq2seq/rus-eng/char_level/model_v1/y_chars.dict",
+        "save_path": "{MODELS_PATH}/seq2seq/rus-eng/char_level/model_v1/y_chars.dict",
+        "load_path": "{MODELS_PATH}/seq2seq/rus-eng/char_level/model_v1/y_chars.dict",
         "min_freq": 5,
         "out": "y_chars_ind"
       },
@@ -101,9 +101,9 @@
         "in_y": "y_chars_ind",
         "out": "y_chars_ind_pred",
         "main": true,
-        "name": "keras_seq2seq_char_model",
-        "save_path": "seq2seq/rus-eng/char_level/model_v1/model",
-        "load_path": "seq2seq/rus-eng/char_level/model_v1/model",
+        "class_name": "keras_seq2seq_char_model",
+        "save_path": "{MODELS_PATH}/seq2seq/rus-eng/char_level/model_v1/model",
+        "load_path": "{MODELS_PATH}/seq2seq/rus-eng/char_level/model_v1/model",
         "encoder_embedding_size": 50,
         "decoder_embedding_size": 50,
         "src_vocab_size": "#x_chars_vocab.__len__()",
@@ -134,7 +134,7 @@
         "out": "y_pred_chars"
       },
       {
-        "name": "char_connector",
+        "class_name": "char_connector",
         "in": "y_pred_chars",
         "out": "y_text"
       },
@@ -142,7 +142,7 @@
         "in": "y_prep",
         "out": "y_tok",
         "id": "my_tokenizer",
-        "name": "nltk_moses_tokenizer"
+        "class_name": "nltk_moses_tokenizer"
       },
       {
         "ref": "my_tokenizer",
@@ -167,15 +167,22 @@
     "show_examples": true,
     "validate_best": true,
     "test_best": false,
-    "tensorboard_log_dir": "./seq2seq/rus-eng/char_level/model_v1/"
+    "tensorboard_log_dir": "{MODELS_PATH}/seq2seq/rus-eng/char_level/model_v1/"
   },
   "metadata": {
+    "variables": {
+      "ROOT_PATH": "~/.deeppavlov",
+      "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
+      "MODELS_PATH": "{ROOT_PATH}/models"
+    },
     "requirements": [
-      "../dp_requirements/tf.txt",
-      "../dp_requirements/fasttext.txt"
+      "{DEEPPAVLOV_PATH}/requirements/tf.txt"
     ],
     "download": [
-      "http://files.deeppavlov.ai/datasets/rus-eng.tar.gz"
+      {
+        "url": "http://files.deeppavlov.ai/datasets/rus-eng.tar.gz",
+        "subdir": "{DOWNLOADS_PATH}/"
+      }
     ]
   }
 }
