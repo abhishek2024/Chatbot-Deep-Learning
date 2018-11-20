@@ -10,7 +10,7 @@ from utils.ms_bot_framework_utils.bot import Bot
 from deeppavlov.core.commands.infer import build_model
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.common.file import read_json
-from deeppavlov.core.common.paths import get_configs_path
+from deeppavlov.core.common.paths import get_settings_path
 from deeppavlov.agents.default_agent.default_agent import DefaultAgent
 from deeppavlov.agents.processors.default_rich_content_processor import DefaultRichContentWrapper
 from deeppavlov.skills.default_skill.default_skill import DefaultStatelessSkill
@@ -30,10 +30,9 @@ Swagger(app)
 CORS(app)
 
 
-def run_ms_bf_default_agent(model_config_path: Union[str, Path], app_id: str, app_secret: str,
+def run_ms_bf_default_agent(model_config: Union[str, Path, dict], app_id: str, app_secret: str,
                             multi_instance: bool = False, stateful: bool = False):
     def get_default_agent():
-        model_config = read_json(model_config_path)
         model = build_model(model_config)
         skill = DefaultStatelessSkill(model)
         agent = DefaultAgent([skill], skills_processor=DefaultRichContentWrapper())
@@ -45,7 +44,7 @@ def run_ms_bf_default_agent(model_config_path: Union[str, Path], app_id: str, ap
 def run_ms_bot_framework_server(agent_generator: callable, app_id: str, app_secret: str,
                                 multi_instance: bool = False, stateful: bool = False):
 
-    server_config_path = Path(get_configs_path(), SERVER_CONFIG_FILENAME).resolve()
+    server_config_path = Path(get_settings_path(), SERVER_CONFIG_FILENAME).resolve()
     server_params = read_json(server_config_path)
 
     host = server_params['common_defaults']['host']
