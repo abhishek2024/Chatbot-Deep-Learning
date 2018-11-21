@@ -720,98 +720,6 @@ class CorefModel(TFModel):
         return [candidate_starts, candidate_ends, candidate_mention_scores, mention_starts, mention_ends, antecedents,
                 antecedent_scores], loss
 
-    @staticmethod
-    def get_predicted_clusters(mention_starts, mention_ends, predicted_antecedents):
-        """
-        Creates a list of clusters, as in dict from observation, and dict mentions with a list of clusters
-        to which they belong. They are necessary for inference mode and marking a new conll documents without
-        last column.
-        Args:
-            mention_starts: tf.float64, [Amount of mentions]
-            mention_ends: tf.float64, [Amount of mentions]
-            predicted_antecedents: [len antecedent scores]
-
-        Returns:
-            predicted_clusters = [[(),(),()],[(),()]] list like, with mention id
-            mention_to_predicted = {mentions id: [(),(),()], ...}
-        """
-        mention_to_predicted = {}
-        predicted_clusters = []
-        for i, predicted_index in enumerate(predicted_antecedents):
-            if predicted_index < 0:
-                continue
-            assert i > predicted_index
-            predicted_antecedent = (int(mention_starts[predicted_index]), int(mention_ends[predicted_index]))
-            if predicted_antecedent in mention_to_predicted:
-                predicted_cluster = mention_to_predicted[predicted_antecedent]
-            else:
-                predicted_cluster = len(predicted_clusters)
-                predicted_clusters.append([predicted_antecedent])
-                mention_to_predicted[predicted_antecedent] = predicted_cluster
-
-            mention = (int(mention_starts[i]), int(mention_ends[i]))
-            predicted_clusters[predicted_cluster].append(mention)
-            mention_to_predicted[mention] = predicted_cluster
-
-        predicted_clusters = [tuple(pc) for pc in predicted_clusters]
-        mention_to_predicted = {m: predicted_clusters[i] for m, i in mention_to_predicted.items()}
-
-        return predicted_clusters, mention_to_predicted
-
-    def train_on_batch(self, x: Dict, y: Dict):
-        """
-        Run train operation on one batch/document
-        Args:
-            x: list of tensors for placeholders, output of "tensorize_example" function
-            y: list of clusters
-
-        Returns: Loss functions value and tf.global_step
-
-        """
-        x.update(y)
-        self.start_enqueue_thread(x, True)
-        self.tf_loss, tf_global_step, _ = self.sess.run([self.loss, self.global_step, self.train_op])
-        return self.tf_loss  # self.tf_loss, tf_global_step
-
-    def __call__(self, out_files: Union[List[str], str]):
-        """
-        Make prediction of new coreference clusters and write it conll document.
-        Args:
-            out_files: original conll documents
-
-        Returns: str with new conll document, with new coreference clusters
-
-        """
-        if isinstance(out_files, list):
-            out = []
-            for out_file in out_files:
-                out.append(self.predict(out_file))
-        else:
-            out = self.predict(out_files)
-        return out
-
-    def predict(self, out_file: str, return_clusters=False):
-        batch = utils.conll2modeldata(out_file)
-        self.start_enqueue_thread(batch, False)
-
-        if self.train_on_gold:
-            _, mention_starts, mention_ends, antecedents, antecedent_scores = self.sess.run(self.predictions)
-        else:
-            _, _, _, mention_starts, mention_ends, antecedents, antecedent_scores = self.sess.run(self.predictions)
-
-        predicted_antecedents = self.get_predicted_antecedents(antecedents, antecedent_scores)
-
-        predicted_clusters, mention_to_predicted = self.get_predicted_clusters(mention_starts, mention_ends,
-                                                                               predicted_antecedents)
-
-        new_cluters = dict()
-        new_cluters[batch['doc_key']] = predicted_clusters
-        out_ = utils.output_conll(out_file, new_cluters)
-        if return_clusters:
-            return out_, new_cluters
-        else:
-            return out_
-
     def get_predictions_and_loss_on_gold(self, word_emb, char_index, text_len, speaker_ids, genre, is_training,
                                          gold_starts, gold_ends, cluster_ids):
         """
@@ -923,6 +831,98 @@ class CorefModel(TFModel):
         loss = tf.reduce_sum(loss)  # []
 
         return [candidate_mention_scores, mention_starts, mention_ends, antecedents, antecedent_scores], loss
+
+    @staticmethod
+    def get_predicted_clusters(mention_starts, mention_ends, predicted_antecedents):
+        """
+        Creates a list of clusters, as in dict from observation, and dict mentions with a list of clusters
+        to which they belong. They are necessary for inference mode and marking a new conll documents without
+        last column.
+        Args:
+            mention_starts: tf.float64, [Amount of mentions]
+            mention_ends: tf.float64, [Amount of mentions]
+            predicted_antecedents: [len antecedent scores]
+
+        Returns:
+            predicted_clusters = [[(),(),()],[(),()]] list like, with mention id
+            mention_to_predicted = {mentions id: [(),(),()], ...}
+        """
+        mention_to_predicted = {}
+        predicted_clusters = []
+        for i, predicted_index in enumerate(predicted_antecedents):
+            if predicted_index < 0:
+                continue
+            assert i > predicted_index
+            predicted_antecedent = (int(mention_starts[predicted_index]), int(mention_ends[predicted_index]))
+            if predicted_antecedent in mention_to_predicted:
+                predicted_cluster = mention_to_predicted[predicted_antecedent]
+            else:
+                predicted_cluster = len(predicted_clusters)
+                predicted_clusters.append([predicted_antecedent])
+                mention_to_predicted[predicted_antecedent] = predicted_cluster
+
+            mention = (int(mention_starts[i]), int(mention_ends[i]))
+            predicted_clusters[predicted_cluster].append(mention)
+            mention_to_predicted[mention] = predicted_cluster
+
+        predicted_clusters = [tuple(pc) for pc in predicted_clusters]
+        mention_to_predicted = {m: predicted_clusters[i] for m, i in mention_to_predicted.items()}
+
+        return predicted_clusters, mention_to_predicted
+
+    def train_on_batch(self, x: Dict, y: Dict):
+        """
+        Run train operation on one batch/document
+        Args:
+            x: list of tensors for placeholders, output of "tensorize_example" function
+            y: list of clusters
+
+        Returns: Loss functions value and tf.global_step
+
+        """
+        x.update(y)
+        self.start_enqueue_thread(x, True)
+        self.tf_loss, tf_global_step, _ = self.sess.run([self.loss, self.global_step, self.train_op])
+        return self.tf_loss  # self.tf_loss, tf_global_step
+
+    def __call__(self, out_files: Union[List[str], str]):
+        """
+        Make prediction of new coreference clusters and write it conll document.
+        Args:
+            out_files: original conll documents
+
+        Returns: str with new conll document, with new coreference clusters
+
+        """
+        if isinstance(out_files, list):
+            out = []
+            for out_file in out_files:
+                out.append(self.predict(out_file))
+        else:
+            out = self.predict(out_files)
+        return out
+
+    def predict(self, out_file: str, return_clusters=False):
+        batch = utils.conll2modeldata(out_file)
+        self.start_enqueue_thread(batch, False)
+
+        if self.train_on_gold:
+            _, mention_starts, mention_ends, antecedents, antecedent_scores = self.sess.run(self.predictions)
+        else:
+            _, _, _, mention_starts, mention_ends, antecedents, antecedent_scores = self.sess.run(self.predictions)
+
+        predicted_antecedents = self.get_predicted_antecedents(antecedents, antecedent_scores)
+
+        predicted_clusters, mention_to_predicted = self.get_predicted_clusters(mention_starts, mention_ends,
+                                                                               predicted_antecedents)
+
+        new_cluters = dict()
+        new_cluters[batch['doc_key']] = predicted_clusters
+        out_ = utils.output_conll(out_file, new_cluters)
+        if return_clusters:
+            return out_, new_cluters
+        else:
+            return out_
 
     def destroy(self):
         """Reset the model"""
