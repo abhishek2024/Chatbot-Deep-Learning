@@ -66,14 +66,14 @@
         "fit_on": [
           "x_char"
         ],
-        "save_path": "{MODELS_PATH}/seq2seq/rus-eng/char_level/model_v0/x_chars.dict",
-        "load_path": "{MODELS_PATH}/seq2seq/rus-eng/char_level/model_v0/x_chars.dict",
+        "save_path": "{MODELS_PATH}/x_chars.dict",
+        "load_path": "{MODELS_PATH}/x_chars.dict",
         "special_tokens": [
           "<PAD>",
           "<UNK>"
         ],
         "unk_token": "<UNK>",
-        "min_freq": 5,
+        "min_freq": 1,
         "out": "x_chars_ind"
       },
       {
@@ -91,9 +91,9 @@
         "fit_on": [
           "y_char"
         ],
-        "save_path": "{MODELS_PATH}/seq2seq/rus-eng/char_level/model_v0/y_chars.dict",
-        "load_path": "{MODELS_PATH}/seq2seq/rus-eng/char_level/model_v0/y_chars.dict",
-        "min_freq": 5,
+        "save_path": "{MODELS_PATH}/y_chars.dict",
+        "load_path": "{MODELS_PATH}/y_chars.dict",
+        "min_freq": 1,
         "out": "y_chars_ind"
       },
       {
@@ -102,8 +102,8 @@
         "out": "y_chars_ind_pred",
         "main": true,
         "class_name": "keras_seq2seq_char_model",
-        "save_path": "{MODELS_PATH}/seq2seq/rus-eng/char_level/model_v0/model",
-        "load_path": "{MODELS_PATH}/seq2seq/rus-eng/char_level/model_v0/model",
+        "save_path": "{MODELS_PATH}/model",
+        "load_path": "{MODELS_PATH}/model",
         "encoder_embedding_size": 50,
         "decoder_embedding_size": 50,
         "src_vocab_size": "#x_chars_vocab.__len__()",
@@ -116,7 +116,7 @@
         "tgt_max_length": 50,
         "decoder_vocab": "#y_chars_vocab",
         "optimizer": "RMSprop",
-        "lear_rate": 10,
+        "lear_rate": 0.001,
         "lear_rate_decay": 0.001,
         "loss": "categorical_crossentropy",
         "hidden_size": 256,
@@ -150,26 +150,27 @@
   },
   "train": {
     "epochs": 100,
-    "batch_size": 64,
+    "batch_size": 32,
     "metrics": [
       {
         "name": "per_token_accuracy",
         "inputs": ["y_tok", "y_tok_text"]
-      }
+      },
+      "bleu"
     ],
-    "validation_patience": 5,
+    "validation_patience": 20,
     "val_every_n_epochs": 5,
     "log_every_n_epochs": 1,
     "show_examples": true,
-    "validate_best": true,
+    "validate_best": false,
     "test_best": false,
-    "tensorboard_log_dir": "{MODELS_PATH}/seq2seq/rus-eng/char_level/model_v0/"
+    "tensorboard_log_dir": "{MODELS_PATH}/"
   },
   "metadata": {
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models"
+      "MODELS_PATH": "{ROOT_PATH}/models/seq2seq/rus-eng/char_level/model_v0"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt"
