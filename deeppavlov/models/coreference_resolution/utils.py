@@ -16,7 +16,8 @@ import os
 import uuid
 import time
 import operator
-import fastText
+# import fastText
+from fasttext import load_model
 import numpy as np
 import collections
 import tensorflow as tf
@@ -100,7 +101,8 @@ def load_embedding_dict(embedding_path, embedding_size, embedding_format):
                 embedding = np.array([float(s) for s in splits[1:]])
                 embedding_dict[word] = embedding
     elif embedding_format == 'bin':
-        embedding_dict = fastText.load_model(embedding_path)
+        embedding_dict = load_model(embedding_path)
+        # embedding_dict = fastText.load_model(embedding_path)
     else:
         raise ValueError('Not supported embeddings format {}'.format(embedding_format))
     print("Done loading word embeddings.")
@@ -423,7 +425,7 @@ def output_conll(input_file, predictions):
 
     """
     prediction_map = {}
-    input_file = input_file['conll_str']
+    # input_file = input_file['conll_str']
     for doc_key, clusters in predictions.items():
         start_map = collections.defaultdict(list)
         end_map = collections.defaultdict(list)

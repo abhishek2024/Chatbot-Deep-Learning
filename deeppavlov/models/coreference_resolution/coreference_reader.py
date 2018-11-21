@@ -41,7 +41,7 @@ class CorefReader(DatasetReader):
         if exists(join(data_path, part)):
             json_documents = []
             for file_name in os.listdir(join(data_path, part)):
-                with open(file_name, 'r', encoding='utf8') as f:
+                with open(join(data_path, part, file_name), 'r', encoding='utf8') as f:
                     conll_string = f.read()
                 json_documents.append(conll2modeldata(conll_string))
 

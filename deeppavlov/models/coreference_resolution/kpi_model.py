@@ -17,7 +17,7 @@ import numpy as np
 import tensorflow as tf
 
 from . import utils
-from typing import Tuple, Dict
+from typing import Tuple, Dict, List, Union
 from os.path import join
 from deeppavlov.core.models.tf_model import TFModel
 
@@ -122,15 +122,15 @@ class CorefModel(TFModel):
         self.extract_mentions = coref_op_library.extract_mentions
         self.get_antecedents = coref_op_library.antecedents
 
-        dpath = join(self.model_file, 'agent')
-        self.log_root = join(dpath, 'logs')
-        self.char_vocab_path = join(dpath, 'vocab', 'char_vocab.russian.txt')
+        self.log_root = join(self.model_file, 'logs')
+        self.char_vocab_path = join(self.model_file, 'vocab', 'char_vocab.russian.txt')
         self.char_dict = utils.load_char_dict(self.char_vocab_path)
 
         if self.emb_format == 'vec':
-            self.embedding_path = join(dpath, 'embeddings', 'embeddings_lenta_100.vec')
+            self.embedding_path = join(self.model_file, 'embeddings', 'embeddings_lenta_100.vec')
         elif self.emb_format == 'bin':
-            self.embedding_path = join(dpath, 'embeddings', 'ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin')
+            self.embedding_path = join(self.model_file, 'embeddings', 'ft_0.8.3_nltk_yalen_sg_300.bin')
+            # self.embedding_path = join(self.model_file, 'embeddings', 'ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin')
         else:
             raise ValueError('Not supported embeddings format {}'.format(self.emb_format))
 
@@ -186,7 +186,7 @@ class CorefModel(TFModel):
 
         tf.set_random_seed(self.random_seed)
         config = tf.ConfigProto()
-        config.gpu_options.per_process_gpu_memory_fraction = 0.8
+        config.gpu_options.per_process_gpu_memory_fraction = 1.0  # 0.8
         self.sess = tf.Session(config=config)
 
         self.sess.run(tf.global_variables_initializer())
@@ -337,6 +337,7 @@ class CorefModel(TFModel):
                     word_emb[i, j, current_dim:current_dim + s] = utils.normalize(d[current_word])
                 else:
                     word_emb[i, j, current_dim:current_dim + s] = utils.normalize(np.array(d[current_word]))
+                    # word_emb[i, j, current_dim:current_dim + s] = utils.normalize(d.get_word_vector(current_word))
 
                 current_dim += s
                 char_index[i, j, :len(word)] = [self.char_dict[c] for c in word]
@@ -772,17 +773,25 @@ class CorefModel(TFModel):
         self.tf_loss, tf_global_step, _ = self.sess.run([self.loss, self.global_step, self.train_op])
         return self.tf_loss  # self.tf_loss, tf_global_step
 
-    def __call__(self, batch: Dict, out_file: str):
+    def __call__(self, out_files: Union[List[str], str]):
         """
         Make prediction of new coreference clusters and write it conll document.
         Args:
-            batch: list of tensors for placeholders, output of "tensorize_example" function
-            out_file: original conll document
+            out_files: original conll documents
 
         Returns: str with new conll document, with new coreference clusters
 
         """
-        batch["clusters"] = []
+        if isinstance(out_files, list):
+            out = []
+            for out_file in out_files:
+                out.append(self.predict(out_file))
+        else:
+            out = self.predict(out_files)
+        return out
+
+    def predict(self, out_file: str, return_clusters=False):
+        batch = utils.conll2modeldata(out_file)
         self.start_enqueue_thread(batch, False)
 
         if self.train_on_gold:
@@ -797,9 +806,11 @@ class CorefModel(TFModel):
 
         new_cluters = dict()
         new_cluters[batch['doc_key']] = predicted_clusters
-        outconll = utils.output_conll(out_file, new_cluters)
-
-        return outconll
+        out_ = utils.output_conll(out_file, new_cluters)
+        if return_clusters:
+            return out_, new_cluters
+        else:
+            return out_
 
     def get_predictions_and_loss_on_gold(self, word_emb, char_index, text_len, speaker_ids, genre, is_training,
                                          gold_starts, gold_ends, cluster_ids):
