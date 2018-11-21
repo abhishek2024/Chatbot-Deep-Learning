@@ -46,4 +46,3 @@ class BIOMarkupConverter(Component):
     def __call__(self, tag_batch: List[List[str]], *args, **kwargs) -> List[List[str]]:
         y = [self._convert_to_bio(sent) for sent in tag_batch]
         return y
-

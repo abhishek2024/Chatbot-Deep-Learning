@@ -37,19 +37,7 @@ def accuracy(y_true: [list, np.ndarray], y_predicted: [list, np.ndarray]) -> flo
         portion of absolutely coincidental samples
     """
     examples_len = len(y_true)
-    correct = 0
-    incorrect = 0
-    pr = 0
-    for y1, y2 in zip(y_true, y_predicted):
-        if isinstance(y2, tuple):
-            y2, pr = y2
-        if y1 == y2:
-            correct += 1
-        else:
-            incorrect += 1
-            if incorrect < 10:
-                log.info(f"y_true={sorted(y1.items())}, y_predicted={sorted(y2.items())}"
-                         f", y_probs={pr}")
+    correct = sum([y1 == y2 for y1, y2 in zip(y_true, y_predicted)])
     return correct / examples_len if examples_len else 0
 
 
