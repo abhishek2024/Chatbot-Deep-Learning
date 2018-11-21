@@ -150,7 +150,7 @@
         ]
       }
     ],
-    "validation_patience": 5,
+    "validation_patience": 20,
     "val_every_n_epochs": 5,
     "log_every_n_epochs": 1,
     "show_examples": true,
