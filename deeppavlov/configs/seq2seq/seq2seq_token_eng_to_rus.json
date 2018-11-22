@@ -139,7 +139,7 @@
     "out": "y_text"
   },
   "train": {
-    "epochs": 100,
+    "epochs": 1000,
     "batch_size": 32,
     "metrics": [
       {
