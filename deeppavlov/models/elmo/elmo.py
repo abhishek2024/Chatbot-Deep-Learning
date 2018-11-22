@@ -111,7 +111,7 @@ class ELMo(NNModel):
     as a ``ModuleSpec`` by using `TensorFlow Hub <https://www.tensorflow.org/hub/overview>`__ or by
     DeepPavlov :class:`~deeppavlov.models.embedders.elmo_embedder.ELMoEmbedder`.
 
-    More about the model you can get from `original ELMo implementation
+    More about the ELMo model you can get from `original ELMo implementation
     <https://github.com/allenai/bilm-tf>`__.
 
     Examples:
@@ -137,7 +137,7 @@ class ELMo(NNModel):
         >>> # cp my_vocab {MODELS_PATH}/elmo-1b-benchmark/vocab-2016-09-10.txt
         >>> # python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark.json
 
-        After training you can use the ELMo model from tf_hub wrapper by 
+        After training you can use the ELMo model from tf_hub wrapper by
         `TensorFlow Hub <https://www.tensorflow.org/hub/overview>`__ or by
         DeepPavlov :class:`~deeppavlov.models.embedders.elmo_embedder.ELMoEmbedder`:
 
