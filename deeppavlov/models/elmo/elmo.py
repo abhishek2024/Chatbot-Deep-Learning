@@ -100,8 +100,8 @@ class ELMo(NNModel):
     Examples of how datasets should look like you can learn from the configs of the examples below.
 
 
-    For fine-tuning of LM on specific data, it is enough to save the original model to path
-    '{MODELS_PATH}/elmo_model/saves/epochs/0/' and start training.
+    For fine-tuning of LM on specific data, it is enough to save base model to path
+    ``{MODELS_PATH}/elmo_model/saves/epochs/0/`` and start training.
 
 
 
@@ -114,6 +114,19 @@ class ELMo(NNModel):
         start a training model use this command from bash:
         
         >>> # python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark.json -d
+
+        To fine-tune some LM model on `1 Billion Word Benchmark dataset <http://www.statmt.org/lm-benchmark/>`__
+        use commands from bash :
+        
+        >>> # python -m deeppavlov download deeppavlov/configs/elmo/elmo-1b-benchmark.json
+        >>> # mkdir -p ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0
+        >>> # cp some_ckpt.data-00000-of-00001 ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/model.data-00000-of-00001
+        >>> # cp some_ckpt.index ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/model.index
+        >>> # cp some_ckpt.meta ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/model.meta
+        >>> # cp checkpoint ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/checkpoint
+        >>> # cp some_options.json ${MODELS_PATH}/elmo-1b-benchmark/options.json
+        >>> # cp some_vocab {MODELS_PATH}/elmo-1b-benchmark/vocab-2016-09-10.txt
+        >>> # python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark.json
 
     """
 
