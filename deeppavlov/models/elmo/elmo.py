@@ -73,9 +73,21 @@ class ELMo(NNModel):
     you can use multiple GPU by set `n_gpus=n`. Saving the model will take place in folders with some structure, see 
     below example:
 
-    conll-formatted-ontonotes-5.0/
-     ── data
-       ├── development
+    MODELS_PATH/
+        elmo_model/
+            saves/
+                epochs/
+                    1/
+                    2/
+                    ....
+                dumps/
+                    weights_epoch_n_1.hdf5
+                    weights_epoch_n_2.hdf5
+                    ....
+                hubs/
+                    tf_hub_model_epoch_n_1/
+                    tf_hub_model_epoch_n_2/
+                    ....
 
     """
 
