@@ -35,10 +35,12 @@ class CorefModel(TFModel):
 
     def __init__(self,
                  model_file: str = "./",
+                 embedding_path: str = "./embeddings/ft_0.8.3_nltk_yalen_sg_300.bin",
                  embedding_size: int = 300,
                  emb_format: str = "bin",
                  emb_lowercase: bool = False,
                  char_embedding_size: int = 8,
+                 char_vocab_path: str = "./vocab/char_vocab.russian.txt",
                  max_mention_width: int = 10,
                  genres: Tuple[str] = ('bc',),
                  train_on_gold: bool = True,
@@ -72,6 +74,7 @@ class CorefModel(TFModel):
         self.model_file = model_file
 
         # embeddings
+        self.embedding_path = embedding_path
         self.embedding_size = embedding_size
         self.emb_format = emb_format
         self.emb_lowercase = emb_lowercase
@@ -109,13 +112,14 @@ class CorefModel(TFModel):
         self.max_gradient_norm = max_gradient_norm
 
         # other
+        self.char_vocab_path = char_vocab_path
         self.random_seed = random_seed
         self.head_scores = None
         self.dropout = None
         self.lexical_dropout = None
         self.tf_loss = None
         # ----------------------------------------------------------------------------------
-
+        # C++ operations
         coref_op_library = tf.load_op_library(join(self.model_file, "coref_kernels.so"))
         self.spans = coref_op_library.spans
         self.distance_bins = coref_op_library.distance_bins
@@ -123,15 +127,9 @@ class CorefModel(TFModel):
         self.get_antecedents = coref_op_library.antecedents
 
         self.log_root = join(self.model_file, 'logs')
-        self.char_vocab_path = join(self.model_file, 'vocab', 'char_vocab.russian.txt')
         self.char_dict = utils.load_char_dict(self.char_vocab_path)
 
-        if self.emb_format == 'vec':
-            self.embedding_path = join(self.model_file, 'embeddings', 'embeddings_lenta_100.vec')
-        elif self.emb_format == 'bin':
-            self.embedding_path = join(self.model_file, 'embeddings', 'ft_0.8.3_nltk_yalen_sg_300.bin')
-            # self.embedding_path = join(self.model_file, 'embeddings', 'ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin')
-        else:
+        if self.emb_format not in ["vec", "bin"]:
             raise ValueError('Not supported embeddings format {}'.format(self.emb_format))
 
         self.embedding_info = (self.embedding_size, self.emb_lowercase)
