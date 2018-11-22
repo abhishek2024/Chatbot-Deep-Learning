@@ -75,8 +75,8 @@ class ELMo(NNModel):
     You can explicitly specify the path to a json file with hyperparameters of ELMo used to train by
     ``options_json_path`` parameter.
     The json file must be the same as the json file from `original ELMo implementation
-    <https://github.com/allenai/bilm-tf>`__.
-    
+    <https://github.com/allenai/bilm-tf>`__. You can define the architecture using the separate parameters.
+
     Saving the model will take place in directories with some structure, see below example:
 
     {MODELS_PATH}/
@@ -89,7 +89,11 @@ class ELMo(NNModel):
                 hubs/
                     tf_hub_model_epoch_n_1/, tf_hub_model_epoch_n_2/, .... # directories of tensorflow hub wrapped
                     ELMo
-                
+
+    Intermediate checkpoints saved to `saves` directorie.
+    To specify loada/save paths use ``load_epoch_num``, ``epoch_load_path``, ``epoch_save_path``, ``dumps_save_path``,
+    ``tf_hub_save_path``.
+    
 
     """
 
