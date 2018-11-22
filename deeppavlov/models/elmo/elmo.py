@@ -74,15 +74,20 @@ class ELMo(NNModel):
     Saving the model will take place in directories with some structure, see below example:
 
     {MODELS_PATH}/
-        elmo_model/
-            saves/
-                epochs/
-                    1/, 2/, .... # directories of epochs
-                dumps/
-                    weights_epoch_n_1.hdf5, weights_epoch_n_2.hdf5, .... # hdf5 files of dumped ELMo weights
-                hubs/
-                    tf_hub_model_epoch_n_1/ , tf_hub_model_epoch_n_2/ , .... # directories of tensorflow hub wrapped
-                    ELMo
+     ── elmo_model/
+        ├── saves/
+            ├── epochs/
+                ├── 1/
+                ├── 2/
+                └── ... # directories of epochs
+            ├── dumps/
+                ├── weights_epoch_n_1.hdf5
+                ├── weights_epoch_n_2.hdf5
+                └── ... # hdf5 files of dumped ELMo weights
+            ├── hubs/
+                ├── tf_hub_model_epoch_n_1/ 
+                ├── tf_hub_model_epoch_n_2/ 
+                └── .... # directories of tensorflow hub wrapped ELMo
                 
 
     """
