@@ -131,7 +131,7 @@ class ELMo(NNModel):
         >>> # cp my_vocab {MODELS_PATH}/elmo-1b-benchmark/vocab-2016-09-10.txt
         >>> # python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark.json
 
-        You can use after training ELMo from tf_hub wrapper by 
+        After training you can use the ELMo model from tf_hub wrapper by 
         `TensorFlow Hub <https://www.tensorflow.org/hub/overview>`__ or by
         DeepPavlov :class:`~deeppavlov.models.embedders.elmo_embedder.ELMoEmbedder`:
 
