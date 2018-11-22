@@ -43,7 +43,6 @@ class ELMo(NNModel):
     You can use this component for LM training, fine tuning, dumping ELMo to a hdf5 file and wrapping it to
     the tensorflow hub.
 
-
     Parameters:
         options_json_path: Path to the json configure.
         char_cnn: Options of char_cnn. For example {"activation":"relu","embedding":{"dim":16},
