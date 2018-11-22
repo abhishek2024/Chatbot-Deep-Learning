@@ -103,24 +103,24 @@ class ELMo(NNModel):
     For fine-tuning of LM on specific data, it is enough to save base model to path
     ``{MODELS_PATH}/elmo_model/saves/epochs/0/`` and start training.
 
-    After training you can use path ``{MODELS_PATH}/elmo_model/saves/hubs/tf_hub_model_epoch_n_*/``
-    as a path where to load a ``ModuleSpec`` from via ``tenserflow_hub.load_module_spec``
-    by using `TensorFlow Hub <https://www.tensorflow.org/hub/overview>`__.
+    After training you can use ``{MODELS_PATH}/elmo_model/saves/hubs/tf_hub_model_epoch_n_*/``
+    as a ``ModuleSpec`` by using `TensorFlow Hub <https://www.tensorflow.org/hub/overview>`__ or by
+    DeepPavlov :class:`~deeppavlov.models.embedders.elmo_embedder.ELMoEmbedder`.
 
 
     Examples:
         For a quick start, you can run test training of the test model on small data by this command from bash:
-        
+
         >>> # python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark_test.json -d
 
         To download the prepared `1 Billion Word Benchmark dataset <http://www.statmt.org/lm-benchmark/>`__ and
         start a training model use this command from bash:
-        
+
         >>> # python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark.json -d
 
         To fine-tune ELMo as LM model on `1 Billion Word Benchmark dataset <http://www.statmt.org/lm-benchmark/>`__
         use commands from bash :
-        
+
         >>> # python -m deeppavlov download deeppavlov/configs/elmo/elmo-1b-benchmark.json
         >>> # mkdir -p ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0
         >>> # cp my_ckpt.data-00000-of-00001 ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/model.data-00000-of-00001
@@ -131,10 +131,13 @@ class ELMo(NNModel):
         >>> # cp my_vocab {MODELS_PATH}/elmo-1b-benchmark/vocab-2016-09-10.txt
         >>> # python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark.json
 
-        To use ready ELMo into tf_hub:
+        You can use after training ELMo from tf_hub wrapper by 
+        `TensorFlow Hub <https://www.tensorflow.org/hub/overview>`__ or by
+        DeepPavlov :class:`~deeppavlov.models.embedders.elmo_embedder.ELMoEmbedder`:
 
         >>> from deeppavlov.models.embedders.elmo_embedder import ELMoEmbedder
-        >>> elmo = ELMoEmbedder("{MODELS_PATH}/elmo_model/saves/hubs/tf_hub_model_epoch_n_*/")
+        >>> spec = f"{MODELS_PATH}/elmo-1b-benchmark_test/saves/hubs/tf_hub_model_epoch_n_1/"
+        >>> elmo = ELMoEmbedder(spec)
         >>> elmo([['вопрос', 'жизни', 'Вселенной', 'и', 'вообще', 'всего'], ['42']])
         array([[ 0.00719104,  0.08544601, -0.07179783, ...,  0.10879009,
                 -0.18630421, -0.2189409 ],
