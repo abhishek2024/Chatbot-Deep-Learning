@@ -77,17 +77,11 @@ class ELMo(NNModel):
         elmo_model/
             saves/
                 epochs/
-                    1/
-                    2/
-                    ....
+                    1/, 2/, .... # dirs of epochs
                 dumps/
-                    weights_epoch_n_1.hdf5
-                    weights_epoch_n_2.hdf5
-                    ....
+                    _epoch_n_1.hdf5, weights_epoch_n_2.hdf5, .... # hdf5 files of dumped elmo weights
                 hubs/
-                    tf_hub_model_epoch_n_1/
-                    tf_hub_model_epoch_n_2/
-                    ....
+                    tf_hub_model_epoch_n_1/ , tf_hub_model_epoch_n_2/ , .... # dirs of tensorflow hub wrapped elmo
 
     """
 
