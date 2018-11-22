@@ -69,19 +69,21 @@ class ELMo(NNModel):
         dumps_save_path: A dump saving path relative to save_path.
         tf_hub_save_path: A tf_hub saving path relative to save_path.
 
-    To train ELMo representations from `Deep contextualized word representations <https://arxiv.org/abs/1802.05365>` 
-    you can use multiple GPU by set `n_gpus=n`. Saving the model will take place in folders with some structure, see 
-    below example:
+    To train ELMo representations from a paper `Deep contextualized word representations
+    <https://arxiv.org/abs/1802.05365>`__ you can use multiple GPU by set `n_gpus=n`.
+    Saving the model will take place in directories with some structure, see below example:
 
-    MODELS_PATH/
+    {MODELS_PATH}/
         elmo_model/
             saves/
                 epochs/
-                    1/, 2/, .... # dirs of epochs
+                    1/, 2/, .... # directories of epochs
                 dumps/
-                    _epoch_n_1.hdf5, weights_epoch_n_2.hdf5, .... # hdf5 files of dumped elmo weights
+                    weights_epoch_n_1.hdf5, weights_epoch_n_2.hdf5, .... # hdf5 files of dumped ELMo weights
                 hubs/
-                    tf_hub_model_epoch_n_1/ , tf_hub_model_epoch_n_2/ , .... # dirs of tensorflow hub wrapped elmo
+                    tf_hub_model_epoch_n_1/ , tf_hub_model_epoch_n_2/ , .... # directories of tensorflow hub wrapped
+                    ELMo
+                
 
     """
 
