@@ -71,23 +71,22 @@ class ELMo(NNModel):
 
     To train ELMo representations from a paper `Deep contextualized word representations
     <https://arxiv.org/abs/1802.05365>`__ you can use multiple GPU by set `n_gpus=n`.
+    You can explicitly specify the path to a json file with hyperparameters of ELMo used to train by `options_json_path`
+    parameter. The json file must be the same as the json file from `original ELMo implementation
+    <https://github.com/allenai/bilm-tf>`__ 
+    
     Saving the model will take place in directories with some structure, see below example:
 
     {MODELS_PATH}/
-     ── elmo_model/
-        ├── saves/
-            ├── epochs/
-                ├── 1/
-                ├── 2/
-                └── ... # directories of epochs
-            ├── dumps/
-                ├── weights_epoch_n_1.hdf5
-                ├── weights_epoch_n_2.hdf5
-                └── ... # hdf5 files of dumped ELMo weights
-            ├── hubs/
-                ├── tf_hub_model_epoch_n_1/ 
-                ├── tf_hub_model_epoch_n_2/ 
-                └── .... # directories of tensorflow hub wrapped ELMo
+        elmo_model/
+            saves/
+                epochs/
+                    1/, 2/, .... # directories of epochs
+                dumps/
+                    weights_epoch_n_1.hdf5, weights_epoch_n_2.hdf5, .... # hdf5 files of dumped ELMo weights
+                hubs/
+                    tf_hub_model_epoch_n_1/, tf_hub_model_epoch_n_2/, .... # directories of tensorflow hub wrapped
+                    ELMo
                 
 
     """
