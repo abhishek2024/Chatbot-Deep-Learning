@@ -95,9 +95,11 @@ class ELMo(NNModel):
     ``tf_hub_save_path``.
 
     Dumping and tf_hub wrapping of ELMo occurs after each epoch.
-    
-    > python -m deeppavlov interact deeppavlov/configs/ranking/paraphrase_ident_qqp_interact.json
 
+    Examples:
+        For a quick start, you can run test training of the test model on small data with the help of this command:
+        
+        $ python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark_test.json -d
 
     """
 
