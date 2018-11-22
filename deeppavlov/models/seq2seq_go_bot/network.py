@@ -131,7 +131,7 @@ class Seq2SeqGoalOrientedBotNetwork(TFModel):
 
         super().__init__(**kwargs)
 
-        if tf.train.checkpoint_exists(str(self.load_path.resolve())):
+        if load_path and tf.train.checkpoint_exists(str(self.load_path.resolve())):
             log.info("[initializing `{}` from saved]".format(self.__class__.__name__))
             self.load()
         else:

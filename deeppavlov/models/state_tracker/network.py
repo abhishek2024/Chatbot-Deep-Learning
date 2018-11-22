@@ -79,7 +79,6 @@ class StateTrackerNetwork(EnhancedTFModel):
             self.load()
         else:
             log.info("[initializing `{}` from scratch]".format(self.__class__.__name__))
-        self.batch_no = 0
 
     def _init_params(self):
         self.hidden_size = self.opt['hidden_size']
@@ -118,10 +117,6 @@ class StateTrackerNetwork(EnhancedTFModel):
         # normalize loss by batch_size
         self._loss = tf.reduce_sum(_loss_tensor) / tf.cast(self._num_slots, tf.float32)
 
-        tf.summary.scalar('loss', self._loss)
-        self._summary = tf.summary.merge_all()
-        self._train_writer = tf.summary.FileWriter(f"logs/train_{time()}", self.graph)
-        self._test_writer = tf.summary.FileWriter(f"logs/test_{time()}")
         self._train_op = self.get_train_op(self._loss, clip_norm=2.)
 
     def _add_placeholders(self):
@@ -408,8 +403,8 @@ class StateTrackerNetwork(EnhancedTFModel):
                                                         s_utt_slot_tok_val_idx],
                                                        pad_length=max(utt_seq_length),
                                                        axis=0, pad_axis=2)
-        _tr, loss_value, summary = self.sess.run(
-            [self._train_op, self._loss, self._summary],
+        _tr, loss_value = self.sess.run(
+            [self._train_op, self._loss],
             feed_dict={
                 self.get_learning_rate_ph(): self.get_learning_rate(),
                 self.get_momentum_ph(): self.get_momentum(),
@@ -425,8 +420,6 @@ class StateTrackerNetwork(EnhancedTFModel):
                 self._true_state: true_state_mat[0]
             }
         )
-        self.batch_no += 1
-        self._train_writer.add_summary(summary, self.batch_no)
         # print(f"_tr.shape: {_tr.shape}")
         # print(f"_tr: {_tr}")
         # print(f"where(_tr): {np.where(_tr)}")
@@ -463,5 +456,5 @@ class StateTrackerNetwork(EnhancedTFModel):
         with open(path, 'w', encoding='utf8') as fp:
             json.dump(self.opt, fp)
 
-    def shutdown(self):
+    def destroy(self):
         self.sess.close()
