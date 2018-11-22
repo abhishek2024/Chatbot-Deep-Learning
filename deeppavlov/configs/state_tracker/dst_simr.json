@@ -8,8 +8,7 @@
   },
   "chainer": {
     "in": [
-        "u_utter", "u_slots_bio", "u_acts", "s_tokens", "s_slots_bio", "s_acts",
-        "prev_state"
+      "u_utter", "u_slots_bio", "u_acts", "s_tokens", "s_slots_bio", "s_acts", "prev_state"
     ],
     "in_y": ["state"],
     "out": ["state_pred"],
@@ -17,22 +16,20 @@
       {
         "class_name": "action_vocab",
         "id": "user_action_vocab",
-        "load_path": "{MODELS_PATH}/dst/user_actions_simr.dict",
-        "save_path": "{MODELS_PATH}/dst/user_actions_simr.dict",
+        "load_path": "{MODELS_PATH}/dst/user_actions.dict",
+        "save_path": "{MODELS_PATH}/dst/user_actions.dict",
         "special_tokens": ["unknown"],
         "default_token": "unknown",
-        "fit_on": ["u_acts"],
         "in": ["u_acts"],
         "out": ["u_act_idx"]
       },
       {
         "class_name": "action_vocab",
         "id": "system_action_vocab",
-        "load_path": "{MODELS_PATH}/dst/system_actions_simr.dict",
-        "save_path": "{MODELS_PATH}/dst/system_actions_simr.dict",
+        "load_path": "{MODELS_PATH}/dst/system_actions.dict",
+        "save_path": "{MODELS_PATH}/dst/system_actions.dict",
         "special_tokens": ["unknown"],
         "default_token": "unknown",
-        "fit_on": ["s_acts"],
         "in": ["s_acts"],
         "out": ["s_act_idx"]
       },
@@ -157,9 +154,9 @@
         "load_path": "{MODELS_PATH}/dst/model_simr",
         "save_path": "{MODELS_PATH}/dst/model_simr",
         "in": [
-            "u_tok_idx", "u_tok_slot_idx_matr", "u_act_idx", "u_slot_act_mask_matr",
-            "s_tok_idx", "s_tok_slot_idx_matr", "s_act_idx", "s_slot_act_mask_matr",
-            "slot_cand_mask_matr", "prev_state_matr"
+          "u_tok_idx", "u_tok_slot_idx_matr", "u_act_idx", "u_slot_act_mask_matr",
+          "s_tok_idx", "s_tok_slot_idx_matr", "s_act_idx", "s_slot_act_mask_matr",
+          "slot_cand_mask_matr", "prev_state_matr"
         ],
         "in_y": ["state_matr"],
         "out": ["state_pred_matr"],
@@ -205,8 +202,8 @@
       "CONFIGS_PATH": "{DEEPPAVLOV_PATH}/configs"
     },
     "requirements": [
-      "{DEEPPAVLOV_PATH}/dp_requirements/tf.txt",
-      "{DEEPPAVLOV_PATH}/dp_requirements/gensim.txt"
+      "{DEEPPAVLOV_PATH}/requirements/tf.txt",
+      "{DEEPPAVLOV_PATH}/requirements/gensim.txt"
     ],
     "labels": {},
     "download": [

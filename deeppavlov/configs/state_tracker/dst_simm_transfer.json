@@ -9,8 +9,7 @@
   },
   "chainer": {
     "in": [
-        "u_utter", "u_slots_bio", "u_acts", "s_tokens", "s_slots_bio", "s_acts",
-        "prev_state"
+      "u_utter", "u_slots_bio", "u_acts", "s_tokens", "s_slots_bio", "s_acts", "prev_state"
     ],
     "in_y": ["state"],
     "out": [],
