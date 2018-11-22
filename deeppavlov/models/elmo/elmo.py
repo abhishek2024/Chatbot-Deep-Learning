@@ -70,12 +70,12 @@ class ELMo(NNModel):
         tf_hub_save_path: A tf_hub saving path relative to save_path.
 
     To train ELMo representations from a paper `Deep contextualized word representations
-    <https://arxiv.org/abs/1802.05365>`__ you can use multiple GPU by set ``n_gpus=n``.
+    <https://arxiv.org/abs/1802.05365>`__ you can use multiple GPU by set ``n_gpus``.
 
     You can explicitly specify the path to a json file with hyperparameters of ELMo used to train by
     ``options_json_path`` parameter.
     The json file must be the same as the json file from `original ELMo implementation
-    <https://github.com/allenai/bilm-tf>`__ .
+    <https://github.com/allenai/bilm-tf>`__.
     
     Saving the model will take place in directories with some structure, see below example:
 
