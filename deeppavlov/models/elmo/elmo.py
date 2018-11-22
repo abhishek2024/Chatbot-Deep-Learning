@@ -96,10 +96,24 @@ class ELMo(NNModel):
 
     Dumping and tf_hub wrapping of ELMo occurs after each epoch.
 
+    For learning the LM model dataset like 1 Billion Word Benchmark dataset is needed.
+    Examples of how datasets should look like you can learn from the configs of the examples below.
+
+
+    For fine-tuning of LM on specific data, it is enough to save the original model to path
+    '{MODELS_PATH}/elmo_model/saves/epochs/0/' and start training.
+
+
+
     Examples:
-        For a quick start, you can run test training of the test model on small data by this command:
+        For a quick start, you can run test training of the test model on small data by this command from bash:
         
-        >>> #$ python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark_test.json -d
+        >>> # python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark_test.json -d
+
+        To download the prepared `1 Billion Word Benchmark dataset <http://www.statmt.org/lm-benchmark/>`__ and
+        start a training model use this command from bash:
+        
+        >>> # python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark.json -d
 
     """
 
