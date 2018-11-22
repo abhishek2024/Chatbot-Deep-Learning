@@ -98,8 +98,7 @@ class ELMo(NNModel):
 
     Examples:
         For a quick start, you can run test training of the test model on small data with the help of this command:
-        
-        $ python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark_test.json -d
+            $ python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark_test.json -d
 
     """
 
