@@ -188,10 +188,20 @@ class CorefModel(TFModel):
         config = tf.ConfigProto()
         config.gpu_options.per_process_gpu_memory_fraction = 1.0  # 0.8
         self.sess = tf.Session(config=config)
-
+        self.saver = tf.train.Saver()
         self.sess.run(tf.global_variables_initializer())
         super().__init__(**kwargs)
         self.load()
+
+    def load(self):
+        # Check presence of the model files
+        path = str(self.load_path.resolve())
+        if tf.train.checkpoint_exists(path):
+            self.saver.restore(self.sess, join(path, "model.max.ckpt"))
+            print(f'[ Model was load from {join(path, "model.max.ckpt")} ]')
+        else:
+            print('[ {0} not found ]'.format(join(path, "model.max.ckpt")))
+            print('[ Init from scratch ]')
 
     def start_enqueue_thread(self, train_example, is_training, returning=False):
         """

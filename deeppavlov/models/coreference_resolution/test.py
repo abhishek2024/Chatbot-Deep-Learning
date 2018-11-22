@@ -6,7 +6,11 @@ reader = CorefReader()
 dataset = reader.read(data_path="/home/mks/projects/DeepPavlov/download/rucor_conll")
 iterator = CorefIterator(data=dataset)
 
-config_model = {"save_path": "./checkpoints/model.max.ckpt",
-                "load_path": "./checkpoints/model.max.ckpt"}
+config_model = {"save_path": "./checkpoints/",
+                "load_path": "./checkpoints/",
+                "model_file": "./",
+                "embedding_size": 300,
+                "emb_format": "bin",
+                "train_on_gold": True}
 
 model = CorefModel(**config_model)
