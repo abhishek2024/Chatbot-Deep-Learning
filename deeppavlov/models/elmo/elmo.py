@@ -99,6 +99,10 @@ class ELMo(NNModel):
     For learning the LM model dataset like 1 Billion Word Benchmark dataset is needed.
     Examples of how datasets should look like you can learn from the configs of the examples below.
 
+    Vocabulary file is a text file, with one token per line, separated by newlines (\n).
+    Each token in the vocabulary is cached as the appropriate 50 character id sequence once. 
+    It is recommended to always include the special <S> and </S> tokens (case sensitive) in the vocabulary file.
+
 
     For fine-tuning of LM on specific data, it is enough to save base model to path
     ``{MODELS_PATH}/elmo_model/saves/epochs/0/`` and start training.
@@ -107,6 +111,8 @@ class ELMo(NNModel):
     as a ``ModuleSpec`` by using `TensorFlow Hub <https://www.tensorflow.org/hub/overview>`__ or by
     DeepPavlov :class:`~deeppavlov.models.embedders.elmo_embedder.ELMoEmbedder`.
 
+    More about the model you can get from `original ELMo implementation
+    <https://github.com/allenai/bilm-tf>`__.
 
     Examples:
         For a quick start, you can run test training of the test model on small data by this command from bash:
