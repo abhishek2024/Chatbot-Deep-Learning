@@ -36,119 +36,120 @@ log = get_logger(__name__)
 @register('elmo_model')
 class ELMo(NNModel):
     """
-        The :class:`~deeppavlov.models.elmo.elmo.ELMo` is a deep contextualized word representation that models both
-        complex characteristics of word use (e.g., syntax and semantics), and how these uses vary across linguistic
-        contexts (i.e., to model polysemy).
-    
-        You can use this component for LM training, fine tuning, dumping ELMo to a hdf5 file and wrapping it to
-        the tensorflow hub.
-    
-        Parameters:
-            options_json_path: Path to the json configure.
-            char_cnn: Options of char_cnn. For example {"activation":"relu","embedding":{"dim":16},
-                "filters":[[1,32],[2,32],[3,64],[4,128],[5,256],[6,512],[7,1024]],"max_characters_per_token":50,
-                "n_characters":261,"n_highway":2}
-            bidirectional: Whether to use bidirectional or not.
-            unroll_steps: Number of unrolling steps.
-            n_tokens_vocab: A size of a vocabulary.
-            lstm: Options of lstm. It is a dict of "cell_clip":int, "dim":int, "n_layers":int, "proj_clip":int, 
-                "projection_dim":int, "use_skip_connections":bool
-            dropout: Probability of keeping the network state, values from 0 to 1. 
-            n_negative_samples_batch: Whether to use negative samples batch or not. Number of batch samples.
-            all_clip_norm_val: Clip the gradients.
-            initial_accumulator_value: Whether to use dropout between layers or not.
-            learning_rate: Learning rate to use during the training (usually from 0.1 to 0.0001)
-            n_gpus: Number of gpu to use.
-            seed: Random seed.
-            batch_size: A size of a train batch.
-            load_epoch_num: An index of loading epoch.
-            epoch_load_path: An epoch loading path relative to save_path.
-            epoch_save_path:  An epoch saving path relative to save_path.
-                If epoch_save_path is None then epoch_save_path = epoch_load_path.
-            dumps_save_path: A dump saving path relative to save_path.
-            tf_hub_save_path: A tf_hub saving path relative to save_path.
-    
-        To train ELMo representations from a paper `Deep contextualized word representations
-        <https://arxiv.org/abs/1802.05365>`__ you can use multiple GPU by set ``n_gpus``.
-    
-        You can explicitly specify the path to a json file with hyperparameters of ELMo used to train by
-        ``options_json_path`` parameter.
-        The json file must be the same as the json file from `original ELMo implementation
-        <https://github.com/allenai/bilm-tf>`__. You can define the architecture using the separate parameters.
-    
-        Saving the model will take place in directories with some structure, see below example:
-    
-        {MODELS_PATH}/
-            elmo_model/
-                saves/
-                    epochs/
-                        1/, 2/, .... # directories of epochs
-                    dumps/
-                        weights_epoch_n_1.hdf5, weights_epoch_n_2.hdf5, .... # hdf5 files of dumped ELMo weights
-                    hubs/
-                        tf_hub_model_epoch_n_1/, tf_hub_model_epoch_n_2/, .... # directories of tensorflow hub wrapped
-                        ELMo
-    
-        Intermediate checkpoints saved to `saves` directory.
-        To specify load/save paths use ``load_epoch_num``, ``epoch_load_path``, ``epoch_save_path``, ``dumps_save_path``,
-        ``tf_hub_save_path``.
-    
-        Dumping and tf_hub wrapping of ELMo occurs after each epoch.
-    
-        For learning the LM model dataset like 1 Billion Word Benchmark dataset is needed.
-        Examples of how datasets should look like you can learn from the configs of the examples below.
-    
-        Vocabulary file is a text file, with one token per line, separated by newlines (\n).
-        Each token in the vocabulary is cached as the appropriate 50 character id sequence once. 
-        It is recommended to always include the special <S> and </S> tokens (case sensitive) in the vocabulary file.
-    
-    
-        For fine-tuning of LM on specific data, it is enough to save base model to path
-        ``{MODELS_PATH}/elmo_model/saves/epochs/0/`` and start training.
-    
-        After training you can use ``{MODELS_PATH}/elmo_model/saves/hubs/tf_hub_model_epoch_n_*/``
-        as a ``ModuleSpec`` by using `TensorFlow Hub <https://www.tensorflow.org/hub/overview>`__ or by
-        DeepPavlov :class:`~deeppavlov.models.embedders.elmo_embedder.ELMoEmbedder`.
-    
-        More about the ELMo model you can get from `original ELMo implementation
-        <https://github.com/allenai/bilm-tf>`__.
-    
-        Examples:
-            For a quick start, you can run test training of the test model on small data by this command from bash:
-    
-            >>> # python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark_test.json -d
-    
-            To download the prepared `1 Billion Word Benchmark dataset <http://www.statmt.org/lm-benchmark/>`__ and
-            start a training model use this command from bash:
-    
-            >>> # python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark.json -d
-    
-            To fine-tune ELMo as LM model on `1 Billion Word Benchmark dataset <http://www.statmt.org/lm-benchmark/>`__
-            use commands from bash :
-    
-            >>> # python -m deeppavlov download deeppavlov/configs/elmo/elmo-1b-benchmark.json
-            >>> # mkdir -p ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0
-            >>> # cp my_ckpt.data-00000-of-00001 ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/model.data-00000-of-00001
-            >>> # cp my_ckpt.index ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/model.index
-            >>> # cp my_ckpt.meta ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/model.meta
-            >>> # cp checkpoint ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/checkpoint
-            >>> # cp my_options.json ${MODELS_PATH}/elmo-1b-benchmark/options.json
-            >>> # cp my_vocab {MODELS_PATH}/elmo-1b-benchmark/vocab-2016-09-10.txt
-            >>> # python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark.json
-    
-            After training you can use the ELMo model from tf_hub wrapper by
-            `TensorFlow Hub <https://www.tensorflow.org/hub/overview>`__ or by
-            DeepPavlov :class:`~deeppavlov.models.embedders.elmo_embedder.ELMoEmbedder`:
-    
-            >>> from deeppavlov.models.embedders.elmo_embedder import ELMoEmbedder
-            >>> spec = f"{MODELS_PATH}/elmo-1b-benchmark_test/saves/hubs/tf_hub_model_epoch_n_1/"
-            >>> elmo = ELMoEmbedder(spec)
-            >>> elmo([['вопрос', 'жизни', 'Вселенной', 'и', 'вообще', 'всего'], ['42']])
-            array([[ 0.00719104,  0.08544601, -0.07179783, ...,  0.10879009,
-                    -0.18630421, -0.2189409 ],
-                   [ 0.16325025, -0.04736076,  0.12354863, ..., -0.1889013 ,
-                     0.04972512,  0.83029324]], dtype=float32)
-    
+    The :class:`~deeppavlov.models.elmo.elmo.ELMo` is a deep contextualized word representation that models both
+    complex characteristics of word use (e.g., syntax and semantics), and how these uses vary across linguistic
+    contexts (i.e., to model polysemy).
+
+    You can use this component for LM training, fine tuning, dumping ELMo to a hdf5 file and wrapping it to
+    the tensorflow hub.
+
+
+    Parameters:
+        options_json_path: Path to the json configure.
+        char_cnn: Options of char_cnn. For example {"activation":"relu","embedding":{"dim":16},
+            "filters":[[1,32],[2,32],[3,64],[4,128],[5,256],[6,512],[7,1024]],"max_characters_per_token":50,
+            "n_characters":261,"n_highway":2}
+        bidirectional: Whether to use bidirectional or not.
+        unroll_steps: Number of unrolling steps.
+        n_tokens_vocab: A size of a vocabulary.
+        lstm: Options of lstm. It is a dict of "cell_clip":int, "dim":int, "n_layers":int, "proj_clip":int, 
+            "projection_dim":int, "use_skip_connections":bool
+        dropout: Probability of keeping the network state, values from 0 to 1. 
+        n_negative_samples_batch: Whether to use negative samples batch or not. Number of batch samples.
+        all_clip_norm_val: Clip the gradients.
+        initial_accumulator_value: Whether to use dropout between layers or not.
+        learning_rate: Learning rate to use during the training (usually from 0.1 to 0.0001)
+        n_gpus: Number of gpu to use.
+        seed: Random seed.
+        batch_size: A size of a train batch.
+        load_epoch_num: An index of loading epoch.
+        epoch_load_path: An epoch loading path relative to save_path.
+        epoch_save_path:  An epoch saving path relative to save_path.
+            If epoch_save_path is None then epoch_save_path = epoch_load_path.
+        dumps_save_path: A dump saving path relative to save_path.
+        tf_hub_save_path: A tf_hub saving path relative to save_path.
+
+    To train ELMo representations from a paper `Deep contextualized word representations
+    <https://arxiv.org/abs/1802.05365>`__ you can use multiple GPU by set ``n_gpus``.
+
+    You can explicitly specify the path to a json file with hyperparameters of ELMo used to train by
+    ``options_json_path`` parameter.
+    The json file must be the same as the json file from `original ELMo implementation
+    <https://github.com/allenai/bilm-tf>`__. You can define the architecture using the separate parameters.
+
+    Saving the model will take place in directories with some structure, see below example:
+
+    {MODELS_PATH}/
+        elmo_model/
+            saves/
+                epochs/
+                    1/, 2/, .... # directories of epochs
+                dumps/
+                    weights_epoch_n_1.hdf5, weights_epoch_n_2.hdf5, .... # hdf5 files of dumped ELMo weights
+                hubs/
+                    tf_hub_model_epoch_n_1/, tf_hub_model_epoch_n_2/, .... # directories of tensorflow hub wrapped
+                    ELMo
+
+    Intermediate checkpoints saved to `saves` directory.
+    To specify load/save paths use ``load_epoch_num``, ``epoch_load_path``, ``epoch_save_path``, ``dumps_save_path``,
+    ``tf_hub_save_path``.
+
+    Dumping and tf_hub wrapping of ELMo occurs after each epoch.
+
+    For learning the LM model dataset like 1 Billion Word Benchmark dataset is needed.
+    Examples of how datasets should look like you can learn from the configs of the examples below.
+
+    Vocabulary file is a text file, with one token per line, separated by newlines.
+    Each token in the vocabulary is cached as the appropriate 50 character id sequence once. 
+    It is recommended to always include the special <S> and </S> tokens (case sensitive) in the vocabulary file.
+
+
+    For fine-tuning of LM on specific data, it is enough to save base model to path
+    ``{MODELS_PATH}/elmo_model/saves/epochs/0/`` and start training.
+
+    After training you can use ``{MODELS_PATH}/elmo_model/saves/hubs/tf_hub_model_epoch_n_*/``
+    as a ``ModuleSpec`` by using `TensorFlow Hub <https://www.tensorflow.org/hub/overview>`__ or by
+    DeepPavlov :class:`~deeppavlov.models.embedders.elmo_embedder.ELMoEmbedder`.
+
+    More about the ELMo model you can get from `original ELMo implementation
+    <https://github.com/allenai/bilm-tf>`__.
+
+    Examples:
+        For a quick start, you can run test training of the test model on small data by this command from bash:
+
+        >>> # python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark_test.json -d
+
+        To download the prepared `1 Billion Word Benchmark dataset <http://www.statmt.org/lm-benchmark/>`__ and
+        start a training model use this command from bash:
+
+        >>> # python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark.json -d
+
+        To fine-tune ELMo as LM model on `1 Billion Word Benchmark dataset <http://www.statmt.org/lm-benchmark/>`__
+        use commands from bash :
+
+        >>> # python -m deeppavlov download deeppavlov/configs/elmo/elmo-1b-benchmark.json
+        >>> # mkdir -p ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0
+        >>> # cp my_ckpt.data-00000-of-00001 ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/model.data-00000-of-00001
+        >>> # cp my_ckpt.index ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/model.index
+        >>> # cp my_ckpt.meta ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/model.meta
+        >>> # cp checkpoint ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/checkpoint
+        >>> # cp my_options.json ${MODELS_PATH}/elmo-1b-benchmark/options.json
+        >>> # cp my_vocab {MODELS_PATH}/elmo-1b-benchmark/vocab-2016-09-10.txt
+        >>> # python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark.json
+
+        After training you can use the ELMo model from tf_hub wrapper by
+        `TensorFlow Hub <https://www.tensorflow.org/hub/overview>`__ or by
+        DeepPavlov :class:`~deeppavlov.models.embedders.elmo_embedder.ELMoEmbedder`:
+
+        >>> from deeppavlov.models.embedders.elmo_embedder import ELMoEmbedder
+        >>> spec = f"{MODELS_PATH}/elmo-1b-benchmark_test/saves/hubs/tf_hub_model_epoch_n_1/"
+        >>> elmo = ELMoEmbedder(spec)
+        >>> elmo([['вопрос', 'жизни', 'Вселенной', 'и', 'вообще', 'всего'], ['42']])
+        array([[ 0.00719104,  0.08544601, -0.07179783, ...,  0.10879009,
+                -0.18630421, -0.2189409 ],
+               [ 0.16325025, -0.04736076,  0.12354863, ..., -0.1889013 ,
+                 0.04972512,  0.83029324]], dtype=float32)
+
     """
 
     def __init__(self,
