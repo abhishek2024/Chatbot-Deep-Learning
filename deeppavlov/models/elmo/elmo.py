@@ -70,7 +70,7 @@ class ELMo(NNModel):
         tf_hub_save_path: A tf_hub saving path relative to save_path.
 
     To train ELMo representations from a paper `Deep contextualized word representations
-    <https://arxiv.org/abs/1802.05365>`__ you can use multiple GPU by set ``n_gpus``.
+    <https://arxiv.org/abs/1802.05365>`__ you can use multiple GPUs by set ``n_gpus`` parameter.
 
     You can explicitly specify the path to a json file with hyperparameters of ELMo used to train by
     ``options_json_path`` parameter.
@@ -100,7 +100,7 @@ class ELMo(NNModel):
     Examples of how datasets should look like you can learn from the configs of the examples below.
 
     Vocabulary file is a text file, with one token per line, separated by newlines.
-    Each token in the vocabulary is cached as the appropriate 50 character id sequence once. 
+    Each token in the vocabulary is cached as the appropriate 50 character id sequence once.
     It is recommended to always include the special <S> and </S> tokens (case sensitive) in the vocabulary file.
 
 
