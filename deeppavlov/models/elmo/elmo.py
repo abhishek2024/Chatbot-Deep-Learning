@@ -97,8 +97,9 @@ class ELMo(NNModel):
     Dumping and tf_hub wrapping of ELMo occurs after each epoch.
 
     Examples:
-        For a quick start, you can run test training of the test model on small data with the help of this command:
-            $ python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark_test.json -d
+        For a quick start, you can run test training of the test model on small data by this command:
+        
+        >>> #$ python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark_test.json -d
 
     """
 
