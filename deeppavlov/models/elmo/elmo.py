@@ -90,10 +90,14 @@ class ELMo(NNModel):
                     tf_hub_model_epoch_n_1/, tf_hub_model_epoch_n_2/, .... # directories of tensorflow hub wrapped
                     ELMo
 
-    Intermediate checkpoints saved to `saves` directorie.
-    To specify loada/save paths use ``load_epoch_num``, ``epoch_load_path``, ``epoch_save_path``, ``dumps_save_path``,
+    Intermediate checkpoints saved to `saves` directory.
+    To specify load/save paths use ``load_epoch_num``, ``epoch_load_path``, ``epoch_save_path``, ``dumps_save_path``,
     ``tf_hub_save_path``.
+
+    Dumping and tf_hub wrapping of ELMo occurs after each epoch.
     
+    > python -m deeppavlov interact deeppavlov/configs/ranking/paraphrase_ident_qqp_interact.json
+
 
     """
 
