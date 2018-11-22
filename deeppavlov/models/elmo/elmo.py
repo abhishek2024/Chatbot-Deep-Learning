@@ -69,10 +69,12 @@ class ELMo(NNModel):
         dumps_save_path: A dump saving path relative to save_path.
         tf_hub_save_path: A tf_hub saving path relative to save_path.
 
-    To train ELMo representations from `"Deep contextualized word representations" <https://arxiv.org/abs/1802.05365>` 
+    To train ELMo representations from `Deep contextualized word representations <https://arxiv.org/abs/1802.05365>` 
     you can use multiple GPU by set `n_gpus=n`. Saving the model will take place in folders with some structure, see 
     below example:
 
+    conll-formatted-ontonotes-5.0/
+     ── data
 
     """
 
