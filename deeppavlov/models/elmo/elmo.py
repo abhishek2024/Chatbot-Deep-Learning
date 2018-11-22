@@ -45,9 +45,7 @@ class ELMo(NNModel):
 
     Parameters:
         options_json_path: Path to the json configure.
-        char_cnn: Options of char_cnn. For example {"activation":"relu","embedding":{"dim":16},
-            "filters":[[1,32],[2,32],[3,64],[4,128],[5,256],[6,512],[7,1024]],"max_characters_per_token":50,
-            "n_characters":261,"n_highway":2}
+        char_cnn: Options of char_cnn. For example {"activation":"relu","embedding":{"dim":16}, "filters":[[1,32],[2,32],[3,64],[4,128],[5,256],[6,512],[7,1024]],"max_characters_per_token":50, "n_characters":261,"n_highway":2}
         bidirectional: Whether to use bidirectional or not.
         unroll_steps: Number of unrolling steps.
         n_tokens_vocab: A size of a vocabulary.
