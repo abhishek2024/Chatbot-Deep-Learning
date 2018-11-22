@@ -17,7 +17,7 @@ import numpy as np
 import tensorflow as tf
 
 from . import utils
-from typing import Tuple, Dict, List, Union
+from typing import Tuple, List, Union
 from os.path import join
 from deeppavlov.core.models.tf_model import TFModel
 
@@ -36,11 +36,11 @@ class CorefModel(TFModel):
     def __init__(self,
                  model_file: str = "./",
                  embedding_path: str = "./embeddings/ft_0.8.3_nltk_yalen_sg_300.bin",
+                 char_vocab_path: str = "./vocab/char_vocab.russian.txt",
                  embedding_size: int = 300,
                  emb_format: str = "bin",
                  emb_lowercase: bool = False,
                  char_embedding_size: int = 8,
-                 char_vocab_path: str = "./vocab/char_vocab.russian.txt",
                  max_mention_width: int = 10,
                  genres: Tuple[str] = ('bc',),
                  train_on_gold: bool = True,
@@ -878,18 +878,18 @@ class CorefModel(TFModel):
 
         return predicted_clusters, mention_to_predicted
 
-    def train_on_batch(self, x: Dict, y: Dict):
+    def train_on_batch(self, x: str, y: str):
         """
         Run train operation on one batch/document
         Args:
             x: list of tensors for placeholders, output of "tensorize_example" function
-            y: list of clusters
+            y: list of tensors for placeholders, output of "tensorize_example" function
 
         Returns: Loss functions value and tf.global_step
 
         """
-        x.update(y)
-        self.start_enqueue_thread(x, True)
+        batch = utils.conll2modeldata(x)
+        self.start_enqueue_thread(batch, True)
         self.tf_loss, tf_global_step, _ = self.sess.run([self.loss, self.global_step, self.train_op])
         return self.tf_loss  # self.tf_loss, tf_global_step
 

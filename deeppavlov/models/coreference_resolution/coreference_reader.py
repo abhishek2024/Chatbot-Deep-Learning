@@ -15,15 +15,14 @@
 import os
 
 from os.path import join, exists
-from .utils import conll2modeldata
-from typing import List, Dict, Tuple, Any
+from typing import List, Dict
 from deeppavlov.core.data.utils import download_decompress
 from deeppavlov.core.data.dataset_reader import DatasetReader
 
 
 class CorefReader(DatasetReader):
 
-    def read(self, data_path: str, *args, **kwargs) -> Dict[str, List[Tuple[Any, Any]]]:
+    def read(self, data_path: str, *args, **kwargs) -> Dict[str, List[str]]:
         if exists(data_path):
             dataset = dict()
             for set_ in os.listdir(data_path):
@@ -31,7 +30,10 @@ class CorefReader(DatasetReader):
 
             return dataset
         else:
-            url = ""
+            url = kwargs.get("url")
+            if not url:
+                # TODO write correct url
+                url = ""
             os.makedirs(data_path)
             download_decompress(url, data_path)
             return self.read(join(data_path, "rucor_conll"))
@@ -39,13 +41,10 @@ class CorefReader(DatasetReader):
     @staticmethod
     def read_part(data_path, part):
         if exists(join(data_path, part)):
-            json_documents = []
+            documents = []
             for file_name in os.listdir(join(data_path, part)):
                 with open(join(data_path, part, file_name), 'r', encoding='utf8') as f:
                     conll_string = f.read()
-                json_documents.append(conll2modeldata(conll_string))
+                    documents.append(conll_string)
 
-            return json_documents
-
-        else:
-            raise FileNotFoundError(f"Folder: '{join(data_path, part)}' not exist.")
+            return documents
