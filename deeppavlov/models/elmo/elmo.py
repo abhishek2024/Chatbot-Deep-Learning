@@ -110,9 +110,6 @@ class ELMo(NNModel):
     as a ``ModuleSpec`` by using `TensorFlow Hub <https://www.tensorflow.org/hub/overview>`__ or by
     DeepPavlov :class:`~deeppavlov.models.embedders.elmo_embedder.ELMoEmbedder`.
 
-    More about the ELMo model you can get from `original ELMo implementation
-    <https://github.com/allenai/bilm-tf>`__.
-
     Examples:
         For a quick start, you can run test training of the test model on small data by this command from bash:
 
@@ -148,7 +145,6 @@ class ELMo(NNModel):
                 -0.18630421, -0.2189409 ],
                [ 0.16325025, -0.04736076,  0.12354863, ..., -0.1889013 ,
                  0.04972512,  0.83029324]], dtype=float32)
-
 
     """
 
