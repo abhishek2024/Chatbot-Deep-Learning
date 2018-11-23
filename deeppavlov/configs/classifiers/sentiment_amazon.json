@@ -141,7 +141,7 @@
         "subdir": "{DOWNLOADS_PATH}/"
       },
       {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/amazon_review_v0.tar.gz",
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/classifiers/amazon_review_v0.tar.gz",
         "subdir": "{ROOT_PATH}/models/classifiers"
       }
     ]
