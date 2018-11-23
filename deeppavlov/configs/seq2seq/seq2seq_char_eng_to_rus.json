@@ -73,7 +73,7 @@
           "<UNK>"
         ],
         "unk_token": "<UNK>",
-        "min_freq": 1,
+        "min_freq": 5,
         "out": "x_chars_ind"
       },
       {
@@ -93,7 +93,7 @@
         ],
         "save_path": "{MODELS_PATH}/y_chars.dict",
         "load_path": "{MODELS_PATH}/y_chars.dict",
-        "min_freq": 1,
+        "min_freq": 5,
         "out": "y_chars_ind"
       },
       {
@@ -117,9 +117,9 @@
         "decoder_vocab": "#y_chars_vocab",
         "optimizer": "RMSprop",
         "lear_rate": 0.0001,
-        "lear_rate_decay": 0.01,
+        "lear_rate_decay": 0.1,
         "loss": "categorical_crossentropy",
-        "hidden_size": 256,
+        "hidden_size": 512,
         "model_name": "encoder_decoder_model",
         "encoder_name": "gru_encoder_model",
         "decoder_name": "gru_decoder_model"

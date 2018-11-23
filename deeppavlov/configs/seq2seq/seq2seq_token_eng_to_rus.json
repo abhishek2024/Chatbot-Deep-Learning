@@ -148,7 +148,8 @@
           "y_tok",
           "y_spec_tokens"
         ]
-      }
+      },
+      "bleu"
     ],
     "validation_patience": 20,
     "val_every_n_epochs": 5,
