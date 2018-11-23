@@ -20,6 +20,7 @@ from . import utils
 from typing import Tuple, List, Union
 from os.path import join
 from deeppavlov.core.models.tf_model import TFModel
+from deeppavlov.core.common.registry import register
 
 tf.NotDifferentiable("Spans")
 tf.NotDifferentiable("Antecedents")
@@ -27,6 +28,7 @@ tf.NotDifferentiable("ExtractMentions")
 tf.NotDifferentiable("DistanceBins")
 
 
+@register("coref_model")
 class CorefModel(TFModel):
     """
     End-to-end neural model for coreference resolution.
@@ -194,7 +196,7 @@ class CorefModel(TFModel):
     def load(self):
         # Check presence of the model files
         path = str(self.load_path.resolve())
-        if tf.train.checkpoint_exists(path):
+        if tf.train.checkpoint_exists(join(path, "model.max.ckpt")):
             self.saver.restore(self.sess, join(path, "model.max.ckpt"))
             print(f'[ Model was load from {join(path, "model.max.ckpt")} ]')
         else:
@@ -888,30 +890,30 @@ class CorefModel(TFModel):
         Returns: Loss functions value and tf.global_step
 
         """
-        batch = utils.conll2modeldata(x)
+        batch = utils.conll2modeldata(x[0])
         self.start_enqueue_thread(batch, True)
         self.tf_loss, tf_global_step, _ = self.sess.run([self.loss, self.global_step, self.train_op])
         return self.tf_loss  # self.tf_loss, tf_global_step
 
-    def __call__(self, out_files: Union[List[str], str]):
+    def __call__(self, x: Union[List[str], str]):
         """
         Make prediction of new coreference clusters and write it conll document.
         Args:
-            out_files: original conll documents
+            x: original conll documents
 
         Returns: str with new conll document, with new coreference clusters
 
         """
-        if isinstance(out_files, list):
+        if isinstance(x, list):
             out = []
-            for out_file in out_files:
+            for out_file in x:
                 out.append(self.predict(out_file))
         else:
-            out = self.predict(out_files)
+            out = self.predict(x)
         return out
 
-    def predict(self, out_file: str, return_clusters=False):
-        batch = utils.conll2modeldata(out_file)
+    def predict(self, conll_string: str, return_clusters=False):
+        batch = utils.conll2modeldata(conll_string)
         self.start_enqueue_thread(batch, False)
 
         if self.train_on_gold:
@@ -926,7 +928,7 @@ class CorefModel(TFModel):
 
         new_cluters = dict()
         new_cluters[batch['doc_key']] = predicted_clusters
-        out_ = utils.output_conll(out_file, new_cluters)
+        out_ = utils.output_conll(conll_string, new_cluters)
         if return_clusters:
             return out_, new_cluters
         else:

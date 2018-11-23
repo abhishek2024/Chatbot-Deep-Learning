@@ -18,7 +18,7 @@ import subprocess
 import numpy as np
 
 from typing import List
-from os.path import join
+from os.path import join, exists
 from shutil import rmtree
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.common.metrics_registry import register_metric
@@ -32,7 +32,7 @@ COREF_RESULTS_REGEX = re.compile(r".*Coreference: Recall: \([0-9.]+ / [0-9.]+\) 
 
 
 def official_conll_eval(gold_path, predicted_path, metric):
-    cmd = ["./scorer/v8.01/scorer.pl", metric, gold_path, predicted_path, "none"]
+    cmd = ["/home/mks/projects/DeepPavlov/deeppavlov/models/coreference_resolution/scorer/v8.01/scorer.pl", metric, gold_path, predicted_path, "none"]
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     stdout, stderr = process.communicate()
     process.wait()
@@ -52,6 +52,9 @@ def official_conll_eval(gold_path, predicted_path, metric):
 def coref_f1(gold_strings: List[str], predicted_strings: List[str]):
     gold_path = "./tmp/gold/"
     predicted_path = "./tmp/pred/"
+
+    if exists("./tmp"):
+        rmtree("./tmp")
 
     os.makedirs(gold_path)
     os.makedirs(predicted_path)

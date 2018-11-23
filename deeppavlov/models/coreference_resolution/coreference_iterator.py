@@ -14,10 +14,11 @@
 
 from copy import deepcopy
 from random import Random
-from typing import Tuple, Iterator, Any, Dict, List
-# from deeppavlov.core.data.data_learning_iterator import DataLearningIterator
+from typing import Tuple, Iterator, Dict, List
+from deeppavlov.core.common.registry import register
 
 
+@register("coreference_iterator")
 class CorefIterator:
     """Dataset iterator for learning models, e. g. neural networks.
 
@@ -34,7 +35,7 @@ class CorefIterator:
     def split(self, *args, **kwargs):
         pass
 
-    def __init__(self, data: Dict[str, List[str, str]], seed: int = None, shuffle: bool = True,
+    def __init__(self, data: Dict[str, List[str]], seed: int = None, shuffle: bool = True,
                  *args, **kwargs) -> None:
         self.shuffle = shuffle
 
@@ -51,8 +52,8 @@ class CorefIterator:
             'all': self.train + self.test + self.valid
         }
 
-    def gen_batches(self, data_type: str = 'train', shuffle: bool = None,
-                    batch_size: int = 1) -> Iterator[Tuple[str, str]]:
+    def gen_batches(self, batch_size: int = 1, data_type: str = 'train',
+                    shuffle: bool = None) -> Iterator[Tuple[str, str]]:
         """Generate batches of inputs and expected output to train neural networks
 
         Args:
@@ -77,9 +78,8 @@ class CorefIterator:
             self.random.shuffle(order)
 
         for z in order:
-            yield tuple(zip(z, deepcopy(z)))
+            yield tuple(zip((data[z], deepcopy(data[z]))))
 
-    # TODO fix out type
     def get_instances(self, data_type: str = 'train') -> Tuple[Tuple[str, str]]:
         """Get all data for a selected data type
 
@@ -90,5 +90,4 @@ class CorefIterator:
              a tuple of all inputs for a data type and all expected outputs for a data type
         """
         data = list(self.data[data_type])
-        data_y = deepcopy(data)
-        return tuple(zip(data, data_y))
+        return tuple(zip(data, deepcopy(data)))

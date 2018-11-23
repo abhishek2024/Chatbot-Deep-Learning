@@ -18,8 +18,10 @@ from os.path import join, exists
 from typing import List, Dict
 from deeppavlov.core.data.utils import download_decompress
 from deeppavlov.core.data.dataset_reader import DatasetReader
+from deeppavlov.core.common.registry import register
 
 
+@register("coreference_reader")
 class CorefReader(DatasetReader):
 
     def read(self, data_path: str, *args, **kwargs) -> Dict[str, List[str]]:
@@ -39,7 +41,7 @@ class CorefReader(DatasetReader):
             return self.read(join(data_path, "rucor_conll"))
 
     @staticmethod
-    def read_part(data_path, part):
+    def read_part(data_path, part) -> List[str]:
         if exists(join(data_path, part)):
             documents = []
             for file_name in os.listdir(join(data_path, part)):
