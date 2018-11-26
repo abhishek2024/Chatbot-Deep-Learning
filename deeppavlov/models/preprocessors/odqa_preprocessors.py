@@ -65,6 +65,8 @@ class DocumentChunker(Component):
             for doc in docs:
                 if self.paragraphs:
                     split_doc = doc.split('\n\n')
+                    split_doc = [sd.strip() for sd in split_doc]
+                    split_doc = list(filter(lambda x: len(x) > 40, split_doc))
                     batch_chunks.append(split_doc)
                 else:
                     doc_chunks = []
