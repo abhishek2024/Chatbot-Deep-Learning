@@ -117,6 +117,12 @@ class SQLiteDataIterator(DataFittingIterator):
             "SQLite iterator: The size of the database is {} documents".format(len(i2t)))
         return i2t
 
+    # def title2index(self) -> Dict[Any, int]:
+    #     t2i = {v: k for k, v in self.index2title().items()}
+    #     logger.info(
+    #         "SQLite iterator: The size of the database is {} documents".format(len(t2i)))
+    #     return t2i
+
     @overrides
     def get_doc_content(self, doc_id: Any) -> Optional[str]:
         """

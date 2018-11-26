@@ -27,10 +27,17 @@
         ]
       },
       {
+        "name": "document_chunker",
+        "in": ["context_raw"],
+        "out": ["chunks"],
+        "tokens_limit": 4000,
+        "flatten_result": true
+      },
+      {
         "name": "string_multiplier",
         "in": [
           "question_raw",
-          "context_raw"
+          "chunks"
         ],
         "out": [
           "questions"
@@ -42,8 +49,9 @@
           "config_path": "../deeppavlov/configs/squad/multi_squad_noans.json"
         },
         "top_n": 3,
+        "sort_noans": true,
         "in": [
-          "context_raw",
+          "chunks",
           "questions"
         ],
         "out": [
@@ -53,7 +61,7 @@
       },
       {
         "name": "context_adder",
-        "in": ["best_answer", "context_raw", "context_indices"],
+        "in": ["best_answer", "chunks", "context_indices"],
         "out": ["answer_score_text"]
       }
     ]

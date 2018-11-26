@@ -36,12 +36,13 @@ class LogitRanker(Component):
         batch_size: batch size to use with squad model
     """
 
-    def __init__(self, top_n: 3, squad_model: Union[Chainer, Component], batch_size: int = 10,
-                 filter_noans: bool = False, **kwargs):
+    def __init__(self, top_n: 3, squad_model: Union[Chainer, Component], batch_size: int = 5,
+                 filter_noans: bool = False, sort_noans: bool = False, **kwargs):
         self.squad_model = squad_model
         self.batch_size = batch_size
         self.top_n = top_n
         self.filter_noans = filter_noans
+        self.sort_noans = sort_noans
 
     def __call__(self, contexts_batch: List[List[str]], questions_batch: List[List[str]]) -> \
             Tuple[List[List[Tuple[str, Any]]], List[List[int]]]:
@@ -65,11 +66,16 @@ class LogitRanker(Component):
                 results += batch_predict
             if self.filter_noans:
                 results = filter(lambda x: x[0] != '', results)
-            sorted_items = sorted(enumerate(results), key=lambda x: x[1][2], reverse=True)[:self.top_n]
+            if self.sort_noans:
+                sorted_items = sorted(enumerate(results), key=lambda x: (x[1][0] != '', x[1][2]), reverse=True)
+            else:
+                sorted_items = sorted(enumerate(results), key=lambda x: x[1][2], reverse=True)
+            sorted_items = sorted_items[:self.top_n]
             best_answers = list(map(itemgetter(1), sorted_items))
             context_indices = list(map(itemgetter(0), sorted_items))
             best_answers = [ba[::2] for ba in best_answers]
             best_answers = [('no answer', ba[1]) if ba[0] == '' else ba for ba in best_answers]
+            # workaround for the situation when only 'noans' are present and filter_noans is set to True
             if not best_answers:
                 best_answers.append([('no answer', -1)])
             batch_best_answers.append(best_answers)

@@ -4,7 +4,7 @@
       "question_raw"
     ],
     "out": [
-      "best_answer"
+      "chunks"
     ],
     "pipe": [
       {
@@ -17,17 +17,9 @@
         ]
       },
       {
-        "name": "pop_ranker",
-        "pop_dict_path": "/media/olga/Data/datasets/squad/popularities.json",
-        "load_path": "/media/olga/Data/datasets/squad/logreg_3features_wo_norm.joblib",
-        "top_n": 10,
-        "in": ["rank_text_score_id"],
-        "out": ["reranked_text_score_id"]
-      },
-      {
         "name": "text_extractor",
         "in": [
-          "reranked_text_score_id"
+          "rank_text_score_id"
         ],
         "out": [
           "context_raw",
@@ -38,34 +30,9 @@
         "name": "document_chunker",
         "in": ["context_raw"],
         "out": ["chunks"],
-        "tokens_limit": 4000,
-        "flatten_result": true
-      },
-      {
-        "name": "string_multiplier",
-        "in": [
-          "question_raw",
-          "chunks"
-        ],
-        "out": [
-          "questions"
-        ]
-      },
-      {
-        "name": "logit_ranker",
-        "squad_model": {
-          "config_path": "../deeppavlov/configs/squad/multi_squad_noans.json"
-        },
-        "top_n": 3,
-        "sort_noans": true,
-        "in": [
-          "chunks",
-          "questions"
-        ],
-        "out": [
-          "best_answer",
-          "context_indices"
-        ]
+        "tokens_limit": 300,
+        "flatten_result": true,
+        "paragraphs": true
       }
     ]
   },

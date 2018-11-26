@@ -3,7 +3,7 @@
     "name": "sqlite_iterator",
     "data_dir": "odqa",
     "shuffle": false,
-    "load_path": "odqa/enwiki.db"
+    "load_path": "odqa/drqa_enwiki.db"
   },
   "chainer": {
     "in": [
@@ -15,7 +15,7 @@
     "pipe": [
       {
         "name": "tfidf_ranker",
-        "top_n": 20,
+        "top_n": 10,
         "active": true,
         "in": [
           "question_raw"
@@ -32,8 +32,8 @@
           "fit_on_batch": [
             "questions_raw"
           ],
-          "save_path": "odqa/enwiki_tfidf_matrix.npz",
-          "load_path": "odqa/enwiki_tfidf_matrix.npz",
+          "save_path": "odqa/drqa_enwiki_tfidf.npz",
+          "load_path": "odqa/drqa_enwiki_tfidf.npz",
           "tokenizer": {
             "name": "stream_spacy_tokenizer",
             "lemmas": true,
@@ -56,7 +56,7 @@
         "data_dir": "odqa",
         "shuffle": false,
         "join_docs": false,
-        "load_path": "odqa/enwiki.db"
+        "load_path": "odqa/drqa_enwiki.db"
       },
       {
         "name": "rank_doc_score_tuplifier",

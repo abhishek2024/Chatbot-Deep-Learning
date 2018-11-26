@@ -34,10 +34,10 @@ from deeppavlov.core.common.file import read_json
 # config_path = '/home/gureenkova/tmp/pycharm_project_196/deeppavlov/configs/odqa/en_ranker_ensemble_drones.json'
 # config_path = '/media/olga/Data/projects/iPavlov/DeepPavlov/deeppavlov/configs/odqa/en_ranker_tfidf_drones.json'
 # config_path = '/media/olga/Data/projects/DeepPavlov/deeppavlov/configs/odqa/en_ranker_ensemble_drones_noapi.json'
-config_path = '/media/olga/Data/projects/DeepPavlov/deeppavlov/configs/squad/squad.json'
+config_path = '/media/olga/Data/projects/DeepPavlov/deeppavlov/configs/odqa/en_odqa_tfidf_wiki.json'
 # interact_model(config_path)
 #
-model = train_evaluate_model_from_config(read_json(config_path))
+model = build_model_from_config(read_json(config_path))
 data = ["Who is Ivan Pavlov?", "Where do USA soldiers train?"]
 res = model(data)
 print(res)

@@ -33,7 +33,9 @@ class PopRanker(Component):
     """
 
     def __init__(self, pop_dict_path: str, load_path: str, top_n: int = 3, active: bool = True, **kwargs):
+        logger.info(f"Reading popularity dictionary from {pop_dict_path}")
         self.pop_dict = read_json(pop_dict_path)
+        logger.info(f"Loading popularity ranker from {load_path}")
         self.clf = joblib.load(load_path)
         self.top_n = top_n
         self.active = active
@@ -52,7 +54,8 @@ class PopRanker(Component):
                 # ra_list[j] = tuple((*ra_list[j], pop))
 
                 tfidf_score = ra_list[j][TFIDF_SCORE_IDX]
-                prob = self.clf.predict_proba([[tfidf_score, pop]])
+                features = [tfidf_score, pop, tfidf_score * pop]
+                prob = self.clf.predict_proba([features])
                 # ra_list[j].append(prob[0][1])
                 ra_list[j] = tuple((*ra_list[j], prob[0][1]))
 

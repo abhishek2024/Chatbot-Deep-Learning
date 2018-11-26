@@ -40,11 +40,13 @@ class DocumentChunker(Component):
     """
 
     def __init__(self, sentencize_fn: Callable = sent_tokenize, keep_sentences: bool = True,
-                 tokens_limit: int = 400, flatten_result: bool = False, *args, **kwargs):
+                 tokens_limit: int = 400, flatten_result: bool = False,
+                 paragraphs: bool = False, *args, **kwargs):
         self._sentencize_fn = sentencize_fn
         self.keep_sentences = keep_sentences
         self.tokens_limit = tokens_limit
         self.flatten_result = flatten_result
+        self.paragraphs = paragraphs
 
     def __call__(self, batch_docs: List[Union[str, List[str]]]) -> List[Union[List[str], List[List[str]]]]:
         """ Make chunks from a batch of documents. There can be several documents in each batch.
@@ -61,27 +63,31 @@ class DocumentChunker(Component):
             if isinstance(docs, str):
                 docs = [docs]
             for doc in docs:
-                doc_chunks = []
-                if self.keep_sentences:
-                    sentences = sent_tokenize(doc)
-                    n_tokens = 0
-                    keep = []
-                    for s in sentences:
-                        n_tokens += len(s.split())
-                        if n_tokens > self.tokens_limit:
-                            if keep:
-                                doc_chunks.append(' '.join(keep))
-                                n_tokens = 0
-                                keep.clear()
-                        keep.append(s)
-                    if keep:
-                        doc_chunks.append(' '.join(keep))
-                    batch_chunks.append(doc_chunks)
+                if self.paragraphs:
+                    split_doc = doc.split('\n\n')
+                    batch_chunks.append(split_doc)
                 else:
-                    split_doc = doc.split()
-                    doc_chunks = [split_doc[i:i + self.tokens_limit] for i in
-                                  range(0, len(split_doc), self.tokens_limit)]
-                    batch_chunks.append(doc_chunks)
+                    doc_chunks = []
+                    if self.keep_sentences:
+                        sentences = sent_tokenize(doc)
+                        n_tokens = 0
+                        keep = []
+                        for s in sentences:
+                            n_tokens += len(s.split())
+                            if n_tokens > self.tokens_limit:
+                                if keep:
+                                    doc_chunks.append(' '.join(keep))
+                                    n_tokens = 0
+                                    keep.clear()
+                            keep.append(s)
+                        if keep:
+                            doc_chunks.append(' '.join(keep))
+                        batch_chunks.append(doc_chunks)
+                    else:
+                        split_doc = doc.split()
+                        doc_chunks = [split_doc[i:i + self.tokens_limit] for i in
+                                      range(0, len(split_doc), self.tokens_limit)]
+                        batch_chunks.append(doc_chunks)
             result.append(batch_chunks)
 
         if self.flatten_result:

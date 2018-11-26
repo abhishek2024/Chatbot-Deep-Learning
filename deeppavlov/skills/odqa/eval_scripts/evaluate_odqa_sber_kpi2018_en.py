@@ -13,9 +13,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-config_path', help='Path to a JSON config', type=str,
                     default='/media/olga/Data/projects/DeepPavlov/deeppavlov/configs/odqa/en_odqa_tfidf_wiki_conversation_mode.json')
 parser.add_argument('-eval_path', help='Path to csv evaluation file', type=str,
-                    default='/media/olga/Data/datasets/kpi10/Sber KPI 2018  - Sheet1.csv')
+                    default='/media/olga/Data/datasets/kpi_2018/Sber KPI 2018  - Sheet1.csv')
 parser.add_argument('-output_path', help='Path to csv evaluation result', type=str,
-                    default='sber_kpi2018_en_test.csv')
+                    default='sber_kpi2018_en_test_pop.csv')
 
 
 def evaluate():
