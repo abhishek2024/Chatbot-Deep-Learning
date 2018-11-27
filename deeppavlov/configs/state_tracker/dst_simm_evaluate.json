@@ -14,7 +14,7 @@
     "out": ["state_pred"],
     "pipe": [
       {
-        "class_name": "action_vocab",
+        "class_name": "deeppavlov.models.state_tracker.preprocessors:ActionVocabulary",
         "id": "user_action_vocab",
         "load_path": "{MODELS_PATH}/dst/user_actions.dict",
         "save_path": "{MODELS_PATH}/dst/user_actions.dict",
@@ -24,7 +24,7 @@
         "out": ["u_act_idx"]
       },
       {
-        "class_name": "action_vocab",
+        "class_name": "deeppavlov.models.state_tracker.preprocessors:ActionVocabulary",
         "id": "system_action_vocab",
         "load_path": "{MODELS_PATH}/dst/system_actions.dict",
         "save_path": "{MODELS_PATH}/dst/system_actions.dict",
@@ -149,8 +149,8 @@
       },
       {
         "class_name": "dst_network",
-        "load_path": "{MODELS_PATH}/dst/model_phase1",
-        "save_path": "{MODELS_PATH}/dst/model_phase1",
+        "load_path": "{MODELS_PATH}/dst/model_simr",
+        "save_path": "{MODELS_PATH}/dst/model_simr",
         "in": [
           "u_tok_idx", "u_tok_slot_idx_matr", "u_act_idx", "u_slot_act_mask_matr",
           "s_tok_idx", "s_tok_slot_idx_matr", "s_act_idx", "s_slot_act_mask_matr",

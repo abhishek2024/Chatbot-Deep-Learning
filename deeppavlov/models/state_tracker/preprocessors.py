@@ -17,7 +17,6 @@ from itertools import chain
 import numpy as np
 
 from deeppavlov.core.models.component import Component
-from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.simple_vocab import SimpleVocabulary
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.dataset_iterators.dialog_iterator import DialogStateDatasetIterator
@@ -263,7 +262,6 @@ class ActionSlotsMatcher(Component):
         return new_actions
 
 
-@register('action_vocab')
 class ActionVocabulary(SimpleVocabulary):
     """Implements action vocabulary."""
 

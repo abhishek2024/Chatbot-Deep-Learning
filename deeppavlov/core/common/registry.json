@@ -1,5 +1,4 @@
 {
-  "action_vocab": "deeppavlov.models.state_tracker.preprocessors:ActionVocabulary",
   "amazon_ecommerce_reader": "deeppavlov.dataset_readers.amazon_ecommerce_reader:AmazonEcommerceReader",
   "api_requester": "deeppavlov.models.api_requester.api_requester:ApiRequester",
   "api_router": "deeppavlov.models.api_requester.api_router:ApiRouter",
@@ -12,6 +11,8 @@
   "char_splitter": "deeppavlov.models.preprocessors.char_splitter:CharSplitter",
   "conll2003_reader": "deeppavlov.dataset_readers.conll2003_reader:Conll2003DatasetReader",
   "cos_sim_classifier": "deeppavlov.models.classifiers.cos_sim_classifier:CosineSimilarityClassifier",
+  "data_fitting_iterator": "deeppavlov.core.data.data_fitting_iterator:DataFittingIterator",
+  "data_learning_iterator": "deeppavlov.core.data.data_learning_iterator:DataLearningIterator",
   "default_vocab": "deeppavlov.core.data.vocab:DefaultVocabulary",
   "dialog_db_result_iterator": "deeppavlov.dataset_iterators.dialog_iterator:DialogDBResultDatasetIterator",
   "dialog_iterator": "deeppavlov.dataset_iterators.dialog_iterator:DialogDatasetIterator",

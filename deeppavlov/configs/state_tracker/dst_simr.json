@@ -1,6 +1,7 @@
 {
   "dataset_reader": {
     "class_name": "sim_r_reader",
+    "mode": "train_on_test",
     "data_path": "{DOWNLOADS_PATH}/google-dialogues"
   },
   "dataset_iterator": {
@@ -14,7 +15,7 @@
     "out": ["state_pred"],
     "pipe": [
       {
-        "class_name": "action_vocab",
+        "class_name": "deeppavlov.models.state_tracker.preprocessors:ActionVocabulary",
         "id": "user_action_vocab",
         "load_path": "{MODELS_PATH}/dst/user_actions.dict",
         "save_path": "{MODELS_PATH}/dst/user_actions.dict",
@@ -24,7 +25,7 @@
         "out": ["u_act_idx"]
       },
       {
-        "class_name": "action_vocab",
+        "class_name": "deeppavlov.models.state_tracker.preprocessors:ActionVocabulary",
         "id": "system_action_vocab",
         "load_path": "{MODELS_PATH}/dst/system_actions.dict",
         "save_path": "{MODELS_PATH}/dst/system_actions.dict",
@@ -167,7 +168,7 @@
         "num_user_actions": "#user_action_vocab.__len__()",
         "num_system_actions": "#system_action_vocab.__len__()",
         "learning_rate": [3e-2, 7e-4],
-        "learning_rate_decay": "linear",
+        "learning_rate_decay": "exponential",
         "learning_rate_decay_epochs": 20,
         "optimizer": "tf.train:MomentumOptimizer",
         "momentum": 0.96

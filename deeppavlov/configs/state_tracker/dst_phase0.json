@@ -15,7 +15,7 @@
     "out": ["state_pred"],
     "pipe": [
       {
-        "class_name": "action_vocab",
+        "class_name": "deeppavlov.models.state_tracker.preprocessors:ActionVocabulary",
         "id": "user_action_vocab",
         "load_path": "{MODELS_PATH}/dst/user_actions.dict",
         "save_path": "{MODELS_PATH}/dst/user_actions.dict",
@@ -25,7 +25,7 @@
         "out": ["u_act_idx"]
       },
       {
-        "class_name": "action_vocab",
+        "class_name": "deeppavlov.models.state_tracker.preprocessors:ActionVocabulary",
         "id": "system_action_vocab",
         "load_path": "{MODELS_PATH}/dst/system_actions.dict",
         "save_path": "{MODELS_PATH}/dst/system_actions.dict",
