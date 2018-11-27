@@ -166,13 +166,6 @@ class SquadModelRef(TFModel):
             c_emb = tf.concat([c_emb, c_elmo], axis=2)
             q_emb = tf.concat([q_emb, q_elmo], axis=2)
 
-        with tf.variable_scope('encoding'):
-            rnn = self.GRU(num_layers=self.num_encoder_layers, num_units=self.hidden_size, batch_size=self.bs,
-                           input_size=c_emb.get_shape().as_list()[-1],
-                           keep_prob=self.input_keep_prob_ph, share_layers=self.share_layers)
-            c = rnn(c_emb, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
-            q = rnn(q_emb, seq_len=self.q_len, concat_layers=self.concat_bigru_outputs)
-
         if self.use_USE:
             import tensorflow_hub as tfhub
             # works with tf1.8
@@ -191,8 +184,15 @@ class SquadModelRef(TFModel):
                     self.c_tok2sent_idx
                 ], axis=-1)
 
-            c = tf.concat([c, tf.gather_nd(self.c_sent_emb, c_indices_nd)], axis=-1, name='c_concat')
-            q = tf.concat([q, tf.tile(tf.expand_dims(self.q_sent_emb, axis=1), (1, self.q_maxlen, 1))], axis=-1, name='q_concat')
+            c_emb = tf.concat([c_emb, tf.gather_nd(self.c_sent_emb, c_indices_nd)], axis=-1, name='c_concat')
+            q_emb = tf.concat([q_emb, tf.tile(tf.expand_dims(self.q_sent_emb, axis=1), (1, self.q_maxlen, 1))], axis=-1, name='q_concat')
+
+        with tf.variable_scope('encoding'):
+            rnn = self.GRU(num_layers=self.num_encoder_layers, num_units=self.hidden_size, batch_size=self.bs,
+                           input_size=c_emb.get_shape().as_list()[-1],
+                           keep_prob=self.input_keep_prob_ph, share_layers=self.share_layers)
+            c = rnn(c_emb, seq_len=self.c_len, concat_layers=self.concat_bigru_outputs)
+            q = rnn(q_emb, seq_len=self.q_len, concat_layers=self.concat_bigru_outputs)
 
         context_representations = [c]
         E = None  # check reinforced mnemonic reader paper for more info about E, B and re-attention
