@@ -19,7 +19,7 @@ import tensorflow as tf
 from . import utils
 from os.path import join
 from pathlib import Path
-from typing import Tuple, List, Union
+from typing import Tuple, List, Union, Any
 from deeppavlov.core.models.tf_model import TFModel
 from deeppavlov.core.common.registry import register
 
@@ -40,6 +40,7 @@ class CorefModel(TFModel):
                  log_root: str,
                  embedding_path: str = "./embeddings/ft_0.8.3_nltk_yalen_sg_300.bin",
                  char_vocab_path: str = "./vocab/char_vocab.russian.txt",
+                 embedder: Any = None,
                  embedding_size: int = 300,
                  emb_format: str = "bin",
                  emb_lowercase: bool = False,
@@ -77,6 +78,7 @@ class CorefModel(TFModel):
         self.log_root_ = log_root
 
         # embeddings
+        self.embedder = embedder
         self.embedding_path = embedding_path
         self.embedding_size = embedding_size
         self.emb_format = emb_format
@@ -133,12 +135,15 @@ class CorefModel(TFModel):
         self.log_root = join(self.log_root_, 'logs')
         self.char_dict = utils.load_char_dict(self.char_vocab_path)
 
-        if self.emb_format not in ["vec", "bin"]:
+        if self.emb_format not in ["vec", "bin", "elmo"]:
             raise ValueError('Not supported embeddings format {}'.format(self.emb_format))
 
         self.embedding_info = (self.embedding_size, self.emb_lowercase)
-        self.embedding_dicts = utils.load_embedding_dict(self.embedding_path, self.embedding_size,
-                                                         self.emb_format)
+
+        if self.emb_format in ['vec', 'bin']:
+            self.embedding_model = utils.load_embedding_dict(self.embedding_path, self.embedding_size, self.emb_format)
+        else:
+            self.embedding_model = self.embedder
 
         self.genres = {g: i for i, g in enumerate(self.genres)}
 
@@ -333,25 +338,39 @@ class CorefModel(TFModel):
         word_emb = np.zeros([len(sentences), max_sentence_length, self.embedding_size])
         char_index = np.zeros([len(sentences), max_sentence_length, max_word_length])
         text_len = np.array([len(s) for s in sentences])
-        for i, sentence in enumerate(sentences):
-            for j, word in enumerate(sentence):
-                current_dim = 0
-                d = self.embedding_dicts
 
-                (s, l) = self.embedding_info
+        if self.emb_format in ['vec', 'bin']:
+            for i, sentence in enumerate(sentences):
+                for j, word in enumerate(sentence):
+                    current_dim = 0
+                    d = self.embedding_dicts
 
-                if l:
-                    current_word = word.lower()  # cerrent_word
-                else:
-                    current_word = word
+                    (s, l) = self.embedding_info
 
-                if self.emb_format == 'vec':
-                    word_emb[i, j, current_dim:current_dim + s] = utils.normalize(d[current_word])
-                else:
-                    word_emb[i, j, current_dim:current_dim + s] = utils.normalize(d.get_word_vector(current_word))
+                    if l:
+                        current_word = word.lower()  # cerrent_word
+                    else:
+                        current_word = word
 
-                current_dim += s
-                char_index[i, j, :len(word)] = [self.char_dict[c] for c in word]
+                    if self.emb_format == 'vec':
+                        word_emb[i, j, current_dim:current_dim + s] = utils.normalize(d[current_word])
+                    else:
+                        word_emb[i, j, current_dim:current_dim + s] = utils.normalize(d.get_word_vector(current_word))
+
+                    current_dim += s
+                    char_index[i, j, :len(word)] = [self.char_dict[c] for c in word]
+        else:
+            for i, sentence in enumerate(sentences):
+                sentences[i] = list(sentences[i])
+                for j, word in enumerate(sentence):
+                    char_index[i, j, :len(word)] = [self.char_dict[c] for c in word]
+
+            vect_sentences = self.embedding_model(sentences)  # List[np.array[len(sent), emb_size]]
+            for i, sentence in enumerate(vect_sentences):
+                for j in range(len(sentence)):
+                    current_dim = 0
+                    word_emb[i, j, current_dim:current_dim + self.embedding_size] = utils.normalize(sentence[j])
+                    current_dim += self.embedding_size
 
         speaker_dict = {s: i for i, s in enumerate(set(speakers))}
         speaker_ids = np.array([speaker_dict[s] for s in speakers])  # numpy

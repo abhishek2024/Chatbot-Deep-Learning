@@ -1,39 +1,44 @@
 {
   "dataset_reader": {
     "class_name": "coreference_reader",
-    "data_path": "{DOWNLOADS_PATH}/rucor_conll"
+    "data_path": "{DOWNLOADS_PATH}/coreference_resolution/rucor_conll"
   },
   "dataset_iterator": {
     "class_name": "coreference_iterator"
   },
   "chainer": {
-    "in": [
-      "x"
-    ],
-    "in_y": [
-      "y"
-    ],
+    "in": ["x"],
+    "in_y": ["y"],
     "pipe": [
+      {
+        "id": "embedder",
+        "class_name": "elmo",
+        "cache": true,
+        "elmo_output_names": ["elmo"],
+        "mini_batch_size": 32,
+        "spec": "{DOWNLOADS_PATH}/embeddings/elmo_news"
+      },
       {
         "in": ["x"],
         "in_y": ["y"],
         "out": ["y_pred"],
         "main": true,
         "class_name": "coref_model",
-        "save_path": "{DOWNLOADS_PATH}/coreference_resolution/checkpoints/new_model",
-        "load_path": "{DOWNLOADS_PATH}/coreference_resolution/checkpoints/new_model",
-        "model_file": "{MODELS_PATH}",
+        "save_path": "{DOWNLOADS_PATH}/coreference_resolution/checkpoints/new_model/best_model.ckpt",
+        "load_path": "{DOWNLOADS_PATH}/coreference_resolution/checkpoints/new_model/best_model.ckpt",
+        "log_root": "{DOWNLOADS_PATH}/coreference_resolution/",
         "char_vocab_path": "{DOWNLOADS_PATH}/vocabs/char_vocab.russian.txt",
-        "embedding_path": "{DOWNLOADS_PATH}/embeddings/ft_0.8.3_nltk_yalen_sg_300.bin",
-        "embedding_size": 300,
-        "emb_format": "bin",
+        "embedder": "#embedder",
+        "embedding_path": "",
+        "embedding_size": 1024,
+        "emb_format": "elmo",
         "train_on_gold": true
       }
     ],
     "out": ["y_pred"]
   },
   "train": {
-    "epochs": 20,
+    "epochs": 200,
     "batch_size": 1,
     "metrics": [
       {
@@ -42,7 +47,7 @@
       }
     ],
     "validation_patience": 5,
-    "val_every_n_epochs": 5,
+    "val_every_n_epochs": 1,
     "log_every_n_epochs": 1,
     "show_examples": false,
     "validate_best": true,
@@ -50,26 +55,30 @@
   },
   "metadata": {
     "variables": {
-      "ROOT_PATH": "/home/mks/projects/DeepPavlov",
-      "DOWNLOADS_PATH": "{ROOT_PATH}/download",
-      "MODELS_PATH": "{ROOT_PATH}/deeppavlov/models/coreference_resolution/"
+      "ROOT_PATH": "~/.deeppavlov",
+      "DOWNLOADS_PATH": "{ROOT_PATH}/download"
     },
     "requirements": [
-      "{DEEPPAVLOV_PATH}/requirements/tf.txt",
-      "{DEEPPAVLOV_PATH}/requirements/fasttext.txt"
+      "{DEEPPAVLOV_PATH}/requirements/tf-gpu.txt",
+      "{DEEPPAVLOV_PATH}/requirements/fasttext.txt",
+      "{DEEPPAVLOV_PATH}/requirements/elmo.txt"
     ],
     "download": [
       {
-        "url": "http://files.deeppavlov.ai/datasets/snips_intents/train.csv",
-        "subdir": "{DOWNLOADS_PATH}/snips"
+        "url": "http://files.deeppavlov.ai/datasets/coreference_resolution/pretrained_model.zip",
+        "subdir": "{DOWNLOADS_PATH}/coreference_resolution/checkpoints/"
       },
       {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/embeddings/wiki.en.bin",
+        "url": "http://files.deeppavlov.ai/datasets/coreference_resolution/rucor_conll.zip",
+        "subdir": "{DOWNLOADS_PATH}/coreference_resolution/"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
         "subdir": "{DOWNLOADS_PATH}/embeddings"
       },
       {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/classifiers/intents_snips_v8.tar.gz",
-        "subdir": "{MODELS_PATH}/classifiers"
+        "url": "http://files.deeppavlov.ai/datasets/coreference_resolution/char_vocab.russian.txt",
+        "subdir": "{DOWNLOADS_PATH}/vocabs"
       }
     ]
   }
