@@ -28,10 +28,11 @@ class RankDocScoreIdTuplifier(Component):
     def __init__(self, sort_result=False, *args, **kwargs):
         self.sort_result = sort_result
 
-    def __call__(self, docs: List[List[str]], scores: List[np.array], ids: List[Any], *args, **kwargs):
+    def __call__(self, docs: List[List[str]], scores: List[np.array], ids: List[Any], title_scores: List[np.array],
+                 *args, **kwargs):
         all_results = []
-        for triple in zip(docs, scores, ids):
-            tuples = list(zip(triple[0], triple[1], triple[2]))
+        for triple in zip(docs, scores, ids, title_scores):
+            tuples = list(zip(triple[0], triple[1], triple[2], triple[3]))
             if self.sort_result:
                 tuples.sort(key=itemgetter(1), reverse=True)
             result = []

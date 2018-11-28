@@ -19,7 +19,7 @@
       {
         "name": "pop_ranker",
         "pop_dict_path": "/media/olga/Data/datasets/squad/popularities.json",
-        "load_path": "/media/olga/Data/datasets/squad/logreg_3features_wo_norm.joblib",
+        "load_path": "/media/olga/Data/datasets/squad/logreg_5features_pop_title.joblib",
         "top_n": 10,
         "in": ["rank_text_score_id"],
         "out": ["reranked_text_score_id"]

@@ -85,14 +85,14 @@ def main():
                 logger.info(f'Processing question {i}')
                 answer = odqa([q])[0][0]
                 y_pred.append((answer[0], answer[1]))
-                logger.info(f"Current KPI 4 f1: {squad_f1(y_true[:i+1], y_pred)}")
-                logger.info(f"Current KPI 4 em: {exact_match(y_true[:i+1], y_pred)}")
+                logger.info(f"Current KPI 10 f1: {squad_f1(y_true[:i+1], y_pred)}")
+                logger.info(f"Current KPI 10 em: {exact_match(y_true[:i+1], y_pred)}")
                 writer.writerow([q, y_true[i][0][0], answer[0]])
 
             f1 = squad_f1(y_true, y_pred)
             em = exact_match(y_true, y_pred)
-            logger.info(f"Total KPI 4 f1: {f1}")
-            logger.info(f"Total KPI 4 em: {em}")
+            logger.info(f"Total KPI 10 f1: {f1}")
+            logger.info(f"Total KPI 10 em: {em}")
             logger.info("Completed successfully in {} seconds.".format(time.time() - start_time))
 
     except Exception as e:

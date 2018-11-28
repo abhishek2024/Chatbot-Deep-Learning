@@ -18,6 +18,7 @@ from itertools import chain
 import copy
 
 from sklearn.externals import joblib
+import numpy as np
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.log import get_logger
@@ -46,7 +47,8 @@ class PopRanker(Component):
         """
         TFIDF_SCORE_IDX = 2
         TITLE_IDX = 3
-        RF_PROBA_IDX = 4
+        TITLE_SCORE_IDX = 4
+        CLF_PROBA_IDX = 5
         reranked = copy.deepcopy(rank_text_score_id)
         for ra_list in reranked:
             for j in range(len(ra_list)):
@@ -54,13 +56,16 @@ class PopRanker(Component):
                 # ra_list[j] = tuple((*ra_list[j], pop))
 
                 tfidf_score = ra_list[j][TFIDF_SCORE_IDX]
-                features = [tfidf_score, pop, tfidf_score * pop]
+                title_score = ra_list[j][TITLE_SCORE_IDX]
+                features = [tfidf_score, pop, tfidf_score * pop, tfidf_score * title_score, title_score * pop]
+                # X = df.as_matrix(columns=['Article tfidf score', 'Article popularity', 'tfidf_pop_mul',
+                #                           'text_title_mul', 'title_pop_mul'])
                 prob = self.clf.predict_proba([features])
                 # ra_list[j].append(prob[0][1])
                 ra_list[j] = tuple((*ra_list[j], prob[0][1]))
 
         for i in range(len(reranked)):
-            reranked[i] = sorted(reranked[i], key=itemgetter(RF_PROBA_IDX, TFIDF_SCORE_IDX), reverse=True)
+            reranked[i] = sorted(reranked[i], key=itemgetter(CLF_PROBA_IDX, TFIDF_SCORE_IDX), reverse=True)
             if self.active:
                 reranked[i] = reranked[i][:self.top_n]
 

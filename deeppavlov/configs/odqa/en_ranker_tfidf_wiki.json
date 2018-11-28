@@ -45,6 +45,35 @@
         }
       },
       {
+        "in": [
+          "question_raw",
+          "doc_ids"
+        ],
+        "out": [
+          "title_scores"
+        ],
+        "name": "tfidf_ranker_with_ids",
+        "top_n": 20,
+        "active": true,
+        "vectorizer": {
+        "name": "hashing_tfidf_vectorizer",
+        "fit_on_batch": [
+          "questions_raw"
+        ],
+        "save_path": "odqa/enwiki_titles_tfidf_matrix.npz",
+        "load_path": "odqa/enwiki_titles_tfidf_matrix.npz",
+        "hash_size": 262144,
+        "tokenizer": {
+          "name": "stream_spacy_tokenizer",
+          "lemmas": true,
+          "ngram_range": [
+            1,
+            2
+          ],
+          "alphas_only": false
+        }}
+      },
+      {
         "name": "wiki_sqlite_vocab",
         "in": [
           "doc_ids"
@@ -63,7 +92,8 @@
         "in": [
           "context_raw",
           "doc_scores",
-          "doc_ids"
+          "doc_ids",
+          "title_scores"
         ],
         "out": [
           "rank_text_score_id"
