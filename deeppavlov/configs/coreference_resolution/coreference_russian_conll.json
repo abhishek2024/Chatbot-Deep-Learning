@@ -12,7 +12,7 @@
     "pipe": [
       {
         "id": "embedder",
-        "class_name": "elmo",
+        "class_name": "elmo_embedder",
         "cache": true,
         "elmo_output_names": ["elmo"],
         "mini_batch_size": 32,
