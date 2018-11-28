@@ -17,8 +17,9 @@ import numpy as np
 import tensorflow as tf
 
 from . import utils
-from typing import Tuple, List, Union
 from os.path import join
+from pathlib import Path
+from typing import Tuple, List, Union
 from deeppavlov.core.models.tf_model import TFModel
 from deeppavlov.core.common.registry import register
 
@@ -36,7 +37,7 @@ class CorefModel(TFModel):
     """
 
     def __init__(self,
-                 model_file: str = "./",
+                 log_root: str,
                  embedding_path: str = "./embeddings/ft_0.8.3_nltk_yalen_sg_300.bin",
                  char_vocab_path: str = "./vocab/char_vocab.russian.txt",
                  embedding_size: int = 300,
@@ -73,7 +74,7 @@ class CorefModel(TFModel):
         # Parameters
         # ---------------------------------------------------------------------------------
         # paths
-        self.model_file = model_file
+        self.log_root_ = log_root
 
         # embeddings
         self.embedding_path = embedding_path
@@ -122,13 +123,14 @@ class CorefModel(TFModel):
         self.tf_loss = None
         # ----------------------------------------------------------------------------------
         # C++ operations
-        coref_op_library = tf.load_op_library(join(self.model_file, "coref_kernels.so"))
+        kernel_path = Path(__file__).resolve().parent
+        coref_op_library = tf.load_op_library(join(str(kernel_path), "coref_kernels.so"))
         self.spans = coref_op_library.spans
         self.distance_bins = coref_op_library.distance_bins
         self.extract_mentions = coref_op_library.extract_mentions
         self.get_antecedents = coref_op_library.antecedents
 
-        self.log_root = join(self.model_file, 'logs')
+        self.log_root = join(self.log_root_, 'logs')
         self.char_dict = utils.load_char_dict(self.char_vocab_path)
 
         if self.emb_format not in ["vec", "bin"]:
@@ -196,11 +198,11 @@ class CorefModel(TFModel):
     def load(self):
         # Check presence of the model files
         path = str(self.load_path.resolve())
-        if tf.train.checkpoint_exists(join(path, "model.max.ckpt")):
-            self.saver.restore(self.sess, join(path, "model.max.ckpt"))
-            print(f'[ Model was load from {join(path, "model.max.ckpt")} ]')
+        if tf.train.checkpoint_exists(path):
+            self.saver.restore(self.sess, path)
+            print(f'[ Model was load from {path} ]')
         else:
-            print('[ {0} not found ]'.format(join(path, "model.max.ckpt")))
+            print('[ {0} not found ]'.format(path))
             print('[ Init from scratch ]')
 
     def start_enqueue_thread(self, train_example, is_training, returning=False):
@@ -346,8 +348,7 @@ class CorefModel(TFModel):
                 if self.emb_format == 'vec':
                     word_emb[i, j, current_dim:current_dim + s] = utils.normalize(d[current_word])
                 else:
-                    word_emb[i, j, current_dim:current_dim + s] = utils.normalize(np.array(d[current_word]))
-                    # word_emb[i, j, current_dim:current_dim + s] = utils.normalize(d.get_word_vector(current_word))
+                    word_emb[i, j, current_dim:current_dim + s] = utils.normalize(d.get_word_vector(current_word))
 
                 current_dim += s
                 char_index[i, j, :len(word)] = [self.char_dict[c] for c in word]

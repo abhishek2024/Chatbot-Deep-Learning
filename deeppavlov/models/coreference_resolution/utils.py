@@ -16,8 +16,7 @@ import os
 import uuid
 import time
 import operator
-# import fastText
-from fasttext import load_model
+import fastText
 import numpy as np
 import collections
 import tensorflow as tf
@@ -28,6 +27,7 @@ from os.path import join
 from shutil import copytree
 from collections import defaultdict
 from sklearn.model_selection import ShuffleSplit
+from deeppavlov.core.commands.utils import expand_path
 from deeppavlov.core.data.utils import download_decompress
 
 
@@ -67,7 +67,7 @@ def flatten(l):
 def load_char_dict(char_vocab_path):
     """Load char dict from file"""
     vocab = [u"<unk>"]
-    with open(char_vocab_path) as f:
+    with expand_path(char_vocab_path).open('r') as f:
         vocab.extend(c.strip() for c in f.readlines())
     char_dict = collections.defaultdict(int)
     char_dict.update({c: i for i, c in enumerate(sorted(set(vocab)))})
@@ -101,8 +101,7 @@ def load_embedding_dict(embedding_path, embedding_size, embedding_format):
                 embedding = np.array([float(s) for s in splits[1:]])
                 embedding_dict[word] = embedding
     elif embedding_format == 'bin':
-        embedding_dict = load_model(embedding_path)
-        # embedding_dict = fastText.load_model(embedding_path)
+        embedding_dict = fastText.load_model(str(expand_path(embedding_path)))
     else:
         raise ValueError('Not supported embeddings format {}'.format(embedding_format))
     print("Done loading word embeddings.")
