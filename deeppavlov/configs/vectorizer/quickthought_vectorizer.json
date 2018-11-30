@@ -8,7 +8,7 @@
       "dataset_iterator": {
         "name": "quickthought_iterator",
         "seed": 243,
-	"batch_size": 512 
+        "batch_size": 512
       },
       "chainer": {
         "in": ["x"],
@@ -87,8 +87,9 @@
         "train_metrics": [],
         "metrics": ["f1", "acc", "log_loss"],
         "validation_patience": 5,
-        "val_every_n_epochs": 5,
-        "log_every_n_batches": 24,
+        "val_every_n_epochs": 1,
+        "val_every_n_batches": 100,
+        "log_every_n_batches": 100,
         "tensorboard_log_dir": "runs"
       },
       "metadata": {
@@ -103,5 +104,4 @@
           }
         ]
       }
-
     }
