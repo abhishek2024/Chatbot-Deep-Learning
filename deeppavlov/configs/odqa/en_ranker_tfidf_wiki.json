@@ -1,0 +1,87 @@
+{
+  "dataset_iterator": {
+    "name": "sqlite_iterator",
+    "data_dir": "odqa",
+    "shuffle": false,
+    "load_path": "odqa/enwiki.db"
+  },
+  "chainer": {
+    "in": [
+      "question_raw"
+    ],
+    "out": [
+      "rank_text_score_id"
+    ],
+    "pipe": [
+      {
+        "name": "tfidf_ranker",
+        "top_n": 20,
+        "active": true,
+        "in": [
+          "question_raw"
+        ],
+        "out": [
+          "doc_ids",
+          "doc_scores"
+        ],
+        "fit_on_batch": [
+          "questions_raw"
+        ],
+        "vectorizer": {
+          "name": "hashing_tfidf_vectorizer",
+          "fit_on_batch": [
+            "questions_raw"
+          ],
+          "save_path": "odqa/enwiki_tfidf_matrix.npz",
+          "load_path": "odqa/enwiki_tfidf_matrix.npz",
+          "tokenizer": {
+            "name": "stream_spacy_tokenizer",
+            "lemmas": true,
+            "ngram_range": [
+              1,
+              2
+            ]
+          }
+        }
+      },
+      {
+        "name": "wiki_sqlite_vocab",
+        "in": [
+          "doc_ids"
+        ],
+        "out": [
+          "context_raw",
+          "doc_ids"
+        ],
+        "data_dir": "odqa",
+        "shuffle": false,
+        "join_docs": false,
+        "load_path": "odqa/enwiki.db"
+      },
+      {
+        "name": "args_tuplifier",
+        "in": [
+          "context_raw",
+          "doc_scores",
+          "doc_ids"
+        ],
+        "out": [
+          "rank_text_score_id"
+        ]
+      }
+    ]
+  },
+  "train": {
+    "validate_best": false,
+    "test_best": false,
+    "batch_size": 10000
+  },
+  "metadata": {
+    "download": [
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/en_odqa.tar.gz",
+      {
+        "url": "http://lnsigo.mipt.ru/export/datasets/wikipedia/enwiki.tar.gz"
+      }
+    ]
+  }
+}

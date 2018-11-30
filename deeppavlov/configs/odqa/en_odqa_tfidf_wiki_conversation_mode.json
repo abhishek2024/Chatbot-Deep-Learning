@@ -1,0 +1,78 @@
+{
+  "chainer": {
+    "in": [
+      "question_raw"
+    ],
+    "out": [
+      "best_answer"
+    ],
+    "pipe": [
+      {
+        "config_path": "../deeppavlov/configs/odqa/en_ranker_tfidf_wiki.json",
+        "in": [
+          "question_raw"
+        ],
+        "out": [
+          "rank_text_score_id"
+        ]
+      },
+      {
+        "name": "text_extractor",
+        "in": [
+          "rank_text_score_id"
+        ],
+        "out": [
+          "context_raw",
+          "context_scores"
+        ]
+      },
+      {
+        "name": "document_chunker",
+        "in": ["context_raw"],
+        "out": ["chunks"],
+        "tokens_limit": 4000,
+        "flatten_result": true
+      },
+      {
+        "name": "string_multiplier",
+        "in": [
+          "question_raw",
+          "chunks"
+        ],
+        "out": [
+          "questions"
+        ]
+      },
+      {
+        "name": "logit_ranker",
+        "squad_model": {
+          "config_path": "../deeppavlov/configs/squad/multi_squad_noans.json"
+        },
+        "top_n": 3,
+        "sort_noans": true,
+        "in": [
+          "chunks",
+          "questions"
+        ],
+        "out": [
+          "best_answer",
+          "context_indices"
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "download": [
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/general_electrics.tar.gz",
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/multi_squad_model_noans.tar.gz",
+      {
+        "url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M.vec",
+        "subdir": "embeddings"
+      },
+      {
+        "url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M-char.vec",
+        "subdir": "embeddings"
+      }
+    ]
+  }
+}
