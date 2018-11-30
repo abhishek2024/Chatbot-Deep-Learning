@@ -18,11 +18,8 @@ from typing import List, Union
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.component import Component
 
-<<<<<<< HEAD
-=======
 StrTokenReverserInfo = Union[List[str], List['StrTokenReverserInfo']]
 
->>>>>>> dev
 
 @register('str_token_reverser')
 class StrTokenReverser(Component):
@@ -31,36 +28,21 @@ class StrTokenReverser(Component):
     Args:
         tokenized: The parameter is only needed to reverse tokenized strings.
     """
-<<<<<<< HEAD
-    def __init__(self, tokenized:bool = False, *args, **kwargs):
-        self.tokenized = tokenized
-    
-=======
     def __init__(self, tokenized: bool = False, *args, **kwargs) -> None:
         self.tokenized = tokenized
 
->>>>>>> dev
     @staticmethod
     def _reverse_str(raw_string):
         splitted = raw_string.split()
         splitted.reverse()
         string = ' '.join(splitted)
         return string
-<<<<<<< HEAD
-    
-=======
-
->>>>>>> dev
     @staticmethod
     def _reverse_tokens(raw_tokens):
         raw_tokens.reverse()
         return raw_tokens
 
-<<<<<<< HEAD
-    def __call__(self, batch: Union[str, list, tuple]):
-=======
     def __call__(self, batch: Union[str, list, tuple]) -> StrTokenReverserInfo:
->>>>>>> dev
         """Recursively search for strings in a list and convert them to strings with reversed token positions
 
         Args:

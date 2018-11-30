@@ -10,11 +10,7 @@
         "out": ["tokens"]
       },
       {
-<<<<<<< HEAD:deeppavlov/configs/elmo_embedder/elmo_en-1billion.json
-        "name": "elmo_embedder",
-=======
         "class_name": "elmo_embedder",
->>>>>>> dev:deeppavlov/configs/elmo_embedder/elmo_en-1billion.json
         "elmo_output_names": ["lstm_outputs1", "lstm_outputs2", "word_emb"],
         "mini_batch_size": 32,
         "in": [

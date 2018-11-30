@@ -10,21 +10,13 @@
         "out": ["tokens"]
       },
       {
-<<<<<<< HEAD:deeppavlov/configs/elmo_embedder/elmo_ru-news.json
-        "name": "elmo_embedder",
-=======
         "class_name": "elmo_embedder",
->>>>>>> dev:deeppavlov/configs/elmo_embedder/elmo_ru-news.json
         "elmo_output_names": ["lstm_outputs1", "lstm_outputs2", "word_emb"],
         "mini_batch_size": 32,
         "in": [
           "tokens"
         ],
-<<<<<<< HEAD:deeppavlov/configs/elmo_embedder/elmo_ru-news.json
-        "spec": "http://files.deeppavlov.ai/deeppavlov_data/elmo_ru-news_wmt11-16_1.5M_steps.tar.gz",
-=======
         "spec": "{DOWNLOADS_PATH}/embeddings/elmo_ru_news",
->>>>>>> dev:deeppavlov/configs/elmo_embedder/elmo_ru-news.json
         "out": [
           "tokens_emb"
         ]
@@ -41,10 +33,6 @@
       "MODELS_PATH": "{ROOT_PATH}/models"
     },
     "requirements": [
-<<<<<<< HEAD:deeppavlov/configs/elmo_embedder/elmo_ru-news.json
-      "../dp_requirements/tf.txt",
-      "../dp_requirements/elmo.txt"
-=======
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
       "{DEEPPAVLOV_PATH}/requirements/tf-hub.txt"
     ],
@@ -53,7 +41,6 @@
         "url": "http://files.deeppavlov.ai/deeppavlov_data/elmo_ru-news_wmt11-16_1.5M_steps.tar.gz",
         "subdir": "{DOWNLOADS_PATH}/embeddings/elmo_ru_news"
       }
->>>>>>> dev:deeppavlov/configs/elmo_embedder/elmo_ru-news.json
     ]
   }
 }

@@ -1,10 +1,6 @@
 # originally based on https://github.com/allenai/bilm-tf/blob/master/bilm/training.py
 
-<<<<<<< HEAD
-# Copyright 2017 Neural Networks and Deep Learning lab, MIPT
-=======
 # Modifications copyright 2017 Neural Networks and Deep Learning lab, MIPT
->>>>>>> dev
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,11 +25,7 @@ tf.logging.set_verbosity(tf.logging.INFO)
 
 
 class LanguageModel(object):
-<<<<<<< HEAD
-    '''
-=======
     """
->>>>>>> dev
     A class to build the tensorflow computational graph for NLMs
 
     All hyperparameters and model configuration is specified in a dictionary
@@ -56,11 +48,7 @@ class LanguageModel(object):
         'projection_dim' is assumed token embedding size and LSTM output size.
         'dim' is the hidden state size.
         Set 'dim' == 'projection_dim' to skip a projection layer.
-<<<<<<< HEAD
-    '''
-=======
     """
->>>>>>> dev
     def __init__(self, options, is_training):
         self.options = options
         self.is_training = is_training
@@ -90,13 +78,8 @@ class LanguageModel(object):
 
         # the input token_ids and word embeddings
         self.token_ids = tf.placeholder(DTYPE_INT,
-<<<<<<< HEAD
-                               shape=(batch_size, unroll_steps),
-                               name='token_ids')
-=======
                                         shape=(batch_size, unroll_steps),
                                         name='token_ids')
->>>>>>> dev
         # the word embeddings
         with tf.device("/cpu:0"):
             self.embedding_weights = tf.get_variable(
@@ -104,33 +87,20 @@ class LanguageModel(object):
                 dtype=DTYPE,
             )
             self.embedding = tf.nn.embedding_lookup(self.embedding_weights,
-<<<<<<< HEAD
-                                                self.token_ids)
-=======
                                                     self.token_ids)
->>>>>>> dev
 
         # if a bidirectional LM then make placeholders for reverse
         # model and embeddings
         if self.bidirectional:
             self.token_ids_reverse = tf.placeholder(DTYPE_INT,
-<<<<<<< HEAD
-                               shape=(batch_size, unroll_steps),
-                               name='token_ids_reverse')
-=======
                                                     shape=(batch_size, unroll_steps),
                                                     name='token_ids_reverse')
->>>>>>> dev
             with tf.device("/cpu:0"):
                 self.embedding_reverse = tf.nn.embedding_lookup(
                     self.embedding_weights, self.token_ids_reverse)
 
     def _build_word_char_embeddings(self):
-<<<<<<< HEAD
-        '''
-=======
         """
->>>>>>> dev
         options contains key 'char_cnn': {
 
         'n_characters': 262,
@@ -156,11 +126,7 @@ class LanguageModel(object):
         # if omitted, then no highway layers
         'n_highway': 2,
         }
-<<<<<<< HEAD
-        '''
-=======
         """
->>>>>>> dev
         batch_size = self.options['batch_size']
         unroll_steps = self.options['unroll_steps']
         projection_dim = self.options['lstm']['projection_dim']
@@ -172,14 +138,8 @@ class LanguageModel(object):
         char_embed_dim = cnn_options['embedding']['dim']
         n_chars = cnn_options['n_characters']
         if n_chars != 261:
-<<<<<<< HEAD
-            raise Exception(
-                    "Set n_characters=261 for training see the README.md"
-            )
-=======
             raise Exception("Set n_characters=261 for training see a \
                             https://github.com/allenai/bilm-tf/blob/master/README.md")
->>>>>>> dev
         if cnn_options['activation'] == 'tanh':
             activation = tf.nn.tanh
         elif cnn_options['activation'] == 'relu':
@@ -187,32 +147,6 @@ class LanguageModel(object):
 
         # the input character ids
         self.tokens_characters = tf.placeholder(DTYPE_INT,
-<<<<<<< HEAD
-                                   shape=(batch_size, unroll_steps, max_chars),
-                                   name='tokens_characters')
-        # the character embeddings
-        with tf.device("/cpu:0"):
-            self.embedding_weights = tf.get_variable(
-                    "char_embed", [n_chars, char_embed_dim],
-                    dtype=DTYPE,
-                    initializer=tf.random_uniform_initializer(-1.0, 1.0)
-            )
-            # shape (batch_size, unroll_steps, max_chars, embed_dim)
-            self.char_embedding = tf.nn.embedding_lookup(self.embedding_weights,
-                                                    self.tokens_characters)
-
-            if self.bidirectional:
-                self.tokens_characters_reverse = tf.placeholder(DTYPE_INT,
-                                   shape=(batch_size, unroll_steps, max_chars),
-                                   name='tokens_characters_reverse')
-                self.char_embedding_reverse = tf.nn.embedding_lookup(
-                    self.embedding_weights, self.tokens_characters_reverse)
-
-
-        # the convolutions
-        def make_convolutions(inp, reuse):
-            with tf.variable_scope('CNN', reuse=reuse) as scope:
-=======
                                                 shape=(batch_size, unroll_steps, max_chars),
                                                 name='tokens_characters')
         # the character embeddings
@@ -234,23 +168,15 @@ class LanguageModel(object):
         # the convolutions
         def make_convolutions(inp, reuse):
             with tf.variable_scope('CNN', reuse=reuse):
->>>>>>> dev
                 convolutions = []
                 for i, (width, num) in enumerate(filters):
                     if cnn_options['activation'] == 'relu':
                         # He initialization for ReLU activation
                         # with char embeddings init between -1 and 1
-<<<<<<< HEAD
-                        #w_init = tf.random_normal_initializer(
-                        #    mean=0.0,
-                        #    stddev=np.sqrt(2.0 / (width * char_embed_dim))
-                        #)
-=======
                         # w_init = tf.random_normal_initializer(
                         #    mean=0.0,
                         #    stddev=np.sqrt(2.0 / (width * char_embed_dim))
                         # )
->>>>>>> dev
 
                         # Kim et al 2015, +/- 0.05
                         w_init = tf.random_uniform_initializer(
@@ -270,23 +196,12 @@ class LanguageModel(object):
                         "b_cnn_%s" % i, [num], dtype=DTYPE,
                         initializer=tf.constant_initializer(0.0))
 
-<<<<<<< HEAD
-                    conv = tf.nn.conv2d(
-                            inp, w,
-                            strides=[1, 1, 1, 1],
-                            padding="VALID") + b
-                    # now max pool
-                    conv = tf.nn.max_pool(
-                            conv, [1, 1, max_chars-width+1, 1],
-                            [1, 1, 1, 1], 'VALID')
-=======
                     conv = tf.nn.conv2d(inp, w,
                                         strides=[1, 1, 1, 1],
                                         padding="VALID") + b
                     # now max pool
                     conv = tf.nn.max_pool(conv, [1, 1, max_chars - width + 1, 1],
                                           [1, 1, 1, 1], 'VALID')
->>>>>>> dev
 
                     # activation
                     conv = activation(conv)
@@ -317,20 +232,12 @@ class LanguageModel(object):
             embedding = tf.reshape(embedding, [-1, n_filters])
             if self.bidirectional:
                 embedding_reverse = tf.reshape(embedding_reverse,
-<<<<<<< HEAD
-                    [-1, n_filters])
-=======
                                                [-1, n_filters])
->>>>>>> dev
 
         # set up weights for projection
         if use_proj:
             assert n_filters > projection_dim
-<<<<<<< HEAD
-            with tf.variable_scope('CNN_proj') as scope:
-=======
             with tf.variable_scope('CNN_proj'):
->>>>>>> dev
                 W_proj_cnn = tf.get_variable(
                     "W_proj", [n_filters, projection_dim],
                     initializer=tf.random_normal_initializer(
@@ -351,11 +258,7 @@ class LanguageModel(object):
             highway_dim = n_filters
 
             for i in range(n_highway):
-<<<<<<< HEAD
-                with tf.variable_scope('CNN_high_%s' % i) as scope:
-=======
                 with tf.variable_scope('CNN_high_%s' % i):
->>>>>>> dev
                     W_carry = tf.get_variable(
                         'W_carry', [highway_dim, highway_dim],
                         # glorit init
@@ -382,15 +285,8 @@ class LanguageModel(object):
                     embedding_reverse = high(embedding_reverse,
                                              W_carry, b_carry,
                                              W_transform, b_transform)
-<<<<<<< HEAD
-                self.token_embedding_layers.append(
-                    tf.reshape(embedding,
-                        [batch_size, unroll_steps, highway_dim])
-                )
-=======
                 self.token_embedding_layers.append(tf.reshape(embedding,
                                                    [batch_size, unroll_steps, highway_dim]))
->>>>>>> dev
 
         # finally project down to projection dim if needed
         if use_proj:
@@ -399,12 +295,7 @@ class LanguageModel(object):
                 embedding_reverse = tf.matmul(embedding_reverse, W_proj_cnn) \
                     + b_proj_cnn
             self.token_embedding_layers.append(
-<<<<<<< HEAD
-                tf.reshape(embedding,
-                        [batch_size, unroll_steps, projection_dim])
-=======
                 tf.reshape(embedding, [batch_size, unroll_steps, projection_dim])
->>>>>>> dev
             )
 
         # reshape back to (batch_size, tokens, dim)
@@ -421,13 +312,7 @@ class LanguageModel(object):
 
     def _build(self):
         # size of input options
-<<<<<<< HEAD
-        n_tokens_vocab = self.options['n_tokens_vocab']
         batch_size = self.options['batch_size']
-        unroll_steps = self.options['unroll_steps']
-=======
-        batch_size = self.options['batch_size']
->>>>>>> dev
 
         # LSTM options
         lstm_dim = self.options['lstm']['dim']
@@ -457,14 +342,7 @@ class LanguageModel(object):
         cell_clip = self.options['lstm'].get('cell_clip')
         proj_clip = self.options['lstm'].get('proj_clip')
 
-<<<<<<< HEAD
-        use_skip_connections = self.options['lstm'].get(
-                                            'use_skip_connections')
-        if use_skip_connections:
-            print("USING SKIP CONNECTIONS")
-=======
         use_skip_connections = self.options['lstm'].get('use_skip_connections')
->>>>>>> dev
 
         lstm_outputs = []
         for lstm_num, lstm_input in enumerate(lstm_inputs):
@@ -525,36 +403,21 @@ class LanguageModel(object):
                 tf.stack(_lstm_output_unpacked, axis=1), [-1, projection_dim])
             if self.is_training:
                 # add dropout to output
-<<<<<<< HEAD
-                lstm_output_flat = tf.nn.dropout(lstm_output_flat,
-                    keep_prob)
-            tf.add_to_collection('lstm_output_embeddings',
-                _lstm_output_unpacked)
-=======
                 lstm_output_flat = tf.nn.dropout(lstm_output_flat, keep_prob)
             tf.add_to_collection('lstm_output_embeddings', _lstm_output_unpacked)
->>>>>>> dev
 
             lstm_outputs.append(lstm_output_flat)
 
         self._build_loss(lstm_outputs)
 
     def _build_loss(self, lstm_outputs):
-<<<<<<< HEAD
-        '''
-=======
         """
->>>>>>> dev
         Create:
             self.total_loss: total loss op for training
             self.softmax_W, softmax_b: the softmax variables
             self.next_token_id / _reverse: placeholders for gold input
 
-<<<<<<< HEAD
-        '''
-=======
         """
->>>>>>> dev
         batch_size = self.options['batch_size']
         unroll_steps = self.options['unroll_steps']
 
@@ -564,13 +427,8 @@ class LanguageModel(object):
         def _get_next_token_placeholders(suffix):
             name = 'next_token_id' + suffix
             id_placeholder = tf.placeholder(DTYPE_INT,
-<<<<<<< HEAD
-                                   shape=(batch_size, unroll_steps),
-                                   name=name)
-=======
                                             shape=(batch_size, unroll_steps),
                                             name=name)
->>>>>>> dev
             return id_placeholder
 
         # get the window and weight placeholders
@@ -591,12 +449,7 @@ class LanguageModel(object):
 
         with tf.variable_scope('softmax'), tf.device('/cpu:0'):
             # Glorit init (std=(1.0 / sqrt(fan_in))
-<<<<<<< HEAD
-            softmax_init = tf.random_normal_initializer(0.0,
-                1.0 / np.sqrt(softmax_dim))
-=======
             softmax_init = tf.random_normal_initializer(0.0, 1.0 / np.sqrt(softmax_dim))
->>>>>>> dev
             if not self.share_embedding_softmax:
                 self.softmax_W = tf.get_variable(
                     'W', [n_tokens_vocab, softmax_dim],
@@ -611,12 +464,7 @@ class LanguageModel(object):
         # now calculate losses
         # loss for each direction of the LSTM
         self.individual_train_losses = []
-<<<<<<< HEAD
-        self.individual_valid_losses = []
-        self.individual_output_softmaxes = []
-=======
         self.individual_eval_losses = []
->>>>>>> dev
 
         if self.bidirectional:
             next_ids = [self.next_token_id, self.next_token_id_reverse]
@@ -630,20 +478,11 @@ class LanguageModel(object):
             next_token_id_flat = tf.reshape(id_placeholder, [-1, 1])
 
             with tf.control_dependencies([lstm_output_flat]):
-<<<<<<< HEAD
-                sampled_losses = tf.nn.sampled_softmax_loss(
-                                self.softmax_W, self.softmax_b,
-                                next_token_id_flat, lstm_output_flat,
-                                self.options['n_negative_samples_batch'],
-                                self.options['n_tokens_vocab'],
-                                num_true=1)
-=======
                 sampled_losses = tf.nn.sampled_softmax_loss(self.softmax_W, self.softmax_b,
                                                             next_token_id_flat, lstm_output_flat,
                                                             self.options['n_negative_samples_batch'],
                                                             self.options['n_tokens_vocab'],
                                                             num_true=1)
->>>>>>> dev
 
                 # get the full softmax loss
                 output_scores = tf.matmul(
@@ -657,23 +496,6 @@ class LanguageModel(object):
                     logits=output_scores,
                     labels=tf.squeeze(next_token_id_flat, squeeze_dims=[1])
                 )
-<<<<<<< HEAD
-
-            self.individual_train_losses.append(tf.reduce_mean(sampled_losses))
-            self.individual_valid_losses.append(tf.reduce_mean(losses))
-            self.individual_output_softmaxes.append(tf.nn.softmax(output_scores))
-            
-
-        # now make the total loss -- it's the train of the individual losses
-        if self.bidirectional:
-            self.total_train_loss = 0.5 * (self.individual_train_losses[0]
-                                    + self.individual_train_losses[1])
-            self.total_valid_loss = 0.5 * (self.individual_valid_losses[0]
-                                    + self.individual_valid_losses[1])
-        else:
-            self.total_train_loss = self.individual_train_losses[0]
-            self.total_valid_loss = self.individual_valid_losses[0]
-=======
             sampled_losses = tf.reshape(sampled_losses, [self.options['batch_size'], -1])
             losses = tf.reshape(losses, [self.options['batch_size'], -1])
             self.individual_train_losses.append(tf.reduce_mean(sampled_losses, axis=1))
@@ -686,4 +508,3 @@ class LanguageModel(object):
         else:
             self.total_train_loss = self.individual_train_losses[0]
             self.total_eval_loss = self.individual_eval_losses[0]
->>>>>>> dev

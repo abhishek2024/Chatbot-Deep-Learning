@@ -1,10 +1,6 @@
 # originally based on https://github.com/allenai/bilm-tf/blob/master/bilm/training.py
 
-<<<<<<< HEAD
-# Copyright 2017 Neural Networks and Deep Learning lab, MIPT
-=======
 # Modifications copyright 2017 Neural Networks and Deep Learning lab, MIPT
->>>>>>> dev
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,31 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-<<<<<<< HEAD
-
-import os
-import time
-import json
-import re
-
-import tensorflow as tf
-import numpy as np
-
-from deeppavlov.models.elmo.bilm_model import LanguageModel
-
-DTYPE = 'float32'
-
-tf.logging.set_verbosity(tf.logging.INFO)
-
-
-def print_variable_summary():
-    import pprint
-    variables = sorted([[v.name, v.get_shape()] for v in tf.global_variables()])
-    pprint.pprint(variables)
-
-
-
-=======
 import re
 
 import tensorflow as tf
@@ -53,7 +24,6 @@ from deeppavlov.models.elmo.bilm_model import LanguageModel
 tf.logging.set_verbosity(tf.logging.INFO)
 
 
->>>>>>> dev
 def average_gradients(tower_grads, batch_size, options):
     # calculate average gradient for each shared variable across all GPUs
     average_grads = []
@@ -112,11 +82,7 @@ def average_gradients(tower_grads, batch_size, options):
 
 
 def summary_gradient_updates(grads, opt, lr):
-<<<<<<< HEAD
-    '''get summary ops for the magnitude of gradient updates'''
-=======
     """get summary ops for the magnitude of gradient updates"""
->>>>>>> dev
 
     # strategy:
     # make a dict of variable name -> [variable, grad, adagrad slot]
@@ -136,37 +102,21 @@ def summary_gradient_updates(grads, opt, lr):
 
         if isinstance(g, tf.IndexedSlices):
             # a sparse gradient - only take norm of params that are updated
-<<<<<<< HEAD
-            values = tf.gather(v, g.indices)
-=======
->>>>>>> dev
             updates = lr * g.values
             if a is not None:
                 updates /= tf.sqrt(tf.gather(a, g.indices))
         else:
-<<<<<<< HEAD
-            values = v
-=======
->>>>>>> dev
             updates = lr * g
             if a is not None:
                 updates /= tf.sqrt(a)
 
         values_norm = tf.sqrt(tf.reduce_sum(v * v)) + 1.0e-7
         updates_norm = tf.sqrt(tf.reduce_sum(updates * updates))
-<<<<<<< HEAD
-        ret.append(
-                tf.summary.scalar('UPDATE/' + vname.replace(":", "_"), updates_norm / values_norm))
-
-    return ret
-
-=======
         ret.append(tf.summary.scalar('UPDATE/' + vname.replace(":", "_"), updates_norm / values_norm))
 
     return ret
 
 
->>>>>>> dev
 def _deduplicate_indexed_slices(values, indices):
     """Sums `values` associated with any non-unique `indices`.
     Args:
@@ -179,22 +129,12 @@ def _deduplicate_indexed_slices(values, indices):
       `values` slices associated with each unique index.
     """
     unique_indices, new_index_positions = tf.unique(indices)
-<<<<<<< HEAD
-    summed_values = tf.unsorted_segment_sum(
-      values, new_index_positions,
-      tf.shape(unique_indices)[0])
-    return (summed_values, unique_indices)
-
-
-
-=======
     summed_values = tf.unsorted_segment_sum(values,
                                             new_index_positions,
                                             tf.shape(unique_indices)[0])
     return (summed_values, unique_indices)
 
 
->>>>>>> dev
 def clip_by_global_norm_summary(t_list, clip_norm, norm_name, variables):
     # wrapper around tf.clip_by_global_norm that also does summary ops of norms
 
@@ -249,8 +189,6 @@ def clip_grads(grads, options, do_summaries, global_step):
     assert len(ret) == len(grads)
 
     return ret, summary_ops
-<<<<<<< HEAD
-=======
 
 
 def safely_str2int(in_str: str):
@@ -304,4 +242,3 @@ def dump_weights(tf_save_dir, outfile, options):
                     dset = fout.create_dataset(outname, shape, dtype='float32')
                     values = sess.run([v])[0]
                     dset[...] = values
->>>>>>> dev
