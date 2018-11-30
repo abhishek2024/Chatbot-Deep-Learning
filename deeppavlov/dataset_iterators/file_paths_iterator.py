@@ -12,15 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+<<<<<<< HEAD
 
 from typing import List, Tuple, Iterator, Optional
 from  collections import deque
+=======
+from typing import Tuple, Iterator, Optional, Dict, List, Union
+from pathlib import Path
+>>>>>>> dev
 
 import numpy as np
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.data_learning_iterator import DataLearningIterator
 from deeppavlov.core.common.log import get_logger
+<<<<<<< HEAD
 
 
 log = get_logger(__name__)
@@ -28,12 +34,24 @@ log = get_logger(__name__)
 @register('file_paths_iterator')
 class FilePathsIterator(DataLearningIterator):
     """Dataset iterator for datasetes like 1 Billion Word Benchmark
+=======
+from deeppavlov.core.data.utils import chunk_generator
+
+log = get_logger(__name__)
+
+
+@register('file_paths_iterator')
+class FilePathsIterator(DataLearningIterator):
+    """Dataset iterator for datasets like 1 Billion Word Benchmark.
+    It gets lists of file paths from the data dictionary and returns lines from each file.
+>>>>>>> dev
 
     Args:
         data: dict with keys ``'train'``, ``'valid'`` and ``'test'`` and values
         seed: random seed for data shuffling
         shuffle: whether to shuffle data during batching
 
+<<<<<<< HEAD
     Attributes:
         shuffle: whether to shuffle data during batching
         random: instance of ``Random`` initialized with a seed
@@ -41,6 +59,12 @@ class FilePathsIterator(DataLearningIterator):
 
     def __init__(self, 
                  data: dict, 
+=======
+    """
+
+    def __init__(self,
+                 data: Dict[str, List[Union[str, Path]]],
+>>>>>>> dev
                  seed: Optional[int] = None, 
                  shuffle: bool = True,
                  *args, **kwargs) -> None:
@@ -48,6 +72,7 @@ class FilePathsIterator(DataLearningIterator):
         self.np_random = np.random.RandomState(seed)
         super().__init__(data, seed, shuffle, *args, **kwargs)
 
+<<<<<<< HEAD
     @staticmethod
     def _chunk_generator(items_list, chunk_size):
         for i in range(0, len(items_list), chunk_size):
@@ -68,15 +93,41 @@ class FilePathsIterator(DataLearningIterator):
             
     def gen_batches(self, batch_size: int, data_type: str = 'train', shuffle: bool = None)\
             -> Iterator[Tuple[str,str]]:
+=======
+    def _shard_generator(self, shards: List[Union[str, Path]], shuffle: bool = False) -> List[str]:
+        shards_to_choose = list(shards)
+        if shuffle:
+            self.np_random.shuffle(shards_to_choose)
+        for shard in shards_to_choose:
+            log.info(f'Loaded shard from {shard}')
+            with open(shard, encoding='utf-8') as f:
+                lines = f.readlines()
+            if shuffle:
+                self.np_random.shuffle(lines)
+            yield lines
+
+    def gen_batches(self, batch_size: int, data_type: str = 'train', shuffle: Optional[bool] = None)\
+            -> Iterator[Tuple[str, str]]:
+>>>>>>> dev
         if shuffle is None:
             shuffle = self.shuffle
 
         tgt_data = self.data[data_type]
+<<<<<<< HEAD
         shard_generator = self._shard_generator(tgt_data, shuffle = False, random = self.np_random)
+=======
+        shard_generator = self._shard_generator(tgt_data, shuffle=shuffle)
+>>>>>>> dev
 
         for shard in shard_generator:
             if not (batch_size):
                 bs = len(shard)
+<<<<<<< HEAD
             lines_generator = self._chunk_generator(shard, bs)
             for lines in lines_generator:
                 yield (lines, [])
+=======
+            lines_generator = chunk_generator(shard, bs)
+            for lines in lines_generator:
+                yield (lines, [None] * len(lines))
+>>>>>>> dev

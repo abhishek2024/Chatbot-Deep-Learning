@@ -24,7 +24,7 @@ from overrides import overrides
 from deeppavlov.core.commands.utils import expand_path
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.common.registry import register
-from deeppavlov.core.data.utils import zero_pad
+from deeppavlov.core.data.utils import zero_pad, chunk_generator
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.models.tf_backend import TfModelMeta
 
@@ -59,6 +59,20 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
         max_token: The number limitation of words per a batch line.
         mini_batch_size: It is used to reduce the memory requirements of the device.
 
+
+    If some required packages are missing, install all the requirements by running in command line:
+
+    .. code:: bash
+
+        python -m deeppavlov install <path_to_config>
+
+    where ``<path_to_config>`` is a path to one of the :config:`provided config files <elmo_embedder>`
+    or its name without an extension, for example :
+
+    .. code:: bash
+
+        python -m deeppavlov install elmo_ru-news
+        
     Examples:
         >>> from deeppavlov.models.embedders.elmo_embedder import ELMoEmbedder
         >>> elmo = ELMoEmbedder("http://files.deeppavlov.ai/deeppavlov_data/elmo_ru-news_wmt11-16_1.5M_steps.tar.gz")
@@ -118,8 +132,10 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
 
 
     """
-    def __init__(self, spec: str, elmo_output_names: Optional[List] = None, dim: Optional[int] = None, pad_zero: bool = False,
-                 concat_last_axis: bool = True, max_token: Optional[int] = None, mini_batch_size: int = 32, **kwargs) -> None:
+    def __init__(self, spec: str, elmo_output_names: Optional[List] = None,
+                 dim: Optional[int] = None, pad_zero: bool = False,
+                 concat_last_axis: bool = True, max_token: Optional[int] = None,
+                 mini_batch_size: int = 32, **kwargs) -> None:
 
         self.spec = spec if '://' in spec else str(expand_path(spec))
 
@@ -133,7 +149,7 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
         elmo_output_names_set = set(self.elmo_output_names)
         if elmo_output_names_set - set(self.elmo_output_dims.keys()):
             log.error(f'Incorrect elmo_output_names = {elmo_output_names} . You can use either  ["default"] or some of'\
-                       '["word_emb", "lstm_outputs1", "lstm_outputs2","elmo"]')
+                      '["word_emb", "lstm_outputs1", "lstm_outputs2","elmo"]')
             sys.exit(1)
 
         if elmo_output_names_set - set(['default']) and elmo_output_names_set - set(["word_emb", "lstm_outputs1",
@@ -214,7 +230,7 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
         return batch, tokens_length
 
     def _mini_batch_fit(self, batch: List[List[str]],
-                 *args, **kwargs) -> Union[List[np.ndarray], np.ndarray]:
+                        *args, **kwargs) -> Union[List[np.ndarray], np.ndarray]:
         """
         Embed sentences from a batch.
 
@@ -246,7 +262,7 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
                 elmo_output_values = np.resize(elmo_output_values, shape)
 
             elmo_output_values = [elmo_output_values_line[:length_line]
-                            for length_line, elmo_output_values_line in zip(tokens_length, elmo_output_values)]
+                                  for length_line, elmo_output_values_line in zip(tokens_length, elmo_output_values)]
 
             if self.pad_zero:
                 elmo_output_values = zero_pad(elmo_output_values)
@@ -254,16 +270,10 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
             if not self.concat_last_axis:
                 slice_indexes = np.cumsum(self.dim).tolist()[:-1]
                 elmo_output_values = [[np.array_split(vec, slice_indexes) for vec in tokens]
-                                        for tokens in elmo_output_values]
-
+                                      for tokens in elmo_output_values]
 
         return elmo_output_values
 
-
-    @staticmethod
-    def chunk_generator(items_list, chunk_size):
-        for i in range(0, len(items_list), chunk_size):
-                        yield items_list[i:i + chunk_size]
     @overrides
     def __call__(self, batch: List[List[str]],
                  *args, **kwargs) -> Union[List[np.ndarray], np.ndarray]:
@@ -277,14 +287,13 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
             A batch of ELMo embeddings.
         """
         if len(batch) > self.mini_batch_size:
-            batch_gen = self.chunk_generator(batch, self.mini_batch_size)
+            batch_gen = chunk_generator(batch, self.mini_batch_size)
             elmo_output_values = []
             for mini_batch in batch_gen:
                 mini_batch_out = self._mini_batch_fit(mini_batch, *args, **kwargs)
                 elmo_output_values.extend(mini_batch_out)
         else:
             elmo_output_values = self._mini_batch_fit(batch, *args, **kwargs)
-
 
         return elmo_output_values
 
@@ -298,7 +307,6 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
         """
 
         yield from ['<S>', '</S>', '<UNK>']
-
 
     def destroy(self):
         self.sess.close()

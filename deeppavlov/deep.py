@@ -15,8 +15,6 @@ limitations under the License.
 """
 
 import argparse
-from pathlib import Path
-import os
 
 from deeppavlov.core.commands.train import train_evaluate_model_from_config
 from deeppavlov.core.commands.infer import interact_model, predict_on_stream
@@ -40,7 +38,13 @@ parser.add_argument("mode", help="select a mode, train or interact", type=str,
                              'riseapi', 'download', 'install', 'crossval'})
 parser.add_argument("config_path", help="path to a pipeline json config", type=str)
 
+<<<<<<< HEAD
 parser.add_argument("-e", "--start-epoch-num", dest="start_epoch_num", default=0, help="start epoch number", type=int)
+=======
+parser.add_argument("-e", "--start-epoch-num", dest="start_epoch_num", default=0, help="Start epoch number", type=int)
+parser.add_argument("--recursive", action="store_true", help="Train nested configs")
+
+>>>>>>> dev
 parser.add_argument("-b", "--batch-size", dest="batch_size", default=1, help="inference batch size", type=int)
 parser.add_argument("-f", "--input-file", dest="file_path", default=None, help="Path to the input file", type=str)
 parser.add_argument("-d", "--download", action="store_true", help="download model components")
@@ -74,10 +78,20 @@ def main():
     multi_instance = args.multi_instance
     stateful = args.stateful
 
+    start_epoch_num = args.start_epoch_num
+
     if args.mode == 'train':
+<<<<<<< HEAD
         train_evaluate_model_from_config(pipeline_config_path, start_epoch_num = start_epoch_num)
     elif args.mode == 'evaluate':
         train_evaluate_model_from_config(pipeline_config_path, to_train=False, to_validate=False, start_epoch_num = start_epoch_num)
+=======
+        train_evaluate_model_from_config(pipeline_config_path, recursive=args.recursive, 
+                                         start_epoch_num=start_epoch_num)
+    elif args.mode == 'evaluate':
+        train_evaluate_model_from_config(pipeline_config_path, to_train=False, to_validate=False,
+                                         start_epoch_num=start_epoch_num)
+>>>>>>> dev
     elif args.mode == 'interact':
         interact_model(pipeline_config_path)
     elif args.mode == 'interactbot':
@@ -86,7 +100,7 @@ def main():
     elif args.mode == 'interactmsbot':
         ms_id = args.ms_id
         ms_secret = args.ms_secret
-        run_ms_bf_default_agent(model_config_path=pipeline_config_path,
+        run_ms_bf_default_agent(model_config=pipeline_config_path,
                                 app_id=ms_id,
                                 app_secret=ms_secret,
                                 multi_instance=multi_instance,
@@ -109,7 +123,7 @@ def main():
             log.error('Minimum number of Folds is 2')
         else:
             n_folds = args.folds
-            calc_cv_score(pipeline_config_path=pipeline_config_path, n_folds=n_folds, is_loo=False)
+            calc_cv_score(pipeline_config_path, n_folds=n_folds, is_loo=False)
 
 
 if __name__ == "__main__":

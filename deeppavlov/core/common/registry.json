@@ -22,8 +22,12 @@
   "dstc2_ner_iterator": "deeppavlov.dataset_iterators.dstc2_ner_iterator:Dstc2NerDatasetIterator",
   "dstc2_reader": "deeppavlov.dataset_readers.dstc2_reader:DSTC2DatasetReader",
   "dstc_slotfilling": "deeppavlov.models.slotfill.slotfill:DstcSlotFillingNetwork",
-  "ecommerce_bot": "deeppavlov.skills.ecommerce_bot.bot:EcommerceBot",
   "ecommerce_preprocess": "deeppavlov.models.preprocessors.ecommerce_preprocess:EcommercePreprocess",
+<<<<<<< HEAD
+=======
+  "ecommerce_skill_bleu": "deeppavlov.skills.ecommerce_skill.bleu_retrieve:EcommerceSkillBleu",
+  "ecommerce_skill_tfidf": "deeppavlov.skills.ecommerce_skill.tfidf_retrieve:EcommerceSkillTfidf",
+>>>>>>> dev
   "elmo_embedder": "deeppavlov.models.embedders.elmo_embedder:ELMoEmbedder",
   "elmo_file_paths_iterator": "deeppavlov.dataset_iterators.elmo_file_paths_iterator:ELMoFilePathsIterator",
   "elmo_model": "deeppavlov.models.elmo.elmo:ELMo",
@@ -33,7 +37,10 @@
   "featurized_tracker": "deeppavlov.models.go_bot.tracker:FeaturizedTracker",
   "file_paths_iterator": "deeppavlov.dataset_iterators.file_paths_iterator:FilePathsIterator",
   "file_paths_reader": "deeppavlov.dataset_readers.file_paths_reader:FilePathsReader",
+<<<<<<< HEAD
   "freq_drop_load_vocab": "deeppavlov.core.data.simple_vocab:FrequencyDropLoadVocabulary",
+=======
+>>>>>>> dev
   "glove": "deeppavlov.models.embedders.glove_embedder:GloVeEmbedder",
   "go_bot": "deeppavlov.models.go_bot.bot:GoalOrientedBot",
   "go_bot_rnn": "deeppavlov.models.go_bot.network:GoalOrientedBotNetwork",

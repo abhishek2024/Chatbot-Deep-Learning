@@ -6,11 +6,15 @@
     "pipe": [
       {
         "in": ["sentences"],
-        "name": "lazy_tokenizer",
+        "class_name": "lazy_tokenizer",
         "out": ["tokens"]
       },
       {
+<<<<<<< HEAD:deeppavlov/configs/elmo_embedder/elmo_en-1billion.json
         "name": "elmo_embedder",
+=======
+        "class_name": "elmo_embedder",
+>>>>>>> dev:deeppavlov/configs/elmo_embedder/elmo_en-1billion.json
         "elmo_output_names": ["lstm_outputs1", "lstm_outputs2", "word_emb"],
         "mini_batch_size": 32,
         "in": [
@@ -27,9 +31,14 @@
     ]
   },
   "metadata": {
+    "variables": {
+      "ROOT_PATH": "~/.deeppavlov",
+      "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
+      "MODELS_PATH": "{ROOT_PATH}/models"
+    },
     "requirements": [
-      "../dp_requirements/tf.txt",
-      "../dp_requirements/elmo.txt"
+      "{DEEPPAVLOV_PATH}/requirements/tf.txt",
+      "{DEEPPAVLOV_PATH}/requirements/tf-hub.txt"
     ]
   }
 }
