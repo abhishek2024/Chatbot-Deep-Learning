@@ -44,7 +44,7 @@ import deeppavlov.dataset_iterators.sqlite_iterator
 #import deeppavlov.models.classifiers.intents.intent_model
 import deeppavlov.models.supplementary.sentence_splitter
 import deeppavlov.models.supplementary.query_paragraph_tuplifier
-import deeppavlov.models.supplementary.rank_doc_score_tuplifier
+import deeppavlov.models.supplementary.args_tuplifier
 # import deeppavlov.models.supplementary.convert_table_names_to_int
 import deeppavlov.models.commutators.random_commutator
 import deeppavlov.models.embedders.fasttext_embedder

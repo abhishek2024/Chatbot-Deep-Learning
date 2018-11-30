@@ -10,7 +10,7 @@
       "question_raw"
     ],
     "out": [
-      "rank_text_score_id"
+      "rank_text_score_id_title"
     ],
     "pipe": [
       {
@@ -88,7 +88,7 @@
         "load_path": "odqa/enwiki.db"
       },
       {
-        "name": "rank_doc_score_tuplifier",
+        "name": "args_tuplifier",
         "in": [
           "context_raw",
           "doc_scores",
@@ -96,7 +96,7 @@
           "title_scores"
         ],
         "out": [
-          "rank_text_score_id"
+          "rank_text_score_id_title"
         ]
       }
     ]

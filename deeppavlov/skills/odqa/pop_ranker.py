@@ -47,21 +47,53 @@ class PopRanker(Component):
         """
         TFIDF_SCORE_IDX = 2
         TITLE_IDX = 3
-        TITLE_SCORE_IDX = 4
-        CLF_PROBA_IDX = 5
+        CLF_PROBA_IDX = 4
         reranked = copy.deepcopy(rank_text_score_id)
         for ra_list in reranked:
             for j in range(len(ra_list)):
                 pop = self.pop_dict[ra_list[j][TITLE_IDX]]
-                # ra_list[j] = tuple((*ra_list[j], pop))
+                tfidf_score = ra_list[j][TFIDF_SCORE_IDX]
+                features = [tfidf_score, pop, tfidf_score * pop]
+                prob = self.clf.predict_proba([features])
+                ra_list[j] = tuple((*ra_list[j], prob[0][1]))
 
+        for i in range(len(reranked)):
+            reranked[i] = sorted(reranked[i], key=itemgetter(CLF_PROBA_IDX, TFIDF_SCORE_IDX), reverse=True)
+            if self.active:
+                reranked[i] = reranked[i][:self.top_n]
+
+        return reranked
+
+
+@register("pop_title_ranker")
+class PopTitleRanker(Component):
+    """Get documents as input and output smaller number of the best documents according to their popularity.
+    """
+
+    def __init__(self, pop_dict_path: str, load_path: str, top_n: int = 3, active: bool = True, **kwargs):
+        logger.info(f"Reading popularity dictionary from {pop_dict_path}")
+        self.pop_dict = read_json(pop_dict_path)
+        logger.info(f"Loading popularity ranker from {load_path}")
+        self.clf = joblib.load(load_path)
+        self.top_n = top_n
+        self.active = active
+
+    def __call__(self, rank_text_score_id_title):
+        """
+        Get tfidf scores and article titles, output smaller number of best articles.
+        """
+        TFIDF_SCORE_IDX = 2
+        TITLE_IDX = 3
+        TITLE_SCORE_IDX = 4
+        CLF_PROBA_IDX = 5
+        reranked = copy.deepcopy(rank_text_score_id_title)
+        for ra_list in reranked:
+            for j in range(len(ra_list)):
+                pop = self.pop_dict[ra_list[j][TITLE_IDX]]
                 tfidf_score = ra_list[j][TFIDF_SCORE_IDX]
                 title_score = ra_list[j][TITLE_SCORE_IDX]
                 features = [tfidf_score, pop, tfidf_score * pop, tfidf_score * title_score, title_score * pop]
-                # X = df.as_matrix(columns=['Article tfidf score', 'Article popularity', 'tfidf_pop_mul',
-                #                           'text_title_mul', 'title_pop_mul'])
                 prob = self.clf.predict_proba([features])
-                # ra_list[j].append(prob[0][1])
                 ra_list[j] = tuple((*ra_list[j], prob[0][1]))
 
         for i in range(len(reranked)):

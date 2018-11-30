@@ -13,33 +13,37 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from typing import List, Any
+from typing import Optional
 from operator import itemgetter
-
-import numpy as np
 
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.registry import register
 
 
-@register("rank_doc_score_tuplifier")
-class RankDocScoreIdTuplifier(Component):
+@register("args_tuplifier")
+class ArgsTuplifier(Component):
 
-    def __init__(self, sort_result=False, *args, **kwargs):
+    def __init__(self, sort_result=False, sort_key: Optional[int] = None, *args, **kwargs):
         self.sort_result = sort_result
+        self.sort_key = sort_key
 
-    def __call__(self, docs: List[List[str]], scores: List[np.array], ids: List[Any], title_scores: List[np.array],
-                 *args, **kwargs):
+        if self.sort_result and self.sort_key is None:
+            raise RuntimeError(f'{self.__class__.__name__} sort_result set to True, but sort_key is not provided.')
+
+    def __call__(self, *args, **kwargs):
+
         all_results = []
-        for triple in zip(docs, scores, ids, title_scores):
-            tuples = list(zip(triple[0], triple[1], triple[2], triple[3]))
+
+        for zipped in zip(*args):
+            tuples = list(zip(*zipped))
             if self.sort_result:
-                tuples.sort(key=itemgetter(1), reverse=True)
+                tuples.sort(key=itemgetter(self.sort_key), reverse=True)
             result = []
             for i, item in enumerate(tuples, 1):
                 item = list(item)
-                item.insert(0, i)
+                item.insert(0, i)  # numerate tuples
                 item = tuple(item)
                 result.append(item)
             all_results.append(result)
+
         return all_results
