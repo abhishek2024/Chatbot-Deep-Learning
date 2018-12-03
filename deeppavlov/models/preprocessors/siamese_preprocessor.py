@@ -108,7 +108,7 @@ class SiamesePreprocessor(Estimator):
             else:
                 x_preproc = [[el] for el in x]
         else:
-            x_preproc = [el[:self.num_context_turns+self.num_ranking_samples] for el in x]
+            x_preproc = [el[:self.num_context_turns + self.num_ranking_samples] for el in x]
         for el in x_preproc:
             x_tok = self.tokenizer(el)
             x_ctok = [y if len(y) != 0 else [''] for y in x_tok]

@@ -58,7 +58,7 @@ class SiameseModel(NNModel):
             buf += [context + [el] for el in responses]
             if len(buf) >= self.batch_size:
                 for i in range(len(buf) // self.batch_size):
-                    b = self._make_batch(buf[i*self.batch_size:(i+1)*self.batch_size])
+                    b = self._make_batch(buf[i * self.batch_size:(i+1) * self.batch_size])
                     yp = self._predict_on_batch(b)
                     y_pred += list(yp)
                 lenb = len(buf) % self.batch_size

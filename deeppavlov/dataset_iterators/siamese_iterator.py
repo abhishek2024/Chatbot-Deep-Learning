@@ -66,12 +66,12 @@ class SiameseIterator(DataLearningIterator):
 
     def gen_batches(self, batch_size: int, data_type: str = "train", shuffle: bool = True)->\
             Tuple[List[List[Tuple[int, int]]], List[int]]:
-        """Generate batches of inputs and expected outputs to train neural networks.
+        """
 
         Args:
             batch_size: number of samples in batch
             data_type: can be either 'train', 'test', or 'valid'
-            shuffle: whether to shuffle dataset before batching
+            shuffle: whether to shuffle dataset between epochs
 
         Yields:
             A tuple of a batch of inputs and a batch of expected outputs.

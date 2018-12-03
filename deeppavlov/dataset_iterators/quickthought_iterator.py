@@ -94,6 +94,11 @@ class QuickThoughtIterator(FilePathsIterator):
         if chunk:
             yield chunk
 
+    @staticmethod
+    def _chunk_generator(items_list, chunk_size):
+        for i in range(0, len(items_list), chunk_size):
+            yield items_list[i:i + chunk_size]
+
     def _shard_generator(self, shards, shuffle):
         """
         Params:
@@ -128,5 +133,5 @@ class QuickThoughtIterator(FilePathsIterator):
                 bs = len(shard)
 
             lines_generator = chunk_generator(shard, bs)
-            for lines in lines_generator:
+            for i, lines in enumerate(lines_generator):
                 yield tuple(zip(*lines))

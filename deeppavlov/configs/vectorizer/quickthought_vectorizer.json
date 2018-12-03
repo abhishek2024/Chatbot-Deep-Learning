@@ -1,14 +1,15 @@
 {
       "dataset_reader": {
-        "name": "file_paths_reader",
-        "data_path": "/cephfs/home/lyalin/data/wikitext_ru",
-        "train": "train_shards/*",
-        "valid": "valid_small.txt"
+        "class_name": "file_paths_reader",
+        "data_path": "/data/language_modeling/wikitext_ru/sentences",
+        "train": "train_extra_small.txt",
+        "valid": "train_extra_small.txt"
       },
       "dataset_iterator": {
-        "name": "quickthought_iterator",
+        "class_name": "quickthought_iterator",
         "seed": 243,
-        "batch_size": 512
+        "batch_size": 64,
+        "shuffle": false
       },
       "chainer": {
         "in": ["x"],
@@ -16,40 +17,40 @@
         "pipe": [
           {
             "id": "preproc",
-            "name": "siamese_preprocessor",
+            "class_name": "siamese_preprocessor",
             "use_matrix": false,
-            "num_ranking_samples": 5,
+            "num_ranking_samples": 1,
             "max_sequence_length": 64,
             "in": ["x"],
             "out": ["x_proc"],
             "sent_vocab":
             {
               "id": "siam_sent_vocab",
-              "name":"simple_vocab",
+              "class_name":"simple_vocab",
               "save_path": "insurance_vocabs/sent.dict",
               "load_path": "insurance_vocabs/sent.dict"
             },
             "tokenizer":
             {
-              "name": "split_tokenizer"
+              "class_name": "split_tokenizer"
             },
             "vocab":
             {
               "id": "siam_vocab",
-              "name":"simple_vocab",
+              "class_name":"simple_vocab",
               "save_path": "insurance_vocabs/tok.dict",
               "load_path": "insurance_vocabs/tok.dict"
             },
             "embedder":
             {
               "id": "siam_embedder",
-              "name": "fasttext",
-              "load_path": "embeddings/wiki.ru.bin"
+              "class_name": "fasttext",
+              "load_path": "/data/embeddings/lenta_lower_100.bin"
             }
           },
           {
             "id": "embeddings",
-            "name": "emb_mat_assembler",
+            "class_name": "emb_mat_assembler",
             "embedder": "#siam_embedder",
             "vocab": "#siam_vocab"
           },
@@ -57,7 +58,7 @@
             "in": ["x_proc"],
             "in_y": ["y"],
             "out": ["y_predicted"],
-            "name": "bilstm_nn",
+            "class_name": "bilstm_nn",
             "len_vocab": "#siam_vocab.len",
             "use_matrix": "#preproc.use_matrix",
             "max_sequence_length": "#preproc.max_sequence_length",
@@ -72,7 +73,7 @@
             "triplet_loss": true,
             "hard_triplets": false,
             "margin": 0.1,
-            "batch_size": 512,
+            "batch_size": 64,
             "save_path": "quickthought/model_weights.h5",
             "load_path": "quickthought/model_weights.h5",
             "preprocess": "#preproc.__call__"
@@ -81,16 +82,16 @@
         "out": ["y_predicted"]
       },
       "train": {
-        "epochs": 10,
-        "batch_size": 512,
+        "epochs": 100,
+        "batch_size": 64,
         "pytest_max_batches": 2,
         "train_metrics": [],
         "metrics": ["f1", "acc", "log_loss"],
-        "validation_patience": 5,
-        "val_every_n_epochs": 1,
-        "val_every_n_batches": 100,
-        "log_every_n_batches": 100,
-        "tensorboard_log_dir": "runs"
+        "validation_patience": 0,
+        "val_every_n_epochs": 10,
+        "val_every_n_batches": 1,
+        "log_every_n_batches": 1,
+        "tensorboard_log_dir": "runs/quickthought/Dec3_9"
       },
       "metadata": {
         "requirements": [
