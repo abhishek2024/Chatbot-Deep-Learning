@@ -82,7 +82,7 @@
       },
       "train": {
         "epochs": 10,
-        "batch_size": 256,
+        "batch_size": 512,
         "pytest_max_batches": 2,
         "train_metrics": [],
         "metrics": ["f1", "acc", "log_loss"],
