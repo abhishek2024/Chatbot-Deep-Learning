@@ -2,13 +2,13 @@
       "dataset_reader": {
         "class_name": "file_paths_reader",
         "data_path": "/data/language_modeling/wikitext_ru/sentences",
-        "train": "train_extra_small.txt",
-        "valid": "train_extra_small.txt"
+        "train": "train_shards/*",
+        "valid": "valid_small.txt"
       },
       "dataset_iterator": {
         "class_name": "quickthought_iterator",
         "seed": 243,
-        "batch_size": 64,
+        "batch_size": 1024,
         "shuffle": false
       },
       "chainer": {
@@ -27,8 +27,8 @@
             {
               "id": "siam_sent_vocab",
               "class_name":"simple_vocab",
-              "save_path": "insurance_vocabs/sent.dict",
-              "load_path": "insurance_vocabs/sent.dict"
+              "save_path": "{MODEL_PATH}/vocabs/sent.dict",
+              "load_path": "{MODEL_PATH}/vocabs/sent.dict"
             },
             "tokenizer":
             {
@@ -38,8 +38,8 @@
             {
               "id": "siam_vocab",
               "class_name":"simple_vocab",
-              "save_path": "insurance_vocabs/tok.dict",
-              "load_path": "insurance_vocabs/tok.dict"
+              "save_path": "{MODEL_PATH}/vocabs/tok.dict",
+              "load_path": "{MODEL_PATH}/vocabs/tok.dict"
             },
             "embedder":
             {
@@ -70,37 +70,42 @@
             "shared_weights": true,
             "hidden_dim": 300,
             "learning_rate": 1e-3,
-            "triplet_loss": true,
+            "triplet_loss": false,
             "hard_triplets": false,
             "margin": 0.1,
-            "batch_size": 64,
-            "save_path": "quickthought/model_weights.h5",
-            "load_path": "quickthought/model_weights.h5",
+            "batch_size": 1024,
+            "save_path": "{MODEL_PATH}/model_weights.h5",
+            "load_path": "{MODEL_PATH}/model_weights.h5",
             "preprocess": "#preproc.__call__"
           }
         ],
         "out": ["y_predicted"]
       },
       "train": {
-        "epochs": 100,
-        "batch_size": 64,
+        "epochs": 10,
+        "batch_size": 1024,
         "pytest_max_batches": 2,
         "train_metrics": [],
         "metrics": ["f1", "acc", "log_loss"],
-        "validation_patience": 0,
-        "val_every_n_epochs": 10,
-        "val_every_n_batches": 1,
-        "log_every_n_batches": 1,
-        "tensorboard_log_dir": "runs/quickthought/Dec3_9"
+        "validation_patience": 100,
+        "val_every_n_epochs": 1,
+        "val_every_n_batches": 100,
+        "log_every_n_batches": 10,
+        "tensorboard_log_dir": "{MODEL_PATH}/runs/Dec4_1"
       },
       "metadata": {
+        "variables": {
+          "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
+          "MODELS_PATH": "/data/pretrained/deeppavlov_models",
+          "MODEL_PATH": "{MODELS_PATH}/quickthought_elmo"
+        },
         "requirements": [
-          "../dp_requirements/tf.txt",
-          "../dp_requirements/gensim.txt"
+          "{DEEPPAVLOV_PATH}/dp_requirements/tf.txt",
+          "{DEEPPAVLOV_PATH}/dp_requirements/gensim.txt"
         ],
         "download": [
           {
-            "url": "http://files.deeppavlov.ai/deeppavlov_data/embeddings/wiki.ru.bin",
+            "url": "http://files.deeppavlov.ai/deeppavlov_data/elmo_ru-wiki_600k_steps.tar.gz",
             "subdir": "embeddings"
           }
         ]
