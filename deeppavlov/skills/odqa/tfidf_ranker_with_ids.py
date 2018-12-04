@@ -57,8 +57,8 @@ class TfidfRankerWithIds(Component):
 
         q_tfidfs = self.vectorizer(questions)
         for ids, q in zip(batch_ids, q_tfidfs):
-            # indices = [self.vectorizer.doc_index[k] for k in ids]
-            indices = [3, 6, 8]
+            indices = [self.vectorizer.doc_index[k] for k in ids]
+            # indices = [3, 6, 8]
             t_tfidfs = np.squeeze(np.array([self.vectorizer.tfidf_matrix[:, i].toarray() for i in indices]))
             batch_docs_scores.append((q * t_tfidfs.transpose())[0])
 
