@@ -75,15 +75,19 @@ class QuickThoughtIterator(FilePathsIterator):
                     sentences_pairs.append(current_pair)
         return sentences_pairs
 
-    def _chunk_generator_valid(self, items_list, chunk_size):
-        random_valid = Random(self.valid_seed)
+    def _chunk_generator(self, items_list, chunk_size, data_type):
+        random = self.random
+        if data_type != 'train':
+            # for valid set reproducibility
+            random = Random(self.valid_seed)
+
         chunk = []
         for i in range(len(items_list)):
             (sent1, sent2), label = items_list[i]
             label = 1
-            if random_valid.random() < 0.5:
+            if random.random() < 0.5:
                 # items_list item structure: ((sent_1, sent2), label)
-                sent2 = random_valid.choice(items_list)[0][1]
+                sent2 = random.choice(items_list)[0][1]
                 label = 0
             chunk.append(((sent1, sent2), label))
 
@@ -93,11 +97,6 @@ class QuickThoughtIterator(FilePathsIterator):
                 yield chunk_to_yield
         if chunk:
             yield chunk
-
-    @staticmethod
-    def _chunk_generator(items_list, chunk_size):
-        for i in range(0, len(items_list), chunk_size):
-            yield items_list[i:i + chunk_size]
 
     def _shard_generator(self, shards, shuffle):
         """
@@ -122,16 +121,11 @@ class QuickThoughtIterator(FilePathsIterator):
         tgt_data = self.data[data_type]
         shard_generator = self._shard_generator(tgt_data, shuffle)
 
-        if data_type == 'valid':
-            chunk_generator = self._chunk_generator_valid
-        else:
-            chunk_generator = self._chunk_generator
-
         bs = batch_size
         for shard in shard_generator:
             if not batch_size:
                 bs = len(shard)
 
-            lines_generator = chunk_generator(shard, bs)
+            lines_generator = self._chunk_generator(shard, bs, data_type)
             for i, lines in enumerate(lines_generator):
                 yield tuple(zip(*lines))
