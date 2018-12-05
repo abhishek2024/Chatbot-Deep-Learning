@@ -14,29 +14,21 @@ logger = get_logger(__name__)
 @register("ensemble_ranker")
 class EnsembleRanker(Component):
 
-    def __init__(self, top_n=10, active=True, *args, **kwargs):
+    def __init__(self, ranker_keys, top_n=10, active=True, *args, **kwargs):
         self.top_n = top_n
         self.active = active
+        self.ranker_keys = ranker_keys
 
-    def __call__(self, tfidf: List[List[List[Union[Any]]]] = None,
-                 tfhub: List[List[List[Union[Any]]]] = None,
-                 rnet: List[List[List[Union[Any]]]] = None, *args, **kwargs) -> \
-            List[List[List[Union[str, int, float]]]]:
+    def __call__(self, *args) -> List[List[List[Union[str, int, float]]]]:
+
+        if len(args) != len(self.ranker_keys):
+            raise RuntimeError(f'{self.__class__.__name__} ranker_keys and input args length don\'t match:'
+                               f' {len(self.ranker_keys)} and {len(args)}')
 
         CHUNK_IDX = 3
         SCORE_IDX = 2
         FAKE_SCORE = 0.001
         NORM_THRESH = 50  # take only the first 50 results to count np.linalg.norm?
-
-        if tfidf is not None:
-            tfidf = [[list(el) for el in instance] for instance in tfidf]
-        if rnet is not None:
-            rnet = [[list(el) for el in instance] for instance in rnet]
-        if tfhub is not None:
-            tfhub = [[list(el) for el in instance] for instance in tfhub]
-
-        rankers = [r for r in [tfidf, tfhub, rnet] if r is not None]
-        num_rankers = len(rankers)
 
         def update_all_predictions(predictions, ranker_instance):
             for predicted_chunk in ranker_instance:
@@ -59,11 +51,22 @@ class EnsembleRanker(Component):
                 for pred in instance:
                     pred[SCORE_IDX] = float(pred[SCORE_IDX] / norm)
 
-        # Normalize scores from all tfidf and rnet:
-        if tfidf is not None:
-            normalize_scores(tfidf)
-        if rnet is not None:
-            normalize_scores(rnet)
+        tfidf = None
+        tfhub = None
+        rnet = None
+
+        for ranker_key, arg in zip(self.ranker_keys, args):
+            if ranker_key == 'tfidf':
+                tfidf = [[list(el) for el in instance] for instance in arg]
+                normalize_scores(tfidf)
+            elif ranker_key == 'tfhub':
+                tfhub = [[list(el) for el in instance] for instance in arg]
+            elif ranker_key == 'rnet':
+                rnet = [[list(el) for el in instance] for instance in arg]
+                normalize_scores(rnet)
+
+        rankers = [r for r in [tfidf, tfhub, rnet] if r is not None]
+        num_rankers = len(rankers)
 
         # Count average scores from all rankers
         all_data = []
@@ -73,14 +76,14 @@ class EnsembleRanker(Component):
                 item[SCORE_IDX] = [item[SCORE_IDX]]
 
             instance_predictions = copy.deepcopy(instances[0])
-            instance_data_ids = set(map(itemgetter(CHUNK_IDX), instance_predictions))
+            instance_data_ids = set(map(itemgetter(CHUNK_IDX), instance_predictions))  # only unique ids are available!
 
             for i in range(1, len(instances)):
                 update_all_predictions(instance_predictions, instances[i])
 
             for prediction in instance_predictions:
                 len_scores = len(prediction[SCORE_IDX])
-                assert len_scores <= num_rankers
+                # assert len_scores <= num_rankers
                 if len_scores < num_rankers:
                     prediction[SCORE_IDX] = np.mean(
                         prediction[SCORE_IDX] + (num_rankers - len_scores) * [FAKE_SCORE])
