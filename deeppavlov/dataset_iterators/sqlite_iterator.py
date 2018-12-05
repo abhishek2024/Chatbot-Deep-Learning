@@ -54,11 +54,8 @@ class SQLiteDataIterator(DataFittingIterator):
                 download_dir = expand_path(Path(self.data_dir))
                 download_path = download_dir.joinpath(load_path.split("/")[-1])
                 download(download_path, load_path, force_download=False)
-            # elif expand_path(load_path).is_file():
-            #     download_path = expand_path(load_path)
             else:
                 download_path = expand_path(load_path)
-                logger.warn("{} load_path yet doesn't exist".format(self.__class__.__name__))
         else:
             raise ValueError('String path expected, got None.')
 
