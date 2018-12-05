@@ -1,0 +1,179 @@
+{
+  "chainer": {
+    "in": [
+      "question_raw"
+    ],
+    "out": [
+      "best_answer"
+    ],
+    "pipe": [
+      {
+        "config_path": "../deeppavlov/configs/odqa/en_ranker_tfidf_wiki.json",
+        "in": [
+          "question_raw"
+        ],
+        "out": [
+          "rank_text_score_id"
+        ]
+      },
+      {
+        "name": "args_extractor",
+        "in": [
+          "rank_text_score_id"
+        ],
+        "out": [
+          "context_raw",
+          "context_scores",
+          "doc_ids"
+        ]
+      },
+      {
+        "name": "document_chunker",
+        "in": ["context_raw"],
+        "out": ["chunks"],
+        "tokens_limit": 4000,
+        "flatten_result": false
+      },
+      {
+        "name": "string_multiplier",
+        "in": [
+          "question_raw",
+          "chunks"
+        ],
+        "out": [
+          "questions"
+        ]
+      },
+      {
+        "name": "query_paragraph_tuplifier",
+        "in": [
+          "question_raw",
+          "chunks",
+          "doc_ids"
+        ],
+        "out": [
+          "question_paragraph_tuples"
+        ]
+      },
+      {
+        "name": "tfhub_paragraph_ranker",
+        "top_n": 20,
+        "active": true,
+        "ranker": {
+          "name": "use_sentence_ranker",
+          "active": false
+        },
+        "in": [
+          "question_paragraph_tuples"
+        ],
+        "out": [
+          "docs_use",
+          "doc_scores_use",
+          "doc_ids_use"
+        ]
+      },
+      {
+        "name": "squad_paragraph_ranker",
+        "active": true,
+        "top_n": 20,
+        "ranker_config": "../deeppavlov/configs/squad/multi_squad_noans.json",
+        "type": "paragraph",
+        "in": [
+          "question_paragraph_tuples"
+        ],
+        "out": [
+          "docs_squad",
+          "doc_scores_squad",
+          "doc_ids_squad"
+        ]
+      },
+        {
+        "name": "args_tuplifier",
+        "id": "my_args_tuplifier",
+        "in": [
+          "docs_use",
+          "doc_scores_use",
+          "doc_ids_use"
+        ],
+        "out": [
+          "rank_text_score_id_use"
+        ]
+      },
+      {
+        "ref": "my_args_tuplifier",
+        "in": [
+          "docs_squad",
+          "doc_scores_squad",
+          "doc_ids_squad"
+        ],
+        "out": [
+          "rank_text_score_id_rnet"
+        ]
+      },
+       {
+        "name": "ensemble_ranker",
+        "top_n": 5,
+         "ranker_keys": ["tfhub", "rnet"],
+        "in": [
+          "rank_text_score_id_use",
+          "rank_text_score_id_rnet"
+        ],
+        "out": [
+          "rank_text_score_id_ensemble"
+        ]
+      },
+       {
+        "name": "args_extractor",
+        "in": [
+          "rank_text_score_id_ensemble"
+        ],
+        "out": [
+          "context_final",
+          "context_final_scores",
+          "doc_ids_final"
+        ]
+      },
+
+      {
+        "name": "string_multiplier",
+        "in": [
+          "question_raw",
+          "context_final"
+        ],
+        "out": [
+          "questions_final"
+        ]
+      },
+      {
+        "name": "logit_ranker",
+        "squad_model": {
+          "config_path": "../deeppavlov/configs/squad/multi_squad_noans.json"
+        },
+        "top_n": 1,
+        "sort_noans": true,
+        "in": [
+          "context_final",
+          "questions_final"
+        ],
+        "out": [
+          "best_answer",
+          "context_indices"
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "download": [
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/general_electrics.tar.gz",
+      "http://lnsigo.mipt.ru/export/deeppavlov_data/multi_squad_model_noans.tar.gz",
+      {
+        "url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M.vec",
+        "subdir": "embeddings"
+      },
+      {
+        "url": "http://lnsigo.mipt.ru/export/embeddings/wiki-news-300d-1M-char.vec",
+        "subdir": "embeddings"
+      }
+    ]
+  }
+}
