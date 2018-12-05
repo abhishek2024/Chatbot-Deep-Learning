@@ -89,10 +89,16 @@ class PopTitleRanker(Component):
         reranked = copy.deepcopy(rank_text_score_id_title)
         for ra_list in reranked:
             for j in range(len(ra_list)):
-                pop = self.pop_dict[ra_list[j][TITLE_IDX]]
+                title = ra_list[j][TITLE_IDX]
+                title_len = len(title.split())
+                pop = self.pop_dict[title]
                 tfidf_score = ra_list[j][TFIDF_SCORE_IDX]
                 title_score = ra_list[j][TITLE_SCORE_IDX]
-                features = [tfidf_score, pop, tfidf_score * pop, tfidf_score * title_score, title_score * pop]
+                # features = [tfidf_score, pop, tfidf_score * pop, tfidf_score * title_score, title_score * pop]
+                # features = [tfidf_score, pop, title_score, tfidf_score * pop, title_score * pop, title_len]
+                # features = [tfidf_score, pop, tfidf_score * title_score * pop / 10000]
+                features = [tfidf_score, pop, tfidf_score * pop,  title_len]
+
                 prob = self.clf.predict_proba([features])
                 ra_list[j] = tuple((*ra_list[j], prob[0][1]))
 
