@@ -37,7 +37,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-dataset_path", help="path to KPI_4 dataset", type=str,
                     default='/media/olga/Data/datasets/kpi_2018/kpi10_train-v1.1_test.json')
 parser.add_argument("-config_path", help="path to ODQA config", type=str,
-                    default='/media/olga/Data/projects/DeepPavlov/deeppavlov/configs/odqa/en_odqa_tfidf_wiki_conversation_mode_pop.json')
+                    default='/media/olga/Data/projects/DeepPavlov/deeppavlov/configs/odqa/en_odqa_tfidf_wiki_conversation_mode_pop_titles.json')
 parser.add_argument("-output_path", help="path to ODQA config", type=str,
                     default='kpi_10_sample_50_test.csv')
 
