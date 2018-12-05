@@ -126,8 +126,8 @@ class StringMultiplier(Component):
         return res
 
 
-@register('text_extractor')
-class TextExtractor(Component):
+@register('args_extractor')
+class ArgsExtractor(Component):
     """Extract text and scores from a ranker output"""
 
     def __init__(self, **kwargs):
@@ -136,15 +136,19 @@ class TextExtractor(Component):
     def __call__(self, ranker_output: List[List[List[Any]]]):
         TEXT_IDX = 1
         SCORE_IDX = 2
+        ID_IDX = 3
         all_texts = []
         all_scores = []
+        all_ids = []
         for instance in ranker_output:
             texts = list(map(itemgetter(TEXT_IDX), instance))
             scores = list(map(itemgetter(SCORE_IDX), instance))
+            ids = list(map(itemgetter(ID_IDX), instance))
             all_texts.append(texts)
             all_scores.append(scores)
+            all_ids.append(ids)
 
-        return all_texts, all_scores
+        return all_texts, all_scores, all_ids
 
 
 @register('context_adder')
@@ -182,14 +186,3 @@ class TableContextAdder(Component):
             batch_answer_score_text.append([(ia[0], ia[1], context[ia[2]]) for ia in instance_answer])
 
         return batch_answer_score_text
-
-
-# @register('bhge_formatter')
-# class BHGEFormatter(Component):
-#
-#     def __init__(self, **kwargs):
-#         pass
-#
-#     def __call__(self, tables, answers):
-#
-#         return answers
