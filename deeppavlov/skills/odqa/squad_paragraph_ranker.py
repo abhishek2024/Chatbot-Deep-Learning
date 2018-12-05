@@ -35,7 +35,8 @@ logger = get_logger(__name__)
 @register("squad_paragraph_ranker")
 class SquadParagraphRanker(Component):
 
-    def __init__(self, ranker_config=None, top_n=10, type='paragraph', active: bool = True,  **kwargs):
+    def __init__(self, ranker_config=None, top_n=10, type='paragraph', active: bool = True,
+                 batch_size=2, **kwargs):
         """
 
         Args:
@@ -45,55 +46,10 @@ class SquadParagraphRanker(Component):
         """
         self.ranker_config = json.load(expand_path(Path(ranker_config)).open())
         self.ranker = build_model_from_config(self.ranker_config)
-        self.ranker_batch_size = self.ranker_config['train'].get('batch_size', 1)
+        self.batch_size = batch_size
         self.top_n = top_n
         self.type = type
         self.active = active
-
-    def __call__old(self, query_context_id: List[Tuple[str, List[str], List[Any]]]):
-
-        all_docs = []
-        all_scores = []
-        all_ids = []
-
-        for query, contexts, ids in query_context_id:
-
-            scores = []
-            for context in contexts:
-                if self.type == 'paragraph':
-                    _, _, score, _ = self.ranker([(context, query)])[0]
-                elif self.type == 'sentences':
-                    sentences = sent_tokenize(context)
-                    score = []
-                    for sent in sentences:
-                        _, _, s, _ = self.ranker([(sent, query)])[0]
-                        score.append(s)
-                    score = np.max(score)
-                else:
-                    raise RuntimeError('Unsupported type: {}'.format(self.mode))
-
-                scores.append(score)
-
-            texts = contexts
-            text_score_id = list(zip(texts, scores, ids))
-            text_score_id = sorted(text_score_id, key=itemgetter(1), reverse=True)
-
-            if self.active:
-                text_score_id = text_score_id[:self.top_n]
-
-            batch_docs = []
-            batch_scores = []
-            batch_ids = []
-            for text, score, doc_id in text_score_id:
-                batch_docs.append(text)
-                batch_scores.append(score)
-                batch_ids.append(doc_id)
-
-            all_docs.append(batch_docs)
-            all_scores.append(batch_scores)
-            all_ids.append(batch_ids)
-
-        return all_docs, all_scores, all_ids
 
     def __call__(self, query_context_id: List[Tuple[str, List[str], List[Any]]]):
 
@@ -118,10 +74,10 @@ class SquadParagraphRanker(Component):
                 else:
                     raise RuntimeError('Unsupported type: {}'.format(self.type))
 
-        for i in range(0, len(to_score) // self.ranker_batch_size + 1):
-            batch = to_score[i * self.ranker_batch_size: (i + 1) * self.ranker_batch_size]
+        for i in range(0, len(to_score) // self.batch_size + 1):
+            batch = to_score[i * self.batch_size: (i + 1) * self.batch_size]
             if len(batch) > 0:
-                _, _, batch_scores, _ = zip(*self.ranker(batch))
+                _, _, batch_scores = zip(*self.ranker(batch))
                 scores.extend(batch_scores)
 
         all_docs = []
