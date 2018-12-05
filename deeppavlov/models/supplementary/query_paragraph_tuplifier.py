@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 from typing import List, Any
+from itertools import chain
 
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.registry import register
@@ -34,5 +35,9 @@ class QueryParagraphTuplifier(Component):
             batch_contexts = [batch_contexts[0]] * len(batch_queries)
             batch_doc_ids = [batch_doc_ids[0]] * len(batch_queries)
         for query, contexts, ids in zip(batch_queries, batch_contexts, batch_doc_ids):
-            tuples.append((query, contexts, ids))
+            context_lengths = [len(c) for c in contexts]
+            flat_ids = [[ids[i]] * context_lengths[i] for i in range(len(context_lengths))]
+            flat_ids = list(chain.from_iterable(flat_ids))
+            contexts = list(chain.from_iterable(contexts))
+            tuples.append((query, contexts, flat_ids))
         return tuples
