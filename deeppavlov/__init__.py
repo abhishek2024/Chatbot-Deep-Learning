@@ -72,6 +72,7 @@ import deeppavlov.models.squad.squad
 import deeppavlov.models.api_requester.api_router
 import deeppavlov.skills.odqa.tfidf_ranker
 import deeppavlov.skills.odqa.tfidf_ranker_with_ids
+import deeppavlov.skills.odqa.tfidf_dummy_ranker
 import deeppavlov.skills.odqa.use_sentence_ranker
 import deeppavlov.skills.odqa.elmo_ranker
 import deeppavlov.skills.odqa.tfhub_paragraph_ranker

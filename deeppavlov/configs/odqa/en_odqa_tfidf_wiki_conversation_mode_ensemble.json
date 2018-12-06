@@ -56,8 +56,21 @@
         ]
       },
       {
+        "name": "tfidf_dummy_ranker",
+        "top_n": 30,
+        "active": true,
+        "in": [
+          "question_paragraph_tuples"
+        ],
+        "out": [
+          "docs_tfidf",
+          "doc_scores_tfidf",
+          "doc_ids_tfidf"
+        ]
+      },
+      {
         "name": "tfhub_paragraph_ranker",
-        "top_n": 20,
+        "top_n": 30,
         "active": true,
         "ranker": {
           "name": "use_sentence_ranker",
@@ -75,7 +88,7 @@
       {
         "name": "squad_paragraph_ranker",
         "active": true,
-        "top_n": 20,
+        "top_n": 30,
         "ranker_config": "../deeppavlov/configs/squad/multi_squad_noans.json",
         "type": "paragraph",
         "in": [
@@ -110,11 +123,23 @@
           "rank_text_score_id_rnet"
         ]
       },
+      {
+        "ref": "my_args_tuplifier",
+        "in": [
+          "docs_tfidf",
+          "doc_scores_tfidf",
+          "doc_ids_tfidf"
+        ],
+        "out": [
+          "rank_text_score_id_tfidf"
+        ]
+      },
        {
         "name": "ensemble_ranker",
-        "top_n": 5,
-         "ranker_keys": ["tfhub", "rnet"],
+        "top_n": 10,
+         "ranker_keys": ["tfidf", "tfhub", "rnet"],
         "in": [
+          "rank_text_score_id_tfidf",
           "rank_text_score_id_use",
           "rank_text_score_id_rnet"
         ],
