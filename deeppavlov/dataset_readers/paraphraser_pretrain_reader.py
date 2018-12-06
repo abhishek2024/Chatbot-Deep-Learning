@@ -42,10 +42,8 @@ class ParaphraserPretrainReader(DatasetReader):
 
 
     def int_class(self, str_y):
-        if str_y == '-1':
-            return 0
-        else:
-            return 1
+        return 0 if str_y == '-1' else 1
+
 
     def build_data(self, name):
         with open(name) as f:
