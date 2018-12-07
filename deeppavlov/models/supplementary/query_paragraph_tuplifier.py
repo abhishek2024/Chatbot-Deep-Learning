@@ -36,7 +36,7 @@ class QueryParagraphTuplifier(Component):
             batch_doc_ids = [batch_doc_ids[0]] * len(batch_queries)
         for query, contexts, ids in zip(batch_queries, batch_contexts, batch_doc_ids):
             context_lengths = [len(c) for c in contexts]
-            flat_ids = [[ids[i]] * context_lengths[i] for i in range(len(context_lengths))]
+            flat_ids = [[ids[i]] * i for i in context_lengths]
             flat_ids = list(chain.from_iterable(flat_ids))
             contexts = list(chain.from_iterable(contexts))
             tuples.append((query, contexts, flat_ids))
