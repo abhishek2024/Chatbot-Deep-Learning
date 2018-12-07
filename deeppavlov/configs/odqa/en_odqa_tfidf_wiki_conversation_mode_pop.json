@@ -25,7 +25,7 @@
         "out": ["reranked_text_score_id"]
       },
       {
-        "name": "text_extractor",
+        "name": "args_extractor",
         "in": [
           "reranked_text_score_id"
         ],
