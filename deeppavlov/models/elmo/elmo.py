@@ -103,9 +103,36 @@ class ELMo(NNModel):
     Each token in the vocabulary is cached as the appropriate 50 character id sequence once.
     It is recommended to always include the special <S> and </S> tokens (case sensitive) in the vocabulary file.
 
-
     For fine-tuning of LM on specific data, it is enough to save base model to path
     ``{MODELS_PATH}/elmo_model/saves/epochs/0/`` and start training.
+
+    Also for fine-tuning of LM on specific data, you can use pre-trained model for russian language on different
+    datasets.
+
+
+    LM model pre-trained on `ru-news` dataset ( lines = 63M, tokens = 946M, size = 12GB ), model is available by
+    :config:`elmo-lm-ready4fine-tuning-ru-news </elmo/elmo-lm-ready4fine-tuning-ru-news.json>` configuration file
+    or :config:`elmo-lm-ready4fine-tuning-ru-news-simple </elmo/elmo-lm-ready4fine-tuning-ru-news-simple.json>`
+    configuration file.
+
+    LM model pre-trained on `ru-twitter` dataset ( lines = 104M, tokens = 810M, size = 8.5GB ), model is available by
+    :config:`elmo-lm-ready4fine-tuning-ru-twitter </elmo/elmo-lm-ready4fine-tuning-ru-twitter.json>` configuration file 
+    or :config:`elmo-lm-ready4fine-tuning-ru-twitter-simple </elmo/elmo-lm-ready4fine-tuning-ru-twitter-simple.json>`
+    configuration file.
+
+    LM model pre-trained on `ru-wiki` dataset ( lines = 1M, tokens = 386M, size = 5GB ), model is available by
+    :config:`elmo-lm-ready4fine-tuning-ru-wiki </elmo/elmo-lm-ready4fine-tuning-ru-wiki.json>` configuration file 
+    or :config:`elmo-lm-ready4fine-tuning-ru-wiki-simple </elmo/elmo-lm-ready4fine-tuning-ru-wiki-simple.json>`
+    configuration file.
+
+    `simple` configuration file is a configuration of a model without special tags of output
+    vocab used for first training.
+
+    .. note::
+
+        You need to download about **4 GB** also by default about **32 GB** of RAM and **10 GB** of GPU memory
+        required to running the :config:`elmo-lm-ready4fine-tuning-ru-* </elmo/>`
+        on one GPU.
 
     After training you can use ``{MODELS_PATH}/elmo_model/saves/hubs/tf_hub_model_epoch_n_*/``
     as a ``ModuleSpec`` by using `TensorFlow Hub <https://www.tensorflow.org/hub/overview>`__ or by
@@ -114,28 +141,56 @@ class ELMo(NNModel):
     More about the ELMo model you can get from `original ELMo implementation
     <https://github.com/allenai/bilm-tf>`__.
 
+
+    If some required packages are missing, install all the requirements by running in command line:
+
+    .. code:: bash
+
+        python -m deeppavlov install <path_to_config>
+
+    where ``<path_to_config>`` is a path to one of the :config:`provided config files <elmo_embedder>`
+    or its name without an extension, for example :
+
+    .. code:: bash
+
+        python -m deeppavlov install elmo-1b-benchmark_test
+        
     Examples:
         For a quick start, you can run test training of the test model on small data by this command from bash:
 
-        >>> # python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark_test.json -d
+        .. code:: bash
+
+            python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark_test.json -d
 
         To download the prepared `1 Billion Word Benchmark dataset <http://www.statmt.org/lm-benchmark/>`__ and
         start a training model use this command from bash:
 
-        >>> # python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark.json -d
+        .. note::
+
+            You need to download about **2 GB** also by default about **10 GB** of RAM and **10 GB** of GPU memory
+            required to running :config:`elmo-1b-benchmark <elmo/elmo-1b-benchmark.json>` on one GPU.
+
+        .. code:: bash
+
+            python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark.json -d
 
         To fine-tune ELMo as LM model on `1 Billion Word Benchmark dataset <http://www.statmt.org/lm-benchmark/>`__
         use commands from bash :
 
-        >>> # python -m deeppavlov download deeppavlov/configs/elmo/elmo-1b-benchmark.json
-        >>> # mkdir -p ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0
-        >>> # cp my_ckpt.data-00000-of-00001 ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/model.data-00000-of-00001
-        >>> # cp my_ckpt.index ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/model.index
-        >>> # cp my_ckpt.meta ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/model.meta
-        >>> # cp checkpoint ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/checkpoint
-        >>> # cp my_options.json ${MODELS_PATH}/elmo-1b-benchmark/options.json
-        >>> # cp my_vocab {MODELS_PATH}/elmo-1b-benchmark/vocab-2016-09-10.txt
-        >>> # python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark.json
+        .. code:: bash
+
+            # download the prepared 1 Billion Word Benchmark dataset
+            python -m deeppavlov download deeppavlov/configs/elmo/elmo-1b-benchmark.json
+            # copy model checkpoint, network configuration, vocabulary of pre-trained LM model
+            mkdir -p ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0
+            cp my_ckpt.data-00000-of-00001 ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/model.data-00000-of-00001
+            cp my_ckpt.index ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/model.index
+            cp my_ckpt.meta ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/model.meta
+            cp checkpoint ${MODELS_PATH}/elmo-1b-benchmark/saves/epochs/0/checkpoint
+            cp my_options.json ${MODELS_PATH}/elmo-1b-benchmark/options.json
+            cp my_vocab {MODELS_PATH}/elmo-1b-benchmark/vocab-2016-09-10.txt
+            # start a fine-tuning
+            python -m deeppavlov train deeppavlov/configs/elmo/elmo-1b-benchmark.json
 
         After training you can use the ELMo model from tf_hub wrapper by
         `TensorFlow Hub <https://www.tensorflow.org/hub/overview>`__ or by
@@ -147,8 +202,8 @@ class ELMo(NNModel):
         >>> elmo([['вопрос', 'жизни', 'Вселенной', 'и', 'вообще', 'всего'], ['42']])
         array([[ 0.00719104,  0.08544601, -0.07179783, ...,  0.10879009,
                 -0.18630421, -0.2189409 ],
-               [ 0.16325025, -0.04736076,  0.12354863, ..., -0.1889013 ,
-                 0.04972512,  0.83029324]], dtype=float32)
+            [ 0.16325025, -0.04736076,  0.12354863, ..., -0.1889013 ,
+                0.04972512,  0.83029324]], dtype=float32)
 
     """
 
