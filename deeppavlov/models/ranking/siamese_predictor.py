@@ -84,7 +84,6 @@ class SiamesePredictor(Component):
         except StopIteration:
             pass
 
-
         if self.ranking:
             if len(context) == self.num_context_turns:
                 scores = []
@@ -136,7 +135,3 @@ class SiamesePredictor(Component):
         for i in range(len(responses) // self.batch_size + 1):
             el = self.preproc_func(responses[i*self.batch_size: (i+1)*self.batch_size])
             self.preproc_responses += list(el)
-
-
-
-
