@@ -377,7 +377,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
             current_token = self.decoder_embedder([[self.decoder_vocab[self.opt["tgt_bos_id"]]]])[0][0]  # (300,)
             end_of_sequence = False
 
-            if len(encoder_states) > 1:
+            if len(encoder_states.shape) > 2:
                 states = [enc_state[i].reshape((1, -1)) for enc_state in encoder_states]
             else:
                 states = [encoder_states[i].reshape((1, -1))]  #???

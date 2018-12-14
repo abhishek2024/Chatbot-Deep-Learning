@@ -124,8 +124,8 @@
         "loss": "categorical_crossentropy",
         "hidden_size": 256,
         "model_name": "encoder_decoder_model",
-        "encoder_name": "bilstm_encoder_model",
-        "decoder_name": "bilstm_decoder_model"
+        "encoder_name": "gru_encoder_model",
+        "decoder_name": "gru_decoder_model"
       },
       {
         "ref": "y_tokens_vocab",
@@ -165,7 +165,7 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/seq2seq/rus-eng/token_level/model_v4"
+      "MODELS_PATH": "{ROOT_PATH}/models/seq2seq/rus-eng/token_level/model_v5"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
