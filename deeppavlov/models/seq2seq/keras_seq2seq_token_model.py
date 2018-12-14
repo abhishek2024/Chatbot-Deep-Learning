@@ -17,8 +17,8 @@ import numpy as np
 from overrides import overrides
 from copy import deepcopy
 
-from keras.layers import Dense, Input
-from keras.layers.recurrent import GRU
+from keras.layers import Dense, Input, Bidirectional
+from keras.layers.recurrent import GRU, LSTM
 from keras.layers.pooling import GlobalMaxPooling1D
 from keras.models import Model
 from keras.regularizers import l2
@@ -155,12 +155,12 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         self.encoder_model = None
         self.decoder_model = None
         self._encoder_emb_inp = None
-        self._encoder_state = None
+        self._encoder_states = None
         self._decoder_emb_inp = None
         self._decoder_infer_emb_inp = None
-        self._decoder_input_state = None
-        self._train_decoder_state = None
-        self._infer_decoder_state = None
+        self._decoder_input_states = None
+        self._train_decoder_states = None
+        self._infer_decoder_states = None
         self._train_decoder_outputs = None
         self._infer_decoder_outputs = None
 
@@ -294,96 +294,12 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
                                       outputs=self._train_decoder_outputs)
 
         self.encoder_model = Model(inputs=[self._encoder_emb_inp],
-                                   outputs=self._encoder_state)
+                                   outputs=self._encoder_states)
 
-        self.decoder_model = Model(inputs=[self._decoder_infer_emb_inp,
-                                           self._decoder_input_state],
-                                   outputs=[self._infer_decoder_outputs,
-                                            self._infer_decoder_state])
+        self.decoder_model = Model(inputs=[self._decoder_infer_emb_inp] + self._decoder_input_states,
+                                   outputs=[self._infer_decoder_outputs] + self._infer_decoder_states)
 
         return encoder_decoder_model
-
-    def gru_encoder_model(self,
-                          hidden_size: int,
-                          encoder_coef_reg_lstm: float,
-                          encoder_dropout_rate: float,
-                          encoder_rec_dropout_rate: float,
-                          **kwargs) -> None:
-        """
-        Initialize encoder layers for GRU encoder
-
-        Args:
-            hidden_size: size of the hidden layer of encoder and decoder
-            encoder_coef_reg_lstm: coefficient for L2 kernel regularizer of encoder LSTM layer
-            encoder_dropout_rate: dropout rate for encoder LSTM layer
-            encoder_rec_dropout_rate: recurrent dropout rate for encoder LSTM layer
-
-        Returns:
-            None
-        """
-        self._encoder_emb_inp = Input(shape=(self.opt["src_max_length"],
-                                             self.opt["encoder_embedding_size"]))
-
-        _encoder_outputs = GRU(
-            hidden_size,
-            activation='tanh',
-            return_sequences=True,  # for extracting exactly the last hidden layer
-            kernel_regularizer=l2(encoder_coef_reg_lstm),
-            dropout=encoder_dropout_rate,
-            recurrent_dropout=encoder_rec_dropout_rate,
-            name="encoder_gru")(self._encoder_emb_inp)
-
-        self._encoder_state = GlobalMaxPooling1D()(_encoder_outputs)
-
-        return None
-
-    def gru_decoder_model(self,
-                          hidden_size: int,
-                          decoder_coef_reg_lstm: float,
-                          decoder_dropout_rate: float,
-                          decoder_rec_dropout_rate: float,
-                          **kwargs) -> None:
-        """
-        Initialize decoder layers for GRU decoder
-
-        Args:
-            hidden_size: size of the hidden layer of encoder and decoder
-            decoder_coef_reg_lstm: coefficient for L2 kernel regularizer of decoder LSTM layer
-            decoder_dropout_rate: dropout rate for decoder LSTM layer
-            decoder_rec_dropout_rate: recurrent dropout rate for decoder LSTM layer
-
-        Returns:
-            None
-        """
-        self._decoder_emb_inp = Input(shape=(self.opt["tgt_max_length"], self.opt["decoder_embedding_size"]))
-        self._decoder_infer_emb_inp = Input(shape=(1, self.opt["decoder_embedding_size"]))
-
-        self._decoder_input_state = Input(shape=(hidden_size,))
-
-        decoder_gru = GRU(
-            hidden_size,
-            activation='tanh',
-            return_sequences=True,
-            kernel_regularizer=l2(decoder_coef_reg_lstm),
-            dropout=decoder_dropout_rate,
-            recurrent_dropout=decoder_rec_dropout_rate,
-            name="decoder_gru")
-
-        _train_decoder_outputs = decoder_gru(
-            self._decoder_emb_inp,
-            initial_state=self._encoder_state)
-        self._train_decoder_state = GlobalMaxPooling1D()(_train_decoder_outputs)
-
-        _infer_decoder_outputs = decoder_gru(
-            self._decoder_infer_emb_inp,
-            initial_state=self._decoder_input_state)
-        self._infer_decoder_state = GlobalMaxPooling1D()(_infer_decoder_outputs)
-
-        decoder_dense = Dense(self.opt["tgt_vocab_size"], name="dense_gru", activation="softmax")
-        self._train_decoder_outputs = decoder_dense(_train_decoder_outputs)
-        self._infer_decoder_outputs = decoder_dense(_infer_decoder_outputs)
-
-        return None
 
     @overrides
     def train_on_batch(self, x: Tuple[List[np.ndarray]], y: Tuple[List[int]], **kwargs) -> Union[float, List[float]]:
@@ -452,7 +368,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         else:
             pad_emb_enc_inputs = np.array(x)
 
-        encoder_state = self.encoder_model.predict([pad_emb_enc_inputs])
+        encoder_states = self.encoder_model.predict([pad_emb_enc_inputs])
 
         predicted_batch = []
         for i in range(len(x)):  # batch size
@@ -460,11 +376,16 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
 
             current_token = self.decoder_embedder([[self.decoder_vocab[self.opt["tgt_bos_id"]]]])[0][0]  # (300,)
             end_of_sequence = False
-            state = encoder_state[i].reshape((1, -1))
+
+            if len(encoder_states) > 1:
+                states = [enc_state[i].reshape((1, -1)) for enc_state in encoder_states]
+            else:
+                states = [encoder_states[i].reshape((1, -1))]  #???
 
             while not end_of_sequence:
-                token_probas, state = self.decoder_model.predict([np.array([[current_token]]),
-                                                                  state])
+                out = self.decoder_model.predict([np.array([[current_token]])] + states)
+                token_probas = out[0]
+                states = out[1:]
                 current_token_id = self._probas2ids(token_probas)[0][0]
                 current_token = self.decoder_embedder(self.decoder_vocab([[current_token_id]]))[0][0]
                 if (current_token_id == self.opt["tgt_eos_id"] or
@@ -533,14 +454,19 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
     def reset(self):
         self.sess.close()
 
-    def self_att_gru_encoder_model(self,
-                                   hidden_size: int,
-                                   encoder_coef_reg_lstm: float,
-                                   encoder_dropout_rate: float,
-                                   encoder_rec_dropout_rate: float,
-                                   self_att_enc_hid: int,
-                                   self_att_enc_out: int,
-                                   **kwargs) -> None:
+    def destroy(self):
+        self.decoder_embedder.destroy()
+        del self.model
+        del self.encoder_model
+        del self.decoder_model
+        del self.decoder_vocab
+
+    def gru_encoder_model(self,
+                          hidden_size: int,
+                          encoder_coef_reg_lstm: float,
+                          encoder_dropout_rate: float,
+                          encoder_rec_dropout_rate: float,
+                          **kwargs) -> None:
         """
         Initialize encoder layers for GRU encoder
 
@@ -549,13 +475,10 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
             encoder_coef_reg_lstm: coefficient for L2 kernel regularizer of encoder LSTM layer
             encoder_dropout_rate: dropout rate for encoder LSTM layer
             encoder_rec_dropout_rate: recurrent dropout rate for encoder LSTM layer
-            self_att_enc_hid: hidden size of multiplicative self-attention layer
-            self_att_enc_out: output size of multiplicative self-attention layer
 
         Returns:
             None
         """
-
         self._encoder_emb_inp = Input(shape=(self.opt["src_max_length"],
                                              self.opt["encoder_embedding_size"]))
 
@@ -567,22 +490,16 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
             dropout=encoder_dropout_rate,
             recurrent_dropout=encoder_rec_dropout_rate,
             name="encoder_gru")(self._encoder_emb_inp)
-
-        _encoder_outputs = multiplicative_self_attention(_encoder_outputs, n_hidden=self_att_enc_hid,
-                                                         n_output_features=self_att_enc_out)
-
-        self._encoder_state = GlobalMaxPooling1D()(_encoder_outputs)
+        self._encoder_states = [GlobalMaxPooling1D()(_encoder_outputs)]
 
         return None
 
-    def self_att_gru_decoder_model(self,
-                                   hidden_size: int,
-                                   decoder_coef_reg_lstm: float,
-                                   decoder_dropout_rate: float,
-                                   decoder_rec_dropout_rate: float,
-                                   self_att_dec_hid: int,
-                                   self_att_dec_out: int,
-                                   **kwargs) -> None:
+    def gru_decoder_model(self,
+                          hidden_size: int,
+                          decoder_coef_reg_lstm: float,
+                          decoder_dropout_rate: float,
+                          decoder_rec_dropout_rate: float,
+                          **kwargs) -> None:
         """
         Initialize decoder layers for GRU decoder
 
@@ -591,8 +508,6 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
             decoder_coef_reg_lstm: coefficient for L2 kernel regularizer of decoder LSTM layer
             decoder_dropout_rate: dropout rate for decoder LSTM layer
             decoder_rec_dropout_rate: recurrent dropout rate for decoder LSTM layer
-            self_att_dec_hid: hidden size of multiplicative self-attention layer
-            self_att_dec_out: output size of multiplicative self-attention layer
 
         Returns:
             None
@@ -600,7 +515,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         self._decoder_emb_inp = Input(shape=(self.opt["tgt_max_length"], self.opt["decoder_embedding_size"]))
         self._decoder_infer_emb_inp = Input(shape=(1, self.opt["decoder_embedding_size"]))
 
-        self._decoder_input_state = Input(shape=(hidden_size,))
+        self._decoder_input_states = [Input(shape=(hidden_size,))]
 
         decoder_gru = GRU(
             hidden_size,
@@ -610,20 +525,102 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
             dropout=decoder_dropout_rate,
             recurrent_dropout=decoder_rec_dropout_rate,
             name="decoder_gru")
-
         _train_decoder_outputs = decoder_gru(
             self._decoder_emb_inp,
-            initial_state=self._encoder_state)
-        _train_decoder_outputs = multiplicative_self_attention(_train_decoder_outputs, n_hidden=self_att_dec_hid,
-                                                               n_output_features=self_att_dec_out)
-        self._train_decoder_state = GlobalMaxPooling1D()(_train_decoder_outputs)
+            initial_state=self._encoder_states[0])
+        self._train_decoder_states = [GlobalMaxPooling1D()(_train_decoder_outputs)]
 
         _infer_decoder_outputs = decoder_gru(
             self._decoder_infer_emb_inp,
-            initial_state=self._decoder_input_state)
-        _infer_decoder_outputs = multiplicative_self_attention(_infer_decoder_outputs, n_hidden=self_att_dec_hid,
-                                                               n_output_features=self_att_dec_out)
-        self._infer_decoder_state = GlobalMaxPooling1D()(_infer_decoder_outputs)
+            initial_state=self._decoder_input_states[0])
+        self._infer_decoder_states = [GlobalMaxPooling1D()(_infer_decoder_outputs)]
+
+        decoder_dense = Dense(self.opt["tgt_vocab_size"], name="dense_gru", activation="softmax")
+        self._train_decoder_outputs = decoder_dense(_train_decoder_outputs)
+        self._infer_decoder_outputs = decoder_dense(_infer_decoder_outputs)
+
+        return None
+
+    def bilstm_encoder_model(self,
+                             hidden_size: int,
+                             encoder_coef_reg_lstm: float,
+                             encoder_dropout_rate: float,
+                             encoder_rec_dropout_rate: float,
+                             **kwargs) -> None:
+        """
+        Initialize encoder layers for BiLSTM encoder
+
+        Args:
+            hidden_size: size of the hidden layer of encoder and decoder
+            encoder_coef_reg_lstm: coefficient for L2 kernel regularizer of encoder LSTM layer
+            encoder_dropout_rate: dropout rate for encoder LSTM layer
+            encoder_rec_dropout_rate: recurrent dropout rate for encoder LSTM layer
+
+        Returns:
+            None
+        """
+        self._encoder_emb_inp = Input(shape=(self.opt["src_max_length"],
+                                             self.opt["encoder_embedding_size"]))
+
+        _encoder_outputs, forward_state_h, forward_state_c, backward_state_h, backward_state_c = Bidirectional(LSTM(
+            hidden_size,
+            activation='tanh',
+            return_sequences=True,  # for extracting exactly the last hidden layer
+            return_state=True,
+            kernel_regularizer=l2(encoder_coef_reg_lstm),
+            dropout=encoder_dropout_rate,
+            recurrent_dropout=encoder_rec_dropout_rate,
+            name="encoder_gru"))(self._encoder_emb_inp)
+
+        self._encoder_states = [forward_state_h, forward_state_c, backward_state_h, backward_state_c]
+
+        return None
+
+    def bilstm_decoder_model(self,
+                             hidden_size: int,
+                             decoder_coef_reg_lstm: float,
+                             decoder_dropout_rate: float,
+                             decoder_rec_dropout_rate: float,
+                             **kwargs) -> None:
+        """
+        Initialize decoder layers for BiLSTM decoder
+
+        Args:
+            hidden_size: size of the hidden layer of encoder and decoder
+            decoder_coef_reg_lstm: coefficient for L2 kernel regularizer of decoder LSTM layer
+            decoder_dropout_rate: dropout rate for decoder LSTM layer
+            decoder_rec_dropout_rate: recurrent dropout rate for decoder LSTM layer
+
+        Returns:
+            None
+        """
+        self._decoder_emb_inp = Input(shape=(self.opt["tgt_max_length"], self.opt["decoder_embedding_size"]))
+        self._decoder_infer_emb_inp = Input(shape=(1, self.opt["decoder_embedding_size"]))
+
+        self._decoder_input_states = [Input(shape=(hidden_size,)),
+                                      Input(shape=(hidden_size,)),
+                                      Input(shape=(hidden_size,)),
+                                      Input(shape=(hidden_size,))]
+
+        decoder_gru = Bidirectional(LSTM(
+            hidden_size,
+            activation='tanh',
+            return_sequences=True,
+            return_state=True,
+            kernel_regularizer=l2(decoder_coef_reg_lstm),
+            dropout=decoder_dropout_rate,
+            recurrent_dropout=decoder_rec_dropout_rate,
+            name="decoder_gru"))
+
+        _train_decoder_outputs, forward_state_h, forward_state_c, backward_state_h, backward_state_c = decoder_gru(
+            self._decoder_emb_inp,
+            initial_state=self._encoder_states)
+        self._train_decoder_states = [forward_state_h, forward_state_c, backward_state_h, backward_state_c]
+
+        _infer_decoder_outputs, forward_state_h, forward_state_c, backward_state_h, backward_state_c = decoder_gru(
+            self._decoder_infer_emb_inp,
+            initial_state=self._decoder_input_states)
+        self._infer_decoder_states = [forward_state_h, forward_state_c, backward_state_h, backward_state_c]
 
         decoder_dense = Dense(self.opt["tgt_vocab_size"], name="dense_gru", activation="softmax")
         self._train_decoder_outputs = decoder_dense(_train_decoder_outputs)
