@@ -28,6 +28,7 @@ from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.models.component import Component
 from deeppavlov.models.classifiers.keras_classification_model import KerasClassificationModel
 from deeppavlov.core.layers.keras_layers import multiplicative_self_attention
+from deeppavlov.core.data.utils import zero_pad
 
 log = get_logger(__name__)
 
@@ -83,6 +84,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
                  encoder_embedding_size: int,
                  decoder_embedder: Component,
                  decoder_vocab: Component,
+                 maximal_response_length: int,
                  src_max_length: Optional[int] = None,
                  tgt_max_length: Optional[int] = None,
                  model_name: str = "encoder_decoder_model",
@@ -116,6 +118,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
                      "tgt_eos_id": tgt_eos_id,
                      "encoder_embedding_size": encoder_embedding_size,
                      "decoder_embedding_size": decoder_embedding_size,
+                     "maximal_response_length": maximal_response_length,
                      "src_max_length": src_max_length,
                      "tgt_max_length": tgt_max_length,
                      "model_name": model_name,
@@ -395,23 +398,34 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         Returns:
             metrics values on the given batch
         """
-        pad_emb_enc_inputs = self.pad_texts(x,
-                                            text_size=self.opt["src_max_length"],
-                                            embedding_size=self.opt["encoder_embedding_size"])
+        if self.opt["src_max_length"]:
+            pad_emb_enc_inputs = self.pad_texts(x,
+                                                text_size=self.opt["src_max_length"],
+                                                embedding_size=self.opt["encoder_embedding_size"])
+        else:
+            pad_emb_enc_inputs = np.array(x)
+
         dec_inputs = [[self.opt["tgt_bos_id"]] +
                       list(sample) + [self.opt["tgt_eos_id"]]
                       for sample in y]  # (bs, ts + 2) of integers (tokens ids)
         text_dec_inputs = self.decoder_vocab(dec_inputs)
 
-        pad_emb_dec_inputs = self.texts2decoder_embeddings(
-            text_dec_inputs,
-            text_size=self.opt["tgt_max_length"],
-            embedding_size=self.opt["decoder_embedding_size"])
+        dec_outputs = [list(sample) + [self.opt["tgt_eos_id"]] + [self.opt["tgt_pad_id"]]
+                       for sample in y]  # (bs, ts + 2) of integers (tokens ids)
 
-        pad_dec_outputs = self.pad_texts(y,
-                                         text_size=self.opt["tgt_max_length"],
-                                         embedding_size=None,
-                                         padding_token_id=self.opt["tgt_pad_id"])
+        if self.opt["tgt_max_length"]:
+            pad_emb_dec_inputs = self.texts2decoder_embeddings(
+                text_dec_inputs,
+                text_size=self.opt["tgt_max_length"],
+                embedding_size=self.opt["decoder_embedding_size"])
+            pad_dec_outputs = self.pad_texts(dec_outputs,
+                                             text_size=self.opt["tgt_max_length"],
+                                             embedding_size=None,
+                                             padding_token_id=self.opt["tgt_pad_id"])
+        else:
+            pad_emb_dec_inputs = self.decoder_embedder(text_dec_inputs)
+            pad_dec_outputs = zero_pad(dec_outputs, padding=self.opt["tgt_pad_id"], dtype=np.int32)
+
         pad_onehot_dec_outputs = self._ids2onehot(pad_dec_outputs, vocab_size=self.opt["tgt_vocab_size"])
 
         metrics_values = self.model.train_on_batch([pad_emb_enc_inputs,
@@ -431,9 +445,13 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         Returns:
             list of decoder predictions where each prediction is a list of indices of tokens
         """
-        pad_emb_enc_inputs = self.pad_texts(x,
-                                            text_size=self.opt["src_max_length"],
-                                            embedding_size=self.opt["encoder_embedding_size"])
+        if self.opt["src_max_length"]:
+            pad_emb_enc_inputs = self.pad_texts(x,
+                                                text_size=self.opt["src_max_length"],
+                                                embedding_size=self.opt["encoder_embedding_size"])
+        else:
+            pad_emb_enc_inputs = np.array(x)
+
         encoder_state = self.encoder_model.predict([pad_emb_enc_inputs])
 
         predicted_batch = []
@@ -451,7 +469,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
                 current_token = self.decoder_embedder(self.decoder_vocab([[current_token_id]]))[0][0]
                 if (current_token_id == self.opt["tgt_eos_id"] or
                         current_token_id == self.opt["tgt_pad_id"] or
-                        len(predicted_sample) == self.opt["tgt_max_length"]):
+                        len(predicted_sample) == self.opt["maximal_response_length"]):
                     end_of_sequence = True
                 else:
                     predicted_sample.append(current_token_id)

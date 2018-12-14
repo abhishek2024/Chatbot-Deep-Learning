@@ -2,7 +2,7 @@
   "dataset_reader": {
     "class_name": "basic_dataset_reader",
     "data_path": "{DOWNLOADS_PATH}/rus-eng",
-    "train": "rus_short.txt",
+    "train": "rus_very_short.txt",
     "sep": "\t",
     "header": null,
     "names": [
@@ -53,9 +53,9 @@
         "out": "x_emb",
         "id": "my_embedder",
         "class_name": "fasttext",
-        "pad_zero": false,
         "load_path": "{DOWNLOADS_PATH}/embeddings/wiki.en.bin",
-        "dim": 300
+        "dim": 300,
+        "pad_zero": true
       },
       {
         "in": "y",
@@ -96,7 +96,8 @@
         "id": "dec_embedder",
         "class_name": "fasttext",
         "load_path": "{DOWNLOADS_PATH}/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
-        "dim": 300
+        "dim": 300,
+        "pad_zero": true
       },
       {
         "in": "x_emb",
@@ -112,8 +113,9 @@
         "tgt_pad_id": "#y_tokens_vocab.__getitem__('<PAD>')",
         "tgt_bos_id": "#y_tokens_vocab.__getitem__('<BOS>')",
         "tgt_eos_id": "#y_tokens_vocab.__getitem__('<EOS>')",
-        "src_max_length": 12,
-        "tgt_max_length": 12,
+        "src_max_length": null,
+        "tgt_max_length": null,
+        "maximal_response_length": 50,
         "decoder_embedder": "#dec_embedder",
         "decoder_vocab": "#y_tokens_vocab",
         "optimizer": "RMSprop",
@@ -163,7 +165,7 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/seq2seq/rus-eng/token_level/model_v0"
+      "MODELS_PATH": "{ROOT_PATH}/models/seq2seq/rus-eng/token_level/model_v2"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
