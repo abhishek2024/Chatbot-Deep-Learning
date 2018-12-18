@@ -52,10 +52,9 @@
         "in": "x_tok",
         "out": "x_emb",
         "id": "my_embedder",
-        "class_name": "elmo_embedder",
-        "elmo_output_names": ["elmo"],
-        "mini_batch_size": 32,
-        "spec": "https://tfhub.dev/google/elmo/2",
+        "class_name": "fasttext",
+        "load_path": "{DOWNLOADS_PATH}/embeddings/wiki.en.bin",
+        "dim": 300,
         "pad_zero": true
       },
       {
@@ -95,10 +94,9 @@
       },
       {
         "id": "dec_embedder",
-        "class_name": "elmo_embedder",
-        "elmo_output_names": ["elmo"],
-        "mini_batch_size": 32,
-        "spec": "{DOWNLOADS_PATH}/embeddings/elmo_ru_wiki",
+        "class_name": "fasttext",
+        "load_path": "{DOWNLOADS_PATH}/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
+        "dim": 300,
         "pad_zero": true
       },
       {
@@ -157,8 +155,8 @@
     ],
     "validation_patience": 20,
     "val_every_n_epochs": 5,
-    "log_every_n_epochs": 1,
-    "show_examples": false,
+    "log_every_n_epochs": 5,
+    "show_examples": true,
     "validate_best": true,
     "test_best": true,
     "tensorboard_log_dir": "{MODELS_PATH}/"
@@ -179,8 +177,12 @@
         "subdir": "{DOWNLOADS_PATH}/"
       },
       {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/elmo_ru-wiki_600k_steps.tar.gz",
-        "subdir": "{DOWNLOADS_PATH}/embeddings/elmo_ru_wiki"
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/embeddings/wiki.en.bin",
+        "subdir": "{DOWNLOADS_PATH}/embeddings"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
+        "subdir": "{DOWNLOADS_PATH}/embeddings"
       }
     ]
   }
