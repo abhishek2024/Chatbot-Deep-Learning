@@ -374,7 +374,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         for i in range(len(x)):  # batch size
             predicted_sample = []
 
-            current_token = self.decoder_embedder([[self.decoder_vocab[self.opt["tgt_bos_id"]]]])[0][0] 
+            current_token = self.decoder_embedder([[self.decoder_vocab[self.opt["tgt_bos_id"]]]])[0][0]
             end_of_sequence = False
 
             if isinstance(encoder_states, list):
