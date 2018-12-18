@@ -165,7 +165,7 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/seq2seq/rus-eng/token_level/model_v0"
+      "MODELS_PATH": "{ROOT_PATH}/models/seq2seq/rus-eng/token_level/rus_eng_token_model_v0"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
@@ -183,6 +183,10 @@
       {
         "url": "http://files.deeppavlov.ai/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
         "subdir": "{DOWNLOADS_PATH}/embeddings"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/seq2seq/rus_eng_token_model_v0.tar.gz",
+        "subdir": "{ROOT_PATH}/models/seq2seq/rus-eng/token_level/"
       }
     ]
   }
