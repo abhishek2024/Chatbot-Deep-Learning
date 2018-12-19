@@ -142,7 +142,7 @@
   },
   "train": {
     "epochs": 1000,
-    "batch_size": 32,
+    "batch_size": 16,
     "metrics": [
       "bleu",
       {
@@ -165,7 +165,7 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/seq2seq/rus-eng/token_level/rus_eng_token_model_v1"
+      "MODELS_PATH": "{ROOT_PATH}/models/seq2seq/rus-eng/token_level/rus_eng_token_model_v2"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
