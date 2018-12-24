@@ -144,7 +144,7 @@ PARAMS = {
         ("ranking/paraphrase_ident_paraphraser_tune.json", "ranking", ('TI',)): [ONE_ARGUMENT_INFER_CHECK],
         ("ranking/paraphrase_ident_tune_interact.json", "ranking",
          ('IP',)): [ONE_ARGUMENT_INFER_CHECK],
-        ("ranking/paraphrase_ident_paraphraser_elmo.json", "ranking", ('TI',)): [ONE_ARGUMENT_INFER_CHECK],
+        ("ranking/paraphrase_ident_paraphraser_elmo_test.json", "ranking", ('TI',)): [ONE_ARGUMENT_INFER_CHECK],
         ("ranking/paraphrase_ident_elmo_interact.json", "ranking",
          ('IP',)): [ONE_ARGUMENT_INFER_CHECK],
         ("ranking/paraphrase_ident_qqp_test.json", "ranking", ('TI',)): [ONE_ARGUMENT_INFER_CHECK],
