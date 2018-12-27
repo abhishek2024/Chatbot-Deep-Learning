@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import itertools
+import re
 from typing import List, Tuple, Any
 
 from nltk.translate.bleu_score import corpus_bleu, sentence_bleu, SmoothingFunction, brevity_penalty, closest_ref_length
@@ -56,26 +56,51 @@ def bleu_advanced(y_true: List[Any], y_predicted: List[Any],
 
 
 @register_metric('bleu')
-def bleu(y_true, y_predicted):
-    return corpus_bleu([[y_t.lower().split()] for y_t in y_true],
-                       [y_p.lower().split() for y_p in y_predicted])
+def bleu(y_true, y_predicted, tokenizer=lambda x: x.split()):
+    """Calculate BLEU for strings or tokens"""
+    if isinstance(y_true[0], str):
+        y_true = (tokenizer(y_t.lower()) for y_t in y_true)
+    if isinstance(y_predicted[0], str):
+        y_predicted = (tokenizer(y_p.lower()) for y_p in y_predicted)
+    return corpus_bleu([[y_t] for y_t in y_true], list(y_predicted))
 
 
 @register_metric('google_bleu')
-def google_bleu(y_true, y_predicted):
-    return compute_bleu(([y_t.lower().split()] for y_t in y_true),
-                        (y_p.lower().split() for y_p in y_predicted))[0]
+def google_bleu(y_true, y_predicted, tokenizer=lambda x: x.split()):
+    """Calculate Google BLEU for strings or tokens"""
+    if isinstance(y_true[0], str):
+        y_true = (tokenizer(y_t.lower()) for y_t in y_true)
+    if isinstance(y_predicted[0], str):
+        y_predicted = (tokenizer(y_p.lower()) for y_p in y_predicted)
+    return compute_bleu(([y_t] for y_t in y_true), y_predicted)[0]
 
 
-@register_metric('per_item_bleu')
-def per_item_bleu(y_true, y_predicted):
-    y_predicted = itertools.chain(*y_predicted)
-    return corpus_bleu([[y_t.lower().split()] for y_t in y_true],
-                       [y_p.lower().split() for y_p in y_predicted])
+def tokenize_13a(line):
+    """
+    Tokenizes an input line using a relatively minimal tokenization that is however equivalent to mteval-v13a, used by WMT.
+    :param line: a segment to tokenize
+    :return: the tokenized line
+    """
 
+    norm = line
 
-@register_metric('per_item_dialog_bleu')
-def per_item_dialog_bleu(y_true, y_predicted):
-    y_true = (y['text'] for dialog in y_true for y in dialog)
-    return corpus_bleu([[y_t.lower().split()] for y_t in y_true],
-                       [y_p.lower().split() for y_p in y_predicted])
+    # language-independent part:
+    norm = norm.replace('<skipped>', '')
+    norm = norm.replace('-\n', '')
+    norm = norm.replace('\n', ' ')
+    norm = norm.replace('&quot;', '"')
+    norm = norm.replace('&amp;', '&')
+    norm = norm.replace('&lt;', '<')
+    norm = norm.replace('&gt;', '>')
+
+    # language-dependent part (assuming Western languages):
+    norm = " {} ".format(norm)
+    norm = re.sub(r'([\{-\~\[-\` -\&\(-\+\:-\@\/])', ' \\1 ', norm)
+    norm = re.sub(r'([^0-9])([\.,])', '\\1 \\2 ', norm)  # tokenize period and comma unless preceded by a digit
+    norm = re.sub(r'([\.,])([^0-9])', ' \\1 \\2', norm)  # tokenize period and comma unless followed by a digit
+    norm = re.sub(r'([0-9])(-)', '\\1 \\2 ', norm)  # tokenize dash when preceded by a digit
+    norm = re.sub(r'\s+', ' ', norm)  # one space only between words
+    norm = re.sub(r'^\s+', '', norm)  # no leading space
+    norm = re.sub(r'\s+$', '', norm)  # no trailing space
+
+    return norm.split()
