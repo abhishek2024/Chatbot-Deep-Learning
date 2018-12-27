@@ -20,7 +20,7 @@ import math
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.errors import ConfigError
-from deeppavlov.core.models.tf_model import TFModel
+from deeppavlov.core.models.lr_scheduled_tf_model import LRScheduledTFModel
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.models.seq2seq_go_bot.kb_attn_layer import KBAttention
 
@@ -29,7 +29,7 @@ log = get_logger(__name__)
 
 
 @register("seq2seq_go_bot_nn")
-class Seq2SeqGoalOrientedBotNetwork(TFModel):
+class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
     """
     The :class:`~deeppavlov.models.seq2seq_go_bot.bot.GoalOrientedBotNetwork`
     is a recurrent network that encodes user utterance and generates response
@@ -50,11 +50,6 @@ class Seq2SeqGoalOrientedBotNetwork(TFModel):
         decoder_embeddings: matrix with embeddings for decoder output tokens, size is
             (`targer_vocab_size` + number of knowledge base entries, embedding size).
         beam_width: width of beam search decoding.
-        learning_rate: learning rate during training.
-        end_learning_rate: if set, learning rate starts from ``learning_rate`` value
-            and decays polynomially to the value of ``end_learning_rate``.
-        decay_steps: number of steps of learning rate decay.
-        decay_power: power used to calculate learning rate decay for polynomial strategy.
         dropout_rate: probability of weights' dropout.
         state_dropout_rate: probability of rnn state dropout.
         optimizer: one of tf.train.Optimizer subclasses as a string.
@@ -75,16 +70,11 @@ class Seq2SeqGoalOrientedBotNetwork(TFModel):
                  knowledge_base_entry_embeddings: np.ndarray,
                  kb_attention_hidden_sizes: List[int],
                  decoder_embeddings: np.ndarray,
-                 learning_rate: float,
                  beam_width: int = 1,
-                 end_learning_rate: float = None,
-                 decay_steps: int = 1000,
-                 decay_power: float = 1.0,
                  dropout_rate: float = 0.0,
                  state_dropout_rate: float = 0.0,
                  optimizer: str = 'AdamOptimizer',
                  **kwargs) -> None:
-        end_learning_rate = end_learning_rate or learning_rate
 
         # initialize knowledge base embeddings
         self.kb_embedding = np.array(knowledge_base_entry_embeddings)
@@ -95,6 +85,7 @@ class Seq2SeqGoalOrientedBotNetwork(TFModel):
         if self.kb_embedding.shape[1] != self.decoder_embedding.shape[1]:
             raise ValueError("decoder embeddings should have the same dimension"
                              " as knowledge base entries' embeddings")
+        super().__init__(**kwargs)
 
         # specify model options
         self.opt = {
@@ -107,11 +98,7 @@ class Seq2SeqGoalOrientedBotNetwork(TFModel):
             'kb_embedding_control_sum': float(np.sum(self.kb_embedding)),
             'knowledge_base_size': self.kb_embedding.shape[0],
             'embedding_size': self.kb_embedding.shape[1],
-            'learning_rate': learning_rate,
             'beam_width': beam_width,
-            'end_learning_rate': end_learning_rate,
-            'decay_steps': decay_steps,
-            'decay_power': decay_power,
             'dropout_rate': dropout_rate,
             'state_dropout_rate': state_dropout_rate,
             'optimizer': optimizer
@@ -125,11 +112,8 @@ class Seq2SeqGoalOrientedBotNetwork(TFModel):
         self.sess = tf.Session()
         # from tensorflow.python import debug as tf_debug
         # self.sess = tf_debug.TensorBoardDebugWrapperSession(self.sess, "vimary-pc:7019")
-        self.global_step = 0
 
         self.sess.run(tf.global_variables_initializer())
-
-        super().__init__(**kwargs)
 
         if tf.train.checkpoint_exists(str(self.load_path.resolve())):
             log.info("[initializing `{}` from saved]".format(self.__class__.__name__))
@@ -143,17 +127,12 @@ class Seq2SeqGoalOrientedBotNetwork(TFModel):
         self.tgt_vocab_size = self.opt['target_vocab_size']
         self.tgt_sos_id = self.opt['target_start_of_sequence_index']
         self.tgt_eos_id = self.opt['target_end_of_sequence_index']
-        self.learning_rate = self.opt['learning_rate']
         self.kb_attn_hidden_sizes = self.opt['kb_attention_hidden_sizes']
         self.embedding_size = self.opt['embedding_size']
         self.kb_size = self.opt['knowledge_base_size']
         self.beam_width = self.opt['beam_width']
-        self.learning_rate = self.opt['learning_rate']
-        self.end_learning_rate = self.opt['end_learning_rate']
         self.dropout_rate = self.opt['dropout_rate']
         self.state_dropout_rate = self.opt['state_dropout_rate']
-        self.decay_steps = self.opt['decay_steps']
-        self.decay_power = self.opt['decay_power']
 
         self._optimizer = None
         if hasattr(tf.train, self.opt['optimizer']):
@@ -180,11 +159,7 @@ class Seq2SeqGoalOrientedBotNetwork(TFModel):
         self._loss = tf.reduce_sum(_loss_tensor) / tf.cast(self._batch_size, tf.float32)
         # self._loss = tf.reduce_mean(_loss_tensor, name='loss')
 # TODO: tune clip_norm
-        self._train_op = \
-            self.get_train_op(self._loss,
-                              learning_rate=self._learning_rate,
-                              optimizer=self._optimizer,
-                              clip_norm=2.)
+        self._train_op = self.get_train_op(self._loss, optimizer=self._optimizer)
         # log.info("Trainable variables")
         # for v in tf.trainable_variables():
         #    log.info(v)
@@ -195,9 +170,6 @@ class Seq2SeqGoalOrientedBotNetwork(TFModel):
             1.0, shape=[], name='dropout_keep_prob')
         self._state_dropout_keep_prob = tf.placeholder_with_default(
             1.0, shape=[], name='state_dropout_keep_prob')
-        self._learning_rate = tf.placeholder(tf.float32,
-                                             shape=[],
-                                             name='learning_rate')
         # _encoder_inputs: [batch_size, max_input_time]
         # _encoder_inputs: [batch_size, max_input_time, embedding_size]
         self._encoder_inputs = tf.placeholder(tf.float32,
@@ -300,15 +272,14 @@ class Seq2SeqGoalOrientedBotNetwork(TFModel):
                 self._src_sequence_lengths, multiplier=self.beam_width)
 
             with tf.variable_scope("AttentionOverKB"):
-                _kb_attn_layer = KBAttention(self.tgt_vocab_size,
-                                             self.kb_attn_hidden_sizes + [1],
-                                             self._kb_embedding,
-                                             self._kb_mask,
-                                             activation=tf.nn.relu,
-                                             use_bias=False)
+                _projection_layer = KBAttention(self.tgt_vocab_size,
+                                                self.kb_attn_hidden_sizes + [1],
+                                                self._kb_embedding,
+                                                self._kb_mask,
+                                                activation=tf.nn.relu,
+                                                use_bias=False)
             # Output dense layer
-            # _projection_layer = \
-            #  tf.layers.Dense(self.tgt_vocab_size, use_bias=False, _reuse=reuse)
+            # _projection_layer = tf.layers.Dense(self.tgt_vocab_size, use_bias=False)
 
             # Decoder Cell
             _decoder_cell = tf.nn.rnn_cell.LSTMCell(self.hidden_size,
@@ -351,7 +322,7 @@ class Seq2SeqGoalOrientedBotNetwork(TFModel):
             _decoder_tr = \
                 tf.contrib.seq2seq.BasicDecoder(_decoder_cell_tr, _helper_tr,
                                                 initial_state=_decoder_init_state,
-                                                output_layer=_kb_attn_layer)
+                                                output_layer=_projection_layer)
             # Wrap into variable scope to share attention parameters
             # Required!
             with tf.variable_scope('decode_with_shared_attention'):
@@ -390,7 +361,7 @@ class Seq2SeqGoalOrientedBotNetwork(TFModel):
                     end_token=self.tgt_eos_id,
                     initial_state=_decoder_init_state,
                     beam_width=self.beam_width,
-                    output_layer=_kb_attn_layer,
+                    output_layer=_projection_layer,
                     length_penalty_weight=0.0)
 
             # Wrap into variable scope to share attention parameters
@@ -415,7 +386,6 @@ class Seq2SeqGoalOrientedBotNetwork(TFModel):
             feed_dict={
                 self._dropout_keep_prob: 1.,
                 self._state_dropout_keep_prob: 1.,
-                self._learning_rate: 1.,
                 self._encoder_inputs: enc_inputs,
                 self._src_sequence_lengths: src_seq_lengths,
                 self._kb_mask: kb_masks
@@ -433,7 +403,6 @@ class Seq2SeqGoalOrientedBotNetwork(TFModel):
             feed_dict={
                 self._dropout_keep_prob: 1 - self.dropout_rate,
                 self._state_dropout_keep_prob: 1 - self.state_dropout_rate,
-                self._learning_rate: self.get_learning_rate(),
                 self._encoder_inputs: enc_inputs,
                 self._decoder_inputs: dec_inputs,
                 self._decoder_outputs: dec_outputs,
@@ -444,15 +413,6 @@ class Seq2SeqGoalOrientedBotNetwork(TFModel):
             }
         )
         return loss_value
-
-    def get_learning_rate(self):
-        # polynomial decay
-        global_step = min(self.global_step, self.decay_steps)
-        decayed_learning_rate = \
-            (self.learning_rate - self.end_learning_rate) *\
-            (1 - global_step / self.decay_steps) ** self.decay_power +\
-            self.end_learning_rate
-        return decayed_learning_rate
 
     def load(self, *args, **kwargs):
         self.load_params()
@@ -482,11 +442,3 @@ class Seq2SeqGoalOrientedBotNetwork(TFModel):
         with open(path, 'w', encoding='utf8') as fp:
             json.dump(self.opt, fp)
 
-    def process_event(self, event_name, data):
-        if event_name == 'after_epoch':
-            log.info("Updating global step, learning rate = {:.6f}."
-                     .format(self.get_learning_rate()))
-            self.global_step += 1
-
-    def shutdown(self):
-        self.sess.close()

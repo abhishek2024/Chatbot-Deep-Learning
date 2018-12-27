@@ -87,7 +87,9 @@
         "end_of_sequence_token": "<EOS>",
         "embedder": "#token_embedder",
         "network_parameters": {
-          "learning_rate": 0.0002,
+          "learning_rate": 3e-4,
+          "learning_rate_drop_patience": 3,
+          "learning_rate_drop_div": 2.0,
           "dropout_rate": 0.2,
           "state_dropout_rate": 0.07,
           "beam_width": 1,

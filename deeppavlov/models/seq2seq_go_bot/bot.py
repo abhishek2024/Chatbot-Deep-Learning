@@ -102,7 +102,12 @@ class Seq2SeqGoalOrientedBot(NNModel):
                       .format(key.split('_'), emb.shape))
         return emb
 
-    def train_on_batch(self, utters, history_list, kb_entry_list, responses):
+    def fit(self, *args):
+        raise NotImplementedError("`fit_on` not implemented yet")
+        data = [self.preprocess([x0], [x1], [x2], [x3]) for x0, x1, x2, x3 in zip(*args)]
+        return self.network.fit(*list(zip(*data)))
+
+    def preprocess(self, utters, history_list, kb_entry_list, responses):
         b_enc_ins, b_src_lens = [], []
         b_dec_ins, b_dec_outs, b_tgt_lens = [], [], []
         for x_tokens, history, y_tokens in zip(utters, history_list, responses):
@@ -149,10 +154,12 @@ class Seq2SeqGoalOrientedBot(NNModel):
             log.debug("b_src_lens = {}".format(b_src_lens))
             log.debug("b_tgt_lens = {}".format(b_tgt_lens))
             log.debug("b_tgt_weights = {}".format(b_tgt_weights))"""
+        return (b_enc_ins_np, b_dec_ins_np, b_dec_outs_np,
+                b_src_lens, b_tgt_lens, b_tgt_weights_np, b_kb_masks_np)
 
-        self.network.train_on_batch(b_enc_ins_np, b_dec_ins_np, b_dec_outs_np,
-                                    b_src_lens, b_tgt_lens, b_tgt_weights_np,
-                                    b_kb_masks_np)
+    def train_on_batch(self, utters, history_list, kb_entry_list, responses):
+        prep_batch = self.preprocess(utters, history_list, kb_entry_list, responses)
+        return self.network.train_on_batch(*prep_batch)
 
     def _encode_context(self, tokens):
         if self.debug:
@@ -228,3 +235,4 @@ class Seq2SeqGoalOrientedBot(NNModel):
 
     def destroy(self):
         self.embedder.destroy()
+        self.network.destroy()
