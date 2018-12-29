@@ -39,8 +39,8 @@
         "min_freq": 2,
         "default_token": "<UNK>",
         "special_tokens": ["<UNK>", "<SOS>"],
-        "save_path": "{BOT_PATH}/kvret_src_tokens.dict",
-        "load_path": "{BOT_PATH}/kvret_src_tokens.dict"
+        "save_path": "{BOT_PATH}/src_tokens.dict",
+        "load_path": "{BOT_PATH}/src_tokens.dict"
       },
       {
         "id": "tgt_token_vocab",
@@ -48,8 +48,8 @@
         "class_name": "simple_vocab",
         "default_token": "<UNK>",
         "special_tokens": ["<UNK>", "<SOS>", "<EOS>"],
-        "save_path": "{BOT_PATH}/kvret_tgt_tokens.dict",
-        "load_path": "{BOT_PATH}/kvret_tgt_tokens.dict"
+        "save_path": "{BOT_PATH}/tgt_tokens.dict",
+        "load_path": "{BOT_PATH}/tgt_tokens.dict"
       },
       {
         "id": "token_embedder",
@@ -125,13 +125,13 @@
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
       "MODELS_PATH": "{ROOT_PATH}/models",
-      "BOT_PATH": "{MODELS_PATH}/seq2seq_go_bot_simple_glove2"
+      "BOT_PATH": "{MODELS_PATH}/bot_kvret_simple"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
       "{DEEPPAVLOV_PATH}/requirements/spacy.txt",
       "{DEEPPAVLOV_PATH}/requirements/en_core_web_sm.txt",
-      "{DEEPPAVLOV_PATH}/requirements/fasttext.txt"
+      "{DEEPPAVLOV_PATH}/requirements/gensim.txt"
     ],
     "labels": {
       "telegram_utils": "Seq2SeqGoalOrientedBot",
@@ -139,11 +139,7 @@
     },
     "download": [
       {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/vocabs.tar.gz",
-        "subdir": "{MODELS_PATH}"
-      },
-      {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/seq2seq_go_bot_v2.tar.gz",
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/bot_kvret_simple_v0.tar.gz",
         "subdir": "{MODELS_PATH}"
       },
       {
