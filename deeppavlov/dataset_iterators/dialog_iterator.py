@@ -80,3 +80,41 @@ class DialogDBResultDatasetIterator(DataLearningIterator):
         self.train = [(r, "") for r in filter(None, map(self._db_result, self.train))]
         self.valid = [(r, "") for r in filter(None, map(self._db_result, self.valid))]
         self.test = [(r, "") for r in filter(None, map(self._db_result, self.test))]
+
+
+@register('skill_dialog_iterator')
+class SkillDialogDatasetIterator(DataLearningIterator):
+    """
+    Inputs dialog data, constructs dialog history for each turn, generates batches (one sample is a turn).
+
+    Inherits key methods and attributes from :class:`~deeppavlov.core.data.data_learning_iterator.DataLearningIterator`.
+
+    Attributes:
+        train: list of training dialogs (tuples ``(context, response)``)
+        valid: list of validation dialogs (tuples ``(context, response)``)
+        test: list of dialogs used for testing (tuples ``(context, response)``)
+    """
+
+    def __init__(self, *args, y_names=['text'], **kwargs):
+        self.y_names = y_names
+        super().__init__(*args, **kwargs)
+
+    def _utterances(self, data):
+        utters = []
+        history = []
+        for x, y in data:
+            if x.get('episode_done'):
+                history = []
+            history.append(x['text'])
+            history.append(y['text'])
+            x['history'] = history[:-2]
+            x_tuple = (x['text'], x['history'], [])
+            y_tuple = [y[k] for k in self.y_names]
+            utters.append((x_tuple, y_tuple))
+        return utters
+
+    @overrides
+    def split(self, *args, **kwargs):
+        self.train = self._utterances(self.train)
+        self.valid = self._utterances(self.valid)
+        self.test = self._utterances(self.test)

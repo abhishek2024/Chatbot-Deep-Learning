@@ -8,24 +8,23 @@
     "shuffle": false
   },
   "chainer": {
-    "in": ["x_text", "dialog_id"],
+    "in": ["x_text", "history_list", "dialog_id"],
     "in_y": ["y_text", "y_domain"],
-    "out": ["prediction_text"],
+    "out": ["prediction_text", "confidence", "dialog_id"],
     "pipe": [
       {
-        "id": "stream_spacy",
         "class_name": "stream_spacy_tokenizer",
+        "id": "stream_spacy",
         "lowercase": true,
         "alphas_only": false,
         "in": ["x_text"],
         "out": ["x_tokens"]
       },
       {
-        "id": "dialog_history",
-        "class_name": "dialog_state",
-        "in": ["dialog_id"],
-        "out": ["history_tokens"]
-      },
+        "class_name": "deeppavlov.models.seq2seq_go_bot.wrapper:PerItemWrapper",
+        "component": "#stream_spacy",
+        "in": ["history_list"],
+        "out": ["history_tok_list"]
       {
         "id": "kb",
         "class_name": "knowledge_base",
@@ -57,7 +56,7 @@
         "load_path": "{DOWNLOADS_PATH}/embeddings/wiki.en.bin"
       },
       {
-        "in": ["x_tokens", "history_tokens", "kb_entries"],
+        "in": ["x_tokens", "history_tok_list", "kb_entries"],
         "out": ["prediction_norm_tokens"],
         "main": true,
         "class_name": "seq2seq_go_bot",

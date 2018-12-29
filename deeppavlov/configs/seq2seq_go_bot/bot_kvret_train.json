@@ -8,9 +8,9 @@
     "shuffle": false
   },
   "chainer": {
-    "in": ["x_text", "dialog_id", "history", "kb_columns", "kb_items"],
+    "in": ["x_text", "dialog_id", "history_list", "kb_columns", "kb_items"],
     "in_y": ["y_text", "y_domain"],
-    "out": ["prediction_text"],
+    "out": ["prediction_text", "confidence"],
     "pipe": [
       {
         "id": "stream_spacy",
@@ -26,9 +26,10 @@
         "out": ["y_tokens"]
       },
       {
-        "ref": "stream_spacy",
-        "in": ["history"],
-        "out": ["history_tokens"]
+        "class_name": "deeppavlov.models.seq2seq_go_bot.wrapper:PerItemWrapper",
+        "component": "#stream_spacy",
+        "in": ["history_list"],
+        "out": ["history_tok_list"]
       },
       {
         "id": "kb",
@@ -76,9 +77,9 @@
         "load_path": "{DOWNLOADS_PATH}/embeddings/wiki.en.bin"
       },
       {
-        "in": ["x_tokens", "history_tokens", "kb_entries"],
+        "in": ["x_tokens", "history_tok_list", "kb_entries"],
         "in_y": ["y_norm_tokens"],
-        "out": ["prediction_norm_tokens"],
+        "out": ["prediction_norm_tokens", "confidence"],
         "main": true,
         "class_name": "seq2seq_go_bot",
         "load_path": "{MODELS_PATH}/seq2seq_go_bot/model",

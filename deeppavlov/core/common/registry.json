@@ -85,6 +85,7 @@
   "siamese_preprocessor": "deeppavlov.models.preprocessors.siamese_preprocessor:SiamesePreprocessor",
   "siamese_reader": "deeppavlov.dataset_readers.siamese_reader:SiameseReader",
   "simple_vocab": "deeppavlov.core.data.simple_vocab:SimpleVocabulary",
+  "skill_dialog_iterator": "deeppavlov.dataset_iterators.dialog_iterator:SkillDialogDatasetIterator",
   "sklearn_component": "deeppavlov.models.sklearn.sklearn_component:SklearnComponent",
   "slotfill_raw": "deeppavlov.models.slotfill.slotfill_raw:SlotFillingComponent",
   "spelling_error_model": "deeppavlov.models.spelling_correction.brillmoore.error_model:ErrorModel",

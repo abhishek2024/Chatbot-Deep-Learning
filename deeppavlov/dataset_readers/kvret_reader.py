@@ -99,7 +99,7 @@ class KvretDatasetReader(DatasetReader):
         if turn[0].get('episode_done') is not None:
             x['episode_done'] = turn[0]['episode_done']
         y = {'text': turn[1]['utterance'],
-             'task': turn[0]['task'],
+             'domain': turn[0]['task']['intent'],
              'requested': turn[1].get('requested', {}),
              'slots': turn[1].get('slots', {})}
         return (x, y)
