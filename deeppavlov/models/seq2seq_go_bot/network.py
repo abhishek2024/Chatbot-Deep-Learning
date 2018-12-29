@@ -67,9 +67,9 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                  target_vocab_size: int,
                  target_start_of_sequence_index: int,
                  target_end_of_sequence_index: int,
-                 knowledge_base_entry_embeddings: np.ndarray,
-                 kb_attention_hidden_sizes: List[int],
                  decoder_embeddings: np.ndarray,
+                 knowledge_base_entry_embeddings: np.ndarray = [[]],
+                 kb_attention_hidden_sizes: List[int] = [],
                  beam_width: int = 1,
                  dropout_rate: float = 0.0,
                  state_dropout_rate: float = 0.0,
@@ -78,13 +78,18 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
 
         # initialize knowledge base embeddings
         self.kb_embedding = np.array(knowledge_base_entry_embeddings)
-        log.debug("recieved knowledge_base_entry_embeddings with shape = {}"
-                  .format(self.kb_embedding.shape))
+        if self.kb_embedding.shape[1] > 0:
+            self.kb_size = self.kb_embedding.shape[0]
+            log.debug("recieved knowledge_base_entry_embeddings with shape = {}"
+                      .format(self.kb_embedding.shape))
+        else:
+            self.kb_size = 0
         # initialize decoder embeddings
         self.decoder_embedding = np.array(decoder_embeddings)
-        if self.kb_embedding.shape[1] != self.decoder_embedding.shape[1]:
-            raise ValueError("decoder embeddings should have the same dimension"
-                             " as knowledge base entries' embeddings")
+        if self.kb_size > 0:
+            if self.kb_embedding.shape[1] != self.decoder_embedding.shape[1]:
+                raise ValueError("decoder embeddings should have the same dimension"
+                                 " as knowledge base entries' embeddings")
         super().__init__(**kwargs)
 
         # specify model options
@@ -96,8 +101,8 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
             'target_end_of_sequence_index': target_end_of_sequence_index,
             'kb_attention_hidden_sizes': kb_attention_hidden_sizes,
             'kb_embedding_control_sum': float(np.sum(self.kb_embedding)),
-            'knowledge_base_size': self.kb_embedding.shape[0],
-            'embedding_size': self.kb_embedding.shape[1],
+            'knowledge_base_size': self.kb_size,
+            'embedding_size': self.decoder_embedding.shape[1],
             'beam_width': beam_width,
             'dropout_rate': dropout_rate,
             'state_dropout_rate': state_dropout_rate,
@@ -129,7 +134,6 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
         self.tgt_eos_id = self.opt['target_end_of_sequence_index']
         self.kb_attn_hidden_sizes = self.opt['kb_attention_hidden_sizes']
         self.embedding_size = self.opt['embedding_size']
-        self.kb_size = self.opt['knowledge_base_size']
         self.beam_width = self.opt['beam_width']
         self.dropout_rate = self.opt['dropout_rate']
         self.state_dropout_rate = self.opt['state_dropout_rate']
@@ -160,10 +164,10 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
         # self._loss = tf.reduce_mean(_loss_tensor, name='loss')
 # TODO: tune clip_norm
         self._train_op = self.get_train_op(self._loss, optimizer=self._optimizer)
-        # log.info("Trainable variables")
-        # for v in tf.trainable_variables():
-        #    log.info(v)
-        # self.print_number_of_parameters()
+        log.info("Trainable variables")
+        for v in tf.trainable_variables():
+            log.info(v)
+        self.print_number_of_parameters()
 
     def _add_placeholders(self):
         self._dropout_keep_prob = tf.placeholder_with_default(
@@ -271,15 +275,18 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
             _tiled_src_sequence_lengths = tf.contrib.seq2seq.tile_batch(
                 self._src_sequence_lengths, multiplier=self.beam_width)
 
-            with tf.variable_scope("AttentionOverKB"):
-                _projection_layer = KBAttention(self.tgt_vocab_size,
-                                                self.kb_attn_hidden_sizes + [1],
-                                                self._kb_embedding,
-                                                self._kb_mask,
-                                                activation=tf.nn.relu,
-                                                use_bias=False)
-            # Output dense layer
-            # _projection_layer = tf.layers.Dense(self.tgt_vocab_size, use_bias=False)
+            if self.kb_size > 0:
+                with tf.variable_scope("AttentionOverKB"):
+                    _projection_layer = KBAttention(self.tgt_vocab_size,
+                                                    self.kb_attn_hidden_sizes + [1],
+                                                    self._kb_embedding,
+                                                    self._kb_mask,
+                                                    activation=tf.nn.relu,
+                                                    use_bias=False)
+            else:
+                with tf.variable_scope("OutputDense"):
+                    _projection_layer = tf.layers.Dense(self.tgt_vocab_size,
+                                                        use_bias=False)
 
             # Decoder Cell
             _decoder_cell = tf.nn.rnn_cell.LSTMCell(self.hidden_size,

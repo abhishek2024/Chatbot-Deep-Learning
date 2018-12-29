@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import itertools
 import numpy as np
-from typing import Dict
+from typing import Dict, List, Tuple
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.component import Component
@@ -53,9 +54,10 @@ class Seq2SeqGoalOrientedBot(NNModel):
                  target_vocab: Component,
                  start_of_sequence_token: str,
                  end_of_sequence_token: str,
-                 knowledge_base_keys,
                  save_path: str,
                  load_path: str = None,
+                 delimiters: Tuple[str, str] = (' ', ' '),
+                 knowledge_base_keys: List[str] = [],
                  debug: bool = False,
                  **kwargs) -> None:
         super().__init__(save_path=save_path, load_path=load_path, **kwargs)
@@ -67,6 +69,7 @@ class Seq2SeqGoalOrientedBot(NNModel):
         self.tgt_vocab_size = len(target_vocab)
         self.kb_keys = knowledge_base_keys
         self.kb_size = len(self.kb_keys)
+        self.delimiters = delimiters
         self.sos_token = start_of_sequence_token
         self.eos_token = end_of_sequence_token
         self.debug = debug
@@ -84,10 +87,11 @@ class Seq2SeqGoalOrientedBot(NNModel):
             params['source_vocab_size'] = len(self.src_vocab)
         if 'target_vocab_size' not in params:
             params['target_vocab_soze'] = len(self.tgt_vocab)
-        # contruct matrix of knowledge bases values embeddings
-        params['knowledge_base_entry_embeddings'] = \
-            [self._embed_kb_key(val) for val in self.kb_keys]
-        # contrcust matrix of decoder input token embeddings (zeros for sos_token)
+        # construct matrix of knowledge bases values embeddings
+        if self.kb_size > 0:
+            params['knowledge_base_entry_embeddings'] = \
+                [self._embed_kb_key(val) for val in self.kb_keys]
+        # construct matrix of decoder input token embeddings (zeros for sos_token)
         dec_embs = self.embedder([[self.tgt_vocab[idx]
                                    for idx in range(self.tgt_vocab_size)]])[0]
         dec_embs[self.tgt_vocab[self.sos_token]][:] = 0.
@@ -107,12 +111,16 @@ class Seq2SeqGoalOrientedBot(NNModel):
         data = [self.preprocess([x0], [x1], [x2], [x3]) for x0, x1, x2, x3 in zip(*args)]
         return self.network.fit(*list(zip(*data)))
 
-    def preprocess(self, utters, history_list, kb_entry_list, responses):
+    def preprocess(self, *args):
+        if len(args) == 4:
+            utters, history_list, kb_entry_list, responses = args
+        else:
+            utters, history_list, responses = args
+            kb_entry_list = itertools.repeat([])
         b_enc_ins, b_src_lens = [], []
         b_dec_ins, b_dec_outs, b_tgt_lens = [], [], []
-        for x_tokens, history, y_tokens in zip(utters, history_list, responses):
-            x_tokens = history + x_tokens
-            enc_in = self._encode_context(x_tokens)
+        for x_tokens, hist_tok_list, y_tokens in zip(utters, history_list, responses):
+            enc_in = self._encode_context(x_tokens, hist_tok_list)
             b_enc_ins.append(enc_in)
             b_src_lens.append(len(enc_in))
 
@@ -157,13 +165,17 @@ class Seq2SeqGoalOrientedBot(NNModel):
         return (b_enc_ins_np, b_dec_ins_np, b_dec_outs_np,
                 b_src_lens, b_tgt_lens, b_tgt_weights_np, b_kb_masks_np)
 
-    def train_on_batch(self, utters, history_list, kb_entry_list, responses):
-        prep_batch = self.preprocess(utters, history_list, kb_entry_list, responses)
-        return self.network.train_on_batch(*prep_batch)
+    def train_on_batch(self, *args):
+        return self.network.train_on_batch(*self.preprocess(*args))
 
-    def _encode_context(self, tokens):
+    def _encode_context(self, tokens, hist_tok_list):
         if self.debug:
             log.debug("Context tokens = \"{}\"".format(tokens))
+        hist_tokens = []
+        for i in range(len(hist_tok_list) // 2):
+            hist_tokens += [self.delimiters[0]] + hist_tok_list[2*i]
+            hist_tokens += [self.delimiters[1]] + hist_tok_list[2*i+1]
+        tokens = hist_tokens + [self.delimiters[0]] + tokens
         # token_idxs = self.src_vocab([tokens])[0]
         # return token_idxs
         return np.array(self.embedder([tokens])[0])
@@ -193,17 +205,12 @@ class Seq2SeqGoalOrientedBot(NNModel):
                     yield self.kb_keys[idx - self.tgt_vocab_size]
         return [list(_idx2token(utter_idxs)) for utter_idxs in token_idxs]
 
-    def __call__(self, *batch):
-        return self._infer_on_batch(*batch)
-
-    # def _infer_on_batch(self, utters, kb_entry_list=itertools.repeat([])):
-    def _infer_on_batch(self, utters, history_list, kb_entry_list):
+    def __call__(self, utters, history_list, kb_entry_list=itertools.repeat([])):
         b_enc_ins, b_src_lens = [], []
         if (len(utters) == 1) and not utters[0]:
             utters = [['hi']]
-        for utter, history in zip(utters, history_list):
-            utter = history + utter
-            enc_in = self._encode_context(utter)
+        for utt_tokens, hist_tok_list in zip(utters, history_list):
+            enc_in = self._encode_context(utt_tokens, hist_tok_list)
 
             b_enc_ins.append(enc_in)
             b_src_lens.append(len(enc_in))
@@ -225,13 +232,16 @@ class Seq2SeqGoalOrientedBot(NNModel):
         preds = self._decode_response(pred_idxs)
         if self.debug:
             log.debug("Dialog prediction = \"{}\"".format(preds[-1]))
-        return preds
+        return preds, [0.5] * len(preds)
 
     def save(self):
         self.network.save()
 
     def load(self):
         pass
+
+    def process_event(self, event_name, data):
+        self.network.process_event(event_name, data)
 
     def destroy(self):
         self.embedder.destroy()
