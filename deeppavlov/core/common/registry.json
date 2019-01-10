@@ -56,6 +56,7 @@
   "morphotagger_dataset_reader": "deeppavlov.dataset_readers.morphotagging_dataset_reader:MorphotaggerDatasetReader",
   "mpm_nn": "deeppavlov.models.ranking.mpm_siamese_network:MPMSiameseNetwork",
   "multi_squad_iterator": "deeppavlov.dataset_iterators.squad_iterator:MultiSquadIterator",
+  "multiwoz_reader": "deeppavlov.dataset_readers.multiwoz_reader:MultiWOZDatasetReader",
   "ner": "deeppavlov.models.ner.network:NerNetwork",
   "ner_bio_converter": "deeppavlov.models.ner.bio:BIOMarkupRestorer",
   "ner_few_shot_iterator": "deeppavlov.dataset_iterators.ner_few_shot_iterator:NERFewShotIterator",
