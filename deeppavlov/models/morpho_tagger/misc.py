@@ -21,7 +21,9 @@ from deeppavlov.models.morpho_tagger.common_tagger import make_pos_and_tag, make
 @register('multilingual_tag_normalizer')
 class MultilingualTagNormalizer(Estimator):
 
-    def __init__(self, save_path : str, load_path: Union[str, List[str]], max_error=2, **kwargs):
+    def __init__(self, save_path : str, load_path: Union[str, List[str]],
+                 language="None", max_error=2, **kwargs):
+        self.language = language
         self.max_error = max_error
         super().__init__(save_path, load_path, **kwargs)
 
@@ -62,7 +64,7 @@ class MultilingualTagNormalizer(Estimator):
 
     def fit(self, labels, indexes):
         labels = list(itertools.chain.from_iterable(
-            (elem for elem, index in zip(labels, indexes) if index == 0)))
+            (elem for elem, index in zip(labels, indexes) if index == self.language)))
         labels = [make_pos_and_tag(label, sep=",", return_mode="sorted_dict") for label in labels]
         self.labels = set(labels)
         self.pos = sorted(set(elem[0] for elem in labels))

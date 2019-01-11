@@ -4,6 +4,7 @@
     "data_path": "{DOWNLOADS_PATH}/UD2.3_source/UD_Belarusian-HSE",
     "additional_data_path": ["{DOWNLOADS_PATH}/UD2.3_source/UD_Russian-SynTagRus/ru_syntagrus-ud-train.conllu",
                              "{DOWNLOADS_PATH}/UD2.3_source/UD_Ukrainian-IU/uk_iu-ud-train.conllu"],
+    "additional_languages": ["ru_syntagrus", "uk"],
     "language": "be_hse",
     "data_types": [
       "train",
@@ -13,11 +14,12 @@
     "additional_read_params": {"max_sents": 1000}
   },
   "dataset_iterator": {
-    "class_name": "morphotagger_multidataset"
+    "class_name": "morphotagger_multidataset",
+    "multilingual": true
   },
   "chainer": {
     "in": [
-      "x"
+      "x", "groups"
     ],
     "in_y": [
       "y"
@@ -25,18 +27,10 @@
     "pipe": [
       {
         "in": [
-          "x"
-        ],
-        "class_name": "sent_label_splitter",
-        "out": [
-          "x_0", "groups"
-        ]
-      },
-      {
-        "in": [
           "y"
         ],
         "class_name": "multilingual_tag_normalizer",
+        "language": "be_hse",
         "save_path": "{MODELS_PATH}/morpho_tagger/UD2.3/be/tag_transformer_multi.out",
         "load_path": "{MODELS_PATH}/morpho_tagger/UD2.3/be/tag_transformer_multi.out",
         "fit_on": [
@@ -47,8 +41,17 @@
         ]
       },
       {
+        "id": "language_vocab",
+        "class_name": "default_vocab",
+        "fit_on": ["groups"],
+        "in": ["groups"],
+        "save_path": "{MODELS_PATH}/morpho_tagger/UD2.3/be/char_language_names.dict",
+        "load_path": "{MODELS_PATH}/morpho_tagger/UD2.3/be/char_language_names.dict",
+        "out": ["group_indexes"]
+      },
+      {
         "in": [
-          "x_0"
+          "x"
         ],
         "class_name": "lazy_tokenizer",
         "out": [
@@ -98,7 +101,7 @@
       },
       {
         "in": [
-          "x_processed", "groups"
+          "x_processed", "group_indexes"
         ],
         "in_y": [
           "y_transformed"

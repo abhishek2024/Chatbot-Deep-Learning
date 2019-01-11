@@ -62,9 +62,11 @@ def predict_with_model(config_path: [Path, str]) -> List[Optional[List[str]]]:
     model = build_model(config, load_trained=True)
     answers = [None] * len(iterator.test)
     batch_size = config['predict'].get("batch_size", -1)
-    for indexes, (x, _) in iterator.gen_batches(
+    for indexes, batch_data in iterator.gen_batches(
             batch_size=batch_size, data_type="test", shuffle=False, return_indexes=True):
-        y = model(x)
+        # batch_data = [batch, targets], batch = [(x_1, i_1), ...]
+        x = list(zip(*batch_data[0])) # x = [(x_1, ..., x_n), (i_1, ..., i_n)]
+        y = model(*x)
         for i, elem in zip(indexes, y):
             answers[i] = elem
     outfile = config['predict'].get("outfile")

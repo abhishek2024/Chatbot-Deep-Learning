@@ -175,25 +175,30 @@ class MorphotaggerMultiDatasetReader(DatasetReader):
 
     def read(self, data_path: Union[List, str],
              additional_data_path: Optional[List] = None,
-             language: Optional[None] = None,
+             language: Optional[str] = "None",
+             additional_languages: Optional[List[str]] = None,
              data_types: Optional[List[str]] = None,
+             additional_data_types: Optional[Union[str, List[str]]] = None,
              additional_read_params: Optional[Union[List,dict]] = None,
              **kwargs) -> Dict[str, List]:
         """Reads UD dataset from data_path.
 
         Args:
-            data_path: contists of two parts
-                The first can be either
+            data_path: can be either
                 1. a directory containing files. The file for data_type 'mode'
                 is then data_path / {language}-ud-{mode}.conllu
                 2. a list of files, containing the same number of items as data_types
-                The second contains a list of additional train files.
-            language: a language to detect filename when it is not given
+            additional_data_path:
+                a list of additional data files (None if no additional data files are provided).
+            language: specifies the language of the main dataset in multilingual setting,
+                in multiling
+            additional_languages: the languages of additional dataset files
             data_types: which dataset parts among 'train', 'dev', 'test' are returned
-
+            additional_data_types: parts of the dataset to which additional files are attached
         Returns:
             a dictionary containing dataset fragments (see ``read_infile``) for given data types
         """
+        # main data
         if data_types is None:
             data_types = ["train", "dev"]
         elif isinstance(data_types, str):
@@ -202,8 +207,6 @@ class MorphotaggerMultiDatasetReader(DatasetReader):
             if data_type not in ["train", "dev", "test"]:
                 raise ValueError("Unknown data_type: {}, only train, dev and test "
                                  "datatypes are allowed".format(data_type))
-        if additional_data_path is None:
-            additional_data_path = []
         if isinstance(data_path, str):
             data_path = Path(data_path)
         if isinstance(data_path, Path):
@@ -211,31 +214,20 @@ class MorphotaggerMultiDatasetReader(DatasetReader):
                 is_file = data_path.is_file()
             else:
                 is_file = (len(data_types) == 1)
-            if is_file:
-                # path to a single file
-                data_path, reserve_data_path = [data_path], None
-            else:
-                # path to data directory
-                if language is None:
+            if is_file:  # path to a single file
+                data_path = [data_path], None
+            else:  # path to data directory
+                if language == "None":
                     raise ValueError("You must implicitly provide language "
                                      "when providing data directory as source")
-                reserve_data_path = data_path
                 data_path = [data_path / "{}-ud-{}.conllu".format(language, mode)
                              for mode in data_types]
-                reserve_data_path = [
-                    reserve_data_path / language / "{}-ud-{}.conllu".format(language, mode)
-                    for mode in data_types]
         else:
             data_path = [Path(data_path) for data_path in data_path]
-            reserve_data_path = None
         if len(data_path) != len(data_types):
             raise ValueError("The number of input files in data_path and data types "
                              "in data_types must be equal")
         has_missing_files = any(not filepath.exists() for filepath in data_path)
-        if has_missing_files and reserve_data_path is not None:
-            has_missing_files = any(not filepath.exists() for filepath in reserve_data_path)
-            if not has_missing_files:
-                data_path = reserve_data_path
         if has_missing_files:
             # Files are downloaded from the Web repository
             dir_path = data_path[0].parent
@@ -245,26 +237,37 @@ class MorphotaggerMultiDatasetReader(DatasetReader):
             dir_path.mkdir(exist_ok=True, parents=True)
             download_decompress(url, dir_path)
             mark_done(dir_path)
-        data = {}
+        data = {mode: [] for mode in ["train", "valid", "test"]}
         for mode, filepath in zip(data_types, data_path):
             if mode == "dev":
                 mode = "valid"
-#             if mode == "test":
-#                 kwargs["read_only_words"] = True
             curr_data = read_infile(filepath, **kwargs)
-            data[mode] = [((sent, 0), tags) for sent, tags in curr_data]
-        if len(additional_data_path) > 0:
+            data[mode].extend([((sent, language), tags) for sent, tags in curr_data])
+        if additional_data_path is not None:
             if additional_read_params is None:
                 additional_read_params = dict()
             if isinstance(additional_read_params, dict):
                 additional_read_params = [additional_read_params] * len(additional_data_path)
             if len(additional_read_params) != len(additional_data_path):
                 raise ValueError("Additional_read_params should have the same length as additional_data_path")
-        for i, filepath in enumerate(additional_data_path, 1):
+            if additional_data_types is None:
+                additional_data_types = ["train"] * len(additional_data_path)
+            if len(additional_data_types) != len(additional_data_path):
+                raise ValueError("Additional_data_types should have the same length as additional_data_path")
+            if isinstance(additional_languages, str):
+                additional_languages = [additional_languages] * len(additional_data_path)
+            if len(additional_languages) != len(additional_data_path):
+                raise ValueError("There must be the same number of languages in additional_languages"
+                                 "as files in additional_data_path")
+        else:
+            additional_data_path = []
+        for i, filepath in enumerate(additional_data_path):
             if isinstance(filepath, str):
                 filepath = Path(filepath)
             filepath = expand_path(filepath)
-            curr_data = read_infile(filepath, **additional_read_params[i-1])
-            curr_data = [((sent, i), tags) for sent, tags in curr_data]
-            data["train"].extend(curr_data)
+            curr_read_params, curr_language, curr_data_type =\
+                additional_read_params[i], additional_languages[i], additional_data_types[i]
+            curr_data = read_infile(filepath, **curr_read_params)
+            curr_data = [((sent, curr_language), tags) for sent, tags in curr_data]
+            data[curr_data_type].extend(curr_data)
         return data

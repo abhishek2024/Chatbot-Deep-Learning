@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import random
+from collections import defaultdict
 import numpy as np
 from typing import Tuple, List, Dict, Any, Iterator
 
@@ -134,9 +135,10 @@ class MorphoTaggerMultiDatasetIterator(DataLearningIterator):
     """
     def __init__(self, data: Dict[str, List[Tuple[Any, Any]]], seed: int = None,
                  shuffle: bool = True,  min_train_fraction: float = 0.0,
-                 validation_split: float = 0.2) -> None:
+                 validation_split: float = 0.2, multilingual=False) -> None:
         self.validation_split = validation_split
         self.min_train_fraction = min_train_fraction
+        self.multilingual = multilingual
         super().__init__(data, seed, shuffle)
 
     def split(self) -> None:
@@ -174,11 +176,14 @@ class MorphoTaggerMultiDatasetIterator(DataLearningIterator):
         if shuffle is None:
             shuffle = self.shuffle
         data = self.data[data_type]
-        max_index = max(elem[0][1] for elem in data) + 1
-        groups = [[] for _ in range(max_index)]
-        for (elem, i), tags in data:
-            groups[i].append(((elem, i), tags))
-        lengths = [[len(x[0]) for x in elem] for elem in groups]
+        groups = defaultdict(list)
+        for elem, tags in data:
+            group_name = elem[-1]
+            if not self.multilingual:
+                elem = elem[:-1]
+            groups[group_name].append((elem, tags))
+        groups = list(groups.values())
+        lengths = [[len(x[0][0]) for x in elem] for elem in groups]
         indexes = [np.argsort(elem) for elem in lengths]
 
         L = len(data[0])
@@ -190,8 +195,10 @@ class MorphoTaggerMultiDatasetIterator(DataLearningIterator):
             random.shuffle(starts)
         for i, start in starts:
             indexes_to_yield = indexes[i][start:start + batch_size]
-            data_to_yield = tuple(list(x) for x in zip(*([groups[i][index] for index in indexes_to_yield])))
+            # data_to_yield = [list(x) for x in zip(*([groups[i][index][0] for index in indexes_to_yield]))]
+            data_to_yield = [groups[i][index][0] for index in indexes_to_yield]
+            targets_to_yield = [groups[i][index][1] for index in indexes_to_yield]
             if return_indexes:
-                yield indexes_to_yield, data_to_yield
+                yield indexes_to_yield, (data_to_yield, targets_to_yield)
             else:
-                yield data_to_yield
+                yield (data_to_yield, targets_to_yield)
