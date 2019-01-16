@@ -172,18 +172,20 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
         self._dec_logits, self._dec_preds = self._build_decoder(scope="Decoder")
         self._ner_logits = self._build_ner_head(scope="NerHead")
 
-        _weights = tf.expand_dims(self._tgt_mask, -1)
-        self._dec_loss = self._build_dec_loss(self._dec_logits, _weights,
+        self._dec_loss = self._build_dec_loss(self._dec_logits,
+                                              weights=self._tgt_mask,
                                               scopes=["Encoder", "Decoder"],
                                               l2_reg=self.l2_regs[0])
 
         self._ner_loss, self._ner_preds = \
             self._build_ner_loss_predict(self._ner_logits,
-                                         self.ner_n_tags,
+                                         weights=self._src_tag_mask,
+                                         n_tags=self.ner_n_tags,
                                          scopes=["NerHead"],
                                          l2_reg=self.l2_regs[1])
 
         self._loss = (1 - self.ner_beta) * self._dec_loss + self.ner_beta * self._ner_loss
+
         self._train_op = self.get_train_op(self._loss, optimizer=self._optimizer)
 
         log.info("Trainable variables")
@@ -192,14 +194,19 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
         self.print_number_of_parameters()
 
     def _build_dec_loss(self, logits, weights, scopes=[None], l2_reg=0.0):
+        # _loss_tensor: [batch_size, max_output_time]
         _loss_tensor = \
             tf.losses.sparse_softmax_cross_entropy(logits=logits,
                                                    labels=self._decoder_outputs,
-                                                   weights=weights,
+                                                   weights=tf.expand_dims(weights, -1),
                                                    reduction=tf.losses.Reduction.NONE)
-        # check losses & normalize loss by batch_size
-        _loss_tensor = tf.verify_tensor_all_finite(_loss_tensor,
-                                                   "Non finite values in loss tensor.")
+        # check if loss has nans
+        _loss_tensor = \
+            tf.verify_tensor_all_finite(_loss_tensor, "Non finite values in loss tensor.")
+        # normalize loss by sequence lengths
+        _loss_tensor = tf.reduce_sum(_loss_tensor, -1) / tf.reduce_sum(weights, -1)
+        # _loss: [1]
+        # normalize loss by batch size
         _loss = tf.reduce_sum(_loss_tensor) / tf.cast(self._batch_size, tf.float32)
         # add l2 regularization
         if l2_reg > 0:
@@ -208,16 +215,22 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
             _loss += l2_reg * tf.reduce_sum(reg_vars)
         return _loss
 
-    def _build_ner_loss_predict(self, logits, n_tags, scopes=[None], l2_reg=0.0):
-        # TODO: add l2 regularization separate for ner and decoding tasks
+    def _build_ner_loss_predict(self, logits, weights, n_tags, scopes=[None], l2_reg=0.0):
         # labels: [batch_size, max_input_time, n_tags]
         _labels = tf.one_hot(self._src_tags, n_tags)
         # _loss_tensor: [batch_size, max_input_time]
         _loss_tensor = tf.nn.softmax_cross_entropy_with_logits_v2(labels=_labels,
                                                                   logits=logits)
-        _loss_tensor = _loss_tensor * self._src_mask
+        # multiply by mask
+        _loss_tensor = _loss_tensor * weights
+        # check if loss has nans
+        _loss_tensor = \
+            tf.verify_tensor_all_finite(_loss_tensor, "Non finite values in loss tensor.")
+        # normalize loss by sum of weights
+        _loss_tensor = tf.reduce_sum(_loss_tensor, -1) / tf.reduce_sum(weights, -1)
         # _loss: [1]
-        _loss = tf.reduce_mean(_loss_tensor)
+        # normalize loss by batch size
+        _loss = tf.reduce_sum(_loss_tensor) / tf.cast(self._batch_size, tf.float32)
         # add l2 regularization
         if l2_reg > 0:
             reg_vars = [tf.losses.get_regularization_loss(scope=sc, name=f"{sc}_reg_loss")
@@ -233,7 +246,6 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
             tf.placeholder_with_default(1.0, shape=[], name='dropout_keep_prob')
         self._state_dropout_keep_prob = \
             tf.placeholder_with_default(1.0, shape=[], name='state_dropout_keep_prob')
-        # _encoder_inputs: [batch_size, max_input_time]
         # _encoder_inputs: [batch_size, max_input_time, embedding_size]
         self._encoder_inputs = tf.placeholder(tf.float32,
                                               [None, None, self.embedding_size],

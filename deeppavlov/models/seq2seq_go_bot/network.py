@@ -148,7 +148,8 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
 
         self._add_placeholders()
 
-        _logits, self._predictions = self._build_body()
+        self._build_encoder()
+        _logits, self._predictions = self._build_decoder()
 
         _weights = tf.expand_dims(self._tgt_mask, -1)
         _loss_tensor = \
@@ -156,13 +157,16 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                                    labels=self._decoder_outputs,
                                                    weights=_weights,
                                                    reduction=tf.losses.Reduction.NONE)
-        # normalize loss by batch_size
+        # check if loss has nans
         _loss_tensor = \
             tf.verify_tensor_all_finite(_loss_tensor, "Non finite values in loss tensor.")
+        # normalize loss by sequence lengths
+        _loss_tensor = _loss_tensor / tf.reduce_sum(self._tgt_mask, -1)
+        # normalize loss by batch size
         self._loss = tf.reduce_sum(_loss_tensor) / tf.cast(self._batch_size, tf.float32)
-        # self._loss = tf.reduce_mean(_loss_tensor, name='loss')
 # TODO: tune clip_norm
         self._train_op = self.get_train_op(self._loss, optimizer=self._optimizer)
+
         log.info("Trainable variables")
         for v in tf.trainable_variables():
             log.info(v)
@@ -212,11 +216,6 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                                     [None],
                                                     name='input_sequence_lengths')
         self._tgt_sequence_lengths = tf.to_int32(tf.reduce_sum(self._tgt_mask, axis=1))
-
-    def _build_body(self):
-        self._build_encoder()
-        self._build_decoder()
-        return self._logits, self._predictions
 
     def _build_encoder(self):
         with tf.variable_scope("Encoder"):
@@ -377,8 +376,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
             # TODO: rm indexing
             # _predictions = \
             #    decode(_helper_infer, "decode", _max_iters, reuse=True).sample_id
-        self._logits = _logits
-        self._predictions = _predictions
+        return _logits, _predictions
 
     def __call__(self, enc_inputs, src_seq_lengths, kb_masks, prob=False):
         predictions = self.sess.run(
