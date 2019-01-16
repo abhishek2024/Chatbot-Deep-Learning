@@ -21,6 +21,8 @@ from deeppavlov.core.models.component import Component
 from deeppavlov.core.models.nn_model import NNModel
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.models.seq2seq_go_bot.network import Seq2SeqGoalOrientedBotNetwork
+from deeppavlov.models.seq2seq_go_bot.network_with_ner import \
+    Seq2SeqGoalOrientedBotWithNerNetwork
 
 
 log = get_logger(__name__)
@@ -38,8 +40,6 @@ class Seq2SeqGoalOrientedBot(NNModel):
             :class:`~deeppavlov.models.seq2seq_go_bot.network.Seq2SeqGoalOrientedBotNetwork` class.
         embedder: word embeddings model, see
             :doc:`deeppavlov.models.embedders </apiref/models/embedders>`.
-        source_vocab: vocabulary of input tokens.
-        target_vocab: vocabulary of bot response tokens.
         start_of_sequence_token: token that defines start of input sequence.
         end_of_sequence_token: token that defines end of input sequence and start of
             output sequence.
@@ -50,7 +50,6 @@ class Seq2SeqGoalOrientedBot(NNModel):
     def __init__(self,
                  network_parameters: Dict,
                  embedder: Component,
-                 source_vocab: Component,
                  target_vocab: Component,
                  start_of_sequence_token: str,
                  end_of_sequence_token: str,
@@ -76,17 +75,14 @@ class Seq2SeqGoalOrientedBot(NNModel):
 
         network_parameters['load_path'] = load_path
         network_parameters['save_path'] = save_path
-        self.network = self._init_network(network_parameters)
+        self.use_ner_head = ('n_tags' in network_parameters)
+        self.network = self._init_network(network_parameters, use_ner_head=self.use_ner_head)
 
-    def _init_network(self, params):
+    def _init_network(self, params, use_ner_head=False):
         if 'target_start_of_sequence_index' not in params:
             params['target_start_of_sequence_index'] = self.tgt_vocab[self.sos_token]
         if 'target_end_of_sequence_index' not in params:
             params['target_end_of_sequence_index'] = self.tgt_vocab[self.eos_token]
-        if 'source_vocab_size' not in params:
-            params['source_vocab_size'] = len(self.src_vocab)
-        if 'target_vocab_size' not in params:
-            params['target_vocab_soze'] = len(self.tgt_vocab)
         # construct matrix of knowledge bases values embeddings
         if self.kb_size > 0:
             params['knowledge_base_entry_embeddings'] = \
@@ -96,6 +92,8 @@ class Seq2SeqGoalOrientedBot(NNModel):
                                    for idx in range(self.tgt_vocab_size)]])[0]
         dec_embs[self.tgt_vocab[self.sos_token]][:] = 0.
         params['decoder_embeddings'] = dec_embs
+        if use_ner_head:
+            return Seq2SeqGoalOrientedBotWithNerNetwork(**params)
         return Seq2SeqGoalOrientedBotNetwork(**params)
 
     def _embed_kb_key(self, key):
@@ -112,17 +110,24 @@ class Seq2SeqGoalOrientedBot(NNModel):
         return self.network.fit(*list(zip(*data)))
 
     def preprocess(self, *args):
-        if len(args) == 4:
-            utters, history_list, kb_entry_list, responses = args
-        else:
+        kb_entry_list, x_tags = itertools.repeat([]), itertools.repeat([])
+        if len(args) == 3:
             utters, history_list, responses = args
-            kb_entry_list = itertools.repeat([])
-        b_enc_ins, b_src_lens = [], []
+        elif (len(args) == 4) and (not self.use_ner_head):
+            utters, history_list, kb_entry_list, responses = args
+        elif (len(args) == 4) and self.use_ner_head:
+            utters, history_list, responses, x_tags = args
+        else:
+            utters, history_list, kb_entry_list, responses, x_tags = args
+        b_enc_ins, b_src_lens, b_src_tag_masks, b_src_tags = [], [], [], []
         b_dec_ins, b_dec_outs, b_tgt_lens = [], [], []
-        for x_tokens, hist_tok_list, y_tokens in zip(utters, history_list, responses):
+        for x_tokens, hist_tok_list, y_tokens, tags in zip(utters, history_list,
+                                                           responses, x_tags):
             enc_in = self._encode_context(x_tokens, hist_tok_list)
             b_enc_ins.append(enc_in)
             b_src_lens.append(len(enc_in))
+            b_src_tag_masks.append([0] * (len(enc_in) - len(tags)) + [1] * len(tags))
+            b_src_tags.append(x_tags + [0] * (len(enc_in) - len(x_tags)))
 
             dec_in, dec_out = self._encode_response(y_tokens)
             b_dec_ins.append(dec_in)
@@ -162,6 +167,10 @@ class Seq2SeqGoalOrientedBot(NNModel):
             log.debug("b_src_lens = {}".format(b_src_lens))
             log.debug("b_tgt_lens = {}".format(b_tgt_lens))
             log.debug("b_tgt_weights = {}".format(b_tgt_weights))"""
+        if self.use_ner_head:
+            return (b_enc_ins_np, b_dec_ins_np, b_dec_outs_np, b_src_tags,
+                    b_src_lens, b_tgt_lens, b_tgt_weights_np, b_src_tag_masks,
+                    b_kb_masks_np)
         return (b_enc_ins_np, b_dec_ins_np, b_dec_outs_np,
                 b_src_lens, b_tgt_lens, b_tgt_weights_np, b_kb_masks_np)
 
@@ -173,6 +182,7 @@ class Seq2SeqGoalOrientedBot(NNModel):
             log.debug("Context tokens = \"{}\"".format(tokens))
         hist_tokens = []
         for i in range(len(hist_tok_list) // 2):
+            # history is in format [earlier turn .. later turn]
             hist_tokens += [self.delimiters[0]] + hist_tok_list[2*i]
             hist_tokens += [self.delimiters[1]] + hist_tok_list[2*i+1]
         tokens = hist_tokens + [self.delimiters[0]] + tokens
@@ -206,14 +216,16 @@ class Seq2SeqGoalOrientedBot(NNModel):
         return [list(_idx2token(utter_idxs)) for utter_idxs in token_idxs]
 
     def __call__(self, utters, history_list, kb_entry_list=itertools.repeat([])):
-        b_enc_ins, b_src_lens = [], []
+        b_enc_ins, b_src_lens, b_src_tag_masks = [], [], []
         if (len(utters) == 1) and not utters[0]:
             utters = [['hi']]
-        for utt_tokens, hist_tok_list in zip(utters, history_list):
-            enc_in = self._encode_context(utt_tokens, hist_tok_list)
+        for x_tokens, hist_tok_list in zip(utters, history_list):
+            enc_in = self._encode_context(x_tokens, hist_tok_list)
 
             b_enc_ins.append(enc_in)
             b_src_lens.append(len(enc_in))
+            b_src_tag_masks.append([0]*(len(enc_in) - len(x_tokens)) + [1]*len(x_tokens))
+            # TODO: only last user utter is masked with ones, think of better way
 
         # Sequence padding
         batch_size = len(b_enc_ins)
@@ -228,10 +240,16 @@ class Seq2SeqGoalOrientedBot(NNModel):
             for k, v in kb_entries:
                 b_kb_masks_np[i, self.kb_keys.index(k)] = 1.
 
-        pred_idxs = self.network(b_enc_ins_np, b_src_lens, b_kb_masks_np)
+        if self.use_ner_head:
+            pred_idxs = self.network(b_enc_ins_np, b_src_lens, b_src_tag_masks,
+                                     b_kb_masks_np)
+        else:
+            pred_idxs = self.network(b_enc_ins_np, b_src_lens, b_kb_masks_np)
         preds = self._decode_response(pred_idxs)
         if self.debug:
             log.debug("Dialog prediction = \"{}\"".format(preds[-1]))
+        if isinstance(preds, tuple):
+            return preds[0], preds[1], [0.5] * len(preds[0])
         return preds, [0.5] * len(preds)
 
     def save(self):
