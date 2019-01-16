@@ -150,7 +150,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
 
         _logits, self._predictions = self._build_body()
 
-        _weights = tf.expand_dims(self._tgt_weights, -1)
+        _weights = tf.expand_dims(self._tgt_mask, -1)
         _loss_tensor = \
             tf.losses.sparse_softmax_cross_entropy(logits=_logits,
                                                    labels=self._decoder_outputs,
@@ -205,19 +205,13 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                              trainable=True)
         # _kb_mask: [batch_size, kb_size]
         self._kb_mask = tf.placeholder(tf.float32, [None, None], name='kb_mask')
-
-# TODO: compute sequence lengths on the go
+        # _tgt_mask: [batch_size, max_output_time]
+        self._tgt_mask = tf.placeholder(tf.int32, [None, None], name='target_mask')
         # _src_sequence_lengths, _tgt_sequence_lengths: [batch_size]
         self._src_sequence_lengths = tf.placeholder(tf.int32,
                                                     [None],
                                                     name='input_sequence_lengths')
-        self._tgt_sequence_lengths = tf.placeholder(tf.int32,
-                                                    [None],
-                                                    name='output_sequence_lengths')
-        # _tgt_weights: [batch_size, max_output_time]
-        self._tgt_weights = tf.placeholder(tf.int32,
-                                           [None, None],
-                                           name='target_weights')
+        self._tgt_sequence_lengths = tf.to_int32(tf.reduce_sum(self._tgt_mask, axis=1))
 
     def _build_body(self):
         self._build_encoder()
@@ -403,7 +397,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
         return predictions
 
     def train_on_batch(self, enc_inputs, dec_inputs, dec_outputs,
-                       src_seq_lengths, tgt_seq_lengths, tgt_weights, kb_masks):
+                       src_seq_lengths, tgt_masks, kb_masks):
         _, loss_value = self.sess.run(
             [self._train_op, self._loss],
             feed_dict={
@@ -413,7 +407,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                 self._decoder_inputs: dec_inputs,
                 self._decoder_outputs: dec_outputs,
                 self._src_sequence_lengths: src_seq_lengths,
-                self._tgt_weights: tgt_weights,
+                self._tgt_mask: tgt_masks,
                 self._kb_mask: kb_masks
             }
         )

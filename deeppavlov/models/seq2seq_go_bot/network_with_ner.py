@@ -172,7 +172,7 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
         self._dec_logits, self._dec_preds = self._build_decoder(scope="Decoder")
         self._ner_logits = self._build_ner_head(scope="NerHead")
 
-        _weights = tf.expand_dims(self._tgt_weights, -1)
+        _weights = tf.expand_dims(self._tgt_mask, -1)
         self._dec_loss = self._build_dec_loss(self._dec_logits, _weights,
                                               scopes=["Encoder", "Decoder"],
                                               l2_reg=self.l2_regs[0])
@@ -266,6 +266,8 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
         # _kb_mask: [batch_size, kb_size]
         self._kb_mask = tf.placeholder(tf.float32, [None, None], name='kb_mask')
 
+        # _tgt_mask: [batch_size, max_output_time]
+        self._tgt_mask = tf.placeholder(tf.int32, [None, None], name='target_weights')
         # _src_mask: [batch_size, max_input_time]
         self._src_tag_mask = tf.placeholder(tf.float32,
                                             [None, None],
@@ -274,17 +276,11 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
         self._src_sequence_lengths = tf.placeholder(tf.float32,
                                                     [None, None],
                                                     name='input_sequence_length')
-        self._tgt_sequence_lengths = tf.placeholder(tf.float32,
-                                                    [None, None],
-                                                    name='output_sequence_length')
+        self._tgt_sequence_lengths = tf.to_int32(tf.reduce_sum(self._tgt_mask, axis=1))
         # _src_tags: [batch_size, max_input_time]
         self._src_tags = tf.placeholder(tf.int32,
                                         [None, None],
                                         name='input_sequence_tags')
-        # _tgt_weights: [batch_size, max_output_time]
-        self._tgt_weights = tf.placeholder(tf.int32,
-                                           [None, None],
-                                           name='target_weights')
 
     def _build_encoder(self, scope="Encoder"):
         with tf.variable_scope(scope):
@@ -479,7 +475,7 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
         return dec_preds, ner_preds
 
     def train_on_batch(self, enc_inputs, dec_inputs, dec_outputs, src_tags,
-                       src_seq_lens, tgt_seq_lens, tgt_weights, src_tag_masks, kb_masks):
+                       src_seq_lens, tgt_masks, src_tag_masks, kb_masks):
         _, loss_value = self.sess.run(
             [self._train_op, self._loss],
             feed_dict={
@@ -490,8 +486,7 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
                 self._decoder_outputs: dec_outputs,
                 self._src_tags: src_tags,
                 self._src_sequence_lengths: src_seq_lens,
-                self._tgt_sequence_lengths: tgt_seq_lens,
-                self._tgt_weights: tgt_weights,
+                self._tgt_mask: tgt_masks,
                 self._src_tag_mask: src_tag_masks,
                 self._kb_mask: kb_masks
             }

@@ -120,7 +120,8 @@ class Seq2SeqGoalOrientedBot(NNModel):
         else:
             utters, history_list, kb_entry_list, responses, x_tags = args
         b_enc_ins, b_src_lens, b_src_tag_masks, b_src_tags = [], [], [], []
-        b_dec_ins, b_dec_outs, b_tgt_lens = [], [], []
+        b_dec_ins, b_dec_outs = [], []
+        max_tgt_len = 0
         for x_tokens, hist_tok_list, y_tokens, tags in zip(utters, history_list,
                                                            responses, x_tags):
             enc_in = self._encode_context(x_tokens, hist_tok_list)
@@ -132,28 +133,25 @@ class Seq2SeqGoalOrientedBot(NNModel):
             dec_in, dec_out = self._encode_response(y_tokens)
             b_dec_ins.append(dec_in)
             b_dec_outs.append(dec_out)
-            b_tgt_lens.append(len(dec_out))
+            max_tgt_len = max(len(dec_out), max_tgt_len)
 
         # Sequence padding
         batch_size = len(b_enc_ins)
         max_src_len = max(b_src_lens)
-        max_tgt_len = max(b_tgt_lens)
-        # b_enc_ins_np = self.src_vocab[self.sos_token] *\
-        #    np.ones((batch_size, max_src_len), dtype=np.float32)
         b_enc_ins_np = np.zeros((batch_size, max_src_len, self.embedding_size),
                                 dtype=np.float32)
         b_dec_ins_np = self.tgt_vocab[self.eos_token] *\
             np.ones((batch_size, max_tgt_len), dtype=np.float32)
         b_dec_outs_np = self.tgt_vocab[self.eos_token] *\
             np.ones((batch_size, max_tgt_len), dtype=np.float32)
-        b_tgt_weights_np = np.zeros((batch_size, max_tgt_len), dtype=np.float32)
+        b_tgt_masks_np = np.zeros((batch_size, max_tgt_len), dtype=np.float32)
         b_kb_masks_np = np.zeros((batch_size, self.kb_size), np.float32)
-        for i, (src_len, tgt_len, kb_entries) in \
-                enumerate(zip(b_src_lens, b_tgt_lens, kb_entry_list)):
+        for i, (src_len, kb_entries) in enumerate(zip(b_src_lens, kb_entry_list)):
+            tgt_len = len(b_dec_outs[i])
             b_enc_ins_np[i, :src_len] = b_enc_ins[i]
             b_dec_ins_np[i, :tgt_len] = b_dec_ins[i]
             b_dec_outs_np[i, :tgt_len] = b_dec_outs[i]
-            b_tgt_weights_np[i, :tgt_len] = 1.
+            b_tgt_masks_np[i, :tgt_len] = 1.
             if self.debug:
                 if len(kb_entries) != len(set([e[0] for e in kb_entries])):
                     log.debug("Duplicates in kb_entries = {}".format(kb_entries))
@@ -169,10 +167,9 @@ class Seq2SeqGoalOrientedBot(NNModel):
             log.debug("b_tgt_weights = {}".format(b_tgt_weights))"""
         if self.use_ner_head:
             return (b_enc_ins_np, b_dec_ins_np, b_dec_outs_np, b_src_tags,
-                    b_src_lens, b_tgt_lens, b_tgt_weights_np, b_src_tag_masks,
-                    b_kb_masks_np)
+                    b_src_lens, b_tgt_masks_np, b_src_tag_masks, b_kb_masks_np)
         return (b_enc_ins_np, b_dec_ins_np, b_dec_outs_np,
-                b_src_lens, b_tgt_lens, b_tgt_weights_np, b_kb_masks_np)
+                b_src_lens, b_tgt_masks_np, b_kb_masks_np)
 
     def train_on_batch(self, *args):
         return self.network.train_on_batch(*self.preprocess(*args))
