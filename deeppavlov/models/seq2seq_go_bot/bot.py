@@ -63,7 +63,6 @@ class Seq2SeqGoalOrientedBot(NNModel):
 
         self.embedder = embedder
         self.embedding_size = embedder.dim
-        self.src_vocab = source_vocab
         self.tgt_vocab = target_vocab
         self.tgt_vocab_size = len(target_vocab)
         self.kb_keys = knowledge_base_keys
@@ -75,7 +74,7 @@ class Seq2SeqGoalOrientedBot(NNModel):
 
         network_parameters['load_path'] = load_path
         network_parameters['save_path'] = save_path
-        self.use_ner_head = ('n_tags' in network_parameters)
+        self.use_ner_head = ('ner_n_tags' in network_parameters)
         self.network = self._init_network(network_parameters, use_ner_head=self.use_ner_head)
 
     def _init_network(self, params, use_ner_head=False):
@@ -119,16 +118,16 @@ class Seq2SeqGoalOrientedBot(NNModel):
             utters, history_list, responses, x_tags = args
         else:
             utters, history_list, kb_entry_list, responses, x_tags = args
-        b_enc_ins, b_src_lens, b_src_tag_masks, b_src_tags = [], [], [], []
-        b_dec_ins, b_dec_outs = [], []
+
+        assert all(len(u) == len(t) for u, t in zip(utters, x_tags)), \
+            "utterance tokens and tags should have equal lengths"
+
+        b_enc_ins, b_src_lens, b_dec_ins, b_dec_outs = [], [], [], []
         max_tgt_len = 0
-        for x_tokens, hist_tok_list, y_tokens, tags in zip(utters, history_list,
-                                                           responses, x_tags):
+        for x_tokens, hist_tok_list, y_tokens in zip(utters, history_list, responses):
             enc_in = self._encode_context(x_tokens, hist_tok_list)
             b_enc_ins.append(enc_in)
             b_src_lens.append(len(enc_in))
-            b_src_tag_masks.append([0] * (len(enc_in) - len(tags)) + [1] * len(tags))
-            b_src_tags.append(x_tags + [0] * (len(enc_in) - len(x_tags)))
 
             dec_in, dec_out = self._encode_response(y_tokens)
             b_dec_ins.append(dec_in)
@@ -138,17 +137,27 @@ class Seq2SeqGoalOrientedBot(NNModel):
         # Sequence padding
         batch_size = len(b_enc_ins)
         max_src_len = max(b_src_lens)
+
         b_enc_ins_np = np.zeros((batch_size, max_src_len, self.embedding_size),
                                 dtype=np.float32)
+        b_src_tag_masks_np = np.zeros((batch_size, max_src_len), dtype=np.float32)
+        b_src_tags_np = np.zeros((batch_size, max_src_len), dtype=np.float32)
+
         b_dec_ins_np = self.tgt_vocab[self.eos_token] *\
             np.ones((batch_size, max_tgt_len), dtype=np.float32)
         b_dec_outs_np = self.tgt_vocab[self.eos_token] *\
             np.ones((batch_size, max_tgt_len), dtype=np.float32)
         b_tgt_masks_np = np.zeros((batch_size, max_tgt_len), dtype=np.float32)
-        b_kb_masks_np = np.zeros((batch_size, self.kb_size), np.float32)
-        for i, (src_len, kb_entries) in enumerate(zip(b_src_lens, kb_entry_list)):
+        b_kb_masks_np = np.zeros((batch_size, self.kb_size), dtype=np.float32)
+        for i, (src_len, kb_entries, tags) in enumerate(zip(b_src_lens, kb_entry_list,
+                                                            x_tags)):
+            b_enc_ins_np[i, -src_len:] = b_enc_ins[i]
+            b_src_tag_masks_np[i, -len(tags):] = 1.
+            if len(tags):
+                # TODO: debug examples with tags = [], no tokens in src sequence?
+                b_src_tags_np[i, -len(tags):] = tags
+
             tgt_len = len(b_dec_outs[i])
-            b_enc_ins_np[i, :src_len] = b_enc_ins[i]
             b_dec_ins_np[i, :tgt_len] = b_dec_ins[i]
             b_dec_outs_np[i, :tgt_len] = b_dec_outs[i]
             b_tgt_masks_np[i, :tgt_len] = 1.
@@ -166,8 +175,8 @@ class Seq2SeqGoalOrientedBot(NNModel):
             log.debug("b_tgt_lens = {}".format(b_tgt_lens))
             log.debug("b_tgt_weights = {}".format(b_tgt_weights))"""
         if self.use_ner_head:
-            return (b_enc_ins_np, b_dec_ins_np, b_dec_outs_np, b_src_tags,
-                    b_src_lens, b_tgt_masks_np, b_src_tag_masks, b_kb_masks_np)
+            return (b_enc_ins_np, b_dec_ins_np, b_dec_outs_np, b_src_tags_np,
+                    b_src_lens, b_tgt_masks_np, b_src_tag_masks_np, b_kb_masks_np)
         return (b_enc_ins_np, b_dec_ins_np, b_dec_outs_np,
                 b_src_lens, b_tgt_masks_np, b_kb_masks_np)
 
@@ -183,8 +192,6 @@ class Seq2SeqGoalOrientedBot(NNModel):
             hist_tokens += [self.delimiters[0]] + hist_tok_list[2*i]
             hist_tokens += [self.delimiters[1]] + hist_tok_list[2*i+1]
         tokens = hist_tokens + [self.delimiters[0]] + tokens
-        # token_idxs = self.src_vocab([tokens])[0]
-        # return token_idxs
         return np.array(self.embedder([tokens])[0])
 
     def _encode_response(self, tokens):
@@ -213,15 +220,13 @@ class Seq2SeqGoalOrientedBot(NNModel):
         return [list(_idx2token(utter_idxs)) for utter_idxs in token_idxs]
 
     def __call__(self, utters, history_list, kb_entry_list=itertools.repeat([])):
-        b_enc_ins, b_src_lens, b_src_tag_masks = [], [], []
+        b_enc_ins, b_src_lens = [], []
         if (len(utters) == 1) and not utters[0]:
             utters = [['hi']]
         for x_tokens, hist_tok_list in zip(utters, history_list):
             enc_in = self._encode_context(x_tokens, hist_tok_list)
-
             b_enc_ins.append(enc_in)
             b_src_lens.append(len(enc_in))
-            b_src_tag_masks.append([0]*(len(enc_in) - len(x_tokens)) + [1]*len(x_tokens))
             # TODO: only last user utter is masked with ones, think of better way
 
         # Sequence padding
@@ -229,24 +234,27 @@ class Seq2SeqGoalOrientedBot(NNModel):
         max_src_len = max(b_src_lens)
         b_enc_ins_np = np.zeros((batch_size, max_src_len, self.embedding_size),
                                 dtype=np.float32)
+        b_src_tag_masks_np = np.zeros((batch_size, max_src_len), dtype=np.float32)
         b_kb_masks_np = np.zeros((batch_size, self.kb_size), dtype=np.float32)
-        for i, (src_len, kb_entries) in enumerate(zip(b_src_lens, kb_entry_list)):
-            b_enc_ins_np[i, :src_len] = b_enc_ins[i]
+        for i, (x_tokens, src_len, kb_entries) in enumerate(zip(utters, b_src_lens,
+                                                                kb_entry_list)):
+            b_enc_ins_np[i, -src_len:] = b_enc_ins[i]
+            b_src_tag_masks_np[i, -len(x_tokens):] = 1.
             if self.debug:
                 log.debug("infer: kb_entries = {}".format(kb_entries))
             for k, v in kb_entries:
                 b_kb_masks_np[i, self.kb_keys.index(k)] = 1.
 
         if self.use_ner_head:
-            pred_idxs = self.network(b_enc_ins_np, b_src_lens, b_src_tag_masks,
-                                     b_kb_masks_np)
-        else:
-            pred_idxs = self.network(b_enc_ins_np, b_src_lens, b_kb_masks_np)
+            pred_idxs, tag_idxs = self.network(b_enc_ins_np, b_src_lens,
+                                               b_src_tag_masks_np, b_kb_masks_np)
+            preds = self._decode_response(pred_idxs)
+            return preds, [0.5] * len(preds), tag_idxs
+
+        pred_idxs = self.network(b_enc_ins_np, b_src_lens, b_kb_masks_np)
         preds = self._decode_response(pred_idxs)
         if self.debug:
             log.debug("Dialog prediction = \"{}\"".format(preds[-1]))
-        if isinstance(preds, tuple):
-            return preds[0], preds[1], [0.5] * len(preds[0])
         return preds, [0.5] * len(preds)
 
     def save(self):

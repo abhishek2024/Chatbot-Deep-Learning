@@ -141,7 +141,7 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
 
     def _init_params(self):
         self.ner_n_tags = self.opt['ner_n_tags']
-        self.ner_hidden_size = self.opt['ner_hidden_size'],
+        self.ner_hidden_size = self.opt['ner_hidden_size']
         self.ner_beta = self.opt['ner_beta']
         self.hidden_size = self.opt['hidden_size']
         self.src_vocab_size = self.opt['source_vocab_size']
@@ -184,7 +184,7 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
                                          scopes=["NerHead"],
                                          l2_reg=self.l2_regs[1])
 
-        self._loss = (1 - self.ner_beta) * self._dec_loss + self.ner_beta * self._ner_loss
+        self._loss = self._dec_loss + self.ner_beta * self._ner_loss
 
         self._train_op = self.get_train_op(self._loss, optimizer=self._optimizer)
 
@@ -203,11 +203,8 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
         # check if loss has nans
         _loss_tensor = \
             tf.verify_tensor_all_finite(_loss_tensor, "Non finite values in loss tensor.")
-        # normalize loss by sequence lengths
-        _loss_tensor = tf.reduce_sum(_loss_tensor, -1) / tf.reduce_sum(weights, -1)
         # _loss: [1]
-        # normalize loss by batch size
-        _loss = tf.reduce_sum(_loss_tensor) / tf.cast(self._batch_size, tf.float32)
+        _loss = tf.reduce_sum(_loss_tensor) / tf.reduce_sum(weights)
         # add l2 regularization
         if l2_reg > 0:
             reg_vars = [tf.losses.get_regularization_loss(scope=sc, name=f"{sc}_reg_loss")
@@ -226,11 +223,8 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
         # check if loss has nans
         _loss_tensor = \
             tf.verify_tensor_all_finite(_loss_tensor, "Non finite values in loss tensor.")
-        # normalize loss by sum of weights
-        _loss_tensor = tf.reduce_sum(_loss_tensor, -1) / tf.reduce_sum(weights, -1)
         # _loss: [1]
-        # normalize loss by batch size
-        _loss = tf.reduce_sum(_loss_tensor) / tf.cast(self._batch_size, tf.float32)
+        _loss = tf.reduce_sum(_loss_tensor) / tf.reduce_sum(weights)
         # add l2 regularization
         if l2_reg > 0:
             reg_vars = [tf.losses.get_regularization_loss(scope=sc, name=f"{sc}_reg_loss")
@@ -279,14 +273,14 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
         self._kb_mask = tf.placeholder(tf.float32, [None, None], name='kb_mask')
 
         # _tgt_mask: [batch_size, max_output_time]
-        self._tgt_mask = tf.placeholder(tf.int32, [None, None], name='target_weights')
+        self._tgt_mask = tf.placeholder(tf.float32, [None, None], name='target_weights')
         # _src_mask: [batch_size, max_input_time]
         self._src_tag_mask = tf.placeholder(tf.float32,
                                             [None, None],
                                             name='input_sequence_tag_mask')
         # _src_sequence_lengths, _tgt_sequence_lengths: [batch_size]
-        self._src_sequence_lengths = tf.placeholder(tf.float32,
-                                                    [None, None],
+        self._src_sequence_lengths = tf.placeholder(tf.int32,
+                                                    [None],
                                                     name='input_sequence_length')
         self._tgt_sequence_lengths = tf.to_int32(tf.reduce_sum(self._tgt_mask, axis=1))
         # _src_tags: [batch_size, max_input_time]
@@ -464,11 +458,11 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
                                          kernel_initializer=INITIALIZER(),
                                          kernel_regularizer=tf.nn.l2_loss)
             # _ner_logits: [batch_size, max_input_time, ner_n_tags]
-            self._ner_logits = tf.layers.dense(_units, self.ner_n_tags, activation=None,
-                                               kernel_initalizer=INITIALIZER(),
-                                               kernel_regularizer=tf.nn.l2_loss)
+            _logits = tf.layers.dense(_units, self.ner_n_tags, activation=None,
+                                      kernel_initializer=INITIALIZER(),
+                                      kernel_regularizer=tf.nn.l2_loss)
+            return _logits
 
-    # TODO: in bot input mask, not lengths
     def __call__(self, enc_inputs, src_seq_lens, src_tag_masks, kb_masks, prob=False):
         dec_preds, ner_preds = self.sess.run(
             [self._dec_preds, self._ner_preds],

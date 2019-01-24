@@ -161,9 +161,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
         _loss_tensor = \
             tf.verify_tensor_all_finite(_loss_tensor, "Non finite values in loss tensor.")
         # normalize loss by sequence lengths
-        _loss_tensor = _loss_tensor / tf.reduce_sum(self._tgt_mask, -1)
-        # normalize loss by batch size
-        self._loss = tf.reduce_sum(_loss_tensor) / tf.cast(self._batch_size, tf.float32)
+        self._loss = tf.reduce_sum(_loss_tensor) / tf.reduce_sum(self._tgt_mask)
 # TODO: tune clip_norm
         self._train_op = self.get_train_op(self._loss, optimizer=self._optimizer)
 
@@ -210,7 +208,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
         # _kb_mask: [batch_size, kb_size]
         self._kb_mask = tf.placeholder(tf.float32, [None, None], name='kb_mask')
         # _tgt_mask: [batch_size, max_output_time]
-        self._tgt_mask = tf.placeholder(tf.int32, [None, None], name='target_mask')
+        self._tgt_mask = tf.placeholder(tf.float32, [None, None], name='target_mask')
         # _src_sequence_lengths, _tgt_sequence_lengths: [batch_size]
         self._src_sequence_lengths = tf.placeholder(tf.int32,
                                                     [None],
