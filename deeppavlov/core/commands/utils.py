@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+import json
+import numpy
 from pathlib import Path
 from typing import Union, Dict, TypeVar
 
@@ -59,3 +61,16 @@ def import_packages(packages: list) -> None:
     """Import packages from list to execute their code."""
     for package in packages:
         __import__(package)
+
+
+class NumpyJsonEncoder(json.JSONEncoder):
+
+    def default(self, obj):
+        if isinstance(obj, numpy.integer):
+            return int(obj)
+        elif isinstance(obj, numpy.floating):
+            return float(obj)
+        elif isinstance(obj, numpy.ndarray):
+            return obj.tolist()
+        else:
+            return super(NumpyJsonEncoder, self).default(obj)
