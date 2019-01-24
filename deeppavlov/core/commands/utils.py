@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
+import json
+import numpy
 from pathlib import Path
 from typing import Union, Dict, TypeVar
 
@@ -38,9 +41,12 @@ def parse_config(config: Union[str, Path, dict]) -> dict:
         config = read_json(find_config(config))
 
     variables = {
-        'DEEPPAVLOV_PATH': Path(__file__).parent.parent.parent
+        'DEEPPAVLOV_PATH': os.getenv(f'DP_DEEPPAVLOV_PATH', Path(__file__).parent.parent.parent)
     }
     for name, value in config.get('metadata', {}).get('variables', {}).items():
+        env_name = f'DP_{name}'
+        if env_name in os.environ:
+            value = os.getenv(env_name)
         variables[name] = value.format(**variables)
 
     return _parse_config_property(config, variables)
@@ -55,3 +61,16 @@ def import_packages(packages: list) -> None:
     """Import packages from list to execute their code."""
     for package in packages:
         __import__(package)
+
+
+class NumpyJsonEncoder(json.JSONEncoder):
+
+    def default(self, obj):
+        if isinstance(obj, numpy.integer):
+            return int(obj)
+        elif isinstance(obj, numpy.floating):
+            return float(obj)
+        elif isinstance(obj, numpy.ndarray):
+            return obj.tolist()
+        else:
+            return super(NumpyJsonEncoder, self).default(obj)
