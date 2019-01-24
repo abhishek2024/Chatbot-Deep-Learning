@@ -14,10 +14,13 @@
     "out": ["prediction_text", "confidence", "state", "x_pred_tags"],
     "pipe": [
       {
-        "id": "stream_spacy",
-        "class_name": "stream_spacy_tokenizer",
-        "lowercase": true,
-        "alphas_only": false,
+        "id": "lazy_spacy_tokenizer",
+        "class_name": "lazy_tokenizer",
+        "tokenizer": {
+          "class_name": "stream_spacy_tokenizer",
+          "lowercase": true,
+          "alphas_only": false
+        },
         "in": ["x_text"],
         "out": ["x_tokens"]
       },
@@ -29,17 +32,16 @@
         "out": ["tag_id"],
         "fit_on": ["x_tags"],
         "load_path": "{BOT_PATH}/tag.dict",
-        "save_path": "{BOT_PATH}/tag.dict",
-        "pad_with_zeros": true
+        "save_path": "{BOT_PATH}/tag.dict"
       },
       {
-        "ref": "stream_spacy",
+        "ref": "lazy_spacy_tokenizer",
         "in": ["y_text"],
         "out": ["y_tokens"]
       },
       {
         "class_name": "deeppavlov.models.seq2seq_go_bot.wrapper:PerItemWrapper",
-        "component": "#stream_spacy",
+        "component": "#lazy_spacy_tokenizer",
         "in": ["history_list"],
         "out": ["history_tok_list"]
       },
@@ -92,8 +94,8 @@
           "beam_width": 1,
           "target_start_of_sequence_index": "#tgt_token_vocab.__getitem__('<SOS>')",
           "target_end_of_sequence_index": "#tgt_token_vocab.__getitem__('<EOS>')",
-          "source_vocab_size": "#src_token_vocab.__len__()",
-          "target_vocab_size": "#tgt_token_vocab.__len__()",
+          "source_vocab_size": "#src_token_vocab.len",
+          "target_vocab_size": "#tgt_token_vocab.len",
           "hidden_size": 256
         },
         "debug": true,
@@ -101,7 +103,8 @@
         "target_vocab": "#tgt_token_vocab"
       },
       {
-        "ref": "stream_spacy",
+        "class_name": "detokenizer",
+        "smart": false,
         "in": ["prediction_tokens"],
         "out": ["prediction_text"]
       },

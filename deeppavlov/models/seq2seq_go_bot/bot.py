@@ -167,13 +167,6 @@ class Seq2SeqGoalOrientedBot(NNModel):
             for k, v in kb_entries:
                 b_kb_masks_np[i, self.kb_keys.index(k)] = 1.
 
-        """if self.debug:
-            log.debug("b_enc_ins = {}".format(b_enc_ins))
-            log.debug("b_dec_ins = {}".format(b_dec_ins))
-            log.debug("b_dec_outs = {}".format(b_dec_outs))
-            log.debug("b_src_lens = {}".format(b_src_lens))
-            log.debug("b_tgt_lens = {}".format(b_tgt_lens))
-            log.debug("b_tgt_weights = {}".format(b_tgt_weights))"""
         if self.use_ner_head:
             return (b_enc_ins_np, b_dec_ins_np, b_dec_outs_np, b_src_tags_np,
                     b_src_lens, b_tgt_masks_np, b_src_tag_masks_np, b_kb_masks_np)

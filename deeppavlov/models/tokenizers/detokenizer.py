@@ -17,19 +17,19 @@ from overrides import overrides
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.log import get_logger
-from nltk import word_tokenize
+from deeppavlov.models.tokenizers.utils import detokenize
 
 log = get_logger(__name__)
 
 
-@register('lazy_tokenizer')
-class LazyTokenizer(Component):
-    """Tokenizes if there is something to tokenize."""
-    def __init__(self, tokenizer=lambda b: [word_tokenize(x) for x in b], **kwargs):
-        self.tokenizer = tokenizer
+@register('detokenizer')
+class Detokenizer(Component):
+    """Converts tokens to text"""
+    def __init__(self, smart: bool=False, **kwargs):
+        self.smart = smart
 
     @overrides
     def __call__(self, batch, *args, **kwargs):
-        if len(batch) > 0 and isinstance(batch[0], str):
-            batch = self.tokenizer(batch)
-        return batch
+        if self.smart:
+            return [detokenize(utt) for utt in batch]
+        return [' '.join(utt) for utt in batch]

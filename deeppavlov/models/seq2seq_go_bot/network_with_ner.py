@@ -475,10 +475,14 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
                 self._kb_mask: kb_masks
             }
         )
+        src_tag_seq_lens = np.sum(src_tag_masks, axis=1).astype(np.int32)
+        ner_preds_ = []
+        for utt, l in zip(ner_preds, src_tag_seq_lens):
+            ner_preds_.append(utt[:l])
 # TODO: implement infer probabilities
         if prob:
             raise NotImplementedError("Probs not available for now.")
-        return dec_preds, ner_preds
+        return dec_preds, ner_preds_
 
     def train_on_batch(self, enc_inputs, dec_inputs, dec_outputs, src_tags,
                        src_seq_lens, tgt_masks, src_tag_masks, kb_masks):
