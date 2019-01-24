@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import List, Tuple, Dict, Union, Optional
 
 from deeppavlov.core.commands.infer import build_model
-from deeppavlov.core.commands.utils import expand_path, import_packages, parse_config
+from deeppavlov.core.commands.utils import expand_path, import_packages, parse_config, NumpyJsonEncoder
 from deeppavlov.core.common.chainer import Chainer
 from deeppavlov.core.common.errors import ConfigError
 from deeppavlov.core.common.log import get_logger
@@ -247,7 +247,7 @@ def train_evaluate_model_from_config(config: [str, Path, dict], iterator=None, *
 
             res['valid'] = report['valid']['metrics']
 
-            print(json.dumps(report, ensure_ascii=False))
+            print(json.dumps(report, ensure_ascii=False, cls=NumpyJsonEncoder))
 
         if train_config['test_best']:
             report = {
@@ -258,7 +258,7 @@ def train_evaluate_model_from_config(config: [str, Path, dict], iterator=None, *
 
             res['test'] = report['test']['metrics']
 
-            print(json.dumps(report, ensure_ascii=False))
+            print(json.dumps(report, ensure_ascii=False, cls=NumpyJsonEncoder))
 
         model.destroy()
 
@@ -401,7 +401,7 @@ def _train_batches(model: Chainer, iterator: DataLearningIterator, train_config:
 
         model.process_event(event_name='after_validation', data=report)
         report = {'valid': report}
-        print(json.dumps(report, ensure_ascii=False))
+        print(json.dumps(report, ensure_ascii=False, cls=NumpyJsonEncoder))
 
     try:
         while True:
@@ -467,7 +467,7 @@ def _train_batches(model: Chainer, iterator: DataLearningIterator, train_config:
                         tb_train_writer.flush()
 
                     report = {'train': report}
-                    print(json.dumps(report, ensure_ascii=False))
+                    print(json.dumps(report, ensure_ascii=False, cls=NumpyJsonEncoder))
                     for out in outputs.values():
                         out.clear()
 
@@ -506,7 +506,7 @@ def _train_batches(model: Chainer, iterator: DataLearningIterator, train_config:
 
                     model.process_event(event_name='after_validation', data=report)
                     report = {'valid': report}
-                    print(json.dumps(report, ensure_ascii=False))
+                    print(json.dumps(report, ensure_ascii=False, cls=NumpyJsonEncoder))
 
                     if patience >= train_config['validation_patience'] > 0:
                         log.info('Ran out of patience')
@@ -585,7 +585,7 @@ def _train_batches(model: Chainer, iterator: DataLearningIterator, train_config:
                     tb_train_writer.flush()
 
                 report = {'train': report}
-                print(json.dumps(report, ensure_ascii=False))
+                print(json.dumps(report, ensure_ascii=False, cls=NumpyJsonEncoder))
                 for out in outputs.values():
                     out.clear()
 
@@ -623,7 +623,7 @@ def _train_batches(model: Chainer, iterator: DataLearningIterator, train_config:
 
                 model.process_event(event_name='after_validation', data=report)
                 report = {'valid': report}
-                print(json.dumps(report, ensure_ascii=False))
+                print(json.dumps(report, ensure_ascii=False, cls=NumpyJsonEncoder))
 
                 if patience >= train_config['validation_patience'] > 0:
                     log.info('Ran out of patience')

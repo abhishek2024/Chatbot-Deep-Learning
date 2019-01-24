@@ -18,7 +18,7 @@ from itertools import islice
 from pathlib import Path
 from typing import Optional, Union
 
-from deeppavlov.core.commands.utils import import_packages, parse_config
+from deeppavlov.core.commands.utils import import_packages, parse_config, NumpyJsonEncoder
 from deeppavlov.core.common.chainer import Chainer
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.common.params import from_params
@@ -115,7 +115,7 @@ def predict_on_stream(config: Union[str, Path, dict], batch_size: int = 1, file_
         if len(model.out_params) == 1:
             res = [res]
         for res in zip(*res):
-            res = json.dumps(res, ensure_ascii=False)
+            res = json.dumps(res, ensure_ascii=False, cls=NumpyJsonEncoder)
             print(res, flush=True)
 
     if f is not sys.stdin:
