@@ -77,6 +77,7 @@
         "class_name": "seq2seq_go_bot",
         "load_path": "{BOT_PATH}/model",
         "save_path": "{BOT_PATH}/model",
+        "delimiters": ["<USR>", "<SYS>"],
         "start_of_sequence_token": "<SOS>",
         "end_of_sequence_token": "<EOS>",
         "embedder": "#token_embedder",
@@ -88,9 +89,8 @@
           "learning_rate": 3e-4,
           "learning_rate_drop_patience": 4,
           "learning_rate_drop_div": 3.0,
-          "delimiters": ["<USR>", "<SYS>"],
           "dropout_rate": 0.3,
-          "state_dropout_rate": 0.05,
+          "state_dropout_rate": 0.01,
           "beam_width": 1,
           "target_start_of_sequence_index": "#tgt_token_vocab.__getitem__('<SOS>')",
           "target_end_of_sequence_index": "#tgt_token_vocab.__getitem__('<EOS>')",
@@ -121,12 +121,12 @@
 
     "metrics": [
       {
-        "name": "google_bleu",
-        "inputs": ["y_text", "prediction_text"]
-      },
-      {
         "name": "ner_f1",
         "inputs": ["x_tags", "x_pred_tags"]
+      },
+      {
+        "name": "google_bleu",
+        "inputs": ["y_text", "prediction_text"]
       },
       {
         "name": "accuracy",
@@ -134,11 +134,12 @@
       }
     ],
     "validation_patience": 30,
-    "val_every_n_epochs": 1,
+    "val_every_n_epochs": -1,
+    "val_every_n_batches": 4000,
     "tensorboard_log_dir": "{BOT_PATH}/logs",
 
-    "log_every_n_batches": -1,
-    "log_every_n_epochs": 1,
+    "log_every_n_batches": 2000,
+    "log_every_n_epochs": -1,
     "validate_best": true,
     "show_examples": false
   },
@@ -147,7 +148,7 @@
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
       "MODELS_PATH": "{ROOT_PATH}/models",
-      "BOT_PATH": "{MODELS_PATH}/bot_multiwoz_simple_del_ner"
+      "BOT_PATH": "{MODELS_PATH}/bot_multiwoz_simple_ner_only"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",

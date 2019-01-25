@@ -122,17 +122,14 @@ class Seq2SeqGoalOrientedBot(NNModel):
         assert all(len(u) == len(t) for u, t in zip(utters, x_tags)), \
             "utterance tokens and tags should have equal lengths"
 
-        b_enc_ins, b_src_lens, b_dec_ins, b_dec_outs = [], [], [], []
+        b_enc_ins, b_src_lens = [], []
         max_tgt_len = 0
         for x_tokens, hist_tok_list, y_tokens in zip(utters, history_list, responses):
             enc_in = self._encode_context(x_tokens, hist_tok_list)
             b_enc_ins.append(enc_in)
             b_src_lens.append(len(enc_in))
 
-            dec_in, dec_out = self._encode_response(y_tokens)
-            b_dec_ins.append(dec_in)
-            b_dec_outs.append(dec_out)
-            max_tgt_len = max(len(dec_out), max_tgt_len)
+            max_tgt_len = max(len(y_tokens), max_tgt_len)
 
         # Sequence padding
         batch_size = len(b_enc_ins)
@@ -151,16 +148,12 @@ class Seq2SeqGoalOrientedBot(NNModel):
         b_kb_masks_np = np.zeros((batch_size, self.kb_size), dtype=np.float32)
         for i, (src_len, kb_entries, tags) in enumerate(zip(b_src_lens, kb_entry_list,
                                                             x_tags)):
-            b_enc_ins_np[i, -src_len:] = b_enc_ins[i]
-            b_src_tag_masks_np[i, -len(tags):] = 1.
+            b_enc_ins_np[i, :src_len] = b_enc_ins[i]
             if len(tags):
                 # TODO: debug examples with tags = [], no tokens in src sequence?
-                b_src_tags_np[i, -len(tags):] = tags
+                b_src_tag_masks_np[i, src_len-len(tags):src_len] = 1.
+                b_src_tags_np[i, src_len-len(tags):src_len] = tags
 
-            tgt_len = len(b_dec_outs[i])
-            b_dec_ins_np[i, :tgt_len] = b_dec_ins[i]
-            b_dec_outs_np[i, :tgt_len] = b_dec_outs[i]
-            b_tgt_masks_np[i, :tgt_len] = 1.
             if self.debug:
                 if len(kb_entries) != len(set([e[0] for e in kb_entries])):
                     log.debug("Duplicates in kb_entries = {}".format(kb_entries))
@@ -177,14 +170,14 @@ class Seq2SeqGoalOrientedBot(NNModel):
         return self.network.train_on_batch(*self.preprocess(*args))
 
     def _encode_context(self, tokens, hist_tok_list):
-        if self.debug:
-            log.debug("Context tokens = \"{}\"".format(tokens))
         hist_tokens = []
         for i in range(len(hist_tok_list) // 2):
             # history is in format [earlier turn .. later turn]
             hist_tokens += [self.delimiters[0]] + hist_tok_list[2*i]
             hist_tokens += [self.delimiters[1]] + hist_tok_list[2*i+1]
         tokens = hist_tokens + [self.delimiters[0]] + tokens
+        if self.debug:
+            log.debug("Context tokens = \"{}\"".format(tokens))
         return np.array(self.embedder([tokens])[0])
 
     def _encode_response(self, tokens):
@@ -231,18 +224,17 @@ class Seq2SeqGoalOrientedBot(NNModel):
         b_kb_masks_np = np.zeros((batch_size, self.kb_size), dtype=np.float32)
         for i, (x_tokens, src_len, kb_entries) in enumerate(zip(utters, b_src_lens,
                                                                 kb_entry_list)):
-            b_enc_ins_np[i, -src_len:] = b_enc_ins[i]
-            b_src_tag_masks_np[i, -len(x_tokens):] = 1.
+            b_enc_ins_np[i, :src_len] = b_enc_ins[i]
+            b_src_tag_masks_np[i, src_len-len(x_tokens):src_len] = 1.
             if self.debug:
                 log.debug("infer: kb_entries = {}".format(kb_entries))
             for k, v in kb_entries:
                 b_kb_masks_np[i, self.kb_keys.index(k)] = 1.
 
         if self.use_ner_head:
-            pred_idxs, tag_idxs = self.network(b_enc_ins_np, b_src_lens,
-                                               b_src_tag_masks_np, b_kb_masks_np)
-            preds = self._decode_response(pred_idxs)
-            return preds, [0.5] * len(preds), tag_idxs
+            tag_idxs = self.network(b_enc_ins_np, b_src_lens,
+                                    b_src_tag_masks_np, b_kb_masks_np)
+            return [['hi']] * len(utters), [0.5] * len(utters), tag_idxs
 
         pred_idxs = self.network(b_enc_ins_np, b_src_lens, b_kb_masks_np)
         preds = self._decode_response(pred_idxs)

@@ -40,7 +40,7 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
 
     Parameters:
         ner_n_tags: number of classifiered tags.
-        ner_beta: float in (0, 1), rate of ner loss in overall loss.
+        ner_beta: multiplier of ner loss in the overall loss
         ner_hidden_size: list of integers denoting hidden sizes of ner head.
         hidden_size: RNN hidden layer size.
         source_vocab_size: size of a vocabulary of encoder tokens.
@@ -169,13 +169,13 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
         self._add_placeholders()
 
         self._build_encoder(scope="Encoder")
-        self._dec_logits, self._dec_preds = self._build_decoder(scope="Decoder")
+        #self._dec_logits, self._dec_preds = self._build_decoder(scope="Decoder")
         self._ner_logits = self._build_ner_head(scope="NerHead")
 
-        self._dec_loss = self._build_dec_loss(self._dec_logits,
-                                              weights=self._tgt_mask,
-                                              scopes=["Encoder", "Decoder"],
-                                              l2_reg=self.l2_regs[0])
+        #self._dec_loss = self._build_dec_loss(self._dec_logits,
+        #                                      weights=self._tgt_mask,
+        #                                      scopes=["Encoder", "Decoder"],
+        #                                      l2_reg=self.l2_regs[0])
 
         self._ner_loss, self._ner_preds = \
             self._build_ner_loss_predict(self._ner_logits,
@@ -184,7 +184,7 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
                                          scopes=["NerHead"],
                                          l2_reg=self.l2_regs[1])
 
-        self._loss = self._dec_loss + self.ner_beta * self._ner_loss
+        self._loss = self.ner_beta * self._ner_loss
 
         self._train_op = self.get_train_op(self._loss, optimizer=self._optimizer)
 
@@ -213,13 +213,11 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
         return _loss
 
     def _build_ner_loss_predict(self, logits, weights, n_tags, scopes=[None], l2_reg=0.0):
-        # labels: [batch_size, max_input_time, n_tags]
-        _labels = tf.one_hot(self._src_tags, n_tags)
         # _loss_tensor: [batch_size, max_input_time]
-        _loss_tensor = tf.nn.softmax_cross_entropy_with_logits_v2(labels=_labels,
-                                                                  logits=logits)
-        # multiply by mask
-        _loss_tensor = _loss_tensor * weights
+        _loss_tensor = tf.losses.sparse_softmax_cross_entropy(logits=logits,
+                                                              labels=self._src_tags,
+                                                              weights=tf.expand_dims(weights, -1),
+                                                              reduction=tf.losses.Reduction.NONE)
         # check if loss has nans
         _loss_tensor = \
             tf.verify_tensor_all_finite(_loss_tensor, "Non finite values in loss tensor.")
@@ -464,8 +462,10 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
             return _logits
 
     def __call__(self, enc_inputs, src_seq_lens, src_tag_masks, kb_masks, prob=False):
-        dec_preds, ner_preds = self.sess.run(
-            [self._dec_preds, self._ner_preds],
+        # log.info(f"enc_inputs = {enc_inputs},\nsrc_seq_lens = {src_seq_lens}"
+        #         f",\nsrc_tag_masks = {src_tag_masks},\nkb_masks = {kb_masks}")
+        ner_preds = self.sess.run(
+            self._ner_preds,
             feed_dict={
                 self._dropout_keep_prob: 1.,
                 self._state_dropout_keep_prob: 1.,
@@ -475,19 +475,22 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
                 self._kb_mask: kb_masks
             }
         )
-        src_tag_seq_lens = np.sum(src_tag_masks, axis=1).astype(np.int32)
-        ner_preds_ = []
-        for utt, l in zip(ner_preds, src_tag_seq_lens):
-            ner_preds_.append(utt[:l])
+        # log.info(f"ner_preds = {ner_preds}")
+        ner_preds_cut = []
+        for i in range(len(ner_preds)):
+            # log.info(f"{i}-th mask = {src_tag_masks[i]}")
+            nonzero_ids = np.nonzero(src_tag_masks[i])[0]
+            ner_preds_cut.append(ner_preds[i, nonzero_ids])
+        # log.info(f"ner_preds_cut = {ner_preds_cut}")
 # TODO: implement infer probabilities
         if prob:
             raise NotImplementedError("Probs not available for now.")
-        return dec_preds, ner_preds_
+        return ner_preds_cut
 
     def train_on_batch(self, enc_inputs, dec_inputs, dec_outputs, src_tags,
                        src_seq_lens, tgt_masks, src_tag_masks, kb_masks):
-        _, loss_value = self.sess.run(
-            [self._train_op, self._loss],
+        _, loss, ner_loss = self.sess.run(
+            [self._train_op, self._loss, self._ner_loss],
             feed_dict={
                 self._dropout_keep_prob: 1 - self.dropout_rate,
                 self._state_dropout_keep_prob: 1 - self.state_dropout_rate,
@@ -501,7 +504,7 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
                 self._kb_mask: kb_masks
             }
         )
-        return loss_value
+        return {'loss': loss, 'last_loss': loss, 'last_ner_loss': ner_loss}
 
     def load(self, *args, **kwargs):
         self.load_params()
