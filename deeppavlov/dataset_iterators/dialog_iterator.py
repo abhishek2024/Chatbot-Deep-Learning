@@ -110,6 +110,8 @@ class SkillDialogDatasetIterator(DataLearningIterator):
             x['history'] = history[:-2]
             x_tuple = (x['text'], x['history'], [])
             y_tuple = [y[k] for k in self.y_names]
+            if len(y_tuple) == 1:
+                y_tuple = y_tuple[0]
             utters.append((x_tuple, y_tuple))
         return utters
 
