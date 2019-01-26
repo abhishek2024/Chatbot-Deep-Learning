@@ -150,18 +150,21 @@ class TFModel(NNModel, metaclass=TfModelMeta):
         """
         Print number of *trainable* parameters in the network
         """
-        log.info('Number of parameters: ')
+        log.info("Number of parameters:")
         variables = tf.trainable_variables()
         blocks = defaultdict(int)
         for var in variables:
             # Get the top level scope name of variable
             block_name = var.name.split('/')[0]
-            number_of_parameters = np.prod(var.get_shape().as_list())
-            blocks[block_name] += number_of_parameters
+            try:
+                number_of_parameters = np.prod(var.get_shape().as_list())
+                blocks[block_name] += number_of_parameters
+            except ValueError as msg:
+                log.info(f"Couldn't calculate number of parameters for `{var}`.")
         for block_name, cnt in blocks.items():
-            log.info("{} - {}.".format(block_name, cnt))
-        total_num_parameters = np.sum(list(blocks.values()))
-        log.info('Total number of parameters equal {}'.format(total_num_parameters))
+            log.info(f"{block_name} - {cnt}")
+        total_num_parameters = int(sum(blocks.values()))
+        log.info(f"Total number of parameters is equal to {total_num_parameters}")
 
     def destroy(self):
         for k in list(self.sess.graph.get_all_collection_keys()):
