@@ -86,6 +86,8 @@
           "ner_hidden_size": [64],
           "ner_beta": 1.0,
           "l2_regs": [0.0, 0.0],
+          "encoder_cell_type": "lstm",
+          "encoder_use_cudnn": false,
           "learning_rate": 3e-4,
           "learning_rate_drop_patience": 4,
           "learning_rate_drop_div": 3.0,
@@ -121,12 +123,12 @@
 
     "metrics": [
       {
-        "name": "ner_f1",
-        "inputs": ["x_tags", "x_pred_tags"]
-      },
-      {
         "name": "google_bleu",
         "inputs": ["y_text", "prediction_text"]
+      },
+      {
+        "name": "ner_f1",
+        "inputs": ["x_tags", "x_pred_tags"]
       },
       {
         "name": "accuracy",
@@ -148,7 +150,7 @@
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
       "MODELS_PATH": "{ROOT_PATH}/models",
-      "BOT_PATH": "{MODELS_PATH}/bot_multiwoz_simple_ner_only"
+      "BOT_PATH": "{MODELS_PATH}/bot_multiwoz_simple_with_ner"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",

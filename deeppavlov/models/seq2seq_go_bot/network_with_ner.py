@@ -21,7 +21,8 @@ import math
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.errors import ConfigError
 from deeppavlov.core.common.log import get_logger
-from deeppavlov.core.layers.tf_layers import INITIALIZER
+from deeppavlov.core.layers.tf_layers import cudnn_bi_lstm, cudnn_bi_gru, bi_rnn
+from deeppavlov.core.layers.tf_layers import variational_dropout, INITIALIZER
 from deeppavlov.core.models.lr_scheduled_tf_model import LRScheduledTFModel
 from deeppavlov.models.seq2seq_go_bot.kb_attn_layer import KBAttention
 
@@ -52,6 +53,9 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
         kb_attention_hidden_sizes: list of sizes for attention hidden units.
         decoder_embeddings: matrix with embeddings for decoder output tokens, size is
             (`targer_vocab_size` + number of knowledge base entries, embedding size).
+        encoder_cell_type: type of cell to use as basic unit in encoder.
+        encoder_use_cudnn: boolean indicating whether to use cudnn computed encoder or not
+            (cudnn version is faster on gpu).
         beam_width: width of beam search decoding.
         l2_regs: tuple of l2 regularization weights for decoder and ner losses.
         dropout_rate: probability of weights' dropout.
@@ -64,7 +68,8 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
     GRAPH_PARAMS = ['ner_n_tags', 'ner_hidden_size', 'hidden_size',
                     'knowledge_base_size', 'source_vocab_size',
                     'target_vocab_size', 'embedding_size',
-                    'kb_embedding_control_sum', 'kb_attention_hidden_sizes']
+                    'kb_embedding_control_sum', 'kb_attention_hidden_sizes',
+                    'encoder_cell_type']
 
     def __init__(self,
                  ner_n_tags: int,
@@ -78,6 +83,8 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
                  ner_hidden_size: List[int] = [],
                  knowledge_base_entry_embeddings: np.ndarray = [[]],
                  kb_attention_hidden_sizes: List[int] = [],
+                 encoder_cell_type: str = 'lstm',
+                 encoder_use_cudnn: bool = False,
                  beam_width: int = 1,
                  l2_regs: Tuple[float, float] = [0., 0.],
                  dropout_rate: float = 0.0,
@@ -113,6 +120,8 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
             'target_end_of_sequence_index': target_end_of_sequence_index,
             'kb_attention_hidden_sizes': kb_attention_hidden_sizes,
             'kb_embedding_control_sum': float(np.sum(self.kb_embedding)),
+            'encoder_cell_type': encoder_cell_type,
+            'encoder_use_cudnn': encoder_use_cudnn,
             'knowledge_base_size': self.kb_size,
             'embedding_size': self.decoder_embedding.shape[1],
             'beam_width': beam_width,
@@ -150,6 +159,8 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
         self.tgt_eos_id = self.opt['target_end_of_sequence_index']
         self.kb_attn_hidden_sizes = self.opt['kb_attention_hidden_sizes']
         self.embedding_size = self.opt['embedding_size']
+        self.encoder_cell_type = self.opt['encoder_cell_type']
+        self.encoder_use_cudnn = self.opt['encoder_use_cudnn']
         self.beam_width = self.opt['beam_width']
         self.dropout_rate = self.opt['dropout_rate']
         self.state_dropout_rate = self.opt['state_dropout_rate']
@@ -169,13 +180,13 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
         self._add_placeholders()
 
         self._build_encoder(scope="Encoder")
-        #self._dec_logits, self._dec_preds = self._build_decoder(scope="Decoder")
+        self._dec_logits, self._dec_preds = self._build_decoder(scope="Decoder")
         self._ner_logits = self._build_ner_head(scope="NerHead")
 
-        #self._dec_loss = self._build_dec_loss(self._dec_logits,
-        #                                      weights=self._tgt_mask,
-        #                                      scopes=["Encoder", "Decoder"],
-        #                                      l2_reg=self.l2_regs[0])
+        self._dec_loss = self._build_dec_loss(self._dec_logits,
+                                              weights=self._tgt_mask,
+                                              scopes=["Encoder", "Decoder"],
+                                              l2_reg=self.l2_regs[0])
 
         self._ner_loss, self._ner_preds = \
             self._build_ner_loss_predict(self._ner_logits,
@@ -184,7 +195,7 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
                                          scopes=["NerHead"],
                                          l2_reg=self.l2_regs[1])
 
-        self._loss = self.ner_beta * self._ner_loss
+        self._loss = self._dec_loss + self.ner_beta * self._ner_loss
 
         self._train_op = self.get_train_op(self._loss, optimizer=self._optimizer)
 
@@ -288,33 +299,42 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
 
     def _build_encoder(self, scope="Encoder"):
         with tf.variable_scope(scope):
-            # Encoder embedding
-            # _encoder_embedding = tf.get_variable(
-            #   "encoder_embedding", [self.src_vocab_size, self.embedding_size])
-            # _encoder_emb_inp = tf.nn.embedding_lookup(_encoder_embedding,
-            #                                          self._encoder_inputs)
-            # _encoder_emb_inp = tf.one_hot(self._encoder_inputs, self.src_vocab_size)
-            _encoder_emb_inp = self._encoder_inputs
+            # _units: [batch_size, max_input_time, embedding_size]
+            _units = variational_dropout(self._encoder_inputs, self._dropout_keep_prob)
 
-            _encoder_cell = tf.nn.rnn_cell.LSTMCell(self.hidden_size,
-                                                    name='basic_lstm_cell')
-            _encoder_cell = tf.contrib.rnn.DropoutWrapper(
-                _encoder_cell,
-                input_size=self.embedding_size,
-                dtype=tf.float32,
-                input_keep_prob=self._dropout_keep_prob,
-                output_keep_prob=self._dropout_keep_prob,
-                state_keep_prob=self._state_dropout_keep_prob,
-                variational_recurrent=True)
-            # Run Dynamic RNN
-            #   _encoder_outputs: [batch_size, max_input_time, hidden_size]
-            #   _encoder_state: [batch_size, hidden_size]
-# input_states?
-            _encoder_outputs, _encoder_state = tf.nn.dynamic_rnn(
-                _encoder_cell, _encoder_emb_inp, dtype=tf.float32,
-                sequence_length=self._src_sequence_lengths, time_major=False)
-        self._encoder_outputs = _encoder_outputs
-        self._encoder_state = _encoder_state
+            # _outputs: [batch_size, max_input_time, embedding_size, 2]
+            # _state: [batch_size, hidden_size, 2]
+            if self.encoder_use_cudnn:
+                if (self.l2_regs[0] > 0) or (self.l2_regs[1] > 0):
+                    log.warning("cuDNN RNN are not l2 regularizable")
+                if self.encoder_cell_type.lower() == 'lstm':
+                    _outputs, _state = cudnn_bi_lstm(_units,
+                                                     self.hidden_size,
+                                                     self._src_sequence_lengths)
+                elif self.encoder_cell_type.lower() == 'gru':
+                    _outputs, _state = cudnn_bi_gru(_units,
+                                                    self.hidden_size,
+                                                    self._src_sequence_lengths)
+            else:
+                _outputs, _state = bi_rnn(_units,
+                                          self.hidden_size,
+                                          cell_type=self.encoder_cell_type,
+                                          seq_lengths=self._src_sequence_lengths)
+
+            # _outputs: [batch_size, max_input_time, hidden_size]
+            _outputs = tf.concat(_outputs, -1)
+
+            # TODO: add & validate cell dropout
+            # NOTE: not available for CUDNN cells?
+            # _outputs = variational_dropout(_outputs, self._state_dropout_keep_prob)
+
+        self._encoder_outputs = _outputs
+        if not isinstance(_state[0], tf.nn.rnn_cell.LSTMStateTuple):
+            self._encoder_state = tf.nn.rnn_cell.LSTMStateTuple(_state[0][0],
+                                                                _state[0][1])
+        else:
+            self._encoder_state = _state[0]
+        # TODO: use not only forward state, but concatenation of states (?)
 
     def _build_decoder(self, scope="Decoder"):
         with tf.variable_scope(scope):
@@ -464,8 +484,8 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
     def __call__(self, enc_inputs, src_seq_lens, src_tag_masks, kb_masks, prob=False):
         # log.info(f"enc_inputs = {enc_inputs},\nsrc_seq_lens = {src_seq_lens}"
         #         f",\nsrc_tag_masks = {src_tag_masks},\nkb_masks = {kb_masks}")
-        ner_preds = self.sess.run(
-            self._ner_preds,
+        dec_preds, ner_preds = self.sess.run(
+            [self._dec_preds, self._ner_preds],
             feed_dict={
                 self._dropout_keep_prob: 1.,
                 self._state_dropout_keep_prob: 1.,
@@ -485,12 +505,12 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
 # TODO: implement infer probabilities
         if prob:
             raise NotImplementedError("Probs not available for now.")
-        return ner_preds_cut
+        return dec_preds, ner_preds_cut
 
     def train_on_batch(self, enc_inputs, dec_inputs, dec_outputs, src_tags,
                        src_seq_lens, tgt_masks, src_tag_masks, kb_masks):
-        _, loss, ner_loss = self.sess.run(
-            [self._train_op, self._loss, self._ner_loss],
+        _, loss, dec_loss, ner_loss = self.sess.run(
+            [self._train_op, self._loss, self._dec_loss, self._ner_loss],
             feed_dict={
                 self._dropout_keep_prob: 1 - self.dropout_rate,
                 self._state_dropout_keep_prob: 1 - self.state_dropout_rate,
@@ -504,7 +524,7 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(LRScheduledTFModel):
                 self._kb_mask: kb_masks
             }
         )
-        return {'loss': loss, 'last_loss': loss, 'last_ner_loss': ner_loss}
+        return {'loss': loss, 'last_dec_loss': dec_loss, 'last_ner_loss': ner_loss}
 
     def load(self, *args, **kwargs):
         self.load_params()
