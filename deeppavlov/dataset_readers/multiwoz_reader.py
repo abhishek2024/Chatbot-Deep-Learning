@@ -35,8 +35,7 @@ class MultiWOZDatasetReader(DatasetReader):
     # TODO: add docs
     """
 
-    url = 'http://files.deeppavlov.ai/datasets/kvret_public.tar.gz'
-    url = None
+    url = 'http://files.deeppavlov.ai/datasets/multiwoz.tar.gz'
 
     DATA_FILES = ['data.json', 'dialogue_acts.json', 'valListFile.json',
                   'testListFile.json',
