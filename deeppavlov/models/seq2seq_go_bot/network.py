@@ -15,13 +15,15 @@
 import json
 import tensorflow as tf
 import numpy as np
-from typing import List
+from typing import List, Tuple
 import math
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.errors import ConfigError
-from deeppavlov.core.models.lr_scheduled_tf_model import LRScheduledTFModel
 from deeppavlov.core.common.log import get_logger
+from deeppavlov.core.layers.tf_layers import cudnn_bi_lstm, cudnn_bi_gru, bi_rnn
+from deeppavlov.core.layers.tf_layers import variational_dropout, INITIALIZER
+from deeppavlov.core.models.lr_scheduled_tf_model import LRScheduledTFModel
 from deeppavlov.models.seq2seq_go_bot.kb_attn_layer import KBAttention
 
 
@@ -39,7 +41,6 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
 
     Parameters:
         hidden_size: RNN hidden layer size.
-        source_vocab_size: size of a vocabulary of encoder tokens.
         target_vocab_size: size of a vocabulary of decoder tokens.
         target_start_of_sequence_index: index of a start of sequence token during
             decoding.
@@ -48,7 +49,11 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
         kb_attention_hidden_sizes: list of sizes for attention hidden units.
         decoder_embeddings: matrix with embeddings for decoder output tokens, size is
             (`targer_vocab_size` + number of knowledge base entries, embedding size).
+        cell_type: type of cell to use as basic unit in encoder.
+        encoder_use_cudnn: boolean indicating whether to use cudnn computed encoder or not
+            (cudnn version is faster on gpu).
         beam_width: width of beam search decoding.
+        l2_regs: l2 regularization weight for decoder.
         dropout_rate: probability of weights' dropout.
         state_dropout_rate: probability of rnn state dropout.
         optimizer: one of tf.train.Optimizer subclasses as a string.
@@ -56,20 +61,23 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
             :class:`~deeppavlov.core.models.tf_model.TFModel` class.
     """
 
-    GRAPH_PARAMS = ['knowledge_base_size', 'source_vocab_size',
-                    'target_vocab_size', 'hidden_size', 'embedding_size',
-                    'kb_embedding_control_sum', 'kb_attention_hidden_sizes']
+    GRAPH_PARAMS = ['hidden_size', 'knowledge_base_size', 'target_vocab_size',
+                    'embedding_size',
+                    'kb_embedding_control_sum', 'kb_attention_hidden_sizes',
+                    'cell_type']
 
     def __init__(self,
                  hidden_size: int,
-                 source_vocab_size: int,
                  target_vocab_size: int,
                  target_start_of_sequence_index: int,
                  target_end_of_sequence_index: int,
                  decoder_embeddings: np.ndarray,
                  knowledge_base_entry_embeddings: np.ndarray = [[]],
                  kb_attention_hidden_sizes: List[int] = [],
+                 cell_type: str = 'lstm',
+                 encoder_use_cudnn: bool = False,
                  beam_width: int = 1,
+                 l2_regs: List[float] = [0.],
                  dropout_rate: float = 0.0,
                  state_dropout_rate: float = 0.0,
                  optimizer: str = 'AdamOptimizer',
@@ -94,15 +102,17 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
         # specify model options
         self.opt = {
             'hidden_size': hidden_size,
-            'source_vocab_size': source_vocab_size,
             'target_vocab_size': target_vocab_size,
             'target_start_of_sequence_index': target_start_of_sequence_index,
             'target_end_of_sequence_index': target_end_of_sequence_index,
             'kb_attention_hidden_sizes': kb_attention_hidden_sizes,
             'kb_embedding_control_sum': float(np.sum(self.kb_embedding)),
+            'cell_type': cell_type,
+            'encoder_use_cudnn': encoder_use_cudnn,
             'knowledge_base_size': self.kb_size,
             'embedding_size': self.decoder_embedding.shape[1],
             'beam_width': beam_width,
+            'l2_regs': l2_regs,
             'dropout_rate': dropout_rate,
             'state_dropout_rate': state_dropout_rate,
             'optimizer': optimizer
@@ -127,15 +137,17 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
 
     def _init_params(self):
         self.hidden_size = self.opt['hidden_size']
-        self.src_vocab_size = self.opt['source_vocab_size']
         self.tgt_vocab_size = self.opt['target_vocab_size']
         self.tgt_sos_id = self.opt['target_start_of_sequence_index']
         self.tgt_eos_id = self.opt['target_end_of_sequence_index']
         self.kb_attn_hidden_sizes = self.opt['kb_attention_hidden_sizes']
         self.embedding_size = self.opt['embedding_size']
+        self.cell_type = self.opt['cell_type']
+        self.encoder_use_cudnn = self.opt['encoder_use_cudnn']
         self.beam_width = self.opt['beam_width']
         self.dropout_rate = self.opt['dropout_rate']
         self.state_dropout_rate = self.opt['state_dropout_rate']
+        self.l2_regs = self.opt['l2_regs']
 
         self._optimizer = None
         if hasattr(tf.train, self.opt['optimizer']):
@@ -145,24 +157,18 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                               " tf.train.Optimizer subclass")
 
     def _build_graph(self):
-
         self._add_placeholders()
 
-        self._build_encoder()
-        _logits, self._predictions = self._build_decoder()
+        self._build_encoder(scope="Encoder")
+        self._dec_logits, self._dec_preds = self._build_decoder(scope="Decoder")
 
-        _weights = tf.expand_dims(self._tgt_mask, -1)
-        _loss_tensor = \
-            tf.losses.sparse_softmax_cross_entropy(logits=_logits,
-                                                   labels=self._decoder_outputs,
-                                                   weights=_weights,
-                                                   reduction=tf.losses.Reduction.NONE)
-        # check if loss has nans
-        _loss_tensor = \
-            tf.verify_tensor_all_finite(_loss_tensor, "Non finite values in loss tensor.")
-        # normalize loss by sequence lengths
-        self._loss = tf.reduce_sum(_loss_tensor) / tf.reduce_sum(self._tgt_mask)
-# TODO: tune clip_norm
+        self._dec_loss = self._build_dec_loss(self._dec_logits,
+                                              weights=self._tgt_mask,
+                                              scopes=["Encoder", "Decoder"],
+                                              l2_reg=self.l2_regs[0])
+
+        self._loss = self._dec_loss
+
         self._train_op = self.get_train_op(self._loss, optimizer=self._optimizer)
 
         log.info("Trainable variables")
@@ -170,12 +176,30 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
             log.info(v)
         self.print_number_of_parameters()
 
+    def _build_dec_loss(self, logits, weights, scopes=[None], l2_reg=0.0):
+        # _loss_tensor: [batch_size, max_output_time]
+        _loss_tensor = \
+            tf.losses.sparse_softmax_cross_entropy(logits=logits,
+                                                   labels=self._decoder_outputs,
+                                                   weights=tf.expand_dims(weights, -1),
+                                                   reduction=tf.losses.Reduction.NONE)
+        # check if loss has nans
+        _loss_tensor = \
+            tf.verify_tensor_all_finite(_loss_tensor, "Non finite values in loss tensor.")
+        # _loss: [1]
+        _loss = tf.reduce_sum(_loss_tensor) / tf.reduce_sum(weights)
+        # add l2 regularization
+        if l2_reg > 0:
+            reg_vars = [tf.losses.get_regularization_loss(scope=sc, name=f"{sc}_reg_loss")
+                        for sc in scopes]
+            _loss += l2_reg * tf.reduce_sum(reg_vars)
+        return _loss
+
     def _add_placeholders(self):
-        self._dropout_keep_prob = tf.placeholder_with_default(
-            1.0, shape=[], name='dropout_keep_prob')
-        self._state_dropout_keep_prob = tf.placeholder_with_default(
-            1.0, shape=[], name='state_dropout_keep_prob')
-        # _encoder_inputs: [batch_size, max_input_time]
+        self._dropout_keep_prob = \
+            tf.placeholder_with_default(1.0, shape=[], name='dropout_keep_prob')
+        self._state_dropout_keep_prob = \
+            tf.placeholder_with_default(1.0, shape=[], name='state_dropout_keep_prob')
         # _encoder_inputs: [batch_size, max_input_time, embedding_size]
         self._encoder_inputs = tf.placeholder(tf.float32,
                                               [None, None, self.embedding_size],
@@ -186,6 +210,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                               [None, None],
                                               name='decoder_inputs')
         # _decoder_embedding: [tgt_vocab_size + kb_size, embedding_size]
+        # TODO: try training decoder embeddings
         self._decoder_embedding = \
             tf.get_variable("decoder_embedding",
                             shape=(self.tgt_vocab_size + self.kb_size,
@@ -198,7 +223,6 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                                [None, None],
                                                name='decoder_outputs')
         # _kb_embedding: [kb_size, embedding_size]
-# TODO: try training embeddings
         kb_W = np.array(self.kb_embedding)[:, :self.embedding_size]
         self._kb_embedding = tf.get_variable("kb_embedding",
                                              shape=(kb_W.shape[0], kb_W.shape[1]),
@@ -207,47 +231,57 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                              trainable=True)
         # _kb_mask: [batch_size, kb_size]
         self._kb_mask = tf.placeholder(tf.float32, [None, None], name='kb_mask')
+
         # _tgt_mask: [batch_size, max_output_time]
-        self._tgt_mask = tf.placeholder(tf.float32, [None, None], name='target_mask')
+        self._tgt_mask = tf.placeholder(tf.float32, [None, None], name='target_weights')
         # _src_sequence_lengths, _tgt_sequence_lengths: [batch_size]
         self._src_sequence_lengths = tf.placeholder(tf.int32,
                                                     [None],
-                                                    name='input_sequence_lengths')
+                                                    name='input_sequence_length')
         self._tgt_sequence_lengths = tf.to_int32(tf.reduce_sum(self._tgt_mask, axis=1))
 
-    def _build_encoder(self):
-        with tf.variable_scope("Encoder"):
-            # Encoder embedding
-            # _encoder_embedding = tf.get_variable(
-            #   "encoder_embedding", [self.src_vocab_size, self.embedding_size])
-            # _encoder_emb_inp = tf.nn.embedding_lookup(_encoder_embedding,
-            #                                          self._encoder_inputs)
-            # _encoder_emb_inp = tf.one_hot(self._encoder_inputs, self.src_vocab_size)
-            _encoder_emb_inp = self._encoder_inputs
+    def _build_encoder(self, scope="Encoder"):
+        with tf.variable_scope(scope):
+            # _units: [batch_size, max_input_time, embedding_size]
+            _units = variational_dropout(self._encoder_inputs, self._dropout_keep_prob)
 
-            _encoder_cell = tf.nn.rnn_cell.LSTMCell(self.hidden_size,
-                                                    name='basic_lstm_cell')
-            _encoder_cell = tf.contrib.rnn.DropoutWrapper(
-                _encoder_cell,
-                input_size=self.embedding_size,
-                dtype=tf.float32,
-                input_keep_prob=self._dropout_keep_prob,
-                output_keep_prob=self._dropout_keep_prob,
-                state_keep_prob=self._state_dropout_keep_prob,
-                variational_recurrent=True)
-            # Run Dynamic RNN
-            #   _encoder_outputs: [max_time, batch_size, hidden_size]
-            #   _encoder_state: [batch_size, hidden_size]
-# input_states?
-            _encoder_outputs, _encoder_state = tf.nn.dynamic_rnn(
-                _encoder_cell, _encoder_emb_inp, dtype=tf.float32,
-                sequence_length=self._src_sequence_lengths, time_major=False)
+            # _outputs: [batch_size, max_input_time, embedding_size, 2]
+            # _state: [batch_size, hidden_size, 2]
+            if self.encoder_use_cudnn:
+                if (self.l2_regs[0] > 0) or (self.l2_regs[1] > 0):
+                    log.warning("cuDNN RNN are not l2 regularizable")
+                if self.cell_type.lower() == 'lstm':
+                    _outputs, _state = cudnn_bi_lstm(_units,
+                                                     self.hidden_size,
+                                                     self._src_sequence_lengths)
+                elif self.cell_type.lower() == 'gru':
+                    _outputs, _state = cudnn_bi_gru(_units,
+                                                    self.hidden_size,
+                                                    self._src_sequence_lengths)
+            else:
+                _outputs, _state = bi_rnn(_units,
+                                          self.hidden_size,
+                                          cell_type=self.cell_type,
+                                          seq_lengths=self._src_sequence_lengths)
 
-        self._encoder_outputs = _encoder_outputs
-        self._encoder_state = _encoder_state
+            # _outputs: [batch_size, max_input_time, hidden_size]
+            _outputs = tf.concat(_outputs, -1)
 
-    def _build_decoder(self):
-        with tf.variable_scope("Decoder"):
+            # TODO: add & validate cell dropout
+            # NOTE: not available for CUDNN cells?
+            # _outputs = variational_dropout(_outputs, self._state_dropout_keep_prob)
+
+        self._encoder_outputs = _outputs
+        if not isinstance(_state[0], tf.nn.rnn_cell.LSTMStateTuple):
+            self._encoder_state = tf.nn.rnn_cell.LSTMStateTuple(_state[0][0],
+                                                                _state[0][1])
+        else:
+            self._encoder_state = _state[0]
+        # TODO: use not only forward state, but concatenation of states (?)
+        # NOTE: should then encoder's hidden size be twice smaller than decoder's?
+
+    def _build_decoder(self, scope="Decoder"):
+        with tf.variable_scope(scope):
             # Decoder embedding
             # _decoder_embedding = tf.get_variable(
             #    "decoder_embedding", [self.tgt_vocab_size + self.kb_size,
@@ -279,6 +313,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                                         use_bias=False)
 
             # Decoder Cell
+            # TODO: support self.cell_type
             _decoder_cell = tf.nn.rnn_cell.LSTMCell(self.hidden_size,
                                                     name='basic_lstm_cell')
             _decoder_cell = tf.contrib.rnn.DropoutWrapper(
@@ -316,6 +351,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
             _decoder_init_state = \
                 _decoder_cell_tr.zero_state(self._batch_size, dtype=tf.float32)\
                 .clone(cell_state=self._encoder_state)
+            # TODO: debug beam search: wrong states?
             _decoder_tr = \
                 tf.contrib.seq2seq.BasicDecoder(_decoder_cell_tr, _helper_tr,
                                                 initial_state=_decoder_init_state,
@@ -376,38 +412,38 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
             #    decode(_helper_infer, "decode", _max_iters, reuse=True).sample_id
         return _logits, _predictions
 
-    def __call__(self, enc_inputs, src_seq_lengths, kb_masks, prob=False):
-        predictions = self.sess.run(
-            self._predictions,
+    def __call__(self, enc_inputs, src_seq_lens, kb_masks, prob=False):
+        dec_preds = self.sess.run(
+            self._dec_preds,
             feed_dict={
                 self._dropout_keep_prob: 1.,
                 self._state_dropout_keep_prob: 1.,
                 self._encoder_inputs: enc_inputs,
-                self._src_sequence_lengths: src_seq_lengths,
+                self._src_sequence_lengths: src_seq_lens,
                 self._kb_mask: kb_masks
             }
         )
 # TODO: implement infer probabilities
         if prob:
             raise NotImplementedError("Probs not available for now.")
-        return predictions
+        return dec_preds
 
-    def train_on_batch(self, enc_inputs, dec_inputs, dec_outputs,
-                       src_seq_lengths, tgt_masks, kb_masks):
-        _, loss_value = self.sess.run(
-            [self._train_op, self._loss],
+    def train_on_batch(self, enc_inputs, dec_inputs, dec_outputs, src_seq_lens,
+                       tgt_masks, kb_masks):
+        _, loss, dec_loss = self.sess.run(
+            [self._train_op, self._loss, self._dec_loss],
             feed_dict={
                 self._dropout_keep_prob: 1 - self.dropout_rate,
                 self._state_dropout_keep_prob: 1 - self.state_dropout_rate,
                 self._encoder_inputs: enc_inputs,
                 self._decoder_inputs: dec_inputs,
                 self._decoder_outputs: dec_outputs,
-                self._src_sequence_lengths: src_seq_lengths,
+                self._src_sequence_lengths: src_seq_lens,
                 self._tgt_mask: tgt_masks,
                 self._kb_mask: kb_masks
             }
         )
-        return loss_value
+        return {'loss': loss, 'last_dec_loss': dec_loss}
 
     def load(self, *args, **kwargs):
         self.load_params()
@@ -436,4 +472,245 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
         log.info('[saving parameters to {}]'.format(path))
         with open(path, 'w', encoding='utf8') as fp:
             json.dump(self.opt, fp)
+
+
+@register("seq2seq_go_bot_with_ner_nn")
+class Seq2SeqGoalOrientedBotWithNerNetwork(Seq2SeqGoalOrientedBotNetwork):
+    """
+    The :class:`~deeppavlov.models.seq2seq_go_bot.bot.GoalOrientedBotNetwork`
+    is a recurrent network that encodes user utterance and generates response
+    in a sequence-to-sequence manner.
+
+    For network architecture is similar to https://arxiv.org/abs/1705.05414 .
+
+    Parameters:
+        ner_n_tags: number of classifiered tags.
+        ner_beta: multiplier of ner loss in the overall loss
+        ner_hidden_size: list of integers denoting hidden sizes of ner head.
+        hidden_size: RNN hidden layer size.
+        target_vocab_size: size of a vocabulary of decoder tokens.
+        target_start_of_sequence_index: index of a start of sequence token during
+            decoding.
+        target_end_of_sequence_index: index of an end of sequence token during decoding.
+        knowledge_base_size: number of knowledge base entries.
+        kb_attention_hidden_sizes: list of sizes for attention hidden units.
+        decoder_embeddings: matrix with embeddings for decoder output tokens, size is
+            (`targer_vocab_size` + number of knowledge base entries, embedding size).
+        cell_type: type of cell to use as basic unit in encoder.
+        encoder_use_cudnn: boolean indicating whether to use cudnn computed encoder or not
+            (cudnn version is faster on gpu).
+        beam_width: width of beam search decoding.
+        l2_regs: tuple of l2 regularization weights for decoder and ner losses.
+        dropout_rate: probability of weights' dropout.
+        state_dropout_rate: probability of rnn state dropout.
+        optimizer: one of tf.train.Optimizer subclasses as a string.
+        **kwargs: parameters passed to a parent
+            :class:`~deeppavlov.core.models.tf_model.TFModel` class.
+    """
+
+    GRAPH_PARAMS = ['ner_n_tags', 'ner_hidden_size', 'hidden_size',
+                    'knowledge_base_size', 'target_vocab_size', 'embedding_size',
+                    'kb_embedding_control_sum', 'kb_attention_hidden_sizes',
+                    'cell_type']
+
+    def __init__(self,
+                 ner_n_tags: int,
+                 ner_beta: float,
+                 hidden_size: int,
+                 target_vocab_size: int,
+                 target_start_of_sequence_index: int,
+                 target_end_of_sequence_index: int,
+                 decoder_embeddings: np.ndarray,
+                 ner_hidden_size: List[int] = [],
+                 knowledge_base_entry_embeddings: np.ndarray = [[]],
+                 kb_attention_hidden_sizes: List[int] = [],
+                 cell_type: str = 'lstm',
+                 encoder_use_cudnn: bool = False,
+                 beam_width: int = 1,
+                 l2_regs: Tuple[float, float] = [0., 0.],
+                 dropout_rate: float = 0.0,
+                 state_dropout_rate: float = 0.0,
+                 optimizer: str = 'AdamOptimizer',
+                 **kwargs) -> None:
+
+        # initialize knowledge base embeddings
+        self.kb_embedding = np.array(knowledge_base_entry_embeddings)
+        if self.kb_embedding.shape[1] > 0:
+            self.kb_size = self.kb_embedding.shape[0]
+            log.debug("recieved knowledge_base_entry_embeddings with shape = {}"
+                      .format(self.kb_embedding.shape))
+        else:
+            self.kb_size = 0
+        # initialize decoder embeddings
+        self.decoder_embedding = np.array(decoder_embeddings)
+        if self.kb_size > 0:
+            if self.kb_embedding.shape[1] != self.decoder_embedding.shape[1]:
+                raise ValueError("decoder embeddings should have the same dimension"
+                                 " as knowledge base entries' embeddings")
+        super(Seq2SeqGoalOrientedBotNetwork, self).__init__(**kwargs)
+
+        # specify model options
+        self.opt = {
+            'ner_n_tags': ner_n_tags,
+            'ner_hidden_size': ner_hidden_size,
+            'ner_beta': ner_beta,
+            'hidden_size': hidden_size,
+            'target_vocab_size': target_vocab_size,
+            'target_start_of_sequence_index': target_start_of_sequence_index,
+            'target_end_of_sequence_index': target_end_of_sequence_index,
+            'kb_attention_hidden_sizes': kb_attention_hidden_sizes,
+            'kb_embedding_control_sum': float(np.sum(self.kb_embedding)),
+            'cell_type': cell_type,
+            'encoder_use_cudnn': encoder_use_cudnn,
+            'knowledge_base_size': self.kb_size,
+            'embedding_size': self.decoder_embedding.shape[1],
+            'beam_width': beam_width,
+            'l2_regs': l2_regs,
+            'dropout_rate': dropout_rate,
+            'state_dropout_rate': state_dropout_rate,
+            'optimizer': optimizer
+        }
+
+        # initialize other parameters
+        self._init_params()
+        # build computational graph
+        self._build_graph()
+        # initialize session
+        self.sess = tf.Session()
+        # from tensorflow.python import debug as tf_debug
+        # self.sess = tf_debug.TensorBoardDebugWrapperSession(self.sess, "vimary-pc:7019")
+
+        self.sess.run(tf.global_variables_initializer())
+
+        if tf.train.checkpoint_exists(str(self.load_path.resolve())):
+            log.info("[initializing `{}` from saved]".format(self.__class__.__name__))
+            self.load()
+        else:
+            log.info("[initializing `{}` from scratch]".format(self.__class__.__name__))
+
+    def _init_params(self):
+        super()._init_params()
+        self.ner_n_tags = self.opt['ner_n_tags']
+        self.ner_hidden_size = self.opt['ner_hidden_size']
+        self.ner_beta = self.opt['ner_beta']
+
+        if len(self.opt['l2_regs']) != 2:
+            raise ConfigError("`l2_regs` parameter should be a tuple two floats.")
+        self.l2_regs = self.opt['l2_regs']
+
+    def _build_graph(self):
+        self._add_placeholders()
+
+        self._build_encoder(scope="Encoder")
+        self._dec_logits, self._dec_preds = self._build_decoder(scope="Decoder")
+        self._ner_logits = self._build_ner_head(scope="NerHead")
+
+        self._dec_loss = self._build_dec_loss(self._dec_logits,
+                                              weights=self._tgt_mask,
+                                              scopes=["Encoder", "Decoder"],
+                                              l2_reg=self.l2_regs[0])
+
+        self._ner_loss, self._ner_preds = \
+            self._build_ner_loss_predict(self._ner_logits,
+                                         weights=self._src_tag_mask,
+                                         n_tags=self.ner_n_tags,
+                                         scopes=["NerHead"],
+                                         l2_reg=self.l2_regs[1])
+
+        self._loss = self._dec_loss + self.ner_beta * self._ner_loss
+
+        self._train_op = self.get_train_op(self._loss, optimizer=self._optimizer)
+
+        log.info("Trainable variables")
+        for v in tf.trainable_variables():
+            log.info(v)
+        self.print_number_of_parameters()
+
+    def _build_ner_loss_predict(self, logits, weights, n_tags, scopes=[None], l2_reg=0.0):
+        # _loss_tensor: [batch_size, max_input_time]
+        _loss_tensor = \
+            tf.losses.sparse_softmax_cross_entropy(logits=logits,
+                                                   labels=self._src_tags,
+                                                   weights=tf.expand_dims(weights, -1),
+                                                   reduction=tf.losses.Reduction.NONE)
+        # check if loss has nans
+        _loss_tensor = \
+            tf.verify_tensor_all_finite(_loss_tensor, "Non finite values in loss tensor.")
+        # _loss: [1]
+        _loss = tf.reduce_sum(_loss_tensor) / tf.reduce_sum(weights)
+        # add l2 regularization
+        if l2_reg > 0:
+            reg_vars = [tf.losses.get_regularization_loss(scope=sc, name=f"{sc}_reg_loss")
+                        for sc in scopes]
+            _loss += l2_reg * tf.reduce_sum(reg_vars)
+
+        # _preds: [batch_size, max_input_time]
+        _preds = tf.argmax(logits, axis=-1)
+        return _loss, _preds
+
+    def _add_placeholders(self):
+        super()._add_placeholders()
+        # _src_mask: [batch_size, max_input_time]
+        self._src_tag_mask = tf.placeholder(tf.float32,
+                                            [None, None],
+                                            name='input_sequence_tag_mask')
+        # _src_tags: [batch_size, max_input_time]
+        self._src_tags = tf.placeholder(tf.int32,
+                                        [None, None],
+                                        name='input_sequence_tags')
+
+    def _build_ner_head(self, scope="NerHead"):
+        with tf.variable_scope(scope):
+            # _encoder_outputs: [batch_size, max_input_time, hidden_size]
+            _units = self._encoder_outputs
+            for n_hidden in self.ner_hidden_size:
+                # _units: [batch_size, max_input_time, n_hidden]
+                _units = tf.layers.dense(_units, n_hidden, activation=tf.nn.relu,
+                                         kernel_initializer=INITIALIZER(),
+                                         kernel_regularizer=tf.nn.l2_loss)
+            # _ner_logits: [batch_size, max_input_time, ner_n_tags]
+            _logits = tf.layers.dense(_units, self.ner_n_tags, activation=None,
+                                      kernel_initializer=INITIALIZER(),
+                                      kernel_regularizer=tf.nn.l2_loss)
+            return _logits
+
+    def __call__(self, enc_inputs, src_seq_lens, src_tag_masks, kb_masks, prob=False):
+        dec_preds, ner_preds = self.sess.run(
+            [self._dec_preds, self._ner_preds],
+            feed_dict={
+                self._dropout_keep_prob: 1.,
+                self._state_dropout_keep_prob: 1.,
+                self._encoder_inputs: enc_inputs,
+                self._src_tag_mask: src_tag_masks,
+                self._src_sequence_lengths: src_seq_lens,
+                self._kb_mask: kb_masks
+            }
+        )
+        ner_preds_cut = []
+        for i in range(len(ner_preds)):
+            nonzero_ids = np.nonzero(src_tag_masks[i])[0]
+            ner_preds_cut.append(ner_preds[i, nonzero_ids])
+# TODO: implement infer probabilities
+        if prob:
+            raise NotImplementedError("Probs not available for now.")
+        return dec_preds, ner_preds_cut
+
+    def train_on_batch(self, enc_inputs, dec_inputs, dec_outputs, src_tags,
+                       src_seq_lens, tgt_masks, src_tag_masks, kb_masks):
+        _, loss, dec_loss, ner_loss = self.sess.run(
+            [self._train_op, self._loss, self._dec_loss, self._ner_loss],
+            feed_dict={
+                self._dropout_keep_prob: 1 - self.dropout_rate,
+                self._state_dropout_keep_prob: 1 - self.state_dropout_rate,
+                self._encoder_inputs: enc_inputs,
+                self._decoder_inputs: dec_inputs,
+                self._decoder_outputs: dec_outputs,
+                self._src_tags: src_tags,
+                self._src_sequence_lengths: src_seq_lens,
+                self._tgt_mask: tgt_masks,
+                self._src_tag_mask: src_tag_masks,
+                self._kb_mask: kb_masks
+            }
+        )
+        return {'loss': loss, 'last_dec_loss': dec_loss, 'last_ner_loss': ner_loss}
 

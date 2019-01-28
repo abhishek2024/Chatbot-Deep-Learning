@@ -21,8 +21,7 @@ from deeppavlov.core.models.component import Component
 from deeppavlov.core.models.nn_model import NNModel
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.models.seq2seq_go_bot.network import Seq2SeqGoalOrientedBotNetwork
-from deeppavlov.models.seq2seq_go_bot.network_with_ner import \
-    Seq2SeqGoalOrientedBotWithNerNetwork
+from deeppavlov.models.seq2seq_go_bot.network import Seq2SeqGoalOrientedBotWithNerNetwork
 
 
 log = get_logger(__name__)
@@ -119,8 +118,9 @@ class Seq2SeqGoalOrientedBot(NNModel):
         else:
             utters, history_list, kb_entry_list, responses, x_tags = args
 
-        assert all(len(u) == len(t) for u, t in zip(utters, x_tags)), \
-            "utterance tokens and tags should have equal lengths"
+        if self.use_ner_head:
+            assert all(len(u) == len(t) for u, t in zip(utters, x_tags)), \
+                "utterance tokens and tags should have equal lengths"
 
         b_enc_ins, b_src_lens, b_dec_ins, b_dec_outs = [], [], [], []
         max_tgt_len = 0

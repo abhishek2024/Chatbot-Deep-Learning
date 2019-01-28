@@ -5,13 +5,13 @@
   },
   "dataset_iterator": {
     "class_name": "skill_dialog_iterator",
-    "y_names": ["text", "domains", "x_tags"],
+    "y_names": ["text", "domains"],
     "shuffle": false
   },
   "chainer": {
     "in": ["x_text", "history_list", "state"],
-    "in_y": ["y_text", "y_domains", "x_tags"],
-    "out": ["prediction_text", "confidence", "state", "x_pred_tags"],
+    "in_y": ["y_text", "y_domains"],
+    "out": ["prediction_text", "confidence", "state"],
     "pipe": [
       {
         "id": "lazy_spacy_tokenizer",
@@ -23,16 +23,6 @@
         },
         "in": ["x_text"],
         "out": ["x_tokens"]
-      },
-      {
-        "id": "src_tag_vocab",
-        "class_name": "simple_vocab",
-        "special_tokens": ["O"],
-        "in": ["x_tags"],
-        "out": ["tag_id"],
-        "fit_on": ["x_tags"],
-        "load_path": "{BOT_PATH}/tag.dict",
-        "save_path": "{BOT_PATH}/tag.dict"
       },
       {
         "ref": "lazy_spacy_tokenizer",
@@ -49,7 +39,6 @@
         "id": "src_token_vocab",
         "fit_on": ["x_tokens", "y_tokens"],
         "class_name": "simple_vocab",
-        "min_freq": 2,
         "unk_token": "<UNK>",
         "special_tokens": ["<UNK>", "<SOS>"],
         "save_path": "{BOT_PATH}/src_tokens.dict",
@@ -71,8 +60,8 @@
       },
       {
         "in": ["x_tokens", "history_tok_list"],
-        "in_y": ["y_tokens", "tag_id"],
-        "out": ["prediction_tokens", "confidence", "tag_pred_id"],
+        "in_y": ["y_tokens"],
+        "out": ["prediction_tokens", "confidence"],
         "main": true,
         "class_name": "seq2seq_go_bot",
         "load_path": "{BOT_PATH}/model",
@@ -82,21 +71,17 @@
         "end_of_sequence_token": "<EOS>",
         "embedder": "#token_embedder",
         "network_parameters": {
-          "ner_n_tags": "#src_tag_vocab.len",
-          "ner_hidden_size": [64],
-          "ner_beta": 1.0,
           "l2_regs": [0.0, 0.0],
-          "encoder_cell_type": "lstm",
-          "encoder_use_cudnn": false,
+          "cell_type": "lstm",
+          "encoder_use_cudnn": true,
           "learning_rate": 3e-4,
-          "learning_rate_drop_patience": 4,
+          "learning_rate_drop_patience": 3,
           "learning_rate_drop_div": 3.0,
           "dropout_rate": 0.3,
-          "state_dropout_rate": 0.01,
+          "state_dropout_rate": 0.03,
           "beam_width": 1,
           "target_start_of_sequence_index": "#tgt_token_vocab.__getitem__('<SOS>')",
           "target_end_of_sequence_index": "#tgt_token_vocab.__getitem__('<EOS>')",
-          "source_vocab_size": "#src_token_vocab.len",
           "target_vocab_size": "#tgt_token_vocab.len",
           "hidden_size": 256
         },
@@ -109,11 +94,6 @@
         "smart": false,
         "in": ["prediction_tokens"],
         "out": ["prediction_text"]
-      },
-      {
-        "ref": "src_tag_vocab",
-        "in": ["tag_pred_id"],
-        "out": ["x_pred_tags"]
       }
     ]
   },
@@ -127,21 +107,17 @@
         "inputs": ["y_text", "prediction_text"]
       },
       {
-        "name": "ner_f1",
-        "inputs": ["x_tags", "x_pred_tags"]
-      },
-      {
         "name": "accuracy",
         "inputs": ["y_text", "prediction_text"]
       }
     ],
     "validation_patience": 30,
     "val_every_n_epochs": -1,
-    "val_every_n_batches": 4000,
+    "val_every_n_batches": 2000,
     "tensorboard_log_dir": "{BOT_PATH}/logs",
 
-    "log_every_n_batches": 2000,
     "log_every_n_epochs": -1,
+    "log_every_n_batches": 2000,
     "validate_best": true,
     "show_examples": false
   },
@@ -150,7 +126,7 @@
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
       "MODELS_PATH": "{ROOT_PATH}/models",
-      "BOT_PATH": "{MODELS_PATH}/bot_multiwoz_simple_with_ner"
+      "BOT_PATH": "{MODELS_PATH}/bot_multiwoz_simple"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
