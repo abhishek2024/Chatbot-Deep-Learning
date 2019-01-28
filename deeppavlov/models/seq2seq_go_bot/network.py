@@ -272,7 +272,8 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
             # _outputs = variational_dropout(_outputs, self._state_dropout_keep_prob)
 
         self._encoder_outputs = _outputs
-        if not isinstance(_state[0], tf.nn.rnn_cell.LSTMStateTuple):
+        if (self.cell_type == 'lstm') and\
+                not isinstance(_state[0], tf.nn.rnn_cell.LSTMStateTuple):
             self._encoder_state = tf.nn.rnn_cell.LSTMStateTuple(_state[0][0],
                                                                 _state[0][1])
         else:
@@ -313,9 +314,14 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                                         use_bias=False)
 
             # Decoder Cell
-            # TODO: support self.cell_type
-            _decoder_cell = tf.nn.rnn_cell.LSTMCell(self.hidden_size,
-                                                    name='basic_lstm_cell')
+            if self.cell_type.lower() == 'lstm':
+                _decoder_cell = tf.nn.rnn_cell.LSTMCell(self.hidden_size,
+                                                        initializer=INITIALIZER(),
+                                                        name='basic_lstm_cell')
+            elif self.cell_type.lower() == 'gru':
+                _decoder_cell = tf.nn.rnn_cell.GRUCell(self.hidden_size,
+                                                       kernel_initializer=INITIALIZER(),
+                                                       name='basic_gru_cell')
             _decoder_cell = tf.contrib.rnn.DropoutWrapper(
                 _decoder_cell,
                 input_size=self.embedding_size + self.hidden_size,
