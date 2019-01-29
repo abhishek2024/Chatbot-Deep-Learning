@@ -13,15 +13,18 @@
 # limitations under the License.
 
 import os
+from pathlib import Path
+from typing import Union
 
 
-def compile_coreference(path):
+def compile_coreference(path: Union[Path, str]) -> None:
     path = path + 'coref_kernels.so'
     if not os.path.isfile(path):
         print('Compiling the coref_kernels.cc')
         cmd = """
               #!/usr/bin/env bash
 
+              # Build custom kernels.
               TF_CFLAGS=( $(python -c 'import tensorflow as tf; print(" ".join(tf.sysconfig.get_compile_flags()))') )
               TF_LFLAGS=( $(python -c 'import tensorflow as tf; print(" ".join(tf.sysconfig.get_link_flags()))') )
               
@@ -42,10 +45,3 @@ def compile_coreference(path):
 if __name__ == "__main__":
     PATH = '.'
     compile_coreference(PATH)
-
-# # Build custom kernels.
-# TF_INC =$(python3 - c 'import tensorflow as tf; print(tf.sysconfig.get_include())')
-#
-# # Linux (pip)
-# g + + -std = c + +11 - shared. / coref_kernels.cc - o
-# {0} - I $TF_INC - fPIC - D_GLIBCXX_USE_CXX11_ABI = 0
