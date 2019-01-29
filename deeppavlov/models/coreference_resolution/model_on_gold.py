@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import random
-from os.path import join
 from typing import Any, List, Tuple, Union
 
 import numpy as np
@@ -21,7 +20,7 @@ import tensorflow as tf
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
-from . import custom_layers, utils
+from . import custom_layers
 from .conll2model_format import conll2modeldata
 from .custom_ops import coref_op_library
 from .model_format2conll import output_conll
@@ -35,13 +34,9 @@ class CorefModel(TFModel):
     """
 
     def __init__(self,
-                 log_root: str,
-                 embedding_path: str = "./embeddings/ft_0.8.3_nltk_yalen_sg_300.bin",
-                 char_vocab_path: str = "./vocab/char_vocab.russian.txt",
                  embedder: Any = None,
-                 embedding_size: int = 300,
-                 emb_format: str = "bin",
                  emb_lowercase: bool = False,
+                 char_vocab: Any = None,
                  char_embedding_size: int = 8,
                  max_mention_width: int = 10,
                  genres: Tuple[str] = ('bc',),
@@ -71,15 +66,11 @@ class CorefModel(TFModel):
                  **kwargs):
         # Parameters
         # ---------------------------------------------------------------------------------
-        # paths
-        self.log_root_ = log_root
-
         # embeddings
         self.embedder = embedder
-        self.embedding_path = embedding_path
-        self.embedding_size = embedding_size
-        self.emb_format = emb_format
+        self.embedding_size = self.embedder.dim
         self.emb_lowercase = emb_lowercase
+        self.char_dict = char_vocab
         self.char_embedding_size = char_embedding_size
 
         # Net
@@ -113,8 +104,8 @@ class CorefModel(TFModel):
         self.max_gradient_norm = max_gradient_norm
 
         # other
-        self.char_vocab_path = char_vocab_path
         self.random_seed = random_seed
+
         self.head_scores = None
         self.dropout = None
         self.lexical_dropout = None
@@ -126,19 +117,6 @@ class CorefModel(TFModel):
         self.extract_mentions = coref_op_library.extract_mentions
         self.get_antecedents = coref_op_library.antecedents
         # ----------------------------------------------------------------------------------
-
-        self.log_root = join(self.log_root_, 'logs')
-        self.char_dict = utils.load_char_dict(self.char_vocab_path)
-
-        if self.emb_format not in ["vec", "bin", "elmo"]:
-            raise ValueError('Not supported embeddings format {}'.format(self.emb_format))
-
-        self.embedding_info = (self.embedding_size, self.emb_lowercase)
-
-        if self.emb_format in ['vec', 'bin']:
-            self.embedding_model = utils.load_embedding_dict(self.embedding_path, self.embedding_size, self.emb_format)
-        else:
-            self.embedding_model = self.embedder
 
         self.genres = {g: i for i, g in enumerate(self.genres)}
 
@@ -330,38 +308,22 @@ class CorefModel(TFModel):
         char_index = np.zeros([len(sentences), max_sentence_length, max_word_length])
         text_len = np.array([len(s) for s in sentences])
 
-        if self.emb_format in ['vec', 'bin']:
+        if self.emb_lowercase:
             for i, sentence in enumerate(sentences):
                 for j, word in enumerate(sentence):
-                    current_dim = 0
-                    d = self.embedding_dicts
+                    sentences[i][j] = word.lower()
 
-                    (s, l) = self.embedding_info
+        for i, sentence in enumerate(sentences):
+            sentences[i] = list(sentences[i])
+            for j, word in enumerate(sentence):
+                char_index[i, j, :len(word)] = [self.char_dict[c] for c in word]
 
-                    if l:
-                        current_word = word.lower()  # cerrent_word
-                    else:
-                        current_word = word
-
-                    if self.emb_format == 'vec':
-                        word_emb[i, j, current_dim:current_dim + s] = custom_layers.normalize(d[current_word])
-                    else:
-                        word_emb[i, j, current_dim:current_dim + s] = custom_layers.normalize(d.get_word_vector(current_word))
-
-                    current_dim += s
-                    char_index[i, j, :len(word)] = [self.char_dict[c] for c in word]
-        else:
-            for i, sentence in enumerate(sentences):
-                sentences[i] = list(sentences[i])
-                for j, word in enumerate(sentence):
-                    char_index[i, j, :len(word)] = [self.char_dict[c] for c in word]
-
-            vect_sentences = self.embedding_model(sentences)  # List[np.array[len(sent), emb_size]]
-            for i, sentence in enumerate(vect_sentences):
-                for j in range(len(sentence)):
-                    current_dim = 0
-                    word_emb[i, j, current_dim:current_dim + self.embedding_size] = custom_layers.normalize(sentence[j])
-                    current_dim += self.embedding_size
+        vect_sentences = self.embedding_model(sentences)  # List[np.array[len(sent), emb_size]]
+        for i, sentence in enumerate(vect_sentences):
+            for j in range(len(sentence)):
+                current_dim = 0
+                word_emb[i, j, current_dim:current_dim + self.embedding_size] = custom_layers.normalize(sentence[j])
+                current_dim += self.embedding_size
 
         speaker_dict = {s: i for i, s in enumerate(set(speakers))}
         speaker_ids = np.array([speaker_dict[s] for s in speakers])  # numpy

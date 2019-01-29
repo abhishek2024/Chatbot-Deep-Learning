@@ -14,7 +14,6 @@
 
 
 import random
-from os.path import join
 from typing import Any, List, Tuple, Union
 
 import numpy as np
@@ -22,7 +21,7 @@ import tensorflow as tf
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
-from . import custom_layers, utils
+from . import custom_layers
 from .conll2model_format import conll2modeldata
 from .custom_ops import coref_op_library
 from .model_format2conll import output_conll
@@ -36,13 +35,9 @@ class CorefModel(TFModel):
     """
 
     def __init__(self,
-                 log_root: str,
-                 embedding_path: str = "./embeddings/ft_0.8.3_nltk_yalen_sg_300.bin",
-                 char_vocab_path: str = "./vocab/char_vocab.russian.txt",
                  embedder: Any = None,
-                 embedding_size: int = 300,
-                 emb_format: str = "bin",
                  emb_lowercase: bool = False,
+                 char_vocab: Any = None,
                  char_embedding_size: int = 8,
                  max_mention_width: int = 10,
                  genres: Tuple[str] = ('bc',),
@@ -72,15 +67,12 @@ class CorefModel(TFModel):
                  **kwargs):
         # Parameters
         # ---------------------------------------------------------------------------------
-        # paths
-        self.log_root_ = log_root
 
         # embeddings
         self.embedder = embedder
-        self.embedding_path = embedding_path
-        self.embedding_size = embedding_size
-        self.emb_format = emb_format
         self.emb_lowercase = emb_lowercase
+        self.embedding_size = self.embedder.dim
+        self.char_dict = char_vocab
         self.char_embedding_size = char_embedding_size
 
         # Net
@@ -114,7 +106,6 @@ class CorefModel(TFModel):
         self.max_gradient_norm = max_gradient_norm
 
         # other
-        self.char_vocab_path = char_vocab_path
         self.random_seed = random_seed
         self.head_scores = None
         self.dropout = None
@@ -128,19 +119,6 @@ class CorefModel(TFModel):
         self.extract_mentions = coref_op_library.extract_mentions
         self.get_antecedents = coref_op_library.antecedents
         # ----------------------------------------------------------------------------------
-
-        self.log_root = join(self.log_root_, 'logs')
-        self.char_dict = utils.load_char_dict(self.char_vocab_path)
-
-        if self.emb_format not in ["vec", "bin", "elmo"]:
-            raise ValueError('Not supported embeddings format {}'.format(self.emb_format))
-
-        self.embedding_info = (self.embedding_size, self.emb_lowercase)
-
-        if self.emb_format in ['vec', 'bin']:
-            self.embedding_model = utils.load_embedding_dict(self.embedding_path, self.embedding_size, self.emb_format)
-        else:
-            self.embedding_model = self.embedder
 
         self.genres = {g: i for i, g in enumerate(self.genres)}
 
@@ -186,13 +164,16 @@ class CorefModel(TFModel):
 
         tf.set_random_seed(self.random_seed)
         config = tf.ConfigProto()
-        config.gpu_options.per_process_gpu_memory_fraction = 1.0  # 0.8
+        config.gpu_options.per_process_gpu_memory_fraction = 0.8  # 1.0
+
         self.sess = tf.Session(config=config)
         self.saver = tf.train.Saver()
         self.sess.run(tf.global_variables_initializer())
+
         super().__init__(**kwargs)
         self.load()
 
+    # todo fix this warning
     def load(self):
         # Check presence of the model files
         path = str(self.load_path.resolve())
@@ -237,6 +218,70 @@ class CorefModel(TFModel):
         else:
             starts, ends = [], []
         return np.array(starts), np.array(ends)
+
+    def tensorize_example(self, example, is_training):
+        """
+        Takes a dictionary from the observation and transforms it into a set of tensors
+        for tensorflow placeholders.
+        Args:
+            example: dict from observation
+            is_training: True or False value, use as a returned parameter or flag
+
+        Returns: word_emb, char_index, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids;
+            it numpy tensors for placeholders (is_training - bool)
+            If length of the longest sentence in the document is greater than parameter "max_training_sentences",
+            the returning method calls the 'truncate_example' function.
+        """
+        clusters = example["clusters"]
+        gold_mentions = sorted(tuple(m) for m in custom_layers.flatten(clusters))
+        gold_mention_map = {m: i for i, m in enumerate(gold_mentions)}
+        cluster_ids = np.zeros(len(gold_mentions))
+        for cluster_id, cluster in enumerate(clusters):
+            for mention in cluster:
+                cluster_ids[gold_mention_map[tuple(mention)]] = cluster_id
+
+        sentences = example["sentences"]
+        num_words = sum(len(s) for s in sentences)
+        speakers = custom_layers.flatten(example["speakers"])
+
+        assert num_words == len(speakers)
+
+        max_sentence_length = max(len(s) for s in sentences)
+        max_word_length = max(max(max(len(w) for w in s) for s in sentences), max(self.filter_widths))
+        word_emb = np.zeros([len(sentences), max_sentence_length, self.embedding_size])
+        char_index = np.zeros([len(sentences), max_sentence_length, max_word_length])
+        text_len = np.array([len(s) for s in sentences])
+
+        if self.emb_lowercase:
+            for i, sentence in enumerate(sentences):
+                for j, word in enumerate(sentence):
+                    sentences[i][j] = word.lower()
+
+        for i, sentence in enumerate(sentences):
+            sentences[i] = list(sentences[i])
+            for j, word in enumerate(sentence):
+                char_index[i, j, :len(word)] = [self.char_dict[c] for c in word]
+
+        vect_sentences = self.embedding_model(sentences)  # List[np.array[len(sent), emb_size]]
+        for i, sentence in enumerate(vect_sentences):
+            for j in range(len(sentence)):
+                current_dim = 0
+                word_emb[i, j, current_dim:current_dim + self.embedding_size] = custom_layers.normalize(sentence[j])
+                current_dim += self.embedding_size
+
+        speaker_dict = {s: i for i, s in enumerate(set(speakers))}
+        speaker_ids = np.array([speaker_dict[s] for s in speakers])  # numpy
+
+        doc_key = example["doc_key"]
+        genre = self.genres[doc_key[:2]]  # int 1
+
+        gold_starts, gold_ends = self.tensorize_mentions(gold_mentions)  # numpy of unicode str
+
+        if is_training and len(sentences) > self.max_training_sentences:
+            return self.truncate_example(word_emb, char_index, text_len, speaker_ids, genre, is_training, gold_starts,
+                                         gold_ends, cluster_ids)
+        else:
+            return word_emb, char_index, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids
 
     def truncate_example(self, word_emb, char_index, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends,
                          cluster_ids):
@@ -298,87 +343,6 @@ class CorefModel(TFModel):
         cluster_ids = cluster_ids[gold_spans]
 
         return word_emb, char_index, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids
-
-    def tensorize_example(self, example, is_training):
-        """
-        Takes a dictionary from the observation and transforms it into a set of tensors
-        for tensorflow placeholders.
-        Args:
-            example: dict from observation
-            is_training: True or False value, use as a returned parameter or flag
-
-        Returns: word_emb, char_index, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids;
-            it numpy tensors for placeholders (is_training - bool)
-            If length of the longest sentence in the document is greater than parameter "max_training_sentences",
-            the returning method calls the 'truncate_example' function.
-        """
-        clusters = example["clusters"]
-        gold_mentions = sorted(tuple(m) for m in custom_layers.flatten(clusters))
-        gold_mention_map = {m: i for i, m in enumerate(gold_mentions)}
-        cluster_ids = np.zeros(len(gold_mentions))
-        for cluster_id, cluster in enumerate(clusters):
-            for mention in cluster:
-                cluster_ids[gold_mention_map[tuple(mention)]] = cluster_id
-
-        sentences = example["sentences"]
-        num_words = sum(len(s) for s in sentences)
-        speakers = custom_layers.flatten(example["speakers"])
-
-        assert num_words == len(speakers)
-
-        max_sentence_length = max(len(s) for s in sentences)
-        max_word_length = max(max(max(len(w) for w in s) for s in sentences), max(self.filter_widths))
-        word_emb = np.zeros([len(sentences), max_sentence_length, self.embedding_size])
-        char_index = np.zeros([len(sentences), max_sentence_length, max_word_length])
-        text_len = np.array([len(s) for s in sentences])
-
-        if self.emb_format in ['vec', 'bin']:
-            for i, sentence in enumerate(sentences):
-                for j, word in enumerate(sentence):
-                    current_dim = 0
-                    d = self.embedding_dicts
-
-                    (s, l) = self.embedding_info
-
-                    if l:
-                        current_word = word.lower()  # cerrent_word
-                    else:
-                        current_word = word
-
-                    if self.emb_format == 'vec':
-                        word_emb[i, j, current_dim:current_dim + s] = custom_layers.normalize(d[current_word])
-                    else:
-                        word_emb[i, j, current_dim:current_dim + s] = \
-                            custom_layers.normalize(d.get_word_vector(current_word))
-
-                    current_dim += s
-                    char_index[i, j, :len(word)] = [self.char_dict[c] for c in word]
-        else:
-            for i, sentence in enumerate(sentences):
-                sentences[i] = list(sentences[i])
-                for j, word in enumerate(sentence):
-                    char_index[i, j, :len(word)] = [self.char_dict[c] for c in word]
-
-            vect_sentences = self.embedding_model(sentences)  # List[np.array[len(sent), emb_size]]
-            for i, sentence in enumerate(vect_sentences):
-                for j in range(len(sentence)):
-                    current_dim = 0
-                    word_emb[i, j, current_dim:current_dim + self.embedding_size] = custom_layers.normalize(sentence[j])
-                    current_dim += self.embedding_size
-
-        speaker_dict = {s: i for i, s in enumerate(set(speakers))}
-        speaker_ids = np.array([speaker_dict[s] for s in speakers])  # numpy
-
-        doc_key = example["doc_key"]
-        genre = self.genres[doc_key[:2]]  # int 1
-
-        gold_starts, gold_ends = self.tensorize_mentions(gold_mentions)  # numpy of unicode str
-
-        if is_training and len(sentences) > self.max_training_sentences:
-            return self.truncate_example(word_emb, char_index, text_len, speaker_ids, genre, is_training, gold_starts,
-                                         gold_ends, cluster_ids)
-        else:
-            return word_emb, char_index, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids
 
     def get_mention_emb(self, text_emb, text_outputs, mention_starts, mention_ends):
         """
