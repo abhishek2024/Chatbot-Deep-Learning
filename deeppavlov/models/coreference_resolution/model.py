@@ -236,7 +236,6 @@ class CorefModel(TFModel):
 
         max_sentence_length = max(len(s) for s in sentences)
         max_word_length = max(max(max(len(w) for w in s) for s in sentences), max(self.filter_widths))
-        word_emb = np.zeros([len(sentences), max_sentence_length, self.embedding_size])
         char_index = np.zeros([len(sentences), max_sentence_length, max_word_length])
         text_len = np.array([len(s) for s in sentences])
 
@@ -250,12 +249,7 @@ class CorefModel(TFModel):
             for j, word in enumerate(sentence):
                 char_index[i, j, :len(word)] = [self.char_dict[c] for c in word]
 
-        vect_sentences = self.embedding_model(sentences)  # List[np.array[len(sent), emb_size]]
-        for i, sentence in enumerate(vect_sentences):
-            for j in range(len(sentence)):
-                current_dim = 0
-                word_emb[i, j, current_dim:current_dim + self.embedding_size] = custom_layers.normalize(sentence[j])
-                current_dim += self.embedding_size
+        word_emb = self.embedding_model(sentences)  # [len(sentences), max_sentence_length, self.embedding_size]
 
         speaker_dict = {s: i for i, s in enumerate(set(speakers))}
         speaker_ids = np.array([speaker_dict[s] for s in speakers])  # numpy

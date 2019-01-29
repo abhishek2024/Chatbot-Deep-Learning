@@ -14,9 +14,6 @@
 
 import collections
 
-import fastText
-import numpy as np
-
 from deeppavlov.core.commands.utils import expand_path
 
 
@@ -29,38 +26,3 @@ def load_char_dict(char_vocab_path):
     char_dict = collections.defaultdict(int)
     char_dict.update({c: i for i, c in enumerate(sorted(set(vocab)))})
     return char_dict
-
-
-# todo delete after writing embedders
-def load_embedding_dict(embedding_path, embedding_size, embedding_format):
-    """
-    Load emb dict from file, or load pre trained binary fasttext model.
-    Args:
-        embedding_path: path to the vec file, or binary model
-        embedding_size: int, embedding_size
-        embedding_format: 'bin' or 'vec'
-
-    Returns: Embeddings dict, or fasttext pre trained model
-
-    """
-    print("Loading word embeddings from {}...".format(embedding_path))
-
-    if embedding_format == 'vec':
-        default_embedding = np.zeros(embedding_size)
-        embedding_dict = collections.defaultdict(lambda: default_embedding)
-        skip_first = embedding_format == "vec"
-        with open(embedding_path) as f:
-            for i, line in enumerate(f.readlines()):
-                if skip_first and i == 0:
-                    continue
-                splits = line.split()
-                assert len(splits) == embedding_size + 1
-                word = splits[0]
-                embedding = np.array([float(s) for s in splits[1:]])
-                embedding_dict[word] = embedding
-    elif embedding_format == 'bin':
-        embedding_dict = fastText.load_model(str(expand_path(embedding_path)))
-    else:
-        raise ValueError('Not supported embeddings format {}'.format(embedding_format))
-    print("Done loading word embeddings.")
-    return embedding_dict

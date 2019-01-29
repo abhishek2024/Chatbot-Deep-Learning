@@ -15,78 +15,87 @@
 import collections
 import operator
 
+from deeppavlov.core.common.log import get_logger
+from deeppavlov.core.common.registry import register
+from deeppavlov.core.models.component import Component
 
-def output_conll(input_file, predictions):
-    """
-    Gets the string with conll file, and write there new coreference clusters from predictions.
+log = get_logger(__name__)
 
-    Args:
-        input_file: dict with conll string
-        predictions: dict new clusters
 
-    Returns: modified string with conll file
+@register("coref_pred2conll_doc")
+class CorefPredtoConll(Component):
+    @staticmethod
+    def __call__(input_file: str, predictions: dict) -> str:
+        """
+        Gets the string with conll file, and write there new coreference clusters from predictions.
 
-    """
-    prediction_map = {}
-    # input_file = input_file['conll_str']
-    for doc_key, clusters in predictions.items():
-        start_map = collections.defaultdict(list)
-        end_map = collections.defaultdict(list)
-        word_map = collections.defaultdict(list)
-        for cluster_id, mentions in enumerate(clusters):
-            for start, end in mentions:
-                if start == end:
-                    word_map[start].append(cluster_id)
-                else:
-                    start_map[start].append((cluster_id, end))
-                    end_map[end].append((cluster_id, start))
-        for k, v in start_map.items():
-            start_map[k] = [cluster_id for cluster_id, end in sorted(v, key=operator.itemgetter(1), reverse=True)]
-        for k, v in end_map.items():
-            end_map[k] = [cluster_id for cluster_id, start in sorted(v, key=operator.itemgetter(1), reverse=True)]
-        prediction_map[doc_key] = (start_map, end_map, word_map)
+        Args:
+            input_file: dict with conll string
+            predictions: dict new clusters
 
-    word_index = 0
-    new_conll = ''
-    for line in input_file.split('\n'):
-        if line.startswith("#begin"):
-            new_conll += line + '\n'
-            continue
-        elif line.startswith("#end document"):
-            new_conll += line
-            continue
-        else:
-            row = line.split()
-            if len(row) == 0:
-                new_conll += '\n'
+        Returns: modified string with conll file
+
+        """
+        prediction_map = {}
+        # input_file = input_file['conll_str']
+        for doc_key, clusters in predictions.items():
+            start_map = collections.defaultdict(list)
+            end_map = collections.defaultdict(list)
+            word_map = collections.defaultdict(list)
+            for cluster_id, mentions in enumerate(clusters):
+                for start, end in mentions:
+                    if start == end:
+                        word_map[start].append(cluster_id)
+                    else:
+                        start_map[start].append((cluster_id, end))
+                        end_map[end].append((cluster_id, start))
+            for k, v in start_map.items():
+                start_map[k] = [cluster_id for cluster_id, end in sorted(v, key=operator.itemgetter(1), reverse=True)]
+            for k, v in end_map.items():
+                end_map[k] = [cluster_id for cluster_id, start in sorted(v, key=operator.itemgetter(1), reverse=True)]
+            prediction_map[doc_key] = (start_map, end_map, word_map)
+
+        word_index = 0
+        new_conll = ''
+        for line in input_file.split('\n'):
+            if line.startswith("#begin"):
+                new_conll += line + '\n'
                 continue
-
-            glen = 0
-            for l in row[:-1]:
-                glen += len(l)
-            glen += len(row[:-1])
-
-            doc_key = 'bc' + '{}_{}'.format(row[0], row[1])
-            start_map, end_map, word_map = prediction_map[doc_key]
-            coref_list = []
-            if word_index in end_map:
-                for cluster_id in end_map[word_index]:
-                    coref_list.append("{})".format(cluster_id))
-            if word_index in word_map:
-                for cluster_id in word_map[word_index]:
-                    coref_list.append("({})".format(cluster_id))
-            if word_index in start_map:
-                for cluster_id in start_map[word_index]:
-                    coref_list.append("({}".format(cluster_id))
-
-            if len(coref_list) == 0:
-                row[-1] = "-"
+            elif line.startswith("#end document"):
+                new_conll += line
+                continue
             else:
-                row[-1] = "|".join(coref_list)
+                row = line.split()
+                if len(row) == 0:
+                    new_conll += '\n'
+                    continue
 
-            word_index += 1
+                glen = 0
+                for l in row[:-1]:
+                    glen += len(l)
+                glen += len(row[:-1])
 
-            line = line[:glen] + row[-1]
-            new_conll += line + '\n'
+                doc_key = 'bc' + '{}_{}'.format(row[0], row[1])
+                start_map, end_map, word_map = prediction_map[doc_key]
+                coref_list = []
+                if word_index in end_map:
+                    for cluster_id in end_map[word_index]:
+                        coref_list.append("{})".format(cluster_id))
+                if word_index in word_map:
+                    for cluster_id in word_map[word_index]:
+                        coref_list.append("({})".format(cluster_id))
+                if word_index in start_map:
+                    for cluster_id in start_map[word_index]:
+                        coref_list.append("({}".format(cluster_id))
 
-    return new_conll
+                if len(coref_list) == 0:
+                    row[-1] = "-"
+                else:
+                    row[-1] = "|".join(coref_list)
+
+                word_index += 1
+
+                line = line[:glen] + row[-1]
+                new_conll += line + '\n'
+
+        return new_conll

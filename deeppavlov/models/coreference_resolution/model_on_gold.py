@@ -23,7 +23,6 @@ from deeppavlov.core.models.tf_model import TFModel
 from . import custom_layers
 from .conll2model_format import conll2modeldata
 from .custom_ops import coref_op_library
-from .model_format2conll import output_conll
 
 
 @register("coref_model_on_gold")
@@ -293,7 +292,6 @@ class CorefModel(TFModel):
 
         max_sentence_length = max(len(s) for s in sentences)
         max_word_length = max(max(max(len(w) for w in s) for s in sentences), max(self.filter_widths))
-        word_emb = np.zeros([len(sentences), max_sentence_length, self.embedding_size])
         char_index = np.zeros([len(sentences), max_sentence_length, max_word_length])
         text_len = np.array([len(s) for s in sentences])
 
@@ -307,12 +305,7 @@ class CorefModel(TFModel):
             for j, word in enumerate(sentence):
                 char_index[i, j, :len(word)] = [self.char_dict[c] for c in word]
 
-        vect_sentences = self.embedding_model(sentences)  # List[np.array[len(sent), emb_size]]
-        for i, sentence in enumerate(vect_sentences):
-            for j in range(len(sentence)):
-                current_dim = 0
-                word_emb[i, j, current_dim:current_dim + self.embedding_size] = custom_layers.normalize(sentence[j])
-                current_dim += self.embedding_size
+        word_emb = self.embedding_model(sentences)  # List[np.array[len(sent), emb_size]]
 
         speaker_dict = {s: i for i, s in enumerate(set(speakers))}
         speaker_ids = np.array([speaker_dict[s] for s in speakers])  # numpy
@@ -732,40 +725,26 @@ class CorefModel(TFModel):
 
         return predicted_clusters, mention_to_predicted
 
-    def train_on_batch(self, x: str, y: str):
+    def train_on_batch(self, *args) -> float:
         """
         Run train operation on one batch/document
+
         Args:
-            x: list of tensors for placeholders, output of "tensorize_example" function
-            y: list of tensors for placeholders, output of "tensorize_example" function
+            batch: list of text documents, list of authors, list of files names
+            clusters: list of true clusters
 
         Returns: Loss functions value and tf.global_step
-
         """
-        batch = conll2modeldata(x[0])
+        sentences, speakers, doc_key, clusters = args
+        batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": clusters}
         self.start_enqueue_thread(batch, True)
         self.tf_loss, tf_global_step, _ = self.sess.run([self.loss, self.global_step, self.train_op])
         return self.tf_loss  # self.tf_loss, tf_global_step
 
-    def __call__(self, x: Union[List[str], str]):
-        """
-        Make prediction of new coreference clusters and write it conll document.
-        Args:
-            x: original conll documents
+    def __call__(self, *args):
 
-        Returns: str with new conll document, with new coreference clusters
-
-        """
-        if isinstance(x, list):
-            out = []
-            for out_file in x:
-                out.append(self.predict(out_file))
-        else:
-            out = self.predict(x)
-        return out
-
-    def predict(self, conll_string: str, return_clusters=False):
-        batch = conll2modeldata(conll_string)
+        sentences, speakers, doc_key, clusters = args
+        batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": clusters}
         self.start_enqueue_thread(batch, False)
 
         _, mention_starts, mention_ends, antecedents, antecedent_scores = self.sess.run(self.predictions)
@@ -775,13 +754,7 @@ class CorefModel(TFModel):
         predicted_clusters, mention_to_predicted = self.get_predicted_clusters(mention_starts, mention_ends,
                                                                                predicted_antecedents)
 
-        new_cluters = dict()
-        new_cluters[batch['doc_key']] = predicted_clusters
-        out_ = output_conll(conll_string, new_cluters)
-        if return_clusters:
-            return out_, new_cluters
-        else:
-            return out_
+        return predicted_clusters, mention_to_predicted
 
     def destroy(self):
         """Reset the model"""
