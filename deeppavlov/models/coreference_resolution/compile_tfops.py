@@ -17,31 +17,6 @@ from pathlib import Path
 from typing import Union
 
 
-def compile_coreference(path: Union[Path, str]) -> None:
-    path = path + 'coref_kernels.so'
-    if not os.path.isfile(path):
-        print('Compiling the coref_kernels.cc')
-        cmd = """
-              #!/usr/bin/env bash
-
-              # Build custom kernels.
-              TF_CFLAGS=( $(python -c 'import tensorflow as tf; print(" ".join(tf.sysconfig.get_compile_flags()))') )
-              TF_LFLAGS=( $(python -c 'import tensorflow as tf; print(" ".join(tf.sysconfig.get_link_flags()))') )
-              
-              # Linux (pip)
-              g++ -std=c++11 -shared coref_kernels.cc -o coref_kernels.so -fPIC ${TF_CFLAGS[@]} ${TF_LFLAGS[@]} -O2
-
-              # Linux (build from source)
-              #g++ -std=c++11 -shared ./coref_kernels.cc -o {0} -I $TF_INC -fPIC 
-
-              # Mac
-              #g++ -std=c++11 -shared ./coref_kernels.cc -o {0} -I $TF_INC -fPIC -D_GLIBCXX_USE_CXX11_ABI=0  -undefined dynamic_lookup
-              """
-        cmd = cmd.format(path)
-        os.system(cmd)
-        print('End of compiling the coref_kernels.cc')
-
-
 if __name__ == "__main__":
     PATH = '.'
     compile_coreference(PATH)

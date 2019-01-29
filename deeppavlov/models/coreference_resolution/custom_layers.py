@@ -165,14 +165,14 @@ class CustomLSTMCell(tf.contrib.rnn.RNNCell):
     @staticmethod
     def _orthonormal_initializer(scale=1.0):
         def _initializer(shape_):
-            M1 = np.random.randn(shape_[0], shape_[0]).astype(np.float64)
-            M2 = np.random.randn(shape_[1], shape_[1]).astype(np.float64)
-            Q1, R1 = np.linalg.qr(M1)
-            Q2, R2 = np.linalg.qr(M2)
-            Q1 = Q1 * np.sign(np.diag(R1))
-            Q2 = Q2 * np.sign(np.diag(R2))
+            m1 = np.random.randn(shape_[0], shape_[0]).astype(np.float64)
+            m2 = np.random.randn(shape_[1], shape_[1]).astype(np.float64)
+            q1, r1 = np.linalg.qr(m1)
+            q2, r2 = np.linalg.qr(m2)
+            q1 = q1 * np.sign(np.diag(r1))
+            q2 = q2 * np.sign(np.diag(r2))
             n_min = min(shape_[0], shape_[1])
-            params = np.dot(Q1[:, :n_min], Q2[:n_min, :]) * scale
+            params = np.dot(q1[:, :n_min], q2[:n_min, :]) * scale
             return params
 
         return _initializer

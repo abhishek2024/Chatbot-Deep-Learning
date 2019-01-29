@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import random
 from os.path import join
-from pathlib import Path
 from typing import Any, List, Tuple, Union
 
 import numpy as np
@@ -24,12 +24,8 @@ from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
 from . import custom_layers, utils
 from .conll2model_format import conll2modeldata
+from .custom_ops import coref_op_library
 from .model_format2conll import output_conll
-
-tf.NotDifferentiable("Spans")
-tf.NotDifferentiable("Antecedents")
-tf.NotDifferentiable("ExtractMentions")
-tf.NotDifferentiable("DistanceBins")
 
 
 @register("coref_model")
@@ -124,14 +120,14 @@ class CorefModel(TFModel):
         self.dropout = None
         self.lexical_dropout = None
         self.tf_loss = None
+
         # ----------------------------------------------------------------------------------
         # C++ operations
-        kernel_path = Path(__file__).resolve().parent
-        coref_op_library = tf.load_op_library(join(str(kernel_path), "coref_kernels.so"))
         self.spans = coref_op_library.spans
         self.distance_bins = coref_op_library.distance_bins
         self.extract_mentions = coref_op_library.extract_mentions
         self.get_antecedents = coref_op_library.antecedents
+        # ----------------------------------------------------------------------------------
 
         self.log_root = join(self.log_root_, 'logs')
         self.char_dict = utils.load_char_dict(self.char_vocab_path)
