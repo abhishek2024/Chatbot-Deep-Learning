@@ -12,15 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import re
 import os
+import re
 import subprocess
-import numpy as np
-
-from typing import List
+from os.path import exists, join
 from pathlib import Path
 from shutil import rmtree
-from os.path import join, exists
+from typing import List
+
+import numpy as np
+
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.common.metrics_registry import register_metric
 
@@ -62,11 +63,11 @@ def coref_f1(gold_strings: List[str], predicted_strings: List[str]):
     os.makedirs(predicted_path)
 
     for i, gold_str in enumerate(gold_strings):
-        with open(join(gold_path, f"{i+1}.gold_conll"), "w") as gf:
+        with open(join(gold_path, f"{i + 1}.gold_conll"), "w") as gf:
             gf.write(gold_str)
 
     for i, pred_str in enumerate(predicted_strings):
-        with open(join(predicted_path, f"{i+1}.gold_conll"), "w") as pf:
+        with open(join(predicted_path, f"{i + 1}.gold_conll"), "w") as pf:
             pf.write(pred_str)
 
     results = []
