@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import random
-from typing import Any, List, Tuple, Union
+from typing import Any, Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -21,7 +21,6 @@ import tensorflow as tf
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
 from . import custom_layers
-from .conll2model_format import conll2modeldata
 from .custom_ops import coref_op_library
 
 
@@ -730,8 +729,8 @@ class CorefModel(TFModel):
         Run train operation on one batch/document
 
         Args:
-            batch: list of text documents, list of authors, list of files names
-            clusters: list of true clusters
+            args: (sentences, speakers, doc_key, clusters) list of text documents, list of authors, list of files names,
+             list of true clusters
 
         Returns: Loss functions value and tf.global_step
         """
@@ -739,10 +738,9 @@ class CorefModel(TFModel):
         batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": clusters}
         self.start_enqueue_thread(batch, True)
         self.tf_loss, tf_global_step, _ = self.sess.run([self.loss, self.global_step, self.train_op])
-        return self.tf_loss  # self.tf_loss, tf_global_step
+        return self.tf_loss
 
     def __call__(self, *args):
-
         sentences, speakers, doc_key, clusters = args
         batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": clusters}
         self.start_enqueue_thread(batch, False)
@@ -753,6 +751,8 @@ class CorefModel(TFModel):
 
         predicted_clusters, mention_to_predicted = self.get_predicted_clusters(mention_starts, mention_ends,
                                                                                predicted_antecedents)
+
+        predicted_clusters = dict(doc_key=predicted_clusters)
 
         return predicted_clusters, mention_to_predicted
 

@@ -30,14 +30,13 @@ class CorefPredtoConll(Component):
         Gets the string with conll file, and write there new coreference clusters from predictions.
 
         Args:
-            input_file: dict with conll string
+            input_file: str with conll string
             predictions: dict new clusters
 
         Returns: modified string with conll file
 
         """
         prediction_map = {}
-        # input_file = input_file['conll_str']
         for doc_key, clusters in predictions.items():
             start_map = collections.defaultdict(list)
             end_map = collections.defaultdict(list)

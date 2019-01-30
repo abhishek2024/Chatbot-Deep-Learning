@@ -14,7 +14,7 @@
 
 
 import random
-from typing import Any, List, Tuple, Union
+from typing import Any, Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -22,9 +22,7 @@ import tensorflow as tf
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
 from . import custom_layers
-from .conll2model_format import conll2modeldata
 from .custom_ops import coref_op_library
-from .model_format2conll import output_conll
 
 
 @register("coref_model")
@@ -732,40 +730,25 @@ class CorefModel(TFModel):
 
         return predicted_clusters, mention_to_predicted
 
-    def train_on_batch(self, x: str, y: str):
+    def train_on_batch(self, *args):
         """
         Run train operation on one batch/document
         Args:
-            x: list of tensors for placeholders, output of "tensorize_example" function
-            y: list of tensors for placeholders, output of "tensorize_example" function
+            args: (sentences, speakers, doc_key, clusters) list of text documents, list of authors, list of files names,
+             list of true clusters
 
         Returns: Loss functions value and tf.global_step
 
         """
-        batch = conll2modeldata(x[0])
+        sentences, speakers, doc_key, clusters = args
+        batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": clusters}
         self.start_enqueue_thread(batch, True)
         self.tf_loss, tf_global_step, _ = self.sess.run([self.loss, self.global_step, self.train_op])
-        return self.tf_loss  # self.tf_loss, tf_global_step
+        return self.tf_loss
 
-    def __call__(self, x: Union[List[str], str]):
-        """
-        Make prediction of new coreference clusters and write it conll document.
-        Args:
-            x: original conll documents
-
-        Returns: str with new conll document, with new coreference clusters
-
-        """
-        if isinstance(x, list):
-            out = []
-            for out_file in x:
-                out.append(self.predict(out_file))
-        else:
-            out = self.predict(x)
-        return out
-
-    def predict(self, conll_string: str, return_clusters=False):
-        batch = conll2modeldata(conll_string)
+    def __call__(self, *args):
+        sentences, speakers, doc_key = args
+        batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": []}
         self.start_enqueue_thread(batch, False)
 
         _, _, _, mention_starts, mention_ends, antecedents, antecedent_scores = self.sess.run(self.predictions)
@@ -775,13 +758,9 @@ class CorefModel(TFModel):
         predicted_clusters, mention_to_predicted = self.get_predicted_clusters(mention_starts, mention_ends,
                                                                                predicted_antecedents)
 
-        new_cluters = dict()
-        new_cluters[batch['doc_key']] = predicted_clusters
-        out_ = output_conll(conll_string, new_cluters)
-        if return_clusters:
-            return out_, new_cluters
-        else:
-            return out_
+        predicted_clusters = dict(doc_key=predicted_clusters)
+
+        return predicted_clusters, mention_to_predicted
 
     def destroy(self):
         """Reset the model"""
