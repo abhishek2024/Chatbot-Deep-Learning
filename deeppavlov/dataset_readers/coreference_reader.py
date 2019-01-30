@@ -12,41 +12,64 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
+import json
+from pathlib import Path
+from typing import Dict, List
 
-from os.path import join, exists
-from typing import List, Dict
-from deeppavlov.core.data.utils import download_decompress
-from deeppavlov.core.data.dataset_reader import DatasetReader
+from deeppavlov.core.common.errors import ConfigError
 from deeppavlov.core.common.registry import register
+from deeppavlov.core.data.dataset_reader import DatasetReader
+from deeppavlov.models.coreference_resolution.conll2model_format import conll2modeldata
+from deeppavlov.models.coreference_resolution.rucor2conll import rucoref2conll, split_doc
 
 
 @register("coreference_reader")
 class CorefReader(DatasetReader):
+    def __init__(self):
+        self.data_path = None
+        self.folder_path = None
+        self.dataset_name = None
+        self.mode = None
 
     def read(self, data_path: str, *args, **kwargs) -> Dict[str, List[str]]:
-        if exists(data_path):
-            dataset = dict()
-            for set_ in os.listdir(data_path):
-                dataset[set_] = self.read_part(data_path, set_)
+        self.data_path = Path(data_path)
+        self.folder_path = self.data_path.parent
+        self.mode = kwargs.get("mode", "conll")
 
-            return dataset
+        if not self.data_path.exists():
+            raise ValueError(f"Russian Coreference dataset in a {self.data_path} folder is absent.")
+
+        if self.mode == "conll":
+            self.dataset_name = "rucoref_conll"
+            return self.read_conll()
+        elif self.mode == "jsonl":
+            self.dataset_name = "rucoref_jsonl"
+            return self.read_jsonlines()
         else:
-            url = kwargs.get("url")
-            if not url:
-                # TODO write correct url
-                url = ""
-            os.makedirs(data_path)
-            download_decompress(url, data_path)
-            return self.read(join(data_path, "rucor_conll"))
+            raise ConfigError(f"Coreference reader not supported '{self.mode}' mode.")
 
-    @staticmethod
-    def read_part(data_path, part) -> List[str]:
-        if exists(join(data_path, part)):
-            documents = []
-            for file_name in os.listdir(join(data_path, part)):
-                with open(join(data_path, part, file_name), 'r', encoding='utf8') as f:
-                    conll_string = f.read()
-                    documents.append(conll_string)
+    def rucor2conll(self) -> None:
+        rucoref2conll(self.data_path, self.folder_path)
+        split_doc(self.folder_path.joinpath('russian.v4_conll'),
+                  self.folder_path.joinpath(self.dataset_name).mkdir(exist_ok=False))
+        self.folder_path.joinpath('russian.v4_conll').unlink()
 
-            return documents
+    def read_conll(self) -> Dict:
+        if not self.folder_path.joinpath(self.dataset_name).exist():
+            self.rucor2conll()
+        return dict(train=sorted(self.folder_path.joinpath(self.dataset_name).glob("*.v4_conll")))
+
+    def read_jsonlines(self) -> Dict:
+        train_path = self.folder_path.joinpath(self.dataset_name, "train.jsonl")
+        if not self.folder_path.joinpath(self.dataset_name).exist():
+            if not self.folder_path.joinpath("rucoref_conll").exist():
+                self.rucor2conll()
+
+            for path in sorted(self.folder_path.joinpath(self.dataset_name).glob("*.v4_conll")):
+                with path.open("r", encoding='utf8') as conll_file:
+                    conll_str = conll_file.read()
+
+                with train_path.open('a', encoding='utf8') as train_file:
+                    print(json.dumps(conll2modeldata(conll_str)), file=train_file)
+
+        return dict(train=train_path)

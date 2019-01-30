@@ -13,19 +13,13 @@
 # limitations under the License.
 
 import os
-import shutil
 import time
 from collections import defaultdict
-from os.path import join
-from shutil import copytree
 
-from sklearn.model_selection import ShuffleSplit
 from tqdm import tqdm
 
-from deeppavlov.core.data.utils import download_decompress
 
-
-class watcher():
+class Watcher:
     """
     A class that ensures that there are no violations in the structure of mentions.
     """
@@ -47,7 +41,7 @@ class watcher():
             return True
 
 
-def RuCoref2CoNLL(path, out_path, language='russian'):
+def rucoref2conll(path, out_path, language='russian'):
     """
     RuCor corpus files are converted to standard conll format.
     Args:
@@ -84,7 +78,7 @@ def RuCoref2CoNLL(path, out_path, language='russian'):
 
     tokens_path = os.path.join(path, ".".join([tokens_fname, tokens_ext]))
     groups_path = os.path.join(path, ".".join([groups_fname, groups_ext]))
-    print('Convert rucoref corpus into conll format ...')
+    print('[ Convert rucoref corpus into conll format ... ]')
     start = time.time()
     coref_dict = {}
     with open(groups_path, "r") as groups_file:
@@ -115,7 +109,7 @@ def RuCoref2CoNLL(path, out_path, language='russian'):
 
             if doc_id != doc_name:
                 doc_name = doc_id
-                w = watcher()
+                w = Watcher()
                 k = 0
 
             data['word'].append(token)
@@ -225,30 +219,29 @@ def RuCoref2CoNLL(path, out_path, language='russian'):
                     CoNLL.write('#end document\n')
                     CoNLL.write('#begin document ({}); part {}\n'.format(data['doc_id'][i + 1], data["part_id"][i + 1]))
 
-    print('End of convertion. Time - {}'.format(time.time() - start))
+    print('[ End of convertion. Time - {} ]'.format(time.time() - start))
     return None
 
 
 def split_doc(inpath, outpath, language='russian'):
     """
     It splits one large conll file containing the entire RuCorp dataset into many separate documents.
+
     Args:
         inpath: -
         outpath: -
         language: -
 
     Returns: Nothing
-
     """
     # split massive conll file to many little
-
-    print('Start of splitting ...')
+    print('[ Start of splitting ... ]')
     with open(inpath, 'r+') as f:
         lines = f.readlines()
         f.close()
     set_ends = []
     k = 0
-    print('Splitting conll document ...')
+    print('[ Splitting conll document ... ]')
     for i in range(len(lines)):
         if lines[i].startswith('#begin'):
             doc_num = lines[i].split(' ')[2][1:-2]
@@ -266,38 +259,9 @@ def split_doc(inpath, outpath, language='russian'):
             c.close()
 
     del lines
-    print('Splitts {} docs in {}.'.format(len(set_ends), outpath))
+    print('[ Splitts {} docs in {} ]'.format(len(set_ends), outpath))
     del set_ends
     del k
-
-    return None
-
-
-def train_test_split(inpath, train, test, split, random_seed):
-    """
-    RuCor doesn't provide train/test data splitting, it makes random splitting.
-    Args:
-        inpath: path to data
-        train: path to train folder
-        test: path to test folder
-        split: int, split ratio
-        random_seed: seed for random module
-
-    Returns:
-
-    """
-    print('Start train-test splitting ...')
-    z = os.listdir(inpath)
-    doc_split = ShuffleSplit(1, test_size=split, random_state=random_seed)
-    for train_indeses, test_indeses in doc_split.split(z):
-        train_set = [z[i] for i in sorted(list(train_indeses))]
-        test_set = [z[i] for i in sorted(list(test_indeses))]
-    for x in train_set:
-        shutil.move(os.path.join(inpath, x), os.path.join(train, x))
-    for x in test_set:
-        shutil.move(os.path.join(inpath, x), os.path.join(test, x))
-    print('End train-test splitts.')
-    return None
 
 
 def get_all_texts_from_tokens_file(tokens_path, out_path):
@@ -338,79 +302,4 @@ def get_all_texts_from_tokens_file(tokens_path, out_path):
         for doc_id in texts:
             out_file.write(texts[doc_id])
             out_file.write("\n")
-    return None
-
-
-def get_char_vocab(input_filename, output_filename):
-    """
-    Gets chars dictionary from text, and write it into output_filename.
-    Args:
-        input_filename: -
-        output_filename: -
-
-    Returns: Nothing
-
-    """
-    data = open(input_filename, "r").read()
-    vocab = sorted(list(set(data)))
-
-    with open(output_filename, 'w') as f:
-        for c in vocab:
-            f.write(u"{}\n".format(c))
-    print("[Wrote {} characters to {}] ...".format(len(vocab), output_filename))
-
-
-# todo delete after writing dataset reader
-def build_coref_data(opt, version='1.3'):
-    """prepares datasets and other dependencies for CoreferenceTeacher"""
-    # get path to data directory and create folders tree
-    dpath = join(opt['datapath'])
-    # define version if any, and languages
-    dpath = join(dpath, 'coreference' + version)
-    print(f'[building data: {dpath} ... ]')
-
-    # check if data had been previously built
-    os.makedirs(dpath)
-
-    # Build the folders tree
-    os.makedirs(join(dpath, 'scorer'))
-    os.makedirs(join(dpath, 'train'))
-    os.makedirs(join(dpath, 'valid'))
-
-    # urls
-    dataset_url = 'http://rucoref.maimbava.net/files/rucoref_29.10.2015.zip'
-    scorer_url = 'http://conll.cemantix.org/download/reference-coreference-scorers.v8.01.tar.gz'
-
-    # download the conll-2012 scorer v 8.1
-    start = time.time()
-    print('[Download the conll-2012 scorer]...')
-    download_decompress(scorer_url, join(dpath, 'scorer'))
-    print('[Scorer was dawnloads]...')
-
-    # download dataset
-    print('[Download the rucoref dataset]...')
-    os.makedirs(join(dpath, 'rucoref_29.10.2015'))
-    download_decompress(dataset_url, join(dpath, 'rucoref_29.10.2015'))
-    print('End of download: time - {}'.format(time.time() - start))
-
-    # Convertation rucorpus files in conll files
-    conllpath = join(dpath, 'ru_conll')
-    os.makedirs(conllpath)
-    RuCoref2CoNLL(join(dpath, 'rucoref_29.10.2015'), conllpath)
-
-    # splits conll files
-    start = time.time()
-    conlls = join(dpath, 'ru_conlls')
-    os.makedirs(conlls)
-    split_doc(join(conllpath, 'russian.v4_conll'), conlls)
-    os.remove(conllpath)
-
-    # create train valid test partitions
-    # train_test_split(conlls,dpath,opt['split'],opt['random-seed'])
-    train_test_split(conlls, join(dpath, 'train'), join(dpath, 'valid'), 0.2, None)
-    copytree(join(dpath, 'valid'), join(dpath, 'test'))
-    os.remove(conlls)
-    os.remove(join(dpath, 'rucoref_29.10.2015'))
-    print('End of data splitting. Time - {}'.format(time.time() - start))
-    print('[Datasets done.]')
     return None
