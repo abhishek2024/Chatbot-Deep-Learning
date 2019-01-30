@@ -14,10 +14,12 @@
 
 import collections
 import operator
+from typing import Dict
 
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.component import Component
+from deeppavlov.models.coreference_resolution.conll2model_format import conll2modeldata
 
 log = get_logger(__name__)
 
@@ -98,3 +100,10 @@ class CorefPredtoConll(Component):
                 new_conll += line + '\n'
 
         return new_conll
+
+
+@register("conll2modelformat")
+class Conll2modelformat(Component):
+    @staticmethod
+    def __call__(input_file: str) -> Dict:
+        return conll2modeldata(input_file)
