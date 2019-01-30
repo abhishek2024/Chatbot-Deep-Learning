@@ -18,9 +18,6 @@ import uuid
 import numpy as np
 from tqdm import tqdm
 
-seed = 5
-np.random.seed(seed)
-
 
 def extract_data(infile):
     """
