@@ -49,6 +49,7 @@ class CorefIterator(DataLearningIterator):
             self.jsonl_path = copy(data['train'][0])
             with self.jsonl_path.open('r', encoding='utf8') as train_file:
                 self.data['train'] = [i for i, line in enumerate(train_file) if line.rstrip()]
+                self.data['all'] = copy(self.data['train'])
         elif self.dtype not in ["conll", "jsonl"]:
             raise ConfigError(f"Coreference iterator not supported '{self.dtype}' dataset type.")
 

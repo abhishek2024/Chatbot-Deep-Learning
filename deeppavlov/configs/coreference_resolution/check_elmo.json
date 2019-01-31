@@ -1,0 +1,56 @@
+{
+  "dataset_reader": {
+    "class_name": "coreference_reader",
+    "data_path": "{DOWNLOADS_PATH}/coreference_dataset/rucoref_conll",
+    "mode": "jsonl"
+  },
+  "dataset_iterator": {
+    "class_name": "coreference_iterator",
+    "dtype": "jsonl",
+    "seed": 42,
+    "field_to_split": "train",
+    "split_fields": [
+      "train",
+      "valid",
+      "test"
+    ],
+    "split_proportions": [
+      0.8,
+      0.1,
+      0.1
+    ]
+  },
+  "chainer": {
+    "in": ["sentences", "speakers", "doc_key", "clusters"],
+    "in_y": [],
+    "pipe": [
+      {
+        "in": ["sentences", "doc_key"],
+        "out": ["sentences", "doc_key"],
+        "fit_on": ["sentences", "doc_key"],
+        "id": "elmo_cached_estimator",
+        "class_name":  "elmo_cahed_estimator",
+        "save_path": "{DOWNLOADS_PATH}/embeddings/elmo_cache.hdf5",
+        "elmo_output_names": ["elmo"],
+        "mini_batch_size": 32,
+        "spec": "~/Work/Embeddings/sber-faq_epoches_n_0"
+      }
+    ],
+    "out": ["doc_key"]
+  },
+  "train": {
+    "batch_size": 1
+  },
+  "metadata": {
+    "variables": {
+      "ROOT_PATH": "~/.deeppavlov",
+      "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
+      "MODELS_PATH": "{ROOT_PATH}/coreference"
+    },
+    "requirements": [
+      "{DEEPPAVLOV_PATH}/requirements/tf-gpu.txt",
+      "{DEEPPAVLOV_PATH}/requirements/fasttext.txt",
+      "{DEEPPAVLOV_PATH}/requirements/elmo.txt"
+    ]
+  }
+}

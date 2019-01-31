@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from abc import abstractmethod
 from typing import List
 
 import h5py
@@ -28,13 +27,13 @@ log = get_logger(__name__)
 
 @register('elmo_cahed_estimator')
 class ELMoEstimator(Estimator):
-    def __init__(self, cache_file: str, **kwargs) -> None:
-        self.cache_file = cache_file
+    def __init__(self, save_path: str, **kwargs) -> None:
+        self.save_path = save_path
         self.elmo = ELMoEmbedder(**kwargs)
-        super().__init__(**kwargs)
+        super().__init__(save_path=save_path, **kwargs)
 
     def fit(self, batch: List[List[List[str]]], doc_keys: List[str], *args, **kwargs) -> None:
-        with h5py.File(self.cache_file, "w") as out_file:
+        with h5py.File(self.save_path, "w") as out_file:
             for doc_num, (doc_sentences, doc_key) in enumerate(zip(batch, doc_keys)):
                 text_len = np.array([len(s) for s in doc_sentences])
 
@@ -47,9 +46,8 @@ class ELMoEstimator(Estimator):
                     group[str(i)] = e
 
                 if doc_num % 10 == 0:
-                    print(f"[ Cached {doc_num + 1} documents in {self.cache_file} ]")
+                    print(f"[ Cached {doc_num + 1} documents in {self.save_path} ]")
 
-    @abstractmethod
     def __call__(self, *args, **kwargs):
         pass
 
@@ -59,10 +57,8 @@ class ELMoEstimator(Estimator):
     def destroy(self):
         self.elmo.destroy()
 
-    @abstractmethod
     def save(self, *args, **kwargs):
         pass
 
-    @abstractmethod
     def load(self, *args, **kwargs):
         pass
