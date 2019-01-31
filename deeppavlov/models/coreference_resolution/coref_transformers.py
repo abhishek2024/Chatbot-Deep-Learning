@@ -14,7 +14,6 @@
 
 import collections
 import operator
-from typing import Dict
 
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.common.registry import register
@@ -105,5 +104,6 @@ class CorefPredtoConll(Component):
 @register("conll2modelformat")
 class Conll2modelformat(Component):
     @staticmethod
-    def __call__(input_file: str) -> Dict:
-        return conll2modeldata(input_file)
+    def __call__(input_file: str) -> tuple:
+        model_dict = conll2modeldata(input_file)
+        return model_dict["sentences"], model_dict["speakers"], model_dict["doc_key"], model_dict["clusters"]

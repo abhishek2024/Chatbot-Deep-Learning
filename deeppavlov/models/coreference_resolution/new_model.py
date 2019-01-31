@@ -19,6 +19,8 @@ from typing import Any, Tuple
 import numpy as np
 import tensorflow as tf
 
+
+from deeppavlov.core.common.errors import ConfigError
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
 from . import custom_layers
@@ -36,6 +38,7 @@ class CorefModel(TFModel):
                  os: str = "linux",
                  embedder: Any = None,
                  emb_lowercase: bool = False,
+                 emb_format: str = "std_emb",
                  char_vocab: Any = None,
                  char_embedding_size: int = 8,
                  max_mention_width: int = 10,
@@ -72,6 +75,9 @@ class CorefModel(TFModel):
         self.embedder = embedder
         self.emb_lowercase = emb_lowercase
         self.embedding_size = self.embedder.dim
+        self.emb_format = emb_format
+        if self.emb_format not in ["std_emb", "cached"]:
+            raise ConfigError(f"Embedding format must be 'std_emb' or 'cached', but '{self.emb_format}' was found.")
         self.char_dict = char_vocab
         self.char_embedding_size = char_embedding_size
 
@@ -248,6 +254,7 @@ class CorefModel(TFModel):
         max_word_length = max(max(max(len(w) for w in s) for s in sentences), max(self.filter_widths))
         char_index = np.zeros([len(sentences), max_sentence_length, max_word_length])
         text_len = np.array([len(s) for s in sentences])
+        doc_key = example["doc_key"]
 
         if self.emb_lowercase:
             for i, sentence in enumerate(sentences):
@@ -259,12 +266,14 @@ class CorefModel(TFModel):
             for j, word in enumerate(sentence):
                 char_index[i, j, :len(word)] = [self.char_dict[c] for c in word]
 
-        word_emb = self.embedding_model(sentences)  # [len(sentences), max_sentence_length, self.embedding_size]
+        if self.emb_format == "std_emb":
+            word_emb = self.embedder(sentences)  # List[np.array[len(sent), emb_size]]
+        else:
+            word_emb = self.embedder(doc_key)
 
         speaker_dict = {s: i for i, s in enumerate(set(speakers))}
         speaker_ids = np.array([speaker_dict[s] for s in speakers])  # numpy
 
-        doc_key = example["doc_key"]
         genre = self.genres[doc_key[:2]]  # int 1
 
         gold_starts, gold_ends = self.tensorize_mentions(gold_mentions)  # numpy of unicode str

@@ -1,0 +1,107 @@
+{
+  "dataset_reader": {
+    "class_name": "coreference_reader",
+    "data_path": "{DOWNLOADS_PATH}/coreference_resolution/rucor_conll",
+    "mode": "jsonl"
+  },
+  "dataset_iterator": {
+    "class_name": "coreference_iterator",
+    "mode": "jsonl",
+    "seed": 42,
+    "field_to_split": "train",
+    "split_fields": [
+      "train",
+      "valid",
+      "test"
+    ],
+    "split_proportions": [
+      0.8,
+      0.1,
+      0.1
+    ]
+  },
+  "chainer": {
+    "in": ["sentences", "speakers", "doc_key"],
+    "in_y": ["clusters"],
+    "pipe": [
+      {
+        "in": ["sentences"],
+        "class_name": "char_splitter",
+        "out": ["x_char"]
+      },
+      {
+        "in": ["x_char"],
+        "id": "char_vocab",
+        "class_name": "simple_vocab",
+        "pad_with_zeros": true,
+        "fit_on": ["x_char"],
+        "save_path": "{MODELS_PATH}/char.dict",
+        "load_path": "{MODELS_PATH}/char.dict"
+      },
+      {
+        "id": "embedder",
+        "class_name": "fasttext",
+        "load_path": "{DOWNLOADS_PATH}/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin"
+      },
+      {
+        "in": ["sentences", "speakers", "doc_key"],
+        "in_y": ["clusters"],
+        "out": ["predicted_clusters", "mention_to_predicted"],
+        "main": true,
+        "class_name": "coref_model_on_gold",
+        "save_path": "{MODELS_PATH}/checkpoints/model_on_gold/best_model.ckpt",
+        "load_path": "{MODELS_PATH}/checkpoints/model_on_gold/best_model.ckpt",
+        "char_vocab": "#char_vocab",
+        "embedder": "#embedder",
+        "embedding_size": 300
+      }
+    ],
+    "out": ["predicted_clusters", "mention_to_predicted"]
+  },
+  "train": {
+    "epochs": 200,
+    "batch_size": 1,
+    "metrics": [
+      {
+        "name": "coref_metrics",
+        "inputs": ["predicted_clusters", "mention_to_predicted", "clusters"]
+      }
+    ],
+    "validation_patience": 5,
+    "val_every_n_epochs": 1,
+    "log_every_n_epochs": 1,
+    "show_examples": false,
+    "validate_best": true,
+    "test_best": true
+  },
+  "metadata": {
+    "variables": {
+      "ROOT_PATH": "~/.deeppavlov",
+      "DOWNLOADS_PATH": "{ROOT_PATH}/download",
+      "MODELS_PATH": "{ROOT_PATH}/coreference"
+    },
+    "requirements": [
+      "{DEEPPAVLOV_PATH}/requirements/tf-gpu.txt",
+      "{DEEPPAVLOV_PATH}/requirements/fasttext.txt",
+      "{DEEPPAVLOV_PATH}/requirements/elmo.txt"
+    ],
+    "download": [
+      {
+        "url": "http://files.deeppavlov.ai/datasets/coreference_resolution/pretrained_model.zip",
+        "subdir": "{DOWNLOADS_PATH}/coreference_resolution/checkpoints/"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/datasets/coreference_resolution/rucor_conll.zip",
+        "subdir": "{DOWNLOADS_PATH}/coreference_resolution/"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
+        "subdir": "{DOWNLOADS_PATH}/embeddings"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/datasets/coreference_resolution/char_vocab.russian.txt",
+        "subdir": "{DOWNLOADS_PATH}/vocabs"
+      }
+    ]
+  }
+}
