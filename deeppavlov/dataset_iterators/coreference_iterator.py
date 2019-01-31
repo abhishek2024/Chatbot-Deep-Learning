@@ -41,16 +41,16 @@ class CorefIterator(DataLearningIterator):
         random: instance of ``Random`` initialized with a seed
     """
 
-    def __init__(self, data: Dict, mode: str, seed: int = None, shuffle: bool = True, *args, **kwargs) -> None:
+    def __init__(self, data: Dict, dtype: str, seed: int = None, shuffle: bool = True, *args, **kwargs) -> None:
         super().__init__(data, seed=seed, shuffle=shuffle, *args, **kwargs)
         self.jsonl_path = None
-        self.mode = mode
-        if self.mode == "jsonl":
-            self.jsonl_path = copy(data['train'])
-            with data['train'].open('r', encoding='utf8') as train_file:
-                data['train'] = [i for i, line in enumerate(train_file) if line.rstrip()]
-        elif self.mode not in ["conll", "jsonl"]:
-            raise ConfigError(f"Coreference iterator not supported '{self.mode}' mode.")
+        self.dtype = dtype
+        if self.dtype == "jsonl":
+            self.jsonl_path = copy(data['train'][0])
+            with self.jsonl_path.open('r', encoding='utf8') as train_file:
+                self.data['train'] = [i for i, line in enumerate(train_file) if line.rstrip()]
+        elif self.dtype not in ["conll", "jsonl"]:
+            raise ConfigError(f"Coreference iterator not supported '{self.dtype}' dataset type.")
 
         self._split(**kwargs)
 
@@ -125,15 +125,15 @@ class CorefIterator(DataLearningIterator):
         if shuffle:
             self.random.shuffle(data)
 
-        if self.mode == 'conll':
+        if self.dtype == 'conll':
             for conll_file in data:
                 with conll_file.open("r", encoding='utf8') as cnlf:
                     conll_str = cnlf.read()
-                yield tuple(conll_str, )
+                yield (conll_str, )
         else:
-            with self.jsonl_path.open('r', encoding='utf8') as json_file:
+            with self.jsonl_path.open('r', encoding='utf8'):
                 for i in data:
-                    example = json.loads(linecache.getline(json_file, i))
+                    example = json.loads(linecache.getline(str(self.jsonl_path), i + 1))
                     yield example["sentences"], example["speakers"], example["doc_key"], example["clusters"]
 
     def get_instances(self, data_type: str = 'train') -> Tuple[tuple, tuple]:
@@ -146,15 +146,15 @@ class CorefIterator(DataLearningIterator):
              a tuple of all inputs for a data type and all expected outputs for a data type
         """
         data = []
-        if self.mode == 'conll':
+        if self.dtype == 'conll':
             for conll_file in self.data[data_type]:
                 with conll_file.open("r", encoding='utf8') as cnlf:
                     conll_str = cnlf.read()
-                data.append(conll_str)
+                data.append((conll_str, ))
         else:
-            with self.jsonl_path.open('r', encoding='utf8') as json_file:
+            with self.jsonl_path.open('r', encoding='utf8'):
                 for i in self.data[data_type]:
-                    example = json.loads(linecache.getline(json_file, i))
+                    example = json.loads(linecache.getline(str(self.jsonl_path), i + 1))
                     data.append((example["sentences"], example["speakers"], example["doc_key"], example["clusters"]))
 
         return tuple(zip(*data))

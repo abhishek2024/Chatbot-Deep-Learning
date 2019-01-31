@@ -249,7 +249,7 @@ def split_doc(inpath, outpath, language='russian'):
             set_ends.append([k, i, doc_num])
             k = i + 1
     for i in range(len(set_ends)):
-        cpath = os.path.join(outpath, ".".join([str(set_ends[i][2]), language, 'v4_conll']))
+        cpath = os.path.join(str(outpath), ".".join([str(set_ends[i][2]), language, 'v4_conll']))
         with open(cpath, 'w') as c:
             for j in range(set_ends[i][0], set_ends[i][1] + 1):
                 if lines[j] == '#end document\n':

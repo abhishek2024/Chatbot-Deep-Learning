@@ -35,35 +35,36 @@ class CorefReader(DatasetReader):
         self.data_path = Path(data_path)
         self.folder_path = self.data_path.parent
         self.mode = kwargs.get("mode", "conll")
+        self.dataset_name = "rucoref_conll"
 
         if not self.data_path.exists():
             raise ValueError(f"Russian Coreference dataset in a {self.data_path} folder is absent.")
 
         if self.mode == "conll":
-            self.dataset_name = "rucoref_conll"
             return self.read_conll()
         elif self.mode == "jsonl":
-            self.dataset_name = "rucoref_jsonl"
             return self.read_jsonlines()
         else:
             raise ConfigError(f"Coreference reader not supported '{self.mode}' mode.")
 
     def rucor2conll(self) -> None:
         rucoref2conll(self.data_path, self.folder_path)
+        self.folder_path.joinpath(self.dataset_name).mkdir(exist_ok=False)
         split_doc(self.folder_path.joinpath('russian.v4_conll'),
-                  self.folder_path.joinpath(self.dataset_name).mkdir(exist_ok=False))
+                  self.folder_path.joinpath(self.dataset_name))
         self.folder_path.joinpath('russian.v4_conll').unlink()
 
     def read_conll(self) -> Dict:
-        if not self.folder_path.joinpath(self.dataset_name).exist():
+        if not self.folder_path.joinpath(self.dataset_name).exists():
             self.rucor2conll()
         return dict(train=sorted(self.folder_path.joinpath(self.dataset_name).glob("*.v4_conll")))
 
     def read_jsonlines(self) -> Dict:
-        train_path = self.folder_path.joinpath(self.dataset_name, "train.jsonl")
-        if not self.folder_path.joinpath(self.dataset_name).exist():
-            if not self.folder_path.joinpath("rucoref_conll").exist():
-                self.rucor2conll()
+        train_path = self.folder_path.joinpath("train.jsonl")
+        if not train_path.exists():
+            if not self.folder_path.joinpath(self.dataset_name).exists():
+                if not self.folder_path.joinpath("rucoref_conll").exists():
+                    self.rucor2conll()
 
             for path in sorted(self.folder_path.joinpath(self.dataset_name).glob("*.v4_conll")):
                 with path.open("r", encoding='utf8') as conll_file:
@@ -72,4 +73,4 @@ class CorefReader(DatasetReader):
                 with train_path.open('a', encoding='utf8') as train_file:
                     print(json.dumps(conll2modeldata(conll_str)), file=train_file)
 
-        return dict(train=train_path)
+        return dict(train=[train_path])
