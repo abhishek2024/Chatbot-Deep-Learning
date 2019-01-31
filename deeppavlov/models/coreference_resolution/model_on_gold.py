@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import random
+from pathlib import Path
 from typing import Any, Tuple
 
 import numpy as np
@@ -21,7 +22,7 @@ import tensorflow as tf
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
 from . import custom_layers
-from .custom_ops import coref_op_library
+from .custom_ops import compile_coreference
 
 
 @register("coref_model_on_gold")
@@ -32,6 +33,7 @@ class CorefModel(TFModel):
     """
 
     def __init__(self,
+                 os: str = "linux",
                  embedder: Any = None,
                  emb_lowercase: bool = False,
                  char_vocab: Any = None,
@@ -109,6 +111,15 @@ class CorefModel(TFModel):
         self.lexical_dropout = None
         self.tf_loss = None
         # ----------------------------------------------------------------------------------
+        kernel_path = Path(__file__).resolve().parent
+        compile_coreference(kernel_path, operational_system=os)
+        coref_op_library = tf.load_op_library(str(kernel_path.joinpath("coref_kernels.so")))
+
+        tf.NotDifferentiable("Spans")
+        tf.NotDifferentiable("Antecedents")
+        tf.NotDifferentiable("ExtractMentions")
+        tf.NotDifferentiable("DistanceBins")
+
         # C++ operations
         self.spans = coref_op_library.spans
         self.distance_bins = coref_op_library.distance_bins

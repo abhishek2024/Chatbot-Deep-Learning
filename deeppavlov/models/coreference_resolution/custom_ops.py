@@ -16,8 +16,6 @@ import os
 from pathlib import Path
 from typing import Union
 
-import tensorflow as tf
-
 
 def compile_coreference(path: Union[Path, str], operational_system: str = "linux", mode: str = "pip") -> None:
     if isinstance(path, str):
@@ -53,13 +51,3 @@ def compile_coreference(path: Union[Path, str], operational_system: str = "linux
 
         os.system(cmd)
         print('[ Compilation complete. ]')
-
-
-kernel_path = Path(__file__).resolve().parent
-compile_coreference(kernel_path)
-coref_op_library = tf.load_op_library(str(kernel_path.joinpath("coref_kernels.so")))
-
-tf.NotDifferentiable("Spans")
-tf.NotDifferentiable("Antecedents")
-tf.NotDifferentiable("ExtractMentions")
-tf.NotDifferentiable("DistanceBins")
