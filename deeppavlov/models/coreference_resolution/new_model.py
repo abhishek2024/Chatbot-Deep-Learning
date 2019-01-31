@@ -25,7 +25,7 @@ from . import custom_layers
 from .custom_ops import compile_coreference
 
 
-@register("coref_model_on_gold")
+@register("new_coref_model")
 class CorefModel(TFModel):
     """
     End-to-end neural model for coreference resolution.
@@ -61,15 +61,17 @@ class CorefModel(TFModel):
                  lexical_dropout_rate: float = 0.5,
                  anaphora: str = "full",
                  model_heads: bool = True,
+                 train_on_gold: bool = True,
                  random_seed: int = 42,
                  rep_iter: int = 144,
                  **kwargs):
         # Parameters
         # ---------------------------------------------------------------------------------
+
         # embeddings
         self.embedder = embedder
-        self.embedding_size = self.embedder.dim
         self.emb_lowercase = emb_lowercase
+        self.embedding_size = self.embedder.dim
         self.char_dict = char_vocab
         self.char_embedding_size = char_embedding_size
 
@@ -104,12 +106,13 @@ class CorefModel(TFModel):
         self.max_gradient_norm = max_gradient_norm
 
         # other
+        self.train_on_gold = train_on_gold
         self.random_seed = random_seed
-
         self.head_scores = None
         self.dropout = None
         self.lexical_dropout = None
         self.tf_loss = None
+
         # ----------------------------------------------------------------------------------
         kernel_path = Path(__file__).resolve().parent
         compile_coreference(kernel_path, operational_system=os)
@@ -171,9 +174,11 @@ class CorefModel(TFModel):
 
         tf.set_random_seed(self.random_seed)
         config = tf.ConfigProto()
-        config.gpu_options.per_process_gpu_memory_fraction = 1.0  # 0.8
+        config.gpu_options.per_process_gpu_memory_fraction = 0.8  # 1.0
+
         self.sess = tf.Session(config=config)
         self.sess.run(tf.global_variables_initializer())
+
         super().__init__(**kwargs)
         self.load()
 
@@ -211,6 +216,64 @@ class CorefModel(TFModel):
         else:
             starts, ends = [], []
         return np.array(starts), np.array(ends)
+
+    def tensorize_example(self, example, is_training):
+        """
+        Takes a dictionary from the observation and transforms it into a set of tensors
+        for tensorflow placeholders.
+        Args:
+            example: dict from observation
+            is_training: True or False value, use as a returned parameter or flag
+
+        Returns: word_emb, char_index, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids;
+            it numpy tensors for placeholders (is_training - bool)
+            If length of the longest sentence in the document is greater than parameter "max_training_sentences",
+            the returning method calls the 'truncate_example' function.
+        """
+        clusters = example["clusters"]
+        gold_mentions = sorted(tuple(m) for m in custom_layers.flatten(clusters))
+        gold_mention_map = {m: i for i, m in enumerate(gold_mentions)}
+        cluster_ids = np.zeros(len(gold_mentions))
+        for cluster_id, cluster in enumerate(clusters):
+            for mention in cluster:
+                cluster_ids[gold_mention_map[tuple(mention)]] = cluster_id
+
+        sentences = example["sentences"]
+        num_words = sum(len(s) for s in sentences)
+        speakers = custom_layers.flatten(example["speakers"])
+
+        assert num_words == len(speakers)
+
+        max_sentence_length = max(len(s) for s in sentences)
+        max_word_length = max(max(max(len(w) for w in s) for s in sentences), max(self.filter_widths))
+        char_index = np.zeros([len(sentences), max_sentence_length, max_word_length])
+        text_len = np.array([len(s) for s in sentences])
+
+        if self.emb_lowercase:
+            for i, sentence in enumerate(sentences):
+                for j, word in enumerate(sentence):
+                    sentences[i][j] = word.lower()
+
+        for i, sentence in enumerate(sentences):
+            sentences[i] = list(sentences[i])
+            for j, word in enumerate(sentence):
+                char_index[i, j, :len(word)] = [self.char_dict[c] for c in word]
+
+        word_emb = self.embedding_model(sentences)  # [len(sentences), max_sentence_length, self.embedding_size]
+
+        speaker_dict = {s: i for i, s in enumerate(set(speakers))}
+        speaker_ids = np.array([speaker_dict[s] for s in speakers])  # numpy
+
+        doc_key = example["doc_key"]
+        genre = self.genres[doc_key[:2]]  # int 1
+
+        gold_starts, gold_ends = self.tensorize_mentions(gold_mentions)  # numpy of unicode str
+
+        if is_training and len(sentences) > self.max_training_sentences:
+            return self.truncate_example(word_emb, char_index, text_len, speaker_ids, genre, is_training, gold_starts,
+                                         gold_ends, cluster_ids)
+        else:
+            return word_emb, char_index, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids
 
     def truncate_example(self, word_emb, char_index, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends,
                          cluster_ids):
@@ -272,64 +335,6 @@ class CorefModel(TFModel):
         cluster_ids = cluster_ids[gold_spans]
 
         return word_emb, char_index, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids
-
-    def tensorize_example(self, example, is_training):
-        """
-        Takes a dictionary from the observation and transforms it into a set of tensors
-        for tensorflow placeholders.
-        Args:
-            example: dict from observation
-            is_training: True or False value, use as a returned parameter or flag
-
-        Returns: word_emb, char_index, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids;
-            it numpy tensors for placeholders (is_training - bool)
-            If length of the longest sentence in the document is greater than parameter "max_training_sentences",
-            the returning method calls the 'truncate_example' function.
-        """
-        clusters = example["clusters"]
-        gold_mentions = sorted(tuple(m) for m in custom_layers.flatten(clusters))
-        gold_mention_map = {m: i for i, m in enumerate(gold_mentions)}
-        cluster_ids = np.zeros(len(gold_mentions))
-        for cluster_id, cluster in enumerate(clusters):
-            for mention in cluster:
-                cluster_ids[gold_mention_map[tuple(mention)]] = cluster_id
-
-        sentences = example["sentences"]
-        num_words = sum(len(s) for s in sentences)
-        speakers = custom_layers.flatten(example["speakers"])
-
-        assert num_words == len(speakers)
-
-        max_sentence_length = max(len(s) for s in sentences)
-        max_word_length = max(max(max(len(w) for w in s) for s in sentences), max(self.filter_widths))
-        char_index = np.zeros([len(sentences), max_sentence_length, max_word_length])
-        text_len = np.array([len(s) for s in sentences])
-
-        if self.emb_lowercase:
-            for i, sentence in enumerate(sentences):
-                for j, word in enumerate(sentence):
-                    sentences[i][j] = word.lower()
-
-        for i, sentence in enumerate(sentences):
-            sentences[i] = list(sentences[i])
-            for j, word in enumerate(sentence):
-                char_index[i, j, :len(word)] = [self.char_dict[c] for c in word]
-
-        word_emb = self.embedding_model(sentences)  # List[np.array[len(sent), emb_size]]
-
-        speaker_dict = {s: i for i, s in enumerate(set(speakers))}
-        speaker_ids = np.array([speaker_dict[s] for s in speakers])  # numpy
-
-        doc_key = example["doc_key"]
-        genre = self.genres[doc_key[:2]]  # int 1
-
-        gold_starts, gold_ends = self.tensorize_mentions(gold_mentions)  # numpy of unicode str
-
-        if is_training and len(sentences) > self.max_training_sentences:
-            return self.truncate_example(word_emb, char_index, text_len, speaker_ids, genre, is_training, gold_starts,
-                                         gold_ends, cluster_ids)
-        else:
-            return word_emb, char_index, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids
 
     def get_mention_emb(self, text_emb, text_outputs, mention_starts, mention_ends):
         """
@@ -585,10 +590,10 @@ class CorefModel(TFModel):
                 predicted_antecedents.append(antecedents[i, index])
         return predicted_antecedents
 
-    def get_predictions_and_loss(self, word_emb, char_index, text_len, speaker_ids, genre, is_training,
-                                 gold_starts, gold_ends, cluster_ids):
+    def get_predictions_and_loss(self, word_emb, char_index, text_len, speaker_ids, genre, is_training, gold_starts,
+                                 gold_ends, cluster_ids):
         """
-        Connects all elements of the network to one complete graph, that use gold mentions.
+        Connects all elements of the network to one complete graph, that compute mentions spans independently
         And passes through it the tensors that came to the input of placeholders.
         Args:
             word_emb: [Amount of sentences, Amount of words in sentence (max len), self.embedding_size],
@@ -610,10 +615,6 @@ class CorefModel(TFModel):
         self.dropout = 1 - (tf.cast(is_training, tf.float64) * self.dropout_rate)
         self.lexical_dropout = 1 - (tf.cast(is_training, tf.float64) * self.lexical_dropout_rate)
 
-        # assert gold_ends.shape == gold_starts.shape,\
-        #     ('Amount of starts and ends of gold mentions are not equal: '
-        #      'Length of gold starts: {1}; Length of gold ends: {0}'.format(gold_ends.shape, gold_starts.shape))
-
         num_sentences = tf.shape(word_emb)[0]
         max_sentence_length = tf.shape(word_emb)[1]
 
@@ -621,16 +622,15 @@ class CorefModel(TFModel):
 
         if self.char_embedding_size > 0:
             char_emb = tf.gather(
-                tf.get_variable("char_embeddings", [len(self.char_dict), self.char_embedding_size],
-                                dtype=tf.float64), char_index)
-            # [num_sentences, max_sentence_length, max_word_length, emb]
-
+                tf.get_variable("char_embeddings", [len(self.char_dict), self.char_embedding_size]),
+                char_index)  # [num_sentences, max_sentence_length, max_word_length, emb]
             flattened_char_emb = tf.reshape(char_emb, [num_sentences * max_sentence_length,
                                                        custom_layers.shape(char_emb, 2),
                                                        custom_layers.shape(char_emb, 3)])
             # [num_sentences * max_sentence_length, max_word_length, emb]
 
-            flattened_aggregated_char_emb = custom_layers.cnn(flattened_char_emb, self.filter_widths, self.filter_size)
+            flattened_aggregated_char_emb = custom_layers.cnn(flattened_char_emb, self.filter_widths,
+                                                              self.filter_size)
             # [num_sentences * max_sentence_length, emb]
 
             aggregated_char_emb = tf.reshape(flattened_aggregated_char_emb,
@@ -650,33 +650,52 @@ class CorefModel(TFModel):
         text_outputs = self.encode_sentences(text_emb, text_len, text_len_mask)
         text_outputs = tf.nn.dropout(text_outputs, self.dropout)
 
-        genre_emb = tf.gather(tf.get_variable("genre_embeddings", [len(self.genres), self.feature_size],
+        genre_emb = tf.gather(tf.get_variable("genre_embeddings",
+                                              [len(self.genres), self.feature_size],
                                               dtype=tf.float64),
                               genre)  # [emb]
         # -------------------------------------------------------------------------------------------------------------
-        # sentence_indices = tf.tile(tf.expand_dims(tf.range(num_sentences), 1),
-        #                            [1, max_sentence_length])  # [num_sentences, max_sentence_length]
-
-        # flattened_sentence_indices = self.flatten_emb_by_sentence(sentence_indices, text_len_mask)  # [num_words]
-
         flattened_text_emb = self.flatten_emb_by_sentence(text_emb, text_len_mask)  # [num_words]
 
-        candidate_mention_emb = self.get_mention_emb(flattened_text_emb, text_outputs, gold_starts,
-                                                     gold_ends)  # [num_candidates, emb]
+        if self.train_on_gold:
+            candidate_mention_emb = self.get_mention_emb(flattened_text_emb, text_outputs, gold_starts,
+                                                         gold_ends)  # [num_candidates, emb]
+            gold_len = tf.shape(gold_ends)
+            candidate_mention_scores = tf.ones(gold_len, dtype=tf.float64)
 
-        # candidate_mention_scores = self.get_mention_scores(candidate_mention_emb)  # [num_mentions, 1]
-        # candidate_mention_scores = tf.squeeze(candidate_mention_scores, 1)  # [num_mentions]
-        gold_len = tf.shape(gold_ends)
-        candidate_mention_scores = tf.ones(gold_len, dtype=tf.float64)
+            mention_starts = gold_starts
+            mention_ends = gold_ends
+            mention_emb = candidate_mention_emb
+            mention_scores = candidate_mention_scores
+        else:
+            sentence_indices = tf.tile(tf.expand_dims(tf.range(num_sentences), 1),
+                                       [1, max_sentence_length])  # [num_sentences, max_sentence_length]
+            flattened_sentence_indices = self.flatten_emb_by_sentence(sentence_indices, text_len_mask)  # [num_words]
 
-        mention_starts = gold_starts
-        mention_ends = gold_ends
-        mention_emb = candidate_mention_emb
-        mention_scores = candidate_mention_scores
+            candidate_starts, candidate_ends = self.spans(
+                sentence_indices=flattened_sentence_indices,
+                max_width=self.max_mention_width)
+            candidate_starts.set_shape([None])
+            candidate_ends.set_shape([None])
+
+            candidate_mention_emb = self.get_mention_emb(flattened_text_emb, text_outputs, candidate_starts,
+                                                         candidate_ends)  # [num_candidates, emb]
+
+            candidate_mention_scores = self.get_mention_scores(candidate_mention_emb)  # [num_mentions, 1]
+            candidate_mention_scores = tf.squeeze(candidate_mention_scores, 1)  # [num_mentions]
+
+            k = tf.to_int32(tf.floor(tf.to_float(tf.shape(text_outputs)[0]) * self.mention_ratio))
+            predicted_mention_indices = self.extract_mentions(candidate_mention_scores, candidate_starts,
+                                                              candidate_ends, k)  # ([k], [k])
+            predicted_mention_indices.set_shape([None])
+
+            mention_starts = tf.gather(candidate_starts, predicted_mention_indices)  # [num_mentions]
+            mention_ends = tf.gather(candidate_ends, predicted_mention_indices)  # [num_mentions]
+            mention_emb = tf.gather(candidate_mention_emb, predicted_mention_indices)  # [num_mentions, emb]
+            mention_scores = tf.gather(candidate_mention_scores, predicted_mention_indices)  # [num_mentions]
 
         # mention_start_emb = tf.gather(text_outputs, mention_starts)  # [num_mentions, emb]
         # mention_end_emb = tf.gather(text_outputs, mention_ends)  # [num_mentions, emb]
-
         mention_speaker_ids = tf.gather(speaker_ids, mention_starts)  # [num_mentions]
 
         max_antecedents = self.max_antecedents
@@ -693,8 +712,11 @@ class CorefModel(TFModel):
         antecedent_scores = self.get_antecedent_scores(mention_emb, mention_scores, antecedents, antecedents_len,
                                                        mention_speaker_ids, genre_emb)  # [num_mentions, max_ant + 1]
 
-        loss = self.softmax_loss(tf.cast(antecedent_scores, tf.float64), antecedent_labels)  # [num_mentions]
+        loss = self.softmax_loss(antecedent_scores, antecedent_labels)  # [num_mentions]
         loss = tf.reduce_sum(loss)  # []
+
+        # [candidate_starts, candidate_ends, candidate_mention_scores, mention_starts, mention_ends,
+        #                     antecedents, antecedent_scores], loss
 
         return [candidate_mention_scores, mention_starts, mention_ends, antecedents, antecedent_scores], loss
 
@@ -736,15 +758,15 @@ class CorefModel(TFModel):
 
         return predicted_clusters, mention_to_predicted
 
-    def train_on_batch(self, *args) -> float:
+    def train_on_batch(self, *args):
         """
         Run train operation on one batch/document
-
         Args:
             args: (sentences, speakers, doc_key, clusters) list of text documents, list of authors, list of files names,
              list of true clusters
 
         Returns: Loss functions value and tf.global_step
+
         """
         sentences, speakers, doc_key, clusters = args
         batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": clusters}
@@ -753,8 +775,8 @@ class CorefModel(TFModel):
         return self.tf_loss
 
     def __call__(self, *args):
-        sentences, speakers, doc_key, clusters = args
-        batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": clusters}
+        sentences, speakers, doc_key = args
+        batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": []}
         self.start_enqueue_thread(batch, False)
 
         _, mention_starts, mention_ends, antecedents, antecedent_scores = self.sess.run(self.predictions)

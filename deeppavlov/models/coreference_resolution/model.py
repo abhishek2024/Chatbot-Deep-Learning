@@ -652,7 +652,7 @@ class CorefModel(TFModel):
                                               [len(self.genres), self.feature_size],
                                               dtype=tf.float64),
                               genre)  # [emb]
-
+        # -------------------------------------------------------------------------------------------------------------
         sentence_indices = tf.tile(tf.expand_dims(tf.range(num_sentences), 1),
                                    [1, max_sentence_length])  # [num_sentences, max_sentence_length]
         flattened_sentence_indices = self.flatten_emb_by_sentence(sentence_indices, text_len_mask)  # [num_words]
@@ -688,6 +688,7 @@ class CorefModel(TFModel):
                                                                                gold_starts, gold_ends, cluster_ids,
                                                                                max_antecedents)
         # ([num_mentions, max_ant], [num_mentions, max_ant + 1], [num_mentions]
+        # -------------------------------------------------------------------------------------------------------------
 
         antecedents.set_shape([None, None])
         antecedent_labels.set_shape([None, None])
