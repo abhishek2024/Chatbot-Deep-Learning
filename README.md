@@ -1,5 +1,6 @@
 [![License Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/deepmipt/DeepPavlov/blob/master/LICENSE)
 ![Python 3.6](https://img.shields.io/badge/python-3.6-green.svg)
+[![Downloads](https://pepy.tech/badge/deeppavlov)](https://pepy.tech/project/deeppavlov)
 
 DeepPavlov is an open-source conversational AI library built on [TensorFlow](https://www.tensorflow.org/) and [Keras](https://keras.io/). It is designed for
  * development of production ready chat-bots and complex conversational systems,
@@ -48,7 +49,7 @@ Give the floor to the HelloBot!
 print(HelloBot(['Hello!', 'Boo...', 'Bye.']))
 ```
 
-[Jupyther notebook with HelloBot example.](https://colab.research.google.com/github/deepmipt/DeepPavlov/blob/master/docs/intro/hello_bot.ipynb)
+[Jupyter notebook with HelloBot example.](https://colab.research.google.com/github/deepmipt/DeepPavlov/blob/master/docs/intro/hello_bot.ipynb)
 
 
 # Features
@@ -70,7 +71,7 @@ print(HelloBot(['Hello!', 'Boo...', 'Bye.']))
 
 [Goal(Task)-oriented Bot](http://docs.deeppavlov.ai/en/latest/skills/go_bot.html) | [Seq2seq Goal-Oriented bot](http://docs.deeppavlov.ai/en/latest/skills/seq2seq_go_bot.html)
 
-[Open Domain Questions Answering](http://docs.deeppavlov.ai/en/latest/skills/odqa.html) | [eCommerce Bot](http://docs.deeppavlov.ai/en/latest/skills/ecommerce_bot_skill.html) 
+[Open Domain Questions Answering](http://docs.deeppavlov.ai/en/latest/skills/odqa.html) | [eCommerce Bot](http://docs.deeppavlov.ai/en/master/skills/ecommerce.html) 
 
 [Frequently Asked Questions Answering](http://docs.deeppavlov.ai/en/latest/skills/faq.html) | [Pattern Matching](http://docs.deeppavlov.ai/en/latest/skills/pattern_matching.html) 
 
@@ -88,7 +89,7 @@ print(HelloBot(['Hello!', 'Boo...', 'Bye.']))
 
 0. Currently we support `Linux` and `Windows` platforms and `Python 3.6` 
     * **`Python 3.5` is not supported!**
-    * **`Windows` platform requires `Visual Studio 2015/2017` with `C++` build tools installed!**
+    * **`Windows` platform requires `Git` for Windows (for example, [git](https://git-scm.com/download/win)),  `Visual Studio 2015/2017` with `C++` build tools installed!**
 
 1. Create a virtual environment with `Python 3.6`:
     ```
@@ -181,8 +182,12 @@ If you have any questions, bug reports or feature requests, please feel free to 
 
 # The Team
 
+<p align="center">
+<img src="docs/_static/ipavlov_logo.png" width="20%" height="20%"/>
+</p>
+
 DeepPavlov is built and maintained by [Neural Networks and Deep Learning Lab](https://mipt.ru/english/research/labs/neural-networks-and-deep-learning-lab) at [MIPT](https://mipt.ru/english/) within [iPavlov](http://ipavlov.ai/) project (part of [National Technology Initiative](https://asi.ru/eng/nti/)) and in partnership with [Sberbank](http://www.sberbank.com/).
 
 <p align="center">
-<img src="https://ipavlov.ai/img/ipavlov_footer.png" width="50%" height="50%"/>
+<img src="docs/_static/ipavlov_footer.png" width="50%" height="50%"/>
 </p>
