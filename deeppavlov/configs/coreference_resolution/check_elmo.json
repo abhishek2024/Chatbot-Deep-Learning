@@ -6,27 +6,15 @@
   },
   "dataset_iterator": {
     "class_name": "coreference_iterator",
-    "dtype": "jsonl",
-    "seed": 42,
-    "field_to_split": "train",
-    "split_fields": [
-      "train",
-      "valid",
-      "test"
-    ],
-    "split_proportions": [
-      0.8,
-      0.1,
-      0.1
-    ]
+    "dtype": "jsonl"
   },
   "chainer": {
-    "in": ["sentences", "speakers", "doc_key", "clusters"],
-    "in_y": [],
+    "in": ["sentences", "speakers", "doc_key"],
+    "in_y": ["clusters"],
     "pipe": [
       {
         "in": ["sentences", "doc_key"],
-        "out": ["sentences", "doc_key"],
+        "out": ["doc_key"],
         "fit_on": ["sentences", "doc_key"],
         "id": "elmo_cached_estimator",
         "class_name":  "elmo_cahed_estimator",
@@ -39,7 +27,10 @@
     "out": ["doc_key"]
   },
   "train": {
-    "batch_size": 1
+    "batch_size": 1,
+    "show_examples": false,
+    "validate_best": false,
+    "test_best": false
   },
   "metadata": {
     "variables": {

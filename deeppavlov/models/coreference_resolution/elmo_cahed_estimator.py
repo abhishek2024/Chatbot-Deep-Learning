@@ -42,11 +42,11 @@ class ELMoEstimator(Estimator):
                 group = out_file.create_group(doc_key)
 
                 for i, (e, l) in enumerate(zip(tf_lm_emb, text_len)):
-                    e = e[:l, :, :]
+                    e = e[:l, :]
                     group[str(i)] = e
 
                 if doc_num % 10 == 0:
-                    print(f"[ Cached {doc_num + 1} documents in {self.save_path} ]")
+                    print(f"[ Cached {doc_num + 1}/{len(doc_keys)} documents in {self.save_path} ]")
 
     def __call__(self, *args, **kwargs):
         pass

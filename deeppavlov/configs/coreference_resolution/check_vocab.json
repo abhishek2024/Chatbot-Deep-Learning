@@ -6,19 +6,7 @@
   },
   "dataset_iterator": {
     "class_name": "coreference_iterator",
-    "dtype": "jsonl",
-    "seed": 42,
-    "field_to_split": "train",
-    "split_fields": [
-      "train",
-      "valid",
-      "test"
-    ],
-    "split_proportions": [
-      0.8,
-      0.1,
-      0.1
-    ]
+    "dtype": "jsonl"
   },
   "chainer": {
     "in": ["sentences", "speakers", "doc_key"],
@@ -35,15 +23,18 @@
         "class_name": "simple_vocab",
         "pad_with_zeros": true,
         "fit_on": ["x_char"],
-        "save_path": "{MODELS_PATH}/ner_conll2003/char.dict",
-        "load_path": "{MODELS_PATH}/ner_conll2003/char.dict",
+        "save_path": "{MODELS_PATH}/char.dict",
+        "load_path": "{MODELS_PATH}/char.dict",
         "out": ["x_char_ind"]
       }
     ],
     "out": ["x_char_ind"]
   },
   "train": {
-    "batch_size": 1
+    "batch_size": 1,
+    "show_examples": false,
+    "validate_best": false,
+    "test_best": false
   },
   "metadata": {
     "variables": {

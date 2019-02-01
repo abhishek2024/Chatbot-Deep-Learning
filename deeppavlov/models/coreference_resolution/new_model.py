@@ -244,9 +244,9 @@ class CorefModel(TFModel):
             for mention in cluster:
                 cluster_ids[gold_mention_map[tuple(mention)]] = cluster_id
 
-        sentences = example["sentences"]
+        sentences = example["sentences"][0]
         num_words = sum(len(s) for s in sentences)
-        speakers = custom_layers.flatten(example["speakers"])
+        speakers = custom_layers.flatten(example["speakers"][0])
 
         assert num_words == len(speakers)
 
@@ -254,7 +254,7 @@ class CorefModel(TFModel):
         max_word_length = max(max(max(len(w) for w in s) for s in sentences), max(self.filter_widths))
         char_index = np.zeros([len(sentences), max_sentence_length, max_word_length])
         text_len = np.array([len(s) for s in sentences])
-        doc_key = example["doc_key"]
+        doc_key = example["doc_key"][0]
 
         if self.emb_lowercase:
             for i, sentence in enumerate(sentences):
@@ -262,12 +262,11 @@ class CorefModel(TFModel):
                     sentences[i][j] = word.lower()
 
         for i, sentence in enumerate(sentences):
-            sentences[i] = list(sentences[i])
             for j, word in enumerate(sentence):
                 char_index[i, j, :len(word)] = [self.char_dict[c] for c in word]
 
         if self.emb_format == "std_emb":
-            word_emb = self.embedder(sentences)  # List[np.array[len(sent), emb_size]]
+            word_emb = self.embedder(sentences)
         else:
             word_emb = self.embedder(doc_key)
 
@@ -777,6 +776,7 @@ class CorefModel(TFModel):
         Returns: Loss functions value and tf.global_step
 
         """
+
         sentences, speakers, doc_key, clusters = args
         batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": clusters}
         self.start_enqueue_thread(batch, True)
@@ -786,6 +786,7 @@ class CorefModel(TFModel):
     def __call__(self, *args):
         sentences, speakers, doc_key = args
         batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": []}
+
         self.start_enqueue_thread(batch, False)
 
         _, mention_starts, mention_ends, antecedents, antecedent_scores = self.sess.run(self.predictions)
