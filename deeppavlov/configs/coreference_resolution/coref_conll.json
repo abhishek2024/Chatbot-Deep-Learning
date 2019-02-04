@@ -2,12 +2,13 @@
   "dataset_reader": {
     "class_name": "coreference_reader",
     "data_path": "~/.deeppavlov/downloads/coreference_dataset/rucoref_29.10.2015",
-    "mode": "jsonl"
+    "mode": "conll"
   },
   "dataset_iterator": {
     "class_name": "coreference_iterator",
-    "dtype": "jsonl",
+    "dtype": "conll",
     "seed": 42,
+    "train_on_gold": true,
     "field_to_split": "train",
     "split_fields": [
       "train",
@@ -21,10 +22,11 @@
     ]
   },
   "chainer": {
-    "in": ["x"],
+    "in": ["conll_doc"],
+    "in_y": ["y"],
     "pipe": [
       {
-        "in": ["x"],
+        "in": ["conll_doc"],
         "out": ["sentences", "speakers", "doc_key", "clusters"],
         "class_name": "conll2modelformat"
       },
@@ -35,37 +37,40 @@
       },
       {
         "in": ["x_char"],
+        "out": ["x_char"],
+        "fit_on": ["x_char"],
         "id": "char_vocab",
         "class_name": "simple_vocab",
         "pad_with_zeros": true,
-        "fit_on": ["x_char"],
         "save_path": "{MODELS_PATH}/char.dict",
         "load_path": "{MODELS_PATH}/char.dict"
       },
       {
         "id": "embedder",
         "class_name": "fasttext",
-        "load_path": "{DOWNLOADS_PATH}/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin"
+        "pad_zero": true,
+        "load_path": "~/Work/Embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin"
       },
       {
         "in": ["sentences", "speakers", "doc_key"],
         "in_y": ["clusters"],
         "out": ["predicted_clusters", "mention_to_predicted"],
         "main": true,
-        "class_name": "coref_model_on_gold",
-        "save_path": "{MODELS_PATH}/checkpoints/model_on_gold/best_model.ckpt",
-        "load_path": "{MODELS_PATH}/checkpoints/model_on_gold/best_model.ckpt",
+        "train_on_gold": true,
+        "class_name": "new_coref_model",
+        "save_path": "{MODELS_PATH}/checkpoints/new_model_on_gold/best_model.ckpt",
+        "load_path": "{MODELS_PATH}/checkpoints/new_model_on_gold/best_model.ckpt",
         "char_vocab": "#char_vocab",
         "embedder": "#embedder",
         "embedding_size": 300
       },
       {
-        "in": ["x", "predicted_clusters"],
+        "in": ["conll_doc", "predicted_clusters"],
         "out": ["pred_conll"],
         "class_name": "coref_pred2conll_doc"
       }
     ],
-    "out": ["x", "pred_conll"]
+    "out": ["conll_doc", "pred_conll"]
   },
   "train": {
     "epochs": 200,
@@ -73,12 +78,12 @@
     "metrics": [
       {
         "name": "coref_f1",
-        "inputs": ["x", "pred_conll"]
+        "inputs": ["conll_doc", "pred_conll"]
       }
     ],
     "validation_patience": 5,
-    "val_every_n_epochs": 1,
-    "log_every_n_epochs": 1,
+    "val_every_n_epochs": 2,
+    "log_every_n_epochs": 2,
     "show_examples": false,
     "validate_best": true,
     "test_best": true

@@ -14,6 +14,7 @@
 
 import collections
 import operator
+from typing import List
 
 from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.common.registry import register
@@ -25,6 +26,9 @@ log = get_logger(__name__)
 
 @register("coref_pred2conll_doc")
 class CorefPredtoConll(Component):
+    def __init__(self, **kwargs):
+        pass
+
     @staticmethod
     def __call__(input_file: str, predictions: dict) -> str:
         """
@@ -103,7 +107,14 @@ class CorefPredtoConll(Component):
 
 @register("conll2modelformat")
 class Conll2modelformat(Component):
+    def __init__(self, **kwargs):
+        pass
+
     @staticmethod
-    def __call__(input_file: str) -> tuple:
-        model_dict = conll2modeldata(input_file)
-        return model_dict["sentences"], model_dict["speakers"], model_dict["doc_key"], model_dict["clusters"]
+    def __call__(input_files: List[str]) -> tuple:
+        docs = list()
+        for conll in input_files:
+            model_dict = conll2modeldata(conll)
+            docs.append(
+                (model_dict["sentences"], model_dict["speakers"], model_dict["doc_key"], model_dict["clusters"]))
+        return tuple(zip(*docs))

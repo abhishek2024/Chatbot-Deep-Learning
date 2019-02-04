@@ -26,6 +26,11 @@ log = get_logger(__name__)
 
 @register_metric('coref_metrics')
 def coref_metrics(predicted_clusters_l: List, mention_to_predicted_l: List, gold_clusters_l: List, ) -> Dict:
+
+    print(f"Pred: {predicted_clusters_l}")
+    print(f"Mentions: {mention_to_predicted_l}")
+    print(f"gold: {gold_clusters_l}")
+
     evaluator = CorefEvaluator()
 
     for (gold_clusters, predicted_clusters, mention_to_predicted) in zip(gold_clusters_l, predicted_clusters_l,
@@ -39,8 +44,9 @@ def coref_metrics(predicted_clusters_l: List, mention_to_predicted_l: List, gold
         evaluator.update(predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold)
 
     p, r, f = evaluator.get_prf()
+    # print(dict(F1=(f * 100), precision=(p * 100), recall=(r * 100)))
 
-    return dict(F1=(f * 100), precision=(p * 100), recall=(r * 100))
+    return f * 100
 
 
 class CorefEvaluator(object):

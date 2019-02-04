@@ -13,18 +13,16 @@
 # limitations under the License.
 
 import random
-from pathlib import Path
 from typing import Any, Tuple
 
 import numpy as np
 import tensorflow as tf
 
-
 from deeppavlov.core.common.errors import ConfigError
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
 from deeppavlov.models.coreference_resolution import custom_layers
-from deeppavlov.models.coreference_resolution.custom_ops import compile_coreference
+from deeppavlov.models.coreference_resolution.tf_ops import distance_bins, extract_mentions, get_antecedents, spans
 
 
 @register("new_coref_model")
@@ -35,7 +33,6 @@ class CorefModel(TFModel):
     """
 
     def __init__(self,
-                 os: str = "linux",
                  embedder: Any = None,
                  emb_lowercase: bool = False,
                  emb_format: str = "std_emb",
@@ -120,20 +117,11 @@ class CorefModel(TFModel):
         self.tf_loss = None
 
         # ----------------------------------------------------------------------------------
-        kernel_path = Path(__file__).resolve().parent
-        compile_coreference(kernel_path, operational_system=os)
-        coref_op_library = tf.load_op_library(str(kernel_path.joinpath("coref_kernels.so")))
-
-        tf.NotDifferentiable("Spans")
-        tf.NotDifferentiable("Antecedents")
-        tf.NotDifferentiable("ExtractMentions")
-        tf.NotDifferentiable("DistanceBins")
-
         # C++ operations
-        self.spans = coref_op_library.spans
-        self.distance_bins = coref_op_library.distance_bins
-        self.extract_mentions = coref_op_library.extract_mentions
-        self.get_antecedents = coref_op_library.antecedents
+        self.spans = spans
+        self.distance_bins = distance_bins
+        self.extract_mentions = extract_mentions
+        self.get_antecedents = get_antecedents
         # ----------------------------------------------------------------------------------
 
         self.genres = {g: i for i, g in enumerate(self.genres)}
@@ -236,7 +224,11 @@ class CorefModel(TFModel):
             If length of the longest sentence in the document is greater than parameter "max_training_sentences",
             the returning method calls the 'truncate_example' function.
         """
-        clusters = example["clusters"]
+        if isinstance(example["clusters"], tuple):
+            clusters = example["clusters"][0]
+        else:
+            clusters = example["clusters"]
+
         gold_mentions = sorted(tuple(m) for m in custom_layers.flatten(clusters))
         gold_mention_map = {m: i for i, m in enumerate(gold_mentions)}
         cluster_ids = np.zeros(len(gold_mentions))
@@ -777,16 +769,22 @@ class CorefModel(TFModel):
         Returns: Loss functions value and tf.global_step
 
         """
-
-        sentences, speakers, doc_key, clusters = args
+        if self.train_on_gold:
+            sentences, speakers, doc_key, mentions_st, clusters = args
+        else:
+            sentences, speakers, doc_key, clusters = args
         batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": clusters}
         self.start_enqueue_thread(batch, True)
         self.tf_loss, tf_global_step, _ = self.sess.run([self.loss, self.global_step, self.train_op])
         return self.tf_loss
 
     def __call__(self, *args):
-        sentences, speakers, doc_key = args
-        batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": []}
+        if self.train_on_gold:
+            sentences, speakers, doc_key, clusters = args
+            batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": clusters}
+        else:
+            sentences, speakers, doc_key = args
+            batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": []}
 
         self.start_enqueue_thread(batch, False)
 
@@ -797,10 +795,10 @@ class CorefModel(TFModel):
         predicted_clusters, mention_to_predicted = self.get_predicted_clusters(mention_starts, mention_ends,
                                                                                predicted_antecedents)
 
-        predicted_clusters = dict(doc_key=predicted_clusters)
+        # predicted_clusters = dict(doc_key=predicted_clusters)
 
         return predicted_clusters, mention_to_predicted
 
     def destroy(self):
         """Reset the model"""
-        tf.reset_default_graph()
+        self.sess.close()

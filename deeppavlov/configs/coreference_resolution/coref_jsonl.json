@@ -8,7 +8,7 @@
     "class_name": "coreference_iterator",
     "dtype": "jsonl",
     "seed": 42,
-    "train_on_gold": false,
+    "train_on_gold": true,
     "field_to_split": "train",
     "split_fields": [
       "train",
@@ -22,7 +22,7 @@
     ]
   },
   "chainer": {
-    "in": ["sentences", "speakers", "doc_key"],
+    "in": ["sentences", "speakers", "doc_key", "mentions_places"],
     "in_y": ["clusters"],
     "pipe": [
       {
@@ -47,12 +47,12 @@
         "load_path": "~/Work/Embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin"
       },
       {
-        "in": ["sentences", "speakers", "doc_key"],
+        "in": ["sentences", "speakers", "doc_key", "mentions_places"],
         "in_y": ["clusters"],
         "out": ["predicted_clusters", "mention_to_predicted"],
         "main": true,
         "class_name": "new_coref_model",
-        "train_on_gold": false,
+        "train_on_gold": true,
         "save_path": "{MODELS_PATH}/checkpoints/new_model/best_model.ckpt",
         "load_path": "{MODELS_PATH}/checkpoints/new_model/best_model.ckpt",
         "char_vocab": "#char_vocab",
@@ -72,8 +72,8 @@
       }
     ],
     "validation_patience": 5,
-    "val_every_n_epochs": 5,
-    "log_every_n_epochs": 5,
+    "val_every_n_epochs": 2,
+    "log_every_n_epochs": 2,
     "show_examples": false,
     "validate_best": true,
     "test_best": true
