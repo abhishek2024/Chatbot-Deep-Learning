@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import time
+from collections import OrderedDict
 from multiprocessing import Process, Pipe
 from multiprocessing.connection import Connection
 from pathlib import Path
 from threading import Thread
-from typing import Callable, Optional, Collection, Hashable, List, Tuple
+from typing import Callable, Optional, Collection, Hashable, List, Tuple, Dict
 
 import telebot
 from telebot.types import Message
@@ -46,16 +47,27 @@ def _model_process(model_function: Callable, conn: Connection, batch_size: int =
     if batch_size <= 0:
         batch_size = float('inf')
 
-    while True:
-        batch: List[Tuple[str, Hashable]] = []
-        while conn.poll() and len(batch) < batch_size:
-            batch.append(conn.recv())
+    delayed: List[Tuple[str, Hashable]] = []
 
-        if not batch:
+    while True:
+        collected = delayed
+        while conn.poll():
+            collected.append(conn.recv())
+
+        if not collected:
             time.sleep(poll_period)
             continue
 
-        messages, dialog_ids = zip(*batch)
+        batch: Dict[Hashable, str] = OrderedDict()
+        delayed = []
+        # delay multiple requests from the same dialog or if a batch is full
+        for message, dialog_id in collected:
+            if dialog_id in batch or len(batch) >= batch_size:
+                delayed.append((message, dialog_id))
+            else:
+                batch[dialog_id] = message
+
+        dialog_ids, messages = zip(*batch.items())
         responses = model(messages, dialog_ids)
         for response, dialog_id in zip(responses, dialog_ids):
             conn.send((response, dialog_id))
