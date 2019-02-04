@@ -23,8 +23,8 @@ import tensorflow as tf
 from deeppavlov.core.common.errors import ConfigError
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
-from . import custom_layers
-from .custom_ops import compile_coreference
+from deeppavlov.models.coreference_resolution import custom_layers
+from deeppavlov.models.coreference_resolution.custom_ops import compile_coreference
 
 
 @register("new_coref_model")
@@ -240,6 +240,7 @@ class CorefModel(TFModel):
         gold_mentions = sorted(tuple(m) for m in custom_layers.flatten(clusters))
         gold_mention_map = {m: i for i, m in enumerate(gold_mentions)}
         cluster_ids = np.zeros(len(gold_mentions))
+
         for cluster_id, cluster in enumerate(clusters):
             for mention in cluster:
                 cluster_ids[gold_mention_map[tuple(mention)]] = cluster_id

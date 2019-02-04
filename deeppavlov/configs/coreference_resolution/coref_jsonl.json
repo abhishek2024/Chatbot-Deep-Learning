@@ -8,6 +8,7 @@
     "class_name": "coreference_iterator",
     "dtype": "jsonl",
     "seed": 42,
+    "train_on_gold": false,
     "field_to_split": "train",
     "split_fields": [
       "train",
@@ -42,6 +43,7 @@
       {
         "id": "embedder",
         "class_name": "fasttext",
+        "pad_zero": true,
         "load_path": "~/Work/Embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin"
       },
       {
@@ -70,8 +72,8 @@
       }
     ],
     "validation_patience": 5,
-    "val_every_n_epochs": 1,
-    "log_every_n_epochs": 1,
+    "val_every_n_epochs": 5,
+    "log_every_n_epochs": 5,
     "show_examples": false,
     "validate_best": true,
     "test_best": true
