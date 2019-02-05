@@ -1,14 +1,14 @@
 {
   "dataset_reader": {
     "class_name": "coreference_reader",
-    "data_path": "{DOWNLOADS_PATH}/coreference_dataset/rucoref_conll",
+    "data_path": "{DOWNLOADS_PATH}/coreference_resolution/rucoref_29.10.2015",
     "mode": "jsonl"
   },
   "dataset_iterator": {
     "class_name": "coreference_iterator",
     "dtype": "jsonl",
     "seed": 42,
-    "train_on_gold": true,
+    "train_on_gold": false,
     "field_to_split": "train",
     "split_fields": [
       "train",
@@ -22,7 +22,7 @@
     ]
   },
   "chainer": {
-    "in": ["sentences", "speakers", "doc_key", "mentions_places"],
+    "in": ["sentences", "speakers", "doc_key"],
     "in_y": ["clusters"],
     "pipe": [
       {
@@ -47,17 +47,25 @@
         "load_path": "~/Work/Embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin"
       },
       {
-        "in": ["sentences", "speakers", "doc_key", "mentions_places"],
+        "in": ["sentences", "speakers", "doc_key"],
         "in_y": ["clusters"],
         "out": ["predicted_clusters", "mention_to_predicted"],
         "main": true,
         "class_name": "new_coref_model",
-        "train_on_gold": true,
+        "train_on_gold": false,
         "save_path": "{MODELS_PATH}/checkpoints/new_model/best_model.ckpt",
         "load_path": "{MODELS_PATH}/checkpoints/new_model/best_model.ckpt",
+        "emb_format": "std_emb",
         "char_vocab": "#char_vocab",
         "embedder": "#embedder",
-        "embedding_size": 300
+        "embedding_size": 300,
+        "max_antecedents": 250,
+        "max_training_sentences": 50,
+        "max_mention_width": 10,
+        "use_metadata": false,
+        "use_features": true,
+        "model_heads": false,
+        "emb_lowercase": true
       }
     ],
     "out": ["predicted_clusters", "mention_to_predicted", "clusters"]
@@ -90,8 +98,12 @@
     ],
     "download": [
       {
-        "url": "http://files.deeppavlov.ai/datasets/coreference_resolution/rucor_conll.zip",
+        "url": "http://files.deeppavlov.ai/datasets/coreference_resolution/rucoref_29.10.2015.zip",
         "subdir": "{DOWNLOADS_PATH}/coreference_resolution/"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
+        "subdir": "{DOWNLOADS_PATH}/embeddings"
       }
     ]
   }

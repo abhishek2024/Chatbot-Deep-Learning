@@ -1,12 +1,12 @@
 {
   "dataset_reader": {
     "class_name": "coreference_reader",
-    "data_path": "~/.deeppavlov/downloads/coreference_dataset/rucoref_29.10.2015",
-    "mode": "conll"
+    "data_path": "{DOWNLOADS_PATH}/coreference_resolution/rucoref_29.10.2015",
+    "mode": "jsonl"
   },
   "dataset_iterator": {
     "class_name": "coreference_iterator",
-    "dtype": "conll",
+    "dtype": "jsonl",
     "seed": 42,
     "train_on_gold": true,
     "field_to_split": "train",
@@ -22,14 +22,9 @@
     ]
   },
   "chainer": {
-    "in": ["conll_doc"],
-    "in_y": ["y"],
+    "in": ["sentences", "speakers", "doc_key", "mentions_places"],
+    "in_y": ["clusters"],
     "pipe": [
-      {
-        "in": ["conll_doc"],
-        "out": ["sentences", "speakers", "doc_key", "clusters"],
-        "class_name": "conll2modelformat"
-      },
       {
         "in": ["sentences"],
         "class_name": "char_splitter",
@@ -52,33 +47,28 @@
         "load_path": "~/Work/Embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin"
       },
       {
-        "in": ["sentences", "speakers", "doc_key"],
+        "in": ["sentences", "speakers", "doc_key", "mentions_places"],
         "in_y": ["clusters"],
         "out": ["predicted_clusters", "mention_to_predicted"],
         "main": true,
-        "train_on_gold": true,
         "class_name": "new_coref_model",
-        "save_path": "{MODELS_PATH}/checkpoints/new_model_on_gold/best_model.ckpt",
-        "load_path": "{MODELS_PATH}/checkpoints/new_model_on_gold/best_model.ckpt",
+        "train_on_gold": true,
+        "save_path": "{MODELS_PATH}/checkpoints/new_model/best_model.ckpt",
+        "load_path": "{MODELS_PATH}/checkpoints/new_model/best_model.ckpt",
         "char_vocab": "#char_vocab",
         "embedder": "#embedder",
         "embedding_size": 300
-      },
-      {
-        "in": ["conll_doc", "predicted_clusters"],
-        "out": ["pred_conll"],
-        "class_name": "coref_pred2conll_doc"
       }
     ],
-    "out": ["conll_doc", "pred_conll"]
+    "out": ["predicted_clusters", "mention_to_predicted", "clusters"]
   },
   "train": {
     "epochs": 200,
     "batch_size": 1,
     "metrics": [
       {
-        "name": "coref_f1",
-        "inputs": ["conll_doc", "pred_conll"]
+        "name": "coref_metrics",
+        "inputs": ["predicted_clusters", "mention_to_predicted", "clusters"]
       }
     ],
     "validation_patience": 5,
@@ -96,13 +86,16 @@
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf-gpu.txt",
-      "{DEEPPAVLOV_PATH}/requirements/fasttext.txt",
-      "{DEEPPAVLOV_PATH}/requirements/elmo.txt"
+      "{DEEPPAVLOV_PATH}/requirements/fasttext.txt"
     ],
     "download": [
       {
         "url": "http://files.deeppavlov.ai/datasets/coreference_resolution/rucoref_29.10.2015.zip",
-        "subdir": "{DOWNLOADS_PATH}/coreference_dataset/"
+        "subdir": "{DOWNLOADS_PATH}/coreference_resolution/"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
+        "subdir": "{DOWNLOADS_PATH}/embeddings"
       }
     ]
   }
