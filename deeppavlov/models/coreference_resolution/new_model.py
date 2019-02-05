@@ -795,9 +795,7 @@ class CorefModel(TFModel):
         predicted_clusters, mention_to_predicted = self.get_predicted_clusters(mention_starts, mention_ends,
                                                                                predicted_antecedents)
 
-        # predicted_clusters = dict(doc_key=predicted_clusters)
-
-        return predicted_clusters, mention_to_predicted
+        return [predicted_clusters], [mention_to_predicted]
 
     def destroy(self):
         """Reset the model"""
