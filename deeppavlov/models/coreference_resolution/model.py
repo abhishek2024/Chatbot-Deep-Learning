@@ -168,7 +168,7 @@ class CorefModel(TFModel):
 
         tf.set_random_seed(self.random_seed)
         config = tf.ConfigProto()
-        config.gpu_options.per_process_gpu_memory_fraction = 0.8  # 1.0
+        config.gpu_options.per_process_gpu_memory_fraction = 0.95  # 1.0
 
         self.sess = tf.Session(config=config)
         self.sess.run(tf.global_variables_initializer())
