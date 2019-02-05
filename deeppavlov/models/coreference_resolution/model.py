@@ -13,18 +13,16 @@
 # limitations under the License.
 
 import random
-from pathlib import Path
 from typing import Any, Tuple
 
 import numpy as np
 import tensorflow as tf
 
 from deeppavlov.core.common.errors import ConfigError
-
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
-from . import custom_layers
-from .custom_ops import compile_coreference
+from deeppavlov.models.coreference_resolution import custom_layers
+from deeppavlov.models.coreference_resolution.tf_ops import distance_bins, extract_mentions, get_antecedents, spans
 
 
 @register("coref_model")
@@ -35,7 +33,6 @@ class CorefModel(TFModel):
     """
 
     def __init__(self,
-                 os: str = "linux",
                  embedder: Any = None,
                  emb_lowercase: bool = False,
                  emb_format: str = "std_emb",
@@ -64,6 +61,7 @@ class CorefModel(TFModel):
                  lexical_dropout_rate: float = 0.5,
                  anaphora: str = "full",
                  model_heads: bool = True,
+                 train_on_gold: bool = True,
                  random_seed: int = 42,
                  rep_iter: int = 144,
                  **kwargs):
@@ -111,6 +109,7 @@ class CorefModel(TFModel):
         self.max_gradient_norm = max_gradient_norm
 
         # other
+        self.train_on_gold = train_on_gold
         self.random_seed = random_seed
         self.head_scores = None
         self.dropout = None
@@ -118,20 +117,11 @@ class CorefModel(TFModel):
         self.tf_loss = None
 
         # ----------------------------------------------------------------------------------
-        kernel_path = Path(__file__).resolve().parent
-        compile_coreference(kernel_path, operational_system=os)
-        coref_op_library = tf.load_op_library(str(kernel_path.joinpath("coref_kernels.so")))
-
-        tf.NotDifferentiable("Spans")
-        tf.NotDifferentiable("Antecedents")
-        tf.NotDifferentiable("ExtractMentions")
-        tf.NotDifferentiable("DistanceBins")
-
         # C++ operations
-        self.spans = coref_op_library.spans
-        self.distance_bins = coref_op_library.distance_bins
-        self.extract_mentions = coref_op_library.extract_mentions
-        self.get_antecedents = coref_op_library.antecedents
+        self.spans = spans
+        self.distance_bins = distance_bins
+        self.extract_mentions = extract_mentions
+        self.get_antecedents = get_antecedents
         # ----------------------------------------------------------------------------------
 
         self.genres = {g: i for i, g in enumerate(self.genres)}
@@ -234,17 +224,22 @@ class CorefModel(TFModel):
             If length of the longest sentence in the document is greater than parameter "max_training_sentences",
             the returning method calls the 'truncate_example' function.
         """
-        clusters = example["clusters"]
+        if isinstance(example["clusters"], tuple):
+            clusters = example["clusters"][0]
+        else:
+            clusters = example["clusters"]
+
         gold_mentions = sorted(tuple(m) for m in custom_layers.flatten(clusters))
         gold_mention_map = {m: i for i, m in enumerate(gold_mentions)}
         cluster_ids = np.zeros(len(gold_mentions))
+
         for cluster_id, cluster in enumerate(clusters):
             for mention in cluster:
                 cluster_ids[gold_mention_map[tuple(mention)]] = cluster_id
 
-        sentences = example["sentences"]
+        sentences = example["sentences"][0]
         num_words = sum(len(s) for s in sentences)
-        speakers = custom_layers.flatten(example["speakers"])
+        speakers = custom_layers.flatten(example["speakers"][0])
 
         assert num_words == len(speakers)
 
@@ -252,7 +247,7 @@ class CorefModel(TFModel):
         max_word_length = max(max(max(len(w) for w in s) for s in sentences), max(self.filter_widths))
         char_index = np.zeros([len(sentences), max_sentence_length, max_word_length])
         text_len = np.array([len(s) for s in sentences])
-        doc_key = example["doc_key"]
+        doc_key = example["doc_key"][0]
 
         if self.emb_lowercase:
             for i, sentence in enumerate(sentences):
@@ -260,12 +255,11 @@ class CorefModel(TFModel):
                     sentences[i][j] = word.lower()
 
         for i, sentence in enumerate(sentences):
-            sentences[i] = list(sentences[i])
             for j, word in enumerate(sentence):
                 char_index[i, j, :len(word)] = [self.char_dict[c] for c in word]
 
         if self.emb_format == "std_emb":
-            word_emb = self.embedder(sentences)  # List[np.array[len(sent), emb_size]]
+            word_emb = self.embedder(sentences)
         else:
             word_emb = self.embedder(doc_key)
 
@@ -662,31 +656,44 @@ class CorefModel(TFModel):
                                               dtype=tf.float64),
                               genre)  # [emb]
         # -------------------------------------------------------------------------------------------------------------
-        sentence_indices = tf.tile(tf.expand_dims(tf.range(num_sentences), 1),
-                                   [1, max_sentence_length])  # [num_sentences, max_sentence_length]
-        flattened_sentence_indices = self.flatten_emb_by_sentence(sentence_indices, text_len_mask)  # [num_words]
         flattened_text_emb = self.flatten_emb_by_sentence(text_emb, text_len_mask)  # [num_words]
 
-        candidate_starts, candidate_ends = self.spans(
-            sentence_indices=flattened_sentence_indices,
-            max_width=self.max_mention_width)
-        candidate_starts.set_shape([None])
-        candidate_ends.set_shape([None])
+        if self.train_on_gold:
+            candidate_mention_emb = self.get_mention_emb(flattened_text_emb, text_outputs, gold_starts,
+                                                         gold_ends)  # [num_candidates, emb]
+            gold_len = tf.shape(gold_ends)
+            candidate_mention_scores = tf.ones(gold_len, dtype=tf.float64)
 
-        candidate_mention_emb = self.get_mention_emb(flattened_text_emb, text_outputs, candidate_starts,
-                                                     candidate_ends)  # [num_candidates, emb]
-        candidate_mention_scores = self.get_mention_scores(candidate_mention_emb)  # [num_mentions, 1]
-        candidate_mention_scores = tf.squeeze(candidate_mention_scores, 1)  # [num_mentions]
+            mention_starts = gold_starts
+            mention_ends = gold_ends
+            mention_emb = candidate_mention_emb
+            mention_scores = candidate_mention_scores
+        else:
+            sentence_indices = tf.tile(tf.expand_dims(tf.range(num_sentences), 1),
+                                       [1, max_sentence_length])  # [num_sentences, max_sentence_length]
+            flattened_sentence_indices = self.flatten_emb_by_sentence(sentence_indices, text_len_mask)  # [num_words]
 
-        k = tf.to_int32(tf.floor(tf.to_float(tf.shape(text_outputs)[0]) * self.mention_ratio))
-        predicted_mention_indices = self.extract_mentions(candidate_mention_scores, candidate_starts,
-                                                          candidate_ends, k)  # ([k], [k])
-        predicted_mention_indices.set_shape([None])
+            candidate_starts, candidate_ends = self.spans(
+                sentence_indices=flattened_sentence_indices,
+                max_width=self.max_mention_width)
+            candidate_starts.set_shape([None])
+            candidate_ends.set_shape([None])
 
-        mention_starts = tf.gather(candidate_starts, predicted_mention_indices)  # [num_mentions]
-        mention_ends = tf.gather(candidate_ends, predicted_mention_indices)  # [num_mentions]
-        mention_emb = tf.gather(candidate_mention_emb, predicted_mention_indices)  # [num_mentions, emb]
-        mention_scores = tf.gather(candidate_mention_scores, predicted_mention_indices)  # [num_mentions]
+            candidate_mention_emb = self.get_mention_emb(flattened_text_emb, text_outputs, candidate_starts,
+                                                         candidate_ends)  # [num_candidates, emb]
+
+            candidate_mention_scores = self.get_mention_scores(candidate_mention_emb)  # [num_mentions, 1]
+            candidate_mention_scores = tf.squeeze(candidate_mention_scores, 1)  # [num_mentions]
+
+            k = tf.to_int32(tf.floor(tf.to_float(tf.shape(text_outputs)[0]) * self.mention_ratio))
+            predicted_mention_indices = self.extract_mentions(candidate_mention_scores, candidate_starts,
+                                                              candidate_ends, k)  # ([k], [k])
+            predicted_mention_indices.set_shape([None])
+
+            mention_starts = tf.gather(candidate_starts, predicted_mention_indices)  # [num_mentions]
+            mention_ends = tf.gather(candidate_ends, predicted_mention_indices)  # [num_mentions]
+            mention_emb = tf.gather(candidate_mention_emb, predicted_mention_indices)  # [num_mentions, emb]
+            mention_scores = tf.gather(candidate_mention_scores, predicted_mention_indices)  # [num_mentions]
 
         # mention_start_emb = tf.gather(text_outputs, mention_starts)  # [num_mentions, emb]
         # mention_end_emb = tf.gather(text_outputs, mention_ends)  # [num_mentions, emb]
@@ -709,8 +716,10 @@ class CorefModel(TFModel):
         loss = self.softmax_loss(antecedent_scores, antecedent_labels)  # [num_mentions]
         loss = tf.reduce_sum(loss)  # []
 
-        return [candidate_starts, candidate_ends, candidate_mention_scores, mention_starts, mention_ends, antecedents,
-                antecedent_scores], loss
+        # [candidate_starts, candidate_ends, candidate_mention_scores, mention_starts, mention_ends,
+        #                     antecedents, antecedent_scores], loss
+
+        return [candidate_mention_scores, mention_starts, mention_ends, antecedents, antecedent_scores], loss
 
     @staticmethod
     def get_predicted_clusters(mention_starts, mention_ends, predicted_antecedents):
@@ -760,28 +769,34 @@ class CorefModel(TFModel):
         Returns: Loss functions value and tf.global_step
 
         """
-        sentences, speakers, doc_key, clusters = args
+        if self.train_on_gold:
+            sentences, speakers, doc_key, mentions_st, clusters = args
+        else:
+            sentences, speakers, doc_key, clusters = args
         batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": clusters}
         self.start_enqueue_thread(batch, True)
         self.tf_loss, tf_global_step, _ = self.sess.run([self.loss, self.global_step, self.train_op])
         return self.tf_loss
 
     def __call__(self, *args):
-        sentences, speakers, doc_key = args
-        batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": []}
+        if self.train_on_gold:
+            sentences, speakers, doc_key, clusters = args
+            batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": clusters}
+        else:
+            sentences, speakers, doc_key = args
+            batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": []}
+
         self.start_enqueue_thread(batch, False)
 
-        _, _, _, mention_starts, mention_ends, antecedents, antecedent_scores = self.sess.run(self.predictions)
+        _, mention_starts, mention_ends, antecedents, antecedent_scores = self.sess.run(self.predictions)
 
         predicted_antecedents = self.get_predicted_antecedents(antecedents, antecedent_scores)
 
         predicted_clusters, mention_to_predicted = self.get_predicted_clusters(mention_starts, mention_ends,
                                                                                predicted_antecedents)
 
-        predicted_clusters = dict(doc_key=predicted_clusters)
-
-        return predicted_clusters, mention_to_predicted
+        return [predicted_clusters], [mention_to_predicted]
 
     def destroy(self):
         """Reset the model"""
-        tf.reset_default_graph()
+        self.sess.close()
