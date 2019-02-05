@@ -56,7 +56,7 @@
         "in_y": ["clusters"],
         "out": ["predicted_clusters", "mention_to_predicted"],
         "main": true,
-        "class_name": "coref_model_on_gold",
+        "class_name": "coref_model",
         "save_path": "{MODELS_PATH}/checkpoints/model_on_gold/best_model.ckpt",
         "load_path": "{MODELS_PATH}/checkpoints/model_on_gold/best_model.ckpt",
         "char_vocab": "#char_vocab",

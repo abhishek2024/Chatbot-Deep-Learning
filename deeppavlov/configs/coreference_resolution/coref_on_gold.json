@@ -49,7 +49,7 @@
         "in_y": ["clusters"],
         "out": ["predicted_clusters", "mention_to_predicted"],
         "main": true,
-        "class_name": "new_coref_model",
+        "class_name": "coref_model",
         "train_on_gold": true,
         "save_path": "{MODELS_PATH}/checkpoints/new_model/best_model.ckpt",
         "load_path": "{MODELS_PATH}/checkpoints/new_model/best_model.ckpt",
