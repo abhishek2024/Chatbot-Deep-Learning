@@ -1,12 +1,10 @@
 {
   "dataset_reader": {
     "class_name": "coreference_reader",
-    "data_path": "{DOWNLOADS_PATH}/coreference_dataset/rucoref_conll",
-    "mode": "jsonl"
+    "data_path": "{DOWNLOADS_PATH}/coreference_dataset/rucoref_conll"
   },
   "dataset_iterator": {
-    "class_name": "coreference_iterator",
-    "dtype": "jsonl"
+    "class_name": "coreference_iterator"
   },
   "chainer": {
     "in": ["sentences", "speakers", "doc_key"],

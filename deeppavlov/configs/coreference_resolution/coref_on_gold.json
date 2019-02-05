@@ -1,12 +1,10 @@
 {
   "dataset_reader": {
     "class_name": "coreference_reader",
-    "data_path": "{DOWNLOADS_PATH}/coreference_resolution/rucoref_29.10.2015",
-    "mode": "jsonl"
+    "data_path": "{DOWNLOADS_PATH}/coreference_resolution/rucoref_29.10.2015"
   },
   "dataset_iterator": {
     "class_name": "coreference_iterator",
-    "dtype": "jsonl",
     "seed": 42,
     "train_on_gold": true,
     "field_to_split": "train",

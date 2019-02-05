@@ -41,19 +41,15 @@ class CorefIterator(DataLearningIterator):
         random: instance of ``Random`` initialized with a seed
     """
 
-    def __init__(self, data: Dict, dtype: str, train_on_gold: bool = False, seed: int = None, shuffle: bool = True,
+    def __init__(self, data: Dict, train_on_gold: bool = False, seed: int = None, shuffle: bool = True,
                  *args, **kwargs) -> None:
         super().__init__(data, seed=seed, shuffle=shuffle, *args, **kwargs)
         self.jsonl_path = None
-        self.dtype = dtype
         self.trian_on_gold = train_on_gold
-        if self.dtype == "jsonl":
-            self.jsonl_path = copy(data['train'][0])
-            with self.jsonl_path.open('r', encoding='utf8') as train_file:
-                self.data['train'] = [i for i, line in enumerate(train_file) if line.rstrip()]
-                self.data['all'] = copy(self.data['train'])
-        elif self.dtype not in ["conll", "jsonl"]:
-            raise ConfigError(f"Coreference iterator not supported '{self.dtype}' dataset type.")
+        self.jsonl_path = copy(data['train'][0])
+        with self.jsonl_path.open('r', encoding='utf8') as train_file:
+            self.data['train'] = [i for i, line in enumerate(train_file) if line.rstrip()]
+            self.data['all'] = copy(self.data['train'])
 
         self._split(**kwargs)
 
@@ -128,23 +124,17 @@ class CorefIterator(DataLearningIterator):
         if shuffle:
             self.random.shuffle(data)
 
-        if self.dtype == 'conll':
-            for conll_file in data:
-                with conll_file.open("r", encoding='utf8') as cnlf:
-                    conll_str = cnlf.read()
-                yield (conll_str,)
-        else:
-            with self.jsonl_path.open('r', encoding='utf8'):
-                for i in data:
-                    example = json.loads(linecache.getline(str(self.jsonl_path), i + 1))
-                    if self.trian_on_gold:
-                        yield tuple(zip(
-                            [(example["sentences"], example["speakers"], example["doc_key"], example["clusters"]),
-                             example["clusters"]]))
-                    else:
-                        yield tuple(zip(
-                            [(example["sentences"], example["speakers"], example["doc_key"]),
-                             example["clusters"]]))
+        with self.jsonl_path.open('r', encoding='utf8'):
+            for i in data:
+                example = json.loads(linecache.getline(str(self.jsonl_path), i + 1))
+                if self.trian_on_gold:
+                    yield tuple(zip(
+                        [(example["sentences"], example["speakers"], example["doc_key"], example["clusters"]),
+                         example["clusters"]]))
+                else:
+                    yield tuple(zip(
+                        [(example["sentences"], example["speakers"], example["doc_key"]),
+                         example["clusters"]]))
 
     def get_instances(self, data_type: str = 'train') -> Tuple[tuple, tuple]:
         """Get all data for a selected data type
@@ -156,20 +146,14 @@ class CorefIterator(DataLearningIterator):
              a tuple of all inputs for a data type and all expected outputs for a data type
         """
         data = []
-        if self.dtype == 'conll':
-            for conll_file in self.data[data_type]:
-                with conll_file.open("r", encoding='utf8') as cnlf:
-                    conll_str = cnlf.read()
-                data.append((conll_str,))
-        else:
-            with self.jsonl_path.open('r', encoding='utf8'):
-                for i in self.data[data_type]:
-                    example = json.loads(linecache.getline(str(self.jsonl_path), i + 1))
-                    if self.trian_on_gold:
-                        data.append(((example["sentences"], example["speakers"], example["doc_key"],
-                                      example["clusters"]), example["clusters"]))
-                    else:
-                        data.append(
-                            ((example["sentences"], example["speakers"], example["doc_key"]), example["clusters"]))
+        with self.jsonl_path.open('r', encoding='utf8'):
+            for i in self.data[data_type]:
+                example = json.loads(linecache.getline(str(self.jsonl_path), i + 1))
+                if self.trian_on_gold:
+                    data.append(((example["sentences"], example["speakers"], example["doc_key"],
+                                  example["clusters"]), example["clusters"]))
+                else:
+                    data.append(
+                        ((example["sentences"], example["speakers"], example["doc_key"]), example["clusters"]))
 
         return tuple(zip(*data))

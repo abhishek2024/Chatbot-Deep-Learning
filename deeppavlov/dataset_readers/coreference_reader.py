@@ -16,7 +16,6 @@ import json
 from pathlib import Path
 from typing import Dict, List
 
-from deeppavlov.core.common.errors import ConfigError
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.dataset_reader import DatasetReader
 from deeppavlov.models.coreference_resolution.conll2model_format import conll2modeldata
@@ -29,23 +28,16 @@ class CorefReader(DatasetReader):
         self.data_path = None
         self.folder_path = None
         self.dataset_name = None
-        self.mode = None
 
     def read(self, data_path: str, *args, **kwargs) -> Dict[str, List[str]]:
         self.data_path = Path(data_path)
         self.folder_path = self.data_path.parent
-        self.mode = kwargs.get("mode", "conll")
         self.dataset_name = "rucoref_conll"
 
         if not self.data_path.exists():
             raise ValueError(f"Russian Coreference dataset in a {self.data_path} folder is absent.")
 
-        if self.mode == "conll":
-            return self.read_conll()
-        elif self.mode == "jsonl":
-            return self.read_jsonlines()
-        else:
-            raise ConfigError(f"Coreference reader not supported '{self.mode}' mode.")
+        return self.read_jsonlines()
 
     def rucor2conll(self) -> None:
         rucoref2conll(self.data_path, self.folder_path)
@@ -53,11 +45,6 @@ class CorefReader(DatasetReader):
         split_doc(self.folder_path.joinpath('russian.v4_conll'),
                   self.folder_path.joinpath(self.dataset_name))
         self.folder_path.joinpath('russian.v4_conll').unlink()
-
-    def read_conll(self) -> Dict:
-        if not self.folder_path.joinpath(self.dataset_name).exists():
-            self.rucor2conll()
-        return dict(train=sorted(self.folder_path.joinpath(self.dataset_name).glob("*.v4_conll")))
 
     def read_jsonlines(self) -> Dict:
         train_path = self.folder_path.joinpath("train.jsonl")

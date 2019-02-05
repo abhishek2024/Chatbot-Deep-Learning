@@ -1,12 +1,10 @@
 {
   "dataset_reader": {
     "class_name": "coreference_reader",
-    "data_path": "{DOWNLOADS_PATH}/coreference_resolution/rucor_conll",
-    "mode": "jsonl"
+    "data_path": "{DOWNLOADS_PATH}/coreference_resolution/rucor_conll"
   },
   "dataset_iterator": {
     "class_name": "coreference_iterator",
-    "mode": "jsonl",
     "seed": 42,
     "field_to_split": "train",
     "split_fields": [
