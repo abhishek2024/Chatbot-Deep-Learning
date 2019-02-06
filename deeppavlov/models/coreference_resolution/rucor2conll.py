@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import time
 from collections import defaultdict
+from pathlib import Path
+from typing import Union
 
 from tqdm import tqdm
 
@@ -27,7 +28,7 @@ class Watcher:
     def __init__(self):
         self.mentions = 0
 
-    def mentions_closed(self, s):
+    def mentions_closed(self, s: str) -> bool:
         s = s.split('|')
         for x in s:
             if x[0] == '(' and x[-1] != ')':
@@ -41,17 +42,23 @@ class Watcher:
             return True
 
 
-def rucoref2conll(path, out_path, language='russian'):
+def rucoref2conll(path: Union[str, Path], out_path: Union[str, Path]) -> None:
     """
     RuCor corpus files are converted to standard conll format.
+
     Args:
         path: path to the RuCorp dataset
-        out_path: -
-        language: language of dataset
+        out_path: the path to the folder in which the new dataset will be created
 
-    Returns: Nothing
-
+    Returns:
+        None
     """
+    language = 'russian'
+    if isinstance(path, str):
+        path = Path(path)
+    if isinstance(out_path, str):
+        out_path = Path(out_path)
+
     data = {"doc_id": [],
             "part_id": [],
             "word_number": [],
@@ -76,12 +83,13 @@ def rucoref2conll(path, out_path, language='russian'):
     tokens_fname = "Tokens"
     groups_fname = "Groups"
 
-    tokens_path = os.path.join(path, ".".join([tokens_fname, tokens_ext]))
-    groups_path = os.path.join(path, ".".join([groups_fname, groups_ext]))
+    tokens_path = path.joinpath(".".join([tokens_fname, tokens_ext]))
+    groups_path = path.joinpath(".".join([groups_fname, groups_ext]))
+
     print('[ Convert rucoref corpus into conll format ... ]')
     start = time.time()
     coref_dict = {}
-    with open(groups_path, "r") as groups_file:
+    with groups_path.open("r", encoding='utf8') as groups_file:
         for line in groups_file:
             doc_id, variant, group_id, chain_id, link, shift, lens, content, tk_shifts, attributes, head, hd_shifts = \
                 line[:-1].split('\t')
@@ -95,10 +103,9 @@ def rucoref2conll(path, out_path, language='russian'):
                 tk = tk_shifts.split(',')
                 coref_dict[doc_id]['starts'][tk[0]].append(chain_id)
                 coref_dict[doc_id]['ends'][tk[-1]].append(chain_id)
-        groups_file.close()
 
     # Write conll structure
-    with open(tokens_path, "r") as tokens_file:
+    with tokens_path.open("r", encoding='utf8') as tokens_file:
         k = 0
         doc_name = '0'
         for line in tokens_file:
@@ -151,11 +158,9 @@ def rucoref2conll(path, out_path, language='russian'):
                 data['word_number'].append(k)
                 k += 1
 
-        tokens_file.close()
-
     # Write conll structure in file
-    conll = os.path.join(out_path, ".".join([language, 'v4_conll']))
-    with open(conll, 'w') as CoNLL:
+    conll = out_path.joinpath(".".join([language, 'v4_conll']))
+    with conll.open('w', encoding='utf8') as CoNLL:
         for i in tqdm(range(len(data['doc_id']))):
             if i == 0:
                 CoNLL.write('#begin document ({}); part {}\n'.format(data['doc_id'][i], data["part_id"][i]))
@@ -220,27 +225,33 @@ def rucoref2conll(path, out_path, language='russian'):
                     CoNLL.write('#begin document ({}); part {}\n'.format(data['doc_id'][i + 1], data["part_id"][i + 1]))
 
     print('[ End of convertion. Time - {} ]'.format(time.time() - start))
-    return None
 
 
-def split_doc(inpath, outpath, language='russian'):
+def split_doc(inpath: Union[str, Path], outpath: Union[str, Path]) -> None:
     """
     It splits one large conll file containing the entire RuCorp dataset into many separate documents.
 
     Args:
         inpath: -
         outpath: -
-        language: -
 
-    Returns: Nothing
+    Returns:
+        None
     """
+    language = 'russian'
+    if isinstance(inpath, str):
+        inpath = Path(inpath)
+    if isinstance(outpath, str):
+        outpath = Path(outpath)
+
     # split massive conll file to many little
     print('[ Start of splitting ... ]')
-    with open(inpath, 'r+') as f:
+    with inpath.open('r+', encoding='utf8') as f:
         lines = f.readlines()
-        f.close()
+
     set_ends = []
     k = 0
+
     print('[ Splitting conll document ... ]')
     for i in range(len(lines)):
         if lines[i].startswith('#begin'):
@@ -249,34 +260,40 @@ def split_doc(inpath, outpath, language='russian'):
             set_ends.append([k, i, doc_num])
             k = i + 1
     for i in range(len(set_ends)):
-        cpath = os.path.join(str(outpath), ".".join([str(set_ends[i][2]), language, 'v4_conll']))
-        with open(cpath, 'w') as c:
+        cpath = outpath.joinpath(".".join([str(set_ends[i][2]), language, 'v4_conll']))
+        with cpath.open('w', encoding='utf8') as c:
             for j in range(set_ends[i][0], set_ends[i][1] + 1):
                 if lines[j] == '#end document\n':
                     c.write(lines[j][:-1])
                 else:
                     c.write(lines[j])
-            c.close()
 
-    del lines
     print('[ Splitts {} docs in {} ]'.format(len(set_ends), outpath))
+    del lines
     del set_ends
     del k
 
 
-def get_all_texts_from_tokens_file(tokens_path, out_path):
+def get_all_texts_from_tokens_file(tokens_path: Union[str, Path], out_path: Union[str, Path]) -> None:
     """
     Creates file with pure text from RuCorp dataset.
+
     Args:
         tokens_path: -
         out_path: -
 
-    Returns: Nothing
+    Returns:
+        None
 
     """
     lengths = {}
+    if isinstance(tokens_path, str):
+        tokens_path = Path(tokens_path)
+    if isinstance(out_path, str):
+        out_path = Path(out_path)
+
     # determine number of texts and their lengths
-    with open(tokens_path, "r") as tokens_file:
+    with tokens_path.open("r", encoding='utf8') as tokens_file:
         for line in tokens_file:
             doc_id, shift, length, token, lemma, gram = line[:-1].split('\t')
             try:
@@ -287,7 +304,7 @@ def get_all_texts_from_tokens_file(tokens_path, out_path):
 
     texts = {doc_id: [' '] * length for (doc_id, length) in lengths.items()}
     # read texts
-    with open(tokens_path, "r") as tokens_file:
+    with tokens_path.open("r", encoding='utf8') as tokens_file:
         for line in tokens_file:
             doc_id, shift, length, token, lemma, gram = line[:-1].split('\t')
             try:
@@ -298,8 +315,7 @@ def get_all_texts_from_tokens_file(tokens_path, out_path):
     for doc_id in texts:
         texts[doc_id] = "".join(texts[doc_id])
 
-    with open(out_path, "w") as out_file:
+    with out_path.open("w", encoding='utf8') as out_file:
         for doc_id in texts:
             out_file.write(texts[doc_id])
             out_file.write("\n")
-    return None
