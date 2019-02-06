@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import collections
+from typing import Dict, Union
 
 
 class DocumentState(object):
@@ -20,7 +21,7 @@ class DocumentState(object):
     Class that verifies the conll document and creates on its basis a new dictionary.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.doc_key = None
         self.text = []
         self.text_speakers = []
@@ -29,7 +30,7 @@ class DocumentState(object):
         self.clusters = collections.defaultdict(list)
         self.stacks = collections.defaultdict(list)
 
-    def assert_empty(self):
+    def assert_empty(self) -> None:
         assert self.doc_key is None, 'self.doc_key is None'
         assert len(self.text) == 0, 'len(self.text) == 0'
         assert len(self.text_speakers) == 0, 'len(self.text_speakers)'
@@ -38,7 +39,7 @@ class DocumentState(object):
         assert len(self.clusters) == 0, 'len(self.clusters) == 0'
         assert len(self.stacks) == 0, 'len(self.stacks) == 0'
 
-    def assert_finalizable(self):
+    def assert_finalizable(self) -> None:
         assert self.doc_key is not None, 'self.doc_key is not None finalizable'
         assert len(self.text) == 0, 'len(self.text) == 0_finalizable'
         assert len(self.text_speakers) == 0, 'len(self.text_speakers) == 0_finalizable'
@@ -47,7 +48,7 @@ class DocumentState(object):
         assert all(
             len(s) == 0 for s in self.stacks.values()), 'all(len(s) == 0 for s in self.stacks.values())_finalizable'
 
-    def finalize(self):
+    def finalize(self) -> Dict:
         merged_clusters = []
         for c1 in self.clusters.values():
             existing = None
@@ -65,26 +66,23 @@ class DocumentState(object):
                 merged_clusters.append(set(c1))
         merged_clusters = [list(c) for c in merged_clusters]
 
-        # TODO check dictionary on mentions
-        # all_mentions = flatten(merged_clusters)
-        # In folder test one file have repeting mentions, it call below assert, everething else works fine
-
         return {"doc_key": self.doc_key,
                 "sentences": self.sentences,
                 "speakers": self.speakers,
                 "clusters": merged_clusters}
 
 
-def normalize_word(word):
+def normalize_word(word: str) -> str:
     if word == "/." or word == "/?":
         return word[1:]
     else:
         return word
 
 
-def handle_line(line, document_state):
+def handle_line(line: str, document_state: DocumentState) -> Union[None, Dict]:
     """
     Updates the state of the document_state class in a read string of conll document.
+
     Args:
         line: line from conll document
         document_state: analyzing class
@@ -139,21 +137,21 @@ def handle_line(line, document_state):
         return None
 
 
-def conll2modeldata(conll_str):
+def conll2modeldata(conll_str: str) -> Dict:
     """
     Converts the document into a dictionary, with the required format for the model.
+
     Args:
         conll_str: dict with conll string
 
-    Returns: dict like:
-
-    {
-      "clusters": [[[1024,1024],[1024,1025]],[[876,876], [767,765], [541,544]]],
-      "doc_key": "nw",
-      "sentences": [["This", "is", "the", "first", "sentence", "."], ["This", "is", "the", "second", "."]],
-      "speakers": [["spk1", "spk1", "spk1", "spk1", "spk1", "spk1"], ["spk2", "spk2", "spk2", "spk2", "spk2"]]
-    }
-
+    Returns:
+        dict like:
+            {
+              "clusters": [[[1024,1024],[1024,1025]],[[876,876], [767,765], [541,544]]],
+              "doc_key": "nw",
+              "sentences": [["This", "is", "the", "first", "sentence", "."], ["This", "is", "the", "second", "."]],
+              "speakers": [["spk1", "spk1", "spk1", "spk1", "spk1", "spk1"], ["spk2", "spk2", "spk2", "spk2", "spk2"]]
+            }
     """
     model_file = None
     document_state = DocumentState()
