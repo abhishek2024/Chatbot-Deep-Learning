@@ -649,7 +649,7 @@ class CorefModel(TFModel):
         text_len_mask = tf.reshape(text_len_mask, [num_sentences * max_sentence_length])
 
         text_outputs = self.encode_sentences(text_emb, text_len, text_len_mask)
-        text_outputs = tf.nn.dropout(text_outputs, self.dropout)
+        text_outputs = tf.nn.dropout(text_outputs, self.dropout)  # [num_sentences * max_sentence_length, emb] (my)
 
         genre_emb = tf.gather(tf.get_variable("genre_embeddings",
                                               [len(self.genres), self.feature_size],
