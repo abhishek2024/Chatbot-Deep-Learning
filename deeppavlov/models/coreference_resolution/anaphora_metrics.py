@@ -14,12 +14,14 @@
 
 import os
 import uuid
+from pathlib import Path
+from typing import Union
 
 import numpy as np
 from tqdm import tqdm
 
 
-def extract_data(infile):
+def extract_data(infile: Union[str, Path]) -> dict:
     """
     Extract useful information from conll file and write it in special dict structure.
 
@@ -43,9 +45,11 @@ def extract_data(infile):
     Returns:
         dict with an alternative mention structure
     """
+    if isinstance(infile, str):
+        infile = Path(infile)
     # filename, parts: [{text: [sentence, ...], chains}, ...]
     data = {'doc_name': None, 'parts': dict()}
-    with open(infile, 'r', encoding='utf8') as fin:
+    with infile.open('r', encoding='utf8') as fin:
         current_sentence = []
         current_sentence_pos = []
         sentence_id = 0
@@ -128,7 +132,7 @@ def extract_data(infile):
     return data
 
 
-def ana_doc_score(g_file, p_file):
+def ana_doc_score(g_file: str, p_file: str) -> tuple:
     """
     The function takes two files at the input, analyzes them and calculates anaphora score. A weak criterion
     for antecedent identification is used.
@@ -231,7 +235,7 @@ def ana_doc_score(g_file, p_file):
     return precision, recall, f1
 
 
-def true_ana_score(g_file, p_file):
+def true_ana_score(g_file: str, p_file: str) -> tuple:
     main = {}
 
     g_data = extract_data(g_file)
@@ -334,7 +338,7 @@ def true_ana_score(g_file, p_file):
     return precision, recall, f1
 
 
-def pos_ana_score(g_file, p_file):
+def pos_ana_score(g_file: str, p_file: str) -> tuple:
     """
     Anaphora scores from gold and predicted files.
     A weak criterion for antecedent identification is used. In documents only used 3d-person pronouns,
@@ -497,7 +501,7 @@ def pos_ana_score(g_file, p_file):
     return precision, recall, f1
 
 
-def anaphora_score(keys_path, predicts_path, stype):
+def anaphora_score(keys_path: str, predicts_path: str, stype: str) -> dict:
     """
     Anaphora scores predicted files.
     A weak criterion for antecedent identification is used.
