@@ -655,7 +655,7 @@ class CorefModel(TFModel):
                                               [len(self.genres), self.feature_size],
                                               dtype=tf.float64),
                               genre)  # [emb]
-        # -------------------------------------------------------------------------------------------------------------
+
         flattened_text_emb = self.flatten_emb_by_sentence(text_emb, text_len_mask)  # [num_words]
 
         if self.train_on_gold:
@@ -704,7 +704,6 @@ class CorefModel(TFModel):
                                                                                gold_starts, gold_ends, cluster_ids,
                                                                                max_antecedents)
         # ([num_mentions, max_ant], [num_mentions, max_ant + 1], [num_mentions]
-        # -------------------------------------------------------------------------------------------------------------
 
         antecedents.set_shape([None, None])
         antecedent_labels.set_shape([None, None])

@@ -12,20 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import List, Union
+
 import numpy as np
 import tensorflow as tf
 
 
-seed = 5
-np.random.seed(seed)
-
-
-def flatten(l):
+def flatten(l: List) -> List:
     """Expands list"""
     return [item for sublist in l for item in sublist]
 
 
-def normalize(v):
+def normalize(v: np.array) -> np.array:
     """Normalize input tensor"""
     norm = np.linalg.norm(v)
     if norm > 0:
@@ -34,7 +32,7 @@ def normalize(v):
         return v
 
 
-def maybe_divide(x, y):
+def maybe_divide(x: Union[int, float], y: Union[int, float]) -> Union[int, float]:
     return 0 if y == 0 else x / float(y)
 
 
@@ -164,6 +162,10 @@ class CustomLSTMCell(tf.contrib.rnn.RNNCell):
 
     @staticmethod
     def _orthonormal_initializer(scale=1.0):
+        # TODO move it seed in maim model graph and link it to global model random seed
+        seed = 5
+        np.random.seed(seed)
+
         def _initializer(shape_):
             m1 = np.random.randn(shape_[0], shape_[0]).astype(np.float64)
             m2 = np.random.randn(shape_[1], shape_[1]).astype(np.float64)
