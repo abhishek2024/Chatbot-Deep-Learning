@@ -123,17 +123,16 @@
 ## Запуск модели
 Перед запуском модели необходимо сперва загрузить векторные представления слов с помощью команды:
 
-    python -m deeppavlov download ./deepreply/configs/coreference_kpi11/coreference_russian_conll.json
+    python -m deeppavlov download deeppavlov/configs/coreference_resolution/coref_full.json 
 
 В папку `~/.deeppavlov/download/` будут загружены все необходимые файлы, а именно эмбеддинги, в папку 
-`~/.deeppavlov/download/embeddings/` соответственно, словарь символов в папку `~/.deeppavlov/download/vocabs/`, 
-и датасет с уже обученной моделью в папки `~/.deeppavlov/download/coreference_resolution/rucor_conll/` и 
-`~/.deeppavlov/download/coreference_resolution/checkpoints/` соответственно. Загрузка производится всего один раз. 
+`~/.deeppavlov/download/embeddings/` соответственно, и датасет с уже обученной моделью в папки `~/.deeppavlov/download/coreference_resolution/rucoref_29.10.2015` и 
+`~/.deeppavlov/download/coreference/checkpoints/` соответственно. Загрузка производится всего один раз. 
 При последующих запусках на инференс производить загрузку не нужно.
 
 Также требуется установить все необходимые зависимости для работы модели:
 
-    python -m deeppavlov install ./deepreply/configs/coreference_kpi11/coreference_russian_conll.json
+    python -m deeppavlov install .deeppavlov/configs/coreference_resolution/coref_full.json
 
 ### Компилирование tf операций написанных на C++
 Кроме того, для корректной работы модели требуется скомпилировать специальные операции tensorflow, написанные на 
@@ -154,7 +153,7 @@ C++. Для этого необходимо выполнить в командн
 
 Для запуска модели в интерактивном режиме из командной используется следующая команда:
 
-    python -m deeppavlov interact ./deepreply/configs/coreference_kpi11/coreference_russian_conll.json
+    python -m deeppavlov interact deeppavlov/configs/coreference_resolution/coref_full.json
 
 Замечание: помните что модель принимает на вход строку в формате conll. 
 ### Python
@@ -184,7 +183,7 @@ model(x)
 Если необходимо обучить модель заново, то следует изменить `save_path` и `load_path` для модели в конфиге, либо удалить
 все существующие чекпоинты и промежуточные файлы. После чего выполнить в командной строке команду:
 
-    python -m deeppavlov train ./deepreply/configs/coreference_kpi11/coreference_russian_conll.json
+    python -m deeppavlov train deeppavlov/configs/coreference_resolution/coref_full.json
 
 ## Эвалюация
 Для оценки качества модели используется общепринятый [скрипт](https://github.com/conll/reference-coreference-scorers) 
@@ -192,7 +191,7 @@ model(x)
 командной строке команду:
 
 ```bash
-python -m deeppavlov evaluate ./deepreply/configs/coreference_kpi11/coreference_russian_conll.json
+python -m deeppavlov evaluate deeppavlov/configs/coreference_resolution/coref_full.json
 ```
 Результат эвалюации будет выведен в консоль. Вывод:
 
