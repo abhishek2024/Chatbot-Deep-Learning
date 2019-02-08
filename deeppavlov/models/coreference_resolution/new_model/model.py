@@ -53,6 +53,7 @@ class CorefModel(TFModel):
                  decay_frequency: int = 100,
                  final_rate: float = 0.0002,
                  train_on_gold: bool = False,
+                 stop_decay: bool = False,
                  genres: list = ("bc", "bn", "mz", "nw", "pt", "tc", "wb"),
                  gpu_memory_fraction: float = 0.98,
                  **kwargs):
@@ -139,10 +140,11 @@ class CorefModel(TFModel):
         learning_rate = tf.train.exponential_decay(learning_rate, self.global_step,
                                                    decay_frequency, decay_rate,
                                                    staircase=True)
-        # this is  training hack
-        # learning_rate = tf.cond(learning_rate < self.final_rate,
-        #                         lambda: tf.Variable(self.final_rate, tf.float32),
-        #                         lambda: learning_rate)
+        # this is training hack
+        if stop_decay:
+            learning_rate = tf.cond(learning_rate < self.final_rate,
+                                    lambda: tf.Variable(self.final_rate, tf.float32),
+                                    lambda: learning_rate)
 
         trainable_params = tf.trainable_variables()
         gradients = tf.gradients(self.loss, trainable_params)

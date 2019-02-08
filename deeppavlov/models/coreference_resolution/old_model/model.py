@@ -65,6 +65,7 @@ class CorefModel(TFModel):
                  train_on_gold: bool = True,
                  random_seed: int = 42,
                  rep_iter: int = 144,
+                 stop_decay: bool = False,
                  **kwargs):
         # Parameters
         # ---------------------------------------------------------------------------------
@@ -150,10 +151,10 @@ class CorefModel(TFModel):
 
         learning_rate = tf.train.exponential_decay(self.learning_rate, self.global_step, self.decay_frequency,
                                                    self.decay_rate, staircase=True)
-
-        learning_rate = tf.cond(learning_rate < self.final_rate,
-                                lambda: tf.Variable(self.final_rate, tf.float32),
-                                lambda: learning_rate)
+        if stop_decay:
+            learning_rate = tf.cond(learning_rate < self.final_rate,
+                                    lambda: tf.Variable(self.final_rate, tf.float32),
+                                    lambda: learning_rate)
 
         trainable_params = tf.trainable_variables()
 

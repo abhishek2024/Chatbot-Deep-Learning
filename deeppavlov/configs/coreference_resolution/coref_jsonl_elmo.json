@@ -51,6 +51,7 @@
         "main": true,
         "class_name": "coref_model",
         "train_on_gold": true,
+        "stop_decay": true,
         "save_path": "{MODELS_PATH}/checkpoints/coref_elmo_on_gold/best_model.ckpt",
         "load_path": "{MODELS_PATH}/checkpoints/coref_elmo_on_gold/best_model.ckpt",
         "char_vocab": "#char_vocab",

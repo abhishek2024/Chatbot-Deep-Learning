@@ -57,6 +57,7 @@
         "head_embedder": "#embedder",
         "char_dict": "#char_vocab",
         "lm_path": "/home/mks/.deeppavlov/downloads/embeddings/elmo_cache_4.hdf5",
+        "stop_decay": false,
         "use_metadata": true,
         "use_features": true,
         "model_heads": true,

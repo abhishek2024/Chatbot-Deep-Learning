@@ -51,6 +51,7 @@
         "main": true,
         "class_name": "coref_model",
         "train_on_gold": false,
+        "stop_decay": true,
         "save_path": "{MODELS_PATH}/checkpoints/new_model/best_model.ckpt",
         "load_path": "{MODELS_PATH}/checkpoints/new_model/best_model.ckpt",
         "emb_format": "std_emb",
