@@ -1,4 +1,5 @@
 from pathlib import Path
+
 import tensorflow as tf
 
 kernel_path = Path(__file__).resolve().parent
