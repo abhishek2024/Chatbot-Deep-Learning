@@ -1,7 +1,7 @@
 {
   "dataset_reader": {
     "class_name": "coreference_reader",
-    "data_path": "{DOWNLOADS_PATH}/coreference_dataset/rucoref_conll"
+    "data_path": "{DOWNLOADS_PATH}/coreference_resolution/rucoref_29.10.2015"
   },
   "dataset_iterator": {
     "class_name": "coreference_iterator"
@@ -16,9 +16,12 @@
         "fit_on": ["sentences", "doc_key"],
         "id": "elmo_cached_estimator",
         "class_name":  "elmo_cahed_estimator",
-        "save_path": "{DOWNLOADS_PATH}/embeddings/elmo_cache.hdf5",
-        "elmo_output_names": ["elmo"],
+        "save_path": "{DOWNLOADS_PATH}/embeddings/elmo_cache_4.hdf5",
+        "elmo_output_names": ["word_emb", "lstm_outputs1", "lstm_outputs2"],
+        "concat_last_axis": false,
         "mini_batch_size": 32,
+        "dim": 1024,
+        "rank": 4,
         "spec": "~/Work/Embeddings/sber-faq_epoches_n_0"
       }
     ],

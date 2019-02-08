@@ -21,8 +21,9 @@ import tensorflow as tf
 from deeppavlov.core.common.errors import ConfigError
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
-from deeppavlov.models.coreference_resolution import custom_layers
-from deeppavlov.models.coreference_resolution.tf_ops import distance_bins, extract_mentions, get_antecedents, spans
+from deeppavlov.models.coreference_resolution.old_model import custom_layers
+from deeppavlov.models.coreference_resolution.old_model.tf_ops import distance_bins, extract_mentions, get_antecedents
+from deeppavlov.models.coreference_resolution.old_model.tf_ops import spans
 
 
 @register("coref_model")
@@ -67,7 +68,6 @@ class CorefModel(TFModel):
                  **kwargs):
         # Parameters
         # ---------------------------------------------------------------------------------
-
         # embeddings
         self.embedder = embedder
         self.emb_lowercase = emb_lowercase
@@ -78,7 +78,7 @@ class CorefModel(TFModel):
         self.char_dict = char_vocab
         self.char_embedding_size = char_embedding_size
 
-        # Net
+        # Model hyperparameters.
         self.lstm_size = lstm_size
         self.ffnn_size = ffnn_size
         self.ffnn_depth = ffnn_depth
@@ -100,7 +100,7 @@ class CorefModel(TFModel):
         self.dropout_rate = dropout_rate
         self.lexical_dropout_rate = lexical_dropout_rate
 
-        # train
+        # Learning hyperparameters.
         self.optimizer = optimizer
         self.learning_rate = learning_rate
         self.decay_rate = decay_rate
@@ -630,8 +630,7 @@ class CorefModel(TFModel):
                                                        custom_layers.shape(char_emb, 3)])
             # [num_sentences * max_sentence_length, max_word_length, emb]
 
-            flattened_aggregated_char_emb = custom_layers.cnn(flattened_char_emb, self.filter_widths,
-                                                              self.filter_size)
+            flattened_aggregated_char_emb = custom_layers.cnn(flattened_char_emb, self.filter_widths, self.filter_size)
             # [num_sentences * max_sentence_length, emb]
 
             aggregated_char_emb = tf.reshape(flattened_aggregated_char_emb,

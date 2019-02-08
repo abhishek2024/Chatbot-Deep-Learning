@@ -18,8 +18,8 @@ from typing import Dict, List
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.dataset_reader import DatasetReader
-from deeppavlov.models.coreference_resolution.conll2model_format import conll2modeldata
-from deeppavlov.models.coreference_resolution.rucor2conll import rucoref2conll, split_doc
+from deeppavlov.models.coreference_resolution.old_model.conll2model_format import conll2modeldata
+from deeppavlov.models.coreference_resolution.old_model.rucor2conll import rucoref2conll, split_doc
 
 
 @register("coreference_reader")
