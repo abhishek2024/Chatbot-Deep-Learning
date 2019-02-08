@@ -630,8 +630,7 @@ class CorefModel(TFModel):
                                                        custom_layers.shape(char_emb, 3)])
             # [num_sentences * max_sentence_length, max_word_length, emb]
 
-            flattened_aggregated_char_emb = custom_layers.cnn(flattened_char_emb, self.filter_widths,
-                                                              self.filter_size)
+            flattened_aggregated_char_emb = custom_layers.cnn(flattened_char_emb, self.filter_widths, self.filter_size)
             # [num_sentences * max_sentence_length, emb]
 
             aggregated_char_emb = tf.reshape(flattened_aggregated_char_emb,

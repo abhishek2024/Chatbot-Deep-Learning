@@ -52,6 +52,7 @@ class CorefModel(TFModel):
                  decay_rate: float = 0.999,
                  decay_frequency: int = 100,
                  final_rate: float = 0.0002,
+                 train_on_gold: bool = False,
                  genres: list = ("bc", "bn", "mz", "nw", "pt", "tc", "wb"),
                  gpu_memory_fraction: float = 0.98,
                  **kwargs):
@@ -93,6 +94,7 @@ class CorefModel(TFModel):
         self.final_rate = final_rate
 
         # Other.
+        self.train_on_gold = train_on_gold
         self.char_dict = char_dict
         self.genres = genres
         self.random_seed = random_seed
@@ -324,7 +326,8 @@ class CorefModel(TFModel):
                 tf.get_variable("char_embeddings", [len(self.char_dict), self.char_embedding_size]),
                 char_index)  # [num_sentences, max_sentence_length, max_word_length, emb]
             flattened_char_emb = tf.reshape(char_emb,
-                                            [num_sentences * max_sentence_length, custom_layers.shape(char_emb, 2),
+                                            [num_sentences * max_sentence_length,
+                                             custom_layers.shape(char_emb, 2),
                                              custom_layers.shape(char_emb, 3)])
             # [num_sentences * max_sentence_length, max_word_length, emb]
 
@@ -375,61 +378,84 @@ class CorefModel(TFModel):
 
         genre_emb = tf.gather(tf.get_variable("genre_embeddings", [len(self.genres), self.feature_size]),
                               genre)  # [emb]
-
+        # --------------------------------------------------------------------------------------------------------------
         sentence_indices = tf.tile(tf.expand_dims(tf.range(num_sentences), 1),
                                    [1, max_sentence_length])  # [num_sentences, max_sentence_length]
         flattened_sentence_indices = self.flatten_emb_by_sentence(sentence_indices, text_len_mask)  # [num_words]
         flattened_head_emb = self.flatten_emb_by_sentence(head_emb, text_len_mask)  # [num_words]
 
-        candidate_starts = tf.tile(tf.expand_dims(tf.range(num_words), 1),
-                                   [1, self.max_span_width])  # [num_words, max_span_width]
-        candidate_ends = candidate_starts + tf.expand_dims(tf.range(self.max_span_width),
-                                                           0)  # [num_words, max_span_width]
-        candidate_start_sentence_indices = tf.gather(flattened_sentence_indices,
-                                                     candidate_starts)  # [num_words, max_span_width]
-        candidate_end_sentence_indices = tf.gather(flattened_sentence_indices, tf.minimum(candidate_ends,
-                                                                                          num_words - 1))
-        # [num_words, max_span_width]
-
-        candidate_mask = tf.logical_and(candidate_ends < num_words, tf.equal(candidate_start_sentence_indices,
-                                                                             candidate_end_sentence_indices))
-        # [num_words, max_span_width]
-
-        flattened_candidate_mask = tf.reshape(candidate_mask, [-1])  # [num_words * max_span_width]
-        candidate_starts = tf.boolean_mask(tf.reshape(candidate_starts, [-1]),
-                                           flattened_candidate_mask)  # [num_candidates]
-        candidate_ends = tf.boolean_mask(tf.reshape(candidate_ends, [-1]), flattened_candidate_mask)  # [num_candidates]
-
-        # candidate_sentence_indices = tf.boolean_mask(tf.reshape(candidate_start_sentence_indices, [-1]),
-        #                                              flattened_candidate_mask)  # [num_candidates]
-
-        candidate_cluster_ids = self.get_candidate_labels(candidate_starts, candidate_ends, gold_starts, gold_ends,
-                                                          cluster_ids)  # [num_candidates]
-
-        candidate_span_emb = self.get_span_emb(flattened_head_emb, context_outputs, candidate_starts,
-                                               candidate_ends)  # [num_candidates, emb]
-        candidate_mention_scores = self.get_mention_scores(candidate_span_emb)  # [k, 1]
-        candidate_mention_scores = tf.squeeze(candidate_mention_scores, 1)  # [k]
-
         k = tf.to_int32(tf.floor(tf.to_float(tf.shape(context_outputs)[0]) * self.top_span_ratio))
-        top_span_indices = coref_ops.extract_spans(tf.expand_dims(candidate_mention_scores, 0),
-                                                   tf.expand_dims(candidate_starts, 0),
-                                                   tf.expand_dims(candidate_ends, 0),
-                                                   tf.expand_dims(k, 0),
-                                                   custom_layers.shape(context_outputs, 0),
-                                                   True)  # [1, k]
-        top_span_indices.set_shape([1, None])
-        top_span_indices = tf.squeeze(top_span_indices, 0)  # [k]
-
-        top_span_starts = tf.gather(candidate_starts, top_span_indices)  # [k]
-        top_span_ends = tf.gather(candidate_ends, top_span_indices)  # [k]
-        top_span_emb = tf.gather(candidate_span_emb, top_span_indices)  # [k, emb]
-        top_span_cluster_ids = tf.gather(candidate_cluster_ids, top_span_indices)  # [k]
-        top_span_mention_scores = tf.gather(candidate_mention_scores, top_span_indices)  # [k]
-        # top_span_sentence_indices = tf.gather(candidate_sentence_indices, top_span_indices)  # [k]
-        top_span_speaker_ids = tf.gather(speaker_ids, top_span_starts)  # [k]
-
         c = tf.minimum(self.max_top_antecedents, k)
+
+        if self.train_on_gold:
+            candidate_cluster_ids = self.get_candidate_labels(gold_starts, gold_ends, gold_starts, gold_ends,
+                                                              cluster_ids)  # [num_candidates]
+            candidate_span_emb = self.get_span_emb(flattened_head_emb, context_outputs, gold_starts,
+                                                   gold_ends)  # [num_candidates, emb]
+            candidate_mention_scores = tf.ones(tf.shape(gold_ends), dtype=tf.float32)
+            top_span_indices = coref_ops.extract_spans(tf.expand_dims(candidate_mention_scores, 0),
+                                                       tf.expand_dims(gold_starts, 0),
+                                                       tf.expand_dims(gold_ends, 0),
+                                                       tf.expand_dims(k, 0),
+                                                       custom_layers.shape(context_outputs, 0),
+                                                       True)  # [1, k]
+            top_span_indices.set_shape([1, None])
+            top_span_indices = tf.squeeze(top_span_indices, 0)  # [k]
+
+            top_span_starts = tf.gather(gold_starts, top_span_indices)  # [k]
+            top_span_ends = tf.gather(gold_ends, top_span_indices)  # [k]
+            top_span_emb = tf.gather(candidate_span_emb, top_span_indices)  # [k, emb]
+            top_span_cluster_ids = tf.gather(candidate_cluster_ids, top_span_indices)  # [k]
+            top_span_mention_scores = tf.gather(candidate_mention_scores, top_span_indices)  # [k]
+            top_span_speaker_ids = tf.gather(speaker_ids, top_span_starts)  # [k]
+        else:
+            candidate_starts = tf.tile(tf.expand_dims(tf.range(num_words), 1),
+                                       [1, self.max_span_width])  # [num_words, max_span_width]
+            candidate_ends = candidate_starts + tf.expand_dims(tf.range(self.max_span_width),
+                                                               0)  # [num_words, max_span_width]
+            candidate_start_sentence_indices = tf.gather(flattened_sentence_indices,
+                                                         candidate_starts)  # [num_words, max_span_width]
+            candidate_end_sentence_indices = tf.gather(flattened_sentence_indices, tf.minimum(candidate_ends,
+                                                                                              num_words - 1))
+            # [num_words, max_span_width]
+
+            candidate_mask = tf.logical_and(candidate_ends < num_words, tf.equal(candidate_start_sentence_indices,
+                                                                                 candidate_end_sentence_indices))
+            # [num_words, max_span_width]
+
+            flattened_candidate_mask = tf.reshape(candidate_mask, [-1])  # [num_words * max_span_width]
+            candidate_starts = tf.boolean_mask(tf.reshape(candidate_starts, [-1]),
+                                               flattened_candidate_mask)  # [num_candidates]
+            candidate_ends = tf.boolean_mask(tf.reshape(candidate_ends, [-1]), flattened_candidate_mask)
+            # [num_candidates]
+
+            # candidate_sentence_indices = tf.boolean_mask(tf.reshape(candidate_start_sentence_indices, [-1]),
+            #                                              flattened_candidate_mask)  # [num_candidates]
+
+            candidate_cluster_ids = self.get_candidate_labels(candidate_starts, candidate_ends, gold_starts, gold_ends,
+                                                              cluster_ids)  # [num_candidates]
+
+            candidate_span_emb = self.get_span_emb(flattened_head_emb, context_outputs, candidate_starts,
+                                                   candidate_ends)  # [num_candidates, emb]
+            candidate_mention_scores = self.get_mention_scores(candidate_span_emb)  # [k, 1]
+            candidate_mention_scores = tf.squeeze(candidate_mention_scores, 1)  # [k]
+
+            top_span_indices = coref_ops.extract_spans(tf.expand_dims(candidate_mention_scores, 0),
+                                                       tf.expand_dims(candidate_starts, 0),
+                                                       tf.expand_dims(candidate_ends, 0),
+                                                       tf.expand_dims(k, 0),
+                                                       custom_layers.shape(context_outputs, 0),
+                                                       True)  # [1, k]
+            top_span_indices.set_shape([1, None])
+            top_span_indices = tf.squeeze(top_span_indices, 0)  # [k]
+
+            top_span_starts = tf.gather(candidate_starts, top_span_indices)  # [k]
+            top_span_ends = tf.gather(candidate_ends, top_span_indices)  # [k]
+            top_span_emb = tf.gather(candidate_span_emb, top_span_indices)  # [k, emb]
+            top_span_cluster_ids = tf.gather(candidate_cluster_ids, top_span_indices)  # [k]
+            top_span_mention_scores = tf.gather(candidate_mention_scores, top_span_indices)  # [k]
+            top_span_speaker_ids = tf.gather(speaker_ids, top_span_starts)  # [k]
+        # --------------------------------------------------------------------------------------------------------------
 
         if self.coarse_to_fine:
             top_antecedents, top_antecedents_mask, top_fast_antecedent_scores, top_antecedent_offsets = \
@@ -472,8 +498,7 @@ class CorefModel(TFModel):
         loss = self.softmax_loss(top_antecedent_scores, top_antecedent_labels)  # [k]
         loss = tf.reduce_sum(loss)  # []
 
-        return [candidate_starts, candidate_ends, candidate_mention_scores, top_span_starts, top_span_ends,
-                top_antecedents, top_antecedent_scores], loss
+        return [candidate_mention_scores, top_span_starts, top_span_ends, top_antecedents, top_antecedent_scores], loss
 
     def get_span_emb(self, head_emb, context_outputs, span_starts, span_ends):
         span_emb_list = []
@@ -678,17 +703,28 @@ class CorefModel(TFModel):
 
         Returns: Loss functions value and tf.global_step
         """
-        sentences, speakers, doc_key, clusters = args
-        batch = {"sentences": sentences[0], "speakers": speakers[0], "doc_key": doc_key[0], "clusters": clusters[0]}
+        if self.train_on_gold:
+            sentences, speakers, doc_key, mentions_positions, clusters = args
+            batch = {"sentences": sentences[0], "speakers": speakers[0], "doc_key": doc_key[0], "clusters": clusters[0]}
+        else:
+            sentences, speakers, doc_key, clusters = args
+            batch = {"sentences": sentences[0], "speakers": speakers[0], "doc_key": doc_key[0], "clusters": clusters[0]}
+
         self.start_enqueue_thread(batch, True)
         tf_loss, tf_global_step, _ = self.sess.run([self.loss, self.global_step, self.train_op])
         return tf_loss
 
     def __call__(self, *args):
-        sentences, speakers, doc_key = args
-        batch = {"sentences": sentences[0], "speakers": speakers[0], "doc_key": doc_key[0], "clusters": []}
+        if self.train_on_gold:
+            sentences, speakers, doc_key, mentions_positions = args
+            batch = {"sentences": sentences[0], "speakers": speakers[0], "doc_key": doc_key[0],
+                     "clusters": mentions_positions[0]}
+        else:
+            sentences, speakers, doc_key = args
+            batch = {"sentences": sentences[0], "speakers": speakers[0], "doc_key": doc_key[0], "clusters": []}
+
         self.start_enqueue_thread(batch, False)
-        (candidate_starts, candidate_ends, candidate_mention_scores, top_span_starts, top_span_ends, top_antecedents,
+        (candidate_mention_scores, top_span_starts, top_span_ends, top_antecedents,
          top_antecedent_scores) = self.sess.run(self.predictions)
         predicted_antecedents = self.get_predicted_antecedents(top_antecedents, top_antecedent_scores)
         predicted_clusters, mention_to_predicted = self.get_predicted_clusters(top_span_starts, top_span_ends,
