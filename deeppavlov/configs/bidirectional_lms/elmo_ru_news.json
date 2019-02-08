@@ -11,7 +11,7 @@
       },
       {
         "class_name": "elmo_bilm",
-        "mini_batch_size": 32,
+        "mini_batch_size": 4,
         "in": [
           "tokens"
         ],
