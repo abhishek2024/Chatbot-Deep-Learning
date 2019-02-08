@@ -70,9 +70,9 @@
         "inputs": ["predicted_clusters", "mention_to_predicted", "clusters"]
       }
     ],
-    "validation_patience": 15,
-    "val_every_n_epochs": 2,
-    "log_every_n_epochs": 2,
+    "validation_patience": 20,
+    "val_every_n_epochs": 1,
+    "log_every_n_epochs": 1,
     "show_examples": false,
     "validate_best": true,
     "test_best": true
