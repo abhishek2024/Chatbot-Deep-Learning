@@ -26,11 +26,12 @@ from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.common.params_search import ParamsSearch
 
 SAVE_PATH_ELEMENT_NAME = 'save_path'
-TEMP_DIR_FOR_CV = 'cv_tmp'
+# TEMP_DIR_FOR_CV = 'cv_tmp'
 log = get_logger(__name__)
 
 
-def change_savepath_for_model(config):
+def change_savepath_for_model(config, tmp_dir):
+    TEMP_DIR_FOR_CV = tmp_dir
     params_helper = ParamsSearch()
 
     dirs_for_saved_models = set()
@@ -74,14 +75,14 @@ def generate_train_valid(iterator_, n_folds=5, is_loo=False):
             yield iterator_
 
 
-def calc_cv_score(config, data=None, n_folds=5, is_loo=False):
+def calc_cv_score(config, data=None, n_folds=5, tmpdir='cv_tmp', is_loo=False):
     config = parse_config(config)
 
     if data is None:
         data = read_data_by_config(config)
     iterator = get_iterator_from_config(config, data)
 
-    config, dirs_for_saved_models = change_savepath_for_model(config)
+    config, dirs_for_saved_models = change_savepath_for_model(config, tmpdir)
 
     cv_score = OrderedDict()
     for iterator_i in generate_train_valid(iterator, n_folds=n_folds, is_loo=is_loo):

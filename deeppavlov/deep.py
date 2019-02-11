@@ -47,6 +47,7 @@ parser.add_argument("-f", "--input-file", dest="file_path", default=None, help="
 parser.add_argument("-d", "--download", action="store_true", help="download model components")
 
 parser.add_argument("--folds", help="number of folds", type=int, default=5)
+parser.add_argument("--tmpdir", help="name of tmp folder with checkpoints", type=str, default='cv_tmp')
 
 parser.add_argument("-t", "--token", default=None,  help="telegram bot token", type=str)
 parser.add_argument("-i", "--ms-id", default=None, help="microsoft bot framework app id", type=str)
@@ -124,7 +125,8 @@ def main():
             log.error('Minimum number of Folds is 2')
         else:
             n_folds = args.folds
-            calc_cv_score(pipeline_config_path, n_folds=n_folds, is_loo=False)
+            tmp_dir = args.tmpdir
+            calc_cv_score(pipeline_config_path, n_folds=n_folds, tmpdir=tmp_dir, is_loo=False)
 
 
 if __name__ == "__main__":
