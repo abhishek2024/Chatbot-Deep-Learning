@@ -6,6 +6,7 @@ import h5py
 import numpy as np
 import tensorflow as tf
 
+from deeppavlov.core.commands.utils import expand_path
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
 from deeppavlov.models.coreference_resolution.new_model import coref_ops, custom_layers
@@ -110,7 +111,7 @@ class CorefModel(TFModel):
         self.genres = {g: i for i, g in enumerate(self.genres)}
 
         if lm_path:
-            self.lm_file = h5py.File(lm_path, "r")
+            self.lm_file = h5py.File(expand_path(lm_path), "r")
         else:
             raise ValueError("For the model to work, vectorized dataset is required. "
                              "Specify the value of the parameter 'lm_path'.")
