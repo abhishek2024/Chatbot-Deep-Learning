@@ -56,30 +56,22 @@ def create_dirs_to_save_models(dirs_for_saved_models):
         new_save_dir.mkdir(exist_ok=True, parents=True)
 
 
-def generate_train_valid(data, n_folds=5, is_loo=False):
-    all_data = data['train'] + data['valid']
+def generate_train_valid(iterator_, n_folds=5, is_loo=False):
+    all_data = iterator_.data['train'] + iterator_.data['valid']
 
     if is_loo:
         # for Leave One Out
         for i in range(len(all_data)):
-            data_i = {
-                'train': all_data.copy(),
-                'test': data['test']
-            }
-            data_i['valid'] = [data_i['train'].pop(i)]
-
-            yield data_i
+            iterator_.data['train'] = all_data.copy()
+            iterator_.data['valid'] = [iterator_.data['train'].pop(i)]
+            yield iterator_
     else:
         # for Cross Validation
         kf = KFold(n_splits=n_folds, shuffle=True)
         for train_index, valid_index in kf.split(all_data):
-            data_i = {
-                'train': [all_data[i] for i in train_index],
-                'valid': [all_data[i] for i in valid_index],
-                'test': data['test']
-            }
-
-            yield data_i
+            iterator_.data['train'] = [all_data[i] for i in train_index]
+            iterator_.data['valid'] = [all_data[i] for i in valid_index]
+            yield iterator_
 
 
 def calc_cv_score(config, data=None, n_folds=5, is_loo=False):
@@ -87,14 +79,14 @@ def calc_cv_score(config, data=None, n_folds=5, is_loo=False):
 
     if data is None:
         data = read_data_by_config(config)
+    iterator = get_iterator_from_config(config, data)
 
     config, dirs_for_saved_models = change_savepath_for_model(config)
 
     cv_score = OrderedDict()
-    for data_i in generate_train_valid(data, n_folds=n_folds, is_loo=is_loo):
-        iterator = get_iterator_from_config(config, data_i)
+    for iterator_i in generate_train_valid(iterator, n_folds=n_folds, is_loo=is_loo):
         create_dirs_to_save_models(dirs_for_saved_models)
-        score = train_evaluate_model_from_config(config, iterator=iterator)
+        score = train_evaluate_model_from_config(config, iterator=iterator_i)
         delete_dir_for_saved_models(dirs_for_saved_models)
         for key, value in score['valid'].items():
             if key not in cv_score:

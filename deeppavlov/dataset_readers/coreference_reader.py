@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from typing import Dict, List
 
@@ -47,6 +48,7 @@ class CorefReader(DatasetReader):
         self.folder_path.joinpath('russian.v4_conll').unlink()
 
     def read_jsonlines(self) -> Dict:
+        docs = list()
         train_path = self.folder_path.joinpath("train.jsonl")
         if not train_path.exists():
             if not self.folder_path.joinpath(self.dataset_name).exists():
@@ -57,7 +59,12 @@ class CorefReader(DatasetReader):
                 with path.open("r", encoding='utf8') as conll_file:
                     conll_str = conll_file.read()
 
+                model_doc = conll2modeldata(conll_str)
+                docs.append(deepcopy(model_doc))
                 with train_path.open('a', encoding='utf8') as train_file:
-                    print(json.dumps(conll2modeldata(conll_str)), file=train_file)
+                    print(json.dumps(model_doc), file=train_file)
+        else:
+            with train_path.open('r', encoding='utf8') as train_file:
+                docs = [json.loads(x) for x in train_file]
 
-        return dict(train=[train_path])
+        return dict(train=docs)

@@ -5,8 +5,8 @@
   },
   "dataset_iterator": {
     "class_name": "coreference_iterator",
-    "train_on_gold": true,
     "seed": 42,
+    "train_on_gold": true,
     "field_to_split": "train",
     "split_fields": [
       "train",
@@ -40,9 +40,9 @@
       },
       {
         "id": "embedder",
-        "class_name": "elmo_cache_embedder",
-        "cache_file": "{DOWNLOADS_PATH}/embeddings/elmo_cache.hdf5",
-        "dim": 1024
+        "class_name": "fasttext",
+        "pad_zero": true,
+        "load_path": "~/Work/Embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin"
       },
       {
         "in": ["sentences", "speakers", "doc_key", "mentions_places"],
@@ -52,12 +52,11 @@
         "class_name": "coref_model",
         "train_on_gold": true,
         "stop_decay": true,
-        "save_path": "{MODELS_PATH}/checkpoints/coref_elmo_on_gold/best_model.ckpt",
-        "load_path": "{MODELS_PATH}/checkpoints/coref_elmo_on_gold/best_model.ckpt",
+        "save_path": "{MODELS_PATH}/checkpoints/old_model/best_model.ckpt",
+        "load_path": "{MODELS_PATH}/checkpoints/old_model/best_model.ckpt",
         "char_vocab": "#char_vocab",
         "embedder": "#embedder",
-        "emb_format": "cached",
-        "embedding_size": 1024
+        "embedding_size": 300
       }
     ],
     "out": ["predicted_clusters", "mention_to_predicted", "clusters"]
@@ -86,13 +85,16 @@
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf-gpu.txt",
-      "{DEEPPAVLOV_PATH}/requirements/fasttext.txt",
-      "{DEEPPAVLOV_PATH}/requirements/elmo.txt"
+      "{DEEPPAVLOV_PATH}/requirements/fasttext.txt"
     ],
     "download": [
       {
         "url": "http://files.deeppavlov.ai/datasets/coreference_resolution/rucoref_29.10.2015.zip",
         "subdir": "{DOWNLOADS_PATH}/coreference_resolution/"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
+        "subdir": "{DOWNLOADS_PATH}/embeddings"
       }
     ]
   }

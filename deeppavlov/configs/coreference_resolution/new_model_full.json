@@ -6,7 +6,7 @@
   "dataset_iterator": {
     "class_name": "coreference_iterator",
     "seed": 42,
-    "train_on_gold": true,
+    "train_on_gold": false,
     "field_to_split": "train",
     "split_fields": [
       "train",
@@ -20,7 +20,7 @@
     ]
   },
   "chainer": {
-    "in": ["sentences", "speakers", "doc_key", "mentions_places"],
+    "in": ["sentences", "speakers", "doc_key"],
     "in_y": ["clusters"],
     "pipe": [
       {
@@ -45,14 +45,14 @@
         "load_path": "~/Work/Embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin"
       },
       {
-        "in": ["sentences", "speakers", "doc_key", "mentions_places"],
+        "in": ["sentences", "speakers", "doc_key"],
         "in_y": ["clusters"],
         "out": ["predicted_clusters", "mention_to_predicted"],
         "main": true,
         "class_name": "coref_new_model",
-        "save_path": "{MODELS_PATH}/checkpoints/test_new_model_on_gold/best_model.ckpt",
-        "load_path": "{MODELS_PATH}/checkpoints/test_new_model_on_gold/best_model.ckpt",
-        "train_on_gold": true,
+        "save_path": "{MODELS_PATH}/checkpoints/new_model/best_model.ckpt",
+        "load_path": "{MODELS_PATH}/checkpoints/new_model/best_model.ckpt",
+        "train_on_gold": false,
         "context_embedder": "#embedder",
         "head_embedder": "#embedder",
         "char_dict": "#char_vocab",

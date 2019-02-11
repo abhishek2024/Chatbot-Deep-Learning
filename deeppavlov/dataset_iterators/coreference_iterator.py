@@ -12,9 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
-import linecache
-from copy import copy
 from typing import Dict, Iterator, List, Tuple
 
 from sklearn.model_selection import train_test_split
@@ -46,11 +43,6 @@ class CorefIterator(DataLearningIterator):
         super().__init__(data, seed=seed, shuffle=shuffle, *args, **kwargs)
         self.jsonl_path = None
         self.trian_on_gold = train_on_gold
-        self.jsonl_path = copy(data['train'][0])
-        with self.jsonl_path.open('r', encoding='utf8') as train_file:
-            self.data['train'] = [i for i, line in enumerate(train_file) if line.rstrip()]
-            self.data['all'] = copy(self.data['train'])
-
         self._split(**kwargs)
 
     def _split(self, **kwargs):
@@ -124,17 +116,14 @@ class CorefIterator(DataLearningIterator):
         if shuffle:
             self.random.shuffle(data)
 
-        with self.jsonl_path.open('r', encoding='utf8'):
-            for i in data:
-                example = json.loads(linecache.getline(str(self.jsonl_path), i + 1))
-                if self.trian_on_gold:
-                    yield tuple(zip(
-                        [(example["sentences"], example["speakers"], example["doc_key"], example["clusters"]),
-                         example["clusters"]]))
-                else:
-                    yield tuple(zip(
-                        [(example["sentences"], example["speakers"], example["doc_key"]),
-                         example["clusters"]]))
+        for example in data:
+            if self.trian_on_gold:
+                yield tuple(zip(
+                    [(example["sentences"], example["speakers"], example["doc_key"], example["clusters"]),
+                     example["clusters"]]))
+            else:
+                yield tuple(zip(
+                    [(example["sentences"], example["speakers"], example["doc_key"]), example["clusters"]]))
 
     def get_instances(self, data_type: str = 'train') -> Tuple[tuple, tuple]:
         """Get all data for a selected data type
@@ -146,14 +135,11 @@ class CorefIterator(DataLearningIterator):
              a tuple of all inputs for a data type and all expected outputs for a data type
         """
         data = []
-        with self.jsonl_path.open('r', encoding='utf8'):
-            for i in self.data[data_type]:
-                example = json.loads(linecache.getline(str(self.jsonl_path), i + 1))
-                if self.trian_on_gold:
-                    data.append(((example["sentences"], example["speakers"], example["doc_key"],
-                                  example["clusters"]), example["clusters"]))
-                else:
-                    data.append(
-                        ((example["sentences"], example["speakers"], example["doc_key"]), example["clusters"]))
+        for example in self.data[data_type]:
+            if self.trian_on_gold:
+                data.append(((example["sentences"], example["speakers"], example["doc_key"], example["clusters"]),
+                             example["clusters"]))
+            else:
+                data.append(((example["sentences"], example["speakers"], example["doc_key"]), example["clusters"]))
 
         return tuple(zip(*data))
