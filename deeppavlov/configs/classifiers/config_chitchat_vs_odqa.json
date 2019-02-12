@@ -1,4 +1,16 @@
 {
+  "dataset_reader": {
+    "class_name": "basic_classification_reader",
+    "x": "text",
+    "y": "label",
+    "data_path": "{DOWNLOADS_PATH}/chitchat_vs_odqa/",
+    "train": "train.csv",
+    "valid": "valid.csv"
+  },
+  "dataset_iterator": {
+    "class_name": "basic_classification_iterator",
+    "seed": 42
+  },
   "chainer": {
     "in": [
       "x"
@@ -13,8 +25,8 @@
         "fit_on": [
           "y"
         ],
-        "save_path": "{MODELS_PATH}/classifiers/convers_vs_info/model_v0/classes.dict",
-        "load_path": "{MODELS_PATH}/classifiers/convers_vs_info/model_v0/classes.dict",
+        "save_path": "{MODELS_PATH}/classifiers/chitchat_vs_odqa/model_v0/classes.dict",
+        "load_path": "{MODELS_PATH}/classifiers/chitchat_vs_odqa/model_v0/classes.dict",
         "in": "y",
         "out": "y_ids"
       },
@@ -47,7 +59,8 @@
           "elmo"
         ],
         "mini_batch_size": 8,
-        "spec": "{DOWNLOADS_PATH}/embeddings/yahooo-sber-questions_epoches_n_15/"
+        "spec": "{DOWNLOADS_PATH}/embeddings/elmo_ru_tw",
+        "pad_zero": true
       },
       {
         "in": "y_ids",
@@ -68,20 +81,19 @@
         ],
         "main": true,
         "class_name": "keras_classification_model",
-        "save_path": "{MODELS_PATH}/classifiers/convers_vs_info/model_v0/model",
-        "load_path": "{MODELS_PATH}/classifiers/convers_vs_info/model_v0/model",
+        "save_path": "{MODELS_PATH}/model",
+        "load_path": "{MODELS_PATH}/model",
         "embedding_size": "#my_embedder.dim",
         "n_classes": "#classes_vocab.len",
-        "units_gru": 512,
+        "units_gru": 256,
         "optimizer": "Adam",
-        "learning_rate": 0.001,
+        "learning_rate": 0.01,
         "learning_rate_decay": 0.01,
         "loss": "categorical_crossentropy",
-        "text_size": 20,
-        "coef_reg_gru": 1e-4,
-        "coef_reg_den": 1e-4,
-        "dropout_rate": 0.5,
-        "rec_dropout_rate": 0.5,
+        "coef_reg_gru": 1e-6,
+        "coef_reg_den": 1e-6,
+        "dropout_rate": 0.2,
+        "rec_dropout_rate": 0.2,
         "dense_size": 100,
         "model_name": "bigru_with_max_aver_pool_model",
         "last_layer_activation": "softmax",
@@ -110,8 +122,15 @@
   },
   "train": {
     "epochs": 100,
-    "batch_size": 128,
+    "batch_size": 64,
     "metrics": [
+      {
+        "name": "f1_macro",
+        "inputs": [
+          "y",
+          "y_pred_labels"
+        ]
+      },
       {
         "name": "roc_auc",
         "inputs": [
@@ -125,13 +144,6 @@
           "y",
           "y_pred_labels"
         ]
-      },
-      {
-        "name": "f1_macro",
-        "inputs": [
-          "y",
-          "y_pred_labels"
-        ]
       }
     ],
     "validation_patience": 10,
@@ -140,13 +152,13 @@
     "show_examples": false,
     "validate_best": true,
     "test_best": false,
-    "tensorboard_log_dir": "{MODELS_PATH}/classifiers/convers_vs_info/model_v0/"
+    "tensorboard_log_dir": "{MODELS_PATH}"
   },
   "metadata": {
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models"
+      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/chitchat_vs_odqa_v0/"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
@@ -158,12 +170,12 @@
     },
     "download": [
       {
-        "url": "http://files.deeppavlov.ai/embeddings/yahooo-sber-questions_epoches_n_15.tar.gz",
-        "subdir": "{DOWNLOADS_PATH}/embeddings/yahooo-sber-questions_epoches_n_15/"
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/classifiers/chitchat_vs_odqa_v0.tar.gz",
+        "subdir": "{ROOT_PATH}/models/classifiers/"
       },
       {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/classifiers/convers_vs_info.tar.gz",
-        "subdir": "{MODELS_PATH}/classifiers/"
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/elmo_ru-twitter_2013-01_2018-04_600k_steps.tar.gz",
+        "subdir": "{DOWNLOADS_PATH}/embeddings/elmo_ru_tw"
       }
     ]
   }
