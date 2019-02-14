@@ -26,11 +26,13 @@ from deeppavlov.models.coreference_resolution.old_model.rucor2conll import rucor
 @register("coreference_reader")
 class CorefReader(DatasetReader):
     def __init__(self):
+        self.file_name = None
         self.data_path = None
         self.folder_path = None
         self.dataset_name = None
 
     def read(self, data_path: str, *args, **kwargs) -> Dict[str, List[str]]:
+        self.file_name = kwargs.get("file")
         self.data_path = Path(data_path)
         self.folder_path = self.data_path.parent
         self.dataset_name = "rucoref_conll"
@@ -49,7 +51,12 @@ class CorefReader(DatasetReader):
 
     def read_jsonlines(self) -> Dict:
         docs = list()
-        train_path = self.folder_path.joinpath("train.jsonl")
+
+        if self.file_name:
+            train_path = self.folder_path.joinpath(self.file_name)
+        else:
+            train_path = self.folder_path.joinpath("train.jsonl")
+
         if not train_path.exists():
             if not self.folder_path.joinpath(self.dataset_name).exists():
                 if not self.folder_path.joinpath("rucoref_conll").exists():
