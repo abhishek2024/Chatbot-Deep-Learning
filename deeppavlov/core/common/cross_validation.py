@@ -75,7 +75,7 @@ def generate_train_valid(iterator_, n_folds=5, is_loo=False):
             yield iterator_
 
 
-def calc_cv_score(config, data=None, n_folds=5, tmpdir='cv_tmp', is_loo=False):
+def calc_cv_score(config, data=None, n_folds=5, tmpdir='cv_tmp', is_loo=False, del_checkpoints=False):
     config = parse_config(config)
 
     if data is None:
@@ -88,7 +88,8 @@ def calc_cv_score(config, data=None, n_folds=5, tmpdir='cv_tmp', is_loo=False):
     for iterator_i in generate_train_valid(iterator, n_folds=n_folds, is_loo=is_loo):
         create_dirs_to_save_models(dirs_for_saved_models)
         score = train_evaluate_model_from_config(config, iterator=iterator_i)
-        delete_dir_for_saved_models(dirs_for_saved_models)
+        if del_checkpoints:
+            delete_dir_for_saved_models(dirs_for_saved_models)
         for key, value in score['valid'].items():
             if key not in cv_score:
                 cv_score[key] = []
