@@ -93,6 +93,7 @@ class TransformerChitChat(Serializable):
 
         self.device = device
         self.bert_vocab_path = str(pathlib.Path(bert_vocab_path).expanduser())
+        self.load()
 
     @overrides
     def load(self) -> None:
@@ -154,8 +155,14 @@ class TransformerChitChat(Serializable):
         tagged_utters_ids = tagged_utters_ids[-128:]
         return tagged_utters_ids
 
+    def drop_rich_msg(self, objs) -> List[str]:
+        return [obj for obj in objs if type(obj).__name__ !='RichMessage']
+
     def __call__(self, utterances_batch, history_batch, states_batch, *args, **kwargs) -> List[float]:
         history_batch = copy.deepcopy(history_batch)
+        
+        history_batch = [self.drop_rich_msg(his) for his in history_batch]
+
         [history.append(utter) for utter, history in zip(utterances_batch, history_batch)]
         tagged_context_batch = [self.context2tagged_context(context) for context in history_batch]
         tagged_context_batch = [torch.tensor(d, dtype=torch.long, device=self.device) for d in tagged_context_batch]
@@ -164,5 +171,4 @@ class TransformerChitChat(Serializable):
                                             padding_value=self.transformer.padding_idx)
         predictions, confidence = self.transformer.predict([tagged_context_batch])
         predictions_batch = [detokenize(self.vocab.ids2string(prediction).split()) for prediction in predictions]
-        print(confidence)
-        return predictions_batch, confidence  # , None
+        return predictions_batch, confidence
