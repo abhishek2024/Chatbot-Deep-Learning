@@ -14,21 +14,8 @@
 #  You should have received a copy of the GNU Affero General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import re
-import os
-import json
-import random
-from collections import namedtuple, Counter
-
 import torch
-import numpy as np
 from torch.utils.checkpoint import checkpoint
-
-
-def set_seed(seed):
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    random.seed(seed)
 
 
 def pad_sequence(sequences, batch_first=False, padding_value=0):
@@ -52,38 +39,3 @@ def pad_sequence(sequences, batch_first=False, padding_value=0):
             out_tensor[:length, i, ...] = tensor
 
     return out_tensor
-
-
-def f1_score(predictions, targets, average=True):
-    def f1_score_items(pred_items, gold_items):
-        common = Counter(gold_items) & Counter(pred_items)
-        num_same = sum(common.values())
-
-        if num_same == 0:
-            return 0
-
-        precision = num_same / len(pred_items)
-        recall = num_same / len(gold_items)
-        f1 = (2 * precision * recall) / (precision + recall)
-
-        return f1
-    
-    scores = [f1_score_items(p, t) for p, t in zip(predictions, targets)]
-
-    if average:
-        return sum(scores) / len(scores)    
-
-    return scores
-
-
-def openai_transformer_config():
-    class dotdict(dict):
-        __getattr__ = dict.get
-        __setattr__ = dict.__setitem__
-        __delattr__ = dict.__delitem__
-
-    cfg = dotdict({'n_layers': 12, 'n_embeddings': 40477, 'n_pos_embeddings': 512, 
-                   'embeddings_size': 768, 'n_heads': 12, 'dropout': 0.1,
-                   'embed_dropout': 0.1, 'attn_dropout': 0.1, 'ff_dropout': 0.1})
-
-    return cfg

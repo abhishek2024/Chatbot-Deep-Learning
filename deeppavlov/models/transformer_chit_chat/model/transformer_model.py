@@ -19,8 +19,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .transformer_module import TransformerModule
-
+from deeppavlov.models.transformer_chit_chat.model.transformer_module import TransformerModule
 
 class TransformerModel(nn.Module):
     def __init__(self, n_layers, n_embeddings, n_pos_embeddings, embeddings_size,
@@ -209,20 +208,24 @@ class TransformerModel(nn.Module):
                 current_sample_prob *= self.annealing
 
             predicts = []
+            confidence = []
             result = prevs.view(batch_size, self.beam_size, -1)
 
             if return_beams:
                 return result, beam_lens
-
             if self.sample:
+                print(beam_scores)
                 probs = F.softmax(beam_scores, dim=-1)
                 bests = torch.multinomial(probs, 1).view(-1)
             else:
                 bests = beam_scores.argmax(dim=-1)
+
+            for scores, indx in zip(beam_scores,bests):
+                confidence.append(float(scores[indx]))
 
             for i in range(batch_size):
                 best_len = beam_lens[i, bests[i]]
                 best_seq = result[i, bests[i], 1:best_len-1]
                 predicts.append(best_seq.tolist())
 
-        return predicts
+        return predicts, confidence
