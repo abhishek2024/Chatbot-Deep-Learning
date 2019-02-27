@@ -214,7 +214,6 @@ class TransformerModel(nn.Module):
             if return_beams:
                 return result, beam_lens
             if self.sample:
-                print(beam_scores)
                 probs = F.softmax(beam_scores, dim=-1)
                 bests = torch.multinomial(probs, 1).view(-1)
             else:
