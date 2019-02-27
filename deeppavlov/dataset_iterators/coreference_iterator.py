@@ -15,13 +15,12 @@
 from typing import Dict, Iterator, List, Tuple
 
 from sklearn.model_selection import train_test_split
-
+from logging import getLogger
 from deeppavlov.core.common.errors import ConfigError
-from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.data_learning_iterator import DataLearningIterator
 
-log = get_logger(__name__)
+log = getLogger(__name__)
 
 
 @register("coreference_iterator")

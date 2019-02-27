@@ -18,10 +18,10 @@ from typing import Dict, List
 import numpy as np
 from sklearn.utils.linear_assignment_ import linear_assignment
 
-from deeppavlov.core.common.log import get_logger
+from logging import getLogger
 from deeppavlov.core.common.metrics_registry import register_metric
 
-log = get_logger(__name__)
+log = getLogger(__name__)
 
 
 @register_metric('coref_metrics')

@@ -209,7 +209,9 @@ class PipelineManager:
             visible_gpu = None
 
         if self.use_gpu:
-            if isinstance(self.use_gpu, (List[int], int)):
+            if self.use_gpu == "all":
+                self.available_gpu = get_available_gpus(gpu_select=visible_gpu, gpu_fraction=self.memory_fraction)
+            elif isinstance(self.use_gpu, (List[int], int)):
                 if visible_gpu:
                     self.use_gpu = list(set(self.use_gpu) & set(visible_gpu))
 
@@ -218,8 +220,6 @@ class PipelineManager:
                                      "has not intersections".format(set(visible_gpu)))
 
                 self.available_gpu = get_available_gpus(gpu_select=self.use_gpu, gpu_fraction=self.memory_fraction)
-            elif self.use_gpu == "all":
-                self.available_gpu = get_available_gpus(gpu_select=visible_gpu, gpu_fraction=self.memory_fraction)
 
             if len(self.available_gpu) == 0:
                 raise ValueError("All selected GPU with numbers: ({}), are busy.".format(set(self.use_gpu)))

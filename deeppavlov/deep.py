@@ -19,7 +19,7 @@ from logging import getLogger
 
 from deeppavlov.core.commands.infer import interact_model, predict_on_stream
 from deeppavlov.core.commands.train import train_evaluate_model_from_config
-from deeppavlov.core.common.cross_validation_p import CrossVal
+from deeppavlov.core.common.cross_validation import CrossVal
 from deeppavlov.core.common.file import find_config
 from deeppavlov.download import deep_download
 from deeppavlov.pipeline_manager import PipelineManager
@@ -47,7 +47,6 @@ parser.add_argument("-f", "--input-file", dest="file_path", default=None, help="
 parser.add_argument("-d", "--download", action="store_true", help="download model components")
 
 parser.add_argument("--folds", dest='folds', help="number of folds", type=int, default=5)
-parser.add_argument("--folds", help="number of folds", type=int, default=5)
 parser.add_argument("--tmpdir", help="name of tmp folder with checkpoints", type=str, default='cv_tmp')
 
 parser.add_argument("-t", "--token", default=None, help="telegram bot token", type=str)
