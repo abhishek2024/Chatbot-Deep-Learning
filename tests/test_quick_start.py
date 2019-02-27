@@ -3,27 +3,26 @@ import json
 import logging
 import os
 import pickle
-import signal
 import shutil
+import signal
 import sys
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Union
+from urllib.parse import urljoin
 
-import pytest
 import pexpect
 import pexpect.popen_spawn
+import pytest
 import requests
-from urllib.parse import urljoin
 
 import deeppavlov
 from deeppavlov import build_model
 from deeppavlov.core.commands.utils import parse_config
-from deeppavlov.download import deep_download
-from deeppavlov.core.data.utils import get_all_elems_from_json
 from deeppavlov.core.common.paths import get_settings_path
+from deeppavlov.core.data.utils import get_all_elems_from_json
+from deeppavlov.download import deep_download
 from utils.server_utils.server import get_server_params, SERVER_CONFIG_FILENAME
-
 
 tests_dir = Path(__file__).parent
 test_configs_path = tests_dir / "deeppavlov" / "configs"
@@ -438,6 +437,29 @@ class TestQuickStart(object):
             shutil.rmtree(str(download_path), ignore_errors=True)
         else:
             pytest.skip("Unsupported mode: {}".format(mode))
+
+
+# test pipeline manager
+def test_pipeline_manager():
+    modeldir = 'pipeline_manager'
+    pm_configs = "pipeline_manager/test_linear.json"
+
+    c = test_src_dir / pm_configs
+    model_path = download_path / modeldir
+
+    config_path = str(test_src_dir.joinpath(pm_configs))
+    deep_download(config_path)
+    shutil.rmtree(str(model_path),  ignore_errors=True)
+
+    logfile = io.BytesIO(b'')
+    p = pexpect.popen_spawn.PopenSpawn(sys.executable + f" -m deeppavlov pipeline_search {c}",
+                                       timeout=None, logfile=logfile)
+    if p.wait() != 0:
+        logfile.seek(0)
+        raise RuntimeError('Training process of {} returned non-zero exit code: \n{}'
+                           .format(modeldir, ''.join((line.decode() for line in logfile.readlines()))))
+
+    shutil.rmtree(str(download_path), ignore_errors=True)
 
 
 def test_crossvalidation():
