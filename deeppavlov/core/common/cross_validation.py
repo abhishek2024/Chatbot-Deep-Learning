@@ -30,7 +30,7 @@ SAVE_PATH_ELEMENT_NAME = 'save_path'
 log = getLogger(__name__)
 
 
-def change_savepath_for_model(config, tmp_dir):
+def change_savepath_for_model(config, tmp_dir, k):
     TEMP_DIR_FOR_CV = tmp_dir
     params_helper = ParamsSearch()
 
@@ -38,7 +38,7 @@ def change_savepath_for_model(config, tmp_dir):
     for p in params_helper.find_model_path(config, SAVE_PATH_ELEMENT_NAME):
         p.append(SAVE_PATH_ELEMENT_NAME)
         save_path = Path(params_helper.get_value_from_config(config, p))
-        new_save_path = save_path.parent / TEMP_DIR_FOR_CV / save_path.name
+        new_save_path = save_path.parent / TEMP_DIR_FOR_CV / f"fold_{k}" / save_path.name
 
         dirs_for_saved_models.add(expand_path(new_save_path.parent))
 
@@ -75,28 +75,34 @@ def generate_train_valid(iterator_, n_folds=5, is_loo=False):
             yield iterator_
 
 
-def calc_cv_score(config, data=None, n_folds=5, tmpdir='cv_tmp', is_loo=False, del_checkpoints=False):
-    config = parse_config(config)
+def calc_cv_score(config_, data=None, n_folds=5, tmpdir='cv_tmp', is_loo=False, del_checkpoints=False):
+    config_ = parse_config(config_)
+    mode = "valid"
 
     if data is None:
-        data = read_data_by_config(config)
-    iterator = get_iterator_from_config(config, data)
+        data = read_data_by_config(config_)
+    iterator = get_iterator_from_config(config_, data)
 
-    config, dirs_for_saved_models = change_savepath_for_model(config, tmpdir)
-
+    i = 1
     cv_score = OrderedDict()
     for iterator_i in generate_train_valid(iterator, n_folds=n_folds, is_loo=is_loo):
+        config, dirs_for_saved_models = change_savepath_for_model(config_, tmpdir, i)
+        i += 1
         create_dirs_to_save_models(dirs_for_saved_models)
         score = train_evaluate_model_from_config(config, iterator=iterator_i)
+
         if del_checkpoints:
             delete_dir_for_saved_models(dirs_for_saved_models)
-        for key, value in score['valid'].items():
+
+        if 'test' in score:
+            mode = 'test'
+        for key, value in score[mode].items():
             if key not in cv_score:
                 cv_score[key] = []
             cv_score[key].append(value)
 
     for key, value in cv_score.items():
         cv_score[key] = np.mean(value)
-        log.info('Cross-Validation \"{}\" is: {}'.format(key, cv_score[key]))
+        log.info(f"Cross-Validation -{mode}- \"{key}\" is: {cv_score[key]}")
 
     return cv_score

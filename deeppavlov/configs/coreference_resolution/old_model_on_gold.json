@@ -52,8 +52,8 @@
         "class_name": "coref_model",
         "train_on_gold": true,
         "stop_decay": true,
-        "save_path": "{MODELS_PATH}/checkpoints/old_model/best_model.ckpt",
-        "load_path": "{MODELS_PATH}/checkpoints/old_model/best_model.ckpt",
+        "save_path": "{MODELS_PATH}/checkpoints/old_model_1/best_model.ckpt",
+        "load_path": "{MODELS_PATH}/checkpoints/old_model_1/best_model.ckpt",
         "char_vocab": "#char_vocab",
         "embedder": "#embedder",
         "embedding_size": 300
