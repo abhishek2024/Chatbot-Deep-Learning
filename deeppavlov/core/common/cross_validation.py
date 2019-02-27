@@ -26,7 +26,6 @@ from deeppavlov.core.commands.utils import expand_path, parse_config
 from deeppavlov.core.common.params_search import ParamsSearch
 
 SAVE_PATH_ELEMENT_NAME = 'save_path'
-# TEMP_DIR_FOR_CV = 'cv_tmp'
 log = getLogger(__name__)
 
 

@@ -19,7 +19,7 @@ from logging import getLogger
 
 from deeppavlov.core.commands.infer import interact_model, predict_on_stream
 from deeppavlov.core.commands.train import train_evaluate_model_from_config
-from deeppavlov.core.common.cross_validation import calc_cv_score
+from deeppavlov.core.common.cross_validation_p import CrossVal
 from deeppavlov.core.common.file import find_config
 from deeppavlov.download import deep_download
 from deeppavlov.pipeline_manager import PipelineManager
@@ -130,7 +130,8 @@ def main():
         else:
             n_folds = args.folds
             tmp_dir = args.tmpdir
-            calc_cv_score(pipeline_config_path, n_folds=n_folds, tmpdir=tmp_dir, is_loo=False)
+            cross_validator = CrossVal(pipeline_config_path, n_folds=n_folds, tmpdir=tmp_dir, is_loo=False)
+            cross_validator.run()
 
 
 if __name__ == "__main__":
