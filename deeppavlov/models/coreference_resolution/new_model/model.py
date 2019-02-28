@@ -735,6 +735,21 @@ class CorefModel(TFModel):
 
         return [predicted_clusters], [mention_to_predicted]
 
+    def predict_for_ensemble(self, *args):
+        if self.train_on_gold:
+            sentences, speakers, doc_key, mentions_positions = args
+            batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key,
+                     "clusters": mentions_positions}
+        else:
+            sentences, speakers, doc_key = args
+            batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": []}
+
+        self.start_enqueue_thread(batch, False)
+        (candidate_mention_scores, top_span_starts, top_span_ends, top_antecedents,
+         top_antecedent_scores) = self.sess.run(self.predictions)
+
+        return top_span_starts, top_span_ends, top_antecedents, top_antecedent_scores
+
     def destroy(self):
         """Reset the model"""
         self.sess.close()
