@@ -149,7 +149,7 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/ner_rus"
+      "MODELS_PATH": "{ROOT_PATH}/models/ner_rus_lower"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/fasttext.txt",
