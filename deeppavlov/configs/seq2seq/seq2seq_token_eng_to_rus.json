@@ -119,10 +119,10 @@
         "decoder_embedder": "#dec_embedder",
         "decoder_vocab": "#y_tokens_vocab",
         "optimizer": "RMSprop",
-        "learning_rate": 0.001,
-        "learning_rate_decay": 0.00001,
+        "learning_rate": 1e-4,
+        "learning_rate_decay": 1e-7,
         "loss": "categorical_crossentropy",
-        "hidden_size": 256,
+        "hidden_size": 64,
         "model_name": "encoder_decoder_model",
         "encoder_name": "gru_encoder_model",
         "decoder_name": "gru_decoder_model"
@@ -144,28 +144,27 @@
     "epochs": 1000,
     "batch_size": 32,
     "metrics": [
-      "bleu",
       {
         "name": "per_token_accuracy",
         "inputs": [
           "y_tok",
           "y_spec_tokens"
         ]
-      }
+      },
+      "bleu"
     ],
     "validation_patience": 20,
     "val_every_n_epochs": 5,
     "log_every_n_epochs": 1,
     "show_examples": false,
-    "validate_best": true,
-    "test_best": true,
+    "evaluation_targets": ["train", "valid", "test"],
     "tensorboard_log_dir": "{MODELS_PATH}/"
   },
   "metadata": {
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/seq2seq/rus-eng/token_level/rus_eng_token_model_v0"
+      "MODELS_PATH": "{ROOT_PATH}/models/seq2seq/rus-eng/token_level/rus_eng_token_model_v1"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
@@ -183,10 +182,6 @@
       {
         "url": "http://files.deeppavlov.ai/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
         "subdir": "{DOWNLOADS_PATH}/embeddings"
-      },
-      {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/seq2seq/rus_eng_token_model_v0.tar.gz",
-        "subdir": "{ROOT_PATH}/models/seq2seq/rus-eng/token_level/"
       }
     ]
   }
