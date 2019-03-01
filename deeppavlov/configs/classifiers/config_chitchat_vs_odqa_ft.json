@@ -52,6 +52,7 @@
         "id": "my_embedder",
         "class_name": "fasttext",
         "load_path": "{DOWNLOADS_PATH}/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
+        "dim": 300,
         "pad_zero": true
       },
       {
@@ -157,7 +158,7 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/chitchat_vs_odqa_v0"
+      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/chitchat_vs_odqa_v3"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
@@ -169,7 +170,7 @@
     },
     "download": [
       {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/classifiers/chitchat_vs_odqa_v0.tar.gz",
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/classifiers/chitchat_vs_odqa_v3.tar.gz",
         "subdir": "{ROOT_PATH}/models/classifiers/"
       },
       {
