@@ -13,16 +13,17 @@
 # limitations under the License.
 
 import json
+from logging import getLogger
+
 from fuzzywuzzy import process
 from overrides import overrides
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.utils import download
-from deeppavlov.core.common.log import get_logger
-from deeppavlov.core.models.serializable import Serializable
 from deeppavlov.core.models.component import Component
+from deeppavlov.core.models.serializable import Serializable
 
-log = get_logger(__name__)
+log = getLogger(__name__)
 
 
 @register('dstc_slotfilling')
@@ -31,6 +32,7 @@ class DstcSlotFillingNetwork(Component, Serializable):
     def __init__(self, threshold: float = 0.8, **kwargs):
         super().__init__(**kwargs)
         self.threshold = threshold
+        self._slot_vals = None
         # Check existance of file with slots, slot values, and corrupted (misspelled) slot values
         self.load()
 
@@ -112,8 +114,14 @@ class DstcSlotFillingNetwork(Component, Serializable):
         with open(self.save_path, 'w', encoding='utf8') as f:
             json.dump(self._slot_vals, f)
 
+    def serialize(self):
+        return json.dumps(self._slot_vals)
+
     def load(self, *args, **kwargs):
         if not self.load_path.exists():
             self._download_slot_vals()
         with open(self.load_path, encoding='utf8') as f:
             self._slot_vals = json.load(f)
+
+    def deserialize(self, data):
+        self._slot_vals = json.loads(data)

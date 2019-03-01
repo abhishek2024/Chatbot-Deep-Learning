@@ -71,12 +71,14 @@
         "char_hidden_size": 100,
         "encoder_hidden_size": 75,
         "attention_hidden_size": 75,
-        "learning_rate": 0.5,
         "min_learning_rate": 0.001,
-        "learning_rate_patience": 5,
         "keep_prob": 0.7,
-        "grad_clip": 5.0,
-        "weight_decay": 1.0,
+        "clip_norm": 5.0,
+        "learning_rate": 0.5,
+        "learning_rate_drop_patience": 5,
+        "learning_rate_drop_div": 2.0,
+        "optimizer": "tf.train:AdadeltaOptimizer",
+        "momentum": 0.95,
         "save_path": "{MODELS_PATH}/squad_model/model",
         "load_path": "{MODELS_PATH}/squad_model/model",
         "in": ["context_tokens_idxs", "context_chars_idxs", "question_tokens_idxs", "question_chars_idxs"],
@@ -94,8 +96,6 @@
   },
   "train": {
     "show_examples": false,
-    "test_best": false,
-    "validate_best": true,
     "log_every_n_batches": 250,
     "val_every_n_epochs": 1,
     "batch_size": 50,
@@ -110,7 +110,9 @@
         "name": "exact_match",
         "inputs": ["ans_raw", "ans_predicted"]
       }
-    ]
+    ],
+    "evaluation_targets": ["valid"],
+    "class_name": "nn_trainer"
   },
   "metadata": {
     "variables": {
@@ -138,7 +140,6 @@
         "url": "http://files.deeppavlov.ai/embeddings/wiki-news-300d-1M-char.vec",
         "subdir": "{DOWNLOADS_PATH}/embeddings"
       }
-      ]
+    ]
   }
 }
-

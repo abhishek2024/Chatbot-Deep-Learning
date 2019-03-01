@@ -122,7 +122,8 @@
         "id": "onehotter",
         "depth": "#classes_vocab.len",
         "in": "y_ids",
-        "out": "y_onehot"
+        "out": "y_onehot",
+        "single_vector": true
       },
       {
         "in": [
@@ -167,8 +168,11 @@
       "accuracy"
     ],
     "show_examples": true,
-    "validate_best": true,
-    "test_best": false
+    "evaluation_targets": [
+      "train",
+      "valid"
+    ],
+    "class_name": "fit_trainer"
   },
   "metadata": {
     "variables": {

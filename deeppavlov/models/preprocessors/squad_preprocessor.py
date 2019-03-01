@@ -16,6 +16,7 @@
 import pickle
 import unicodedata
 from collections import Counter
+from logging import getLogger
 from pathlib import Path
 from typing import Tuple, List, Union
 
@@ -24,13 +25,11 @@ from nltk import word_tokenize
 from tqdm import tqdm
 
 from deeppavlov.core.commands.utils import expand_path
-from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.common.registry import register
-from deeppavlov.core.data.utils import download
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.models.estimator import Estimator
 
-logger = get_logger(__name__)
+logger = getLogger(__name__)
 
 
 @register('squad_preprocessor')
@@ -229,8 +228,7 @@ class SquadVocabEmbedder(Estimator):
 
         self.emb_folder.mkdir(parents=True, exist_ok=True)
 
-        if not (self.emb_folder / self.emb_file_name).exists():
-            download(self.emb_folder / self.emb_file_name, self.emb_url)
+        self.emb_dim = self.emb_mat = self.token2idx_dict = None
 
         if self.load_path.exists():
             self.load()
@@ -299,25 +297,33 @@ class SquadVocabEmbedder(Estimator):
                     if word in self.vocab:
                         self.embedding_dict[word] = vec
 
-            self.token2idx_dict = {token: idx for idx,
-                                                  token in enumerate(self.embedding_dict.keys(), 2)}
+            self.token2idx_dict = {token: idx for idx, token in enumerate(self.embedding_dict.keys(), 2)}
             self.token2idx_dict[self.NULL] = 0
             self.token2idx_dict[self.OOV] = 1
-            self.embedding_dict[self.NULL] = [0. for _ in range(self.emb_dim)]
-            self.embedding_dict[self.OOV] = [0. for _ in range(self.emb_dim)]
+            self.embedding_dict[self.NULL] = [0.] * self.emb_dim
+            self.embedding_dict[self.OOV] = [0.] * self.emb_dim
             idx2emb_dict = {idx: self.embedding_dict[token]
                             for token, idx in self.token2idx_dict.items()}
             self.emb_mat = np.array([idx2emb_dict[idx] for idx in range(len(idx2emb_dict))])
 
-    def load(self, *args, **kwargs):
+    def load(self) -> None:
         logger.info('SquadVocabEmbedder: loading saved {}s vocab from {}'.format(self.level, self.load_path))
-        self.emb_dim, self.emb_mat, self.token2idx_dict = pickle.load(self.load_path.open('rb'))
+        with self.load_path.open('rb') as f:
+            self.emb_dim, self.emb_mat, self.token2idx_dict = pickle.load(f)
         self.loaded = True
 
-    def save(self, *args, **kwargs):
+    def deserialize(self, data: bytes) -> None:
+        self.emb_dim, self.emb_mat, self.token2idx_dict = pickle.loads(data)
+        self.loaded = True
+
+    def save(self) -> None:
         logger.info('SquadVocabEmbedder: saving {}s vocab to {}'.format(self.level, self.save_path))
         self.save_path.parent.mkdir(parents=True, exist_ok=True)
-        pickle.dump((self.emb_dim, self.emb_mat, self.token2idx_dict), self.save_path.open('wb'))
+        with self.save_path.open('wb') as f:
+            pickle.dump((self.emb_dim, self.emb_mat, self.token2idx_dict), f, protocol=4)
+
+    def serialize(self) -> bytes:
+        return pickle.dumps((self.emb_dim, self.emb_mat, self.token2idx_dict), protocol=4)
 
     def _get_idx(self, el: str) -> int:
         """ Returns idx for el (token or char).

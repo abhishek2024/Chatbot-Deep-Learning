@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Union
 from abc import ABCMeta, abstractmethod
+from typing import Union
 
 
 class RichItem(metaclass=ABCMeta):
@@ -49,6 +49,15 @@ class RichItem(metaclass=ABCMeta):
 
         Returns:
             control: Telegram representation of control state.
+        """
+        return None
+
+    def alexa(self):
+        """Returns Amazon Alexa compatible state of the control instance
+        including its nested controls.
+
+        Returns:
+            control: Amazon Alexa representation of control state.
         """
         return None
 
@@ -128,3 +137,14 @@ class RichMessage(RichItem):
         """
         telegram_controls = [control.telegram() for control in self.controls]
         return telegram_controls
+
+    def alexa(self) -> list:
+        """Returns list of Amazon Alexa compatible states of the RichMessage
+        instance nested controls.
+
+        Returns:
+            alexa_controls: Amazon Alexa representation of RichMessage instance nested
+                controls.
+        """
+        alexa_controls = [control.alexa() for control in self.controls]
+        return alexa_controls

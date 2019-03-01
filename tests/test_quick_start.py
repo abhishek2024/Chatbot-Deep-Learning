@@ -2,25 +2,27 @@ import io
 import json
 import logging
 import os
-import signal
+import pickle
 import shutil
+import signal
 import sys
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Union
-
-import pytest
-import pexpect
-import pexpect.popen_spawn
-import requests
 from urllib.parse import urljoin
 
-import deeppavlov
-from deeppavlov.core.commands.utils import parse_config
-from deeppavlov.download import deep_download
-from deeppavlov.core.data.utils import get_all_elems_from_json
-from deeppavlov.core.common.paths import get_settings_path
-from utils.server_utils.server import get_server_params, SERVER_CONFIG_FILENAME
+import pexpect
+import pexpect.popen_spawn
+import pytest
+import requests
 
+import deeppavlov
+from deeppavlov import build_model
+from deeppavlov.core.commands.utils import parse_config
+from deeppavlov.core.common.paths import get_settings_path
+from deeppavlov.core.data.utils import get_all_elems_from_json
+from deeppavlov.download import deep_download
+from utils.server_utils.server import get_server_params, SERVER_CONFIG_FILENAME
 
 tests_dir = Path(__file__).parent
 test_configs_path = tests_dir / "deeppavlov" / "configs"
@@ -86,8 +88,8 @@ PARAMS = {
         ("classifiers/sentiment_twitter.json", "classifiers", ALL_MODES): [ONE_ARGUMENT_INFER_CHECK],
         ("classifiers/sentiment_twitter_preproc.json", "classifiers", ALL_MODES): [ONE_ARGUMENT_INFER_CHECK],
         ("classifiers/topic_ag_news.json", "classifiers", ALL_MODES): [ONE_ARGUMENT_INFER_CHECK],
-        ("classifiers/rusentiment_cnn.json", "classifiers", ALL_MODES): [ONE_ARGUMENT_INFER_CHECK],
-        ("classifiers/rusentiment_elmo.json", "classifiers", ALL_MODES): [ONE_ARGUMENT_INFER_CHECK],
+        ("classifiers/rusentiment_cnn.json", "classifiers", ('IP',)): [ONE_ARGUMENT_INFER_CHECK],
+        ("classifiers/rusentiment_elmo.json", "classifiers", ('IP',)): [ONE_ARGUMENT_INFER_CHECK],
         ("classifiers/yahoo_convers_vs_info.json", "classifiers", ('IP',)): [ONE_ARGUMENT_INFER_CHECK]
     },
     "snips": {
@@ -155,7 +157,9 @@ PARAMS = {
     },
     "doc_retrieval": {
         ("doc_retrieval/en_ranker_tfidf_wiki_test.json", "doc_retrieval", ('TI',)): [ONE_ARGUMENT_INFER_CHECK],
-        ("doc_retrieval/ru_ranker_tfidf_wiki_test.json", "doc_retrieval", ('TI',)): [ONE_ARGUMENT_INFER_CHECK]
+        ("doc_retrieval/ru_ranker_tfidf_wiki_test.json", "doc_retrieval", ('TI',)): [ONE_ARGUMENT_INFER_CHECK],
+        ("doc_retrieval/en_ranker_pop_wiki_test.json", "doc_retrieval", ('TI',)): [
+            ONE_ARGUMENT_INFER_CHECK]
     },
     "squad": {
         ("squad/squad.json", "squad_model", ALL_MODES): [TWO_ARGUMENTS_INFER_CHECK],
@@ -181,7 +185,8 @@ PARAMS = {
     },
     "odqa": {
         ("odqa/en_odqa_infer_wiki_test.json", "odqa", ('IP',)): [ONE_ARGUMENT_INFER_CHECK],
-        ("odqa/ru_odqa_infer_wiki_test.json", "odqa", ('IP',)): [ONE_ARGUMENT_INFER_CHECK]
+        ("odqa/ru_odqa_infer_wiki_test.json", "odqa", ('IP',)): [ONE_ARGUMENT_INFER_CHECK],
+        ("odqa/en_odqa_pop_infer_wiki_test.json", "odqa", ('IP',)): [ONE_ARGUMENT_INFER_CHECK]
     },
     "morpho_tagger": {
         ("morpho_tagger/UD2.0/morpho_en.json", "morpho_tagger_en", ALL_MODES): [ONE_ARGUMENT_INFER_CHECK],
@@ -240,11 +245,9 @@ def download_config(config_path):
 
     # Update config for testing
     config.setdefault('train', {}).setdefault('pytest_epochs', 1)
+    config['train'].setdefault('pytest_max_batches', 2)
+    config['train'].setdefault('pytest_max_test_batches', 2)
     _override_with_test_values(config)
-
-    config_vars = config.setdefault('metadata', {}).setdefault('variables', {})
-    config_vars['ROOT_PATH'] = str(download_path)
-    config_vars['CONFIGS_PATH'] = str(test_configs_path)
 
     config_path = test_configs_path / config_path
     config_path.parent.mkdir(exist_ok=True, parents=True)
@@ -272,6 +275,9 @@ def setup_module():
         for (config_path, _, _), _ in conf_dict.items():
             download_config(config_path)
 
+    os.environ['DP_ROOT_PATH'] = str(download_path)
+    os.environ['DP_CONFIGS_PATH'] = str(test_configs_path)
+
     if cache_dir:
         cache_dir.mkdir(parents=True, exist_ok=True)
         os.environ['DP_CACHE_DIR'] = str(cache_dir.resolve())
@@ -283,6 +289,23 @@ def teardown_module():
 
     if cache_dir:
         shutil.rmtree(str(cache_dir), ignore_errors=True)
+
+
+def _serialize(config):
+    chainer = build_model(config, download=True)
+    return chainer.serialize()
+
+
+def _deserialize(config, raw_bytes, examples):
+    chainer = build_model(config, serialized=raw_bytes)
+    for *query, expected_response in examples:
+        query = [[q] for q in query]
+        actual_response = chainer(*query)
+        if expected_response is not None:
+            if actual_response is not None and len(actual_response) > 0:
+                actual_response = actual_response[0]
+            assert expected_response == str(actual_response), \
+                f"Error in interacting with {model_dir} ({conf_file}): {query}"
 
 
 @pytest.mark.parametrize("model,conf_file,model_dir,mode", TEST_GRID, scope='class')
@@ -369,6 +392,29 @@ class TestQuickStart(object):
                 shutil.rmtree(str(download_path), ignore_errors=True)
         else:
             pytest.skip("Unsupported mode: {}".format(mode))
+
+    def test_serialization(self, model, conf_file, model_dir, mode):
+        if 'IP' not in mode:
+            return pytest.skip("Unsupported mode: {}".format(mode))
+
+        config_file_path = test_configs_path / conf_file
+
+        with ProcessPoolExecutor(max_workers=1) as executor:
+            f = executor.submit(_serialize, config_file_path)
+        raw_bytes = f.result()
+
+        serialized: list = pickle.loads(raw_bytes)
+        if not any(serialized):
+            pytest.skip("Serialization not supported: {}".format(conf_file))
+            return
+        serialized.clear()
+
+        with ProcessPoolExecutor(max_workers=1) as executor:
+            f = executor.submit(_deserialize, config_file_path, raw_bytes, PARAMS[model][(conf_file, model_dir, mode)])
+
+        exc = f.exception()
+        if exc is not None:
+            raise exc
 
     def test_consecutive_training_and_interacting(self, model, conf_file, model_dir, mode):
         if 'TI' in mode:

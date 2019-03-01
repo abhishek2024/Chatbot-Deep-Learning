@@ -13,26 +13,26 @@
 # limitations under the License.
 
 import pathlib
-from collections import defaultdict
-import re
-from typing import List, Dict, Generator, Tuple, Any, AnyStr, Union
 from abc import abstractmethod
-import numpy as np
+from collections import defaultdict
+from typing import List, Dict, AnyStr, Union
 
+import numpy as np
 from pymorphy2 import MorphAnalyzer
 from russian_tagsets import converters
 
-from deeppavlov.core.models.serializable import Serializable
 from deeppavlov.core.common.registry import register
+from deeppavlov.core.models.component import Component
+from deeppavlov.core.models.serializable import Serializable
 
 
-class WordIndexVectorizer(Serializable):
+class WordIndexVectorizer(Serializable, Component):
     """
     A basic class for custom word-level vectorizers
     """
 
-    def __init__(self, save_path : str, load_path: Union[str, List[str]], **kwargs) -> None:
-        super().__init__(save_path, load_path, **kwargs)
+    def __init__(self, save_path: str, load_path: Union[str, List[str]], **kwargs) -> None:
+        Serializable.__init__(self, save_path, load_path, **kwargs)
 
     @property
     @abstractmethod
