@@ -157,6 +157,25 @@ class TransformerChitChat(Serializable):
 
     def drop_rich_msg(self, objs) -> List[str]:
         return [obj for obj in objs if type(obj).__name__ !='RichMessage']
+    
+    # persona= [
+    #     "Я студентка.",
+    #     "Я подрабатываю.",
+    #     "Я хожу в бассейн.",
+    #     "У меня есть парень.",
+    #     "Я люблю суши.",
+    # ]
+    persona= [
+        # "Я студентка.",
+        # "Я подрабатываю.",
+        "Я хожу в бассейн.",
+        "Я хожу в бассейн.",
+        "Я хожу в бассейн.",
+        "Я хожу в бассейн.",
+        "Я хожу в бассейн.",
+        "Я хожу в бассейн.",
+        "Я хожу в бассейн.",
+    ]
 
     def __call__(self, utterances_batch, history_batch, states_batch, *args, **kwargs) -> List[float]:
         history_batch = copy.deepcopy(history_batch)
@@ -164,11 +183,16 @@ class TransformerChitChat(Serializable):
         history_batch = [self.drop_rich_msg(his) for his in history_batch]
 
         [history.append(utter) for utter, history in zip(utterances_batch, history_batch)]
+        tagged_persona_batch = [self.context2tagged_context(self.persona) for _ in history_batch]
+        tagged_persona_batch = [torch.tensor(d, dtype=torch.long, device=self.device) for d in tagged_persona_batch]
+        tagged_persona_batch = pad_sequence(tagged_persona_batch,
+                                            batch_first=True,
+                                            padding_value=self.transformer.padding_idx)
         tagged_context_batch = [self.context2tagged_context(context) for context in history_batch]
         tagged_context_batch = [torch.tensor(d, dtype=torch.long, device=self.device) for d in tagged_context_batch]
         tagged_context_batch = pad_sequence(tagged_context_batch,
                                             batch_first=True,
                                             padding_value=self.transformer.padding_idx)
-        predictions, confidence = self.transformer.predict([tagged_context_batch])
+        predictions, confidence = self.transformer.predict([tagged_persona_batch, tagged_context_batch])
         predictions_batch = [detokenize(self.vocab.ids2string(prediction).split()) for prediction in predictions]
         return predictions_batch, confidence
