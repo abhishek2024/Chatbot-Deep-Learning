@@ -36,8 +36,8 @@
         "id": "char_vocab",
         "class_name": "simple_vocab",
         "pad_with_zeros": true,
-        "save_path": "{MODELS_PATH}/ancor_char.dict",
-        "load_path": "{MODELS_PATH}/ancor_char.dict"
+        "save_path": "{MODELS_PATH}/old_ancor_char.dict",
+        "load_path": "{MODELS_PATH}/old_ancor_char.dict"
       },
       {
         "id": "embedder",
@@ -92,7 +92,7 @@
         "gpu_memory_fraction": 0.98
       }
     ],
-    "out": ["predicted_clusters", "mention_to_predicted", "clusters"]
+    "out": ["predicted_clusters", "mention_to_predicted"]
   },
   "train": {
     "epochs": 200,
