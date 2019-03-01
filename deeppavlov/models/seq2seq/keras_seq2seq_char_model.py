@@ -14,6 +14,7 @@
 
 from typing import List, Tuple, Union, Optional
 import numpy as np
+from logging import getLogger
 from overrides import overrides
 from copy import deepcopy
 
@@ -24,12 +25,11 @@ from keras.models import Model
 from keras.regularizers import l2
 
 from deeppavlov.core.common.registry import register
-from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.models.component import Component
 from deeppavlov.models.classifiers.keras_classification_model import KerasClassificationModel
 from deeppavlov.core.layers.keras_layers import multiplicative_self_attention
 
-log = get_logger(__name__)
+log = getLogger(__name__)
 
 
 @register("keras_seq2seq_char_model")
