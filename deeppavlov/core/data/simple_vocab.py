@@ -61,7 +61,7 @@ class SimpleVocabulary(Estimator):
             self._i2t.append(special_token)
             self.count += 1
         for token, freq in self.freqs.most_common()[:self._max_tokens]:
-            if freq >= self._min_freq:
+            if (freq >= self._min_freq) and (token not in self._t2i):
                 self._t2i[token] = self.count
                 self._i2t.append(token)
                 self.count += 1
