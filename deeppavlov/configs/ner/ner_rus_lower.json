@@ -100,7 +100,6 @@
         "cell_type": "lstm",
         "use_cudnn_rnn": true,
         "n_tags": "#tag_vocab.len",
-        "capitalization_dim": "#capitalization.dim",
         "token_emb_dim": "#embedder.dim",
         "char_emb_dim": 100,
         "save_path": "{MODELS_PATH}/ner_rus/model",
