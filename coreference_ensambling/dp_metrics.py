@@ -23,9 +23,6 @@ def compute_dp_metric_for_ensemble(ensemble_clusters, ensemble_mentions_to_predi
 def get_model_prediction_from_ensamble_call(config, mode='test', batch_size=1):
     model, chainer, config = get_model(config)
     iterator = get_iterator(config)
-    in_y = config['chainer'].get('in_y', ['y'])
-    if isinstance(in_y, str):
-        in_y = [in_y]
     if isinstance(config['chainer']['out'], str):
         config['chainer']['out'] = [config['chainer']['out']]
 

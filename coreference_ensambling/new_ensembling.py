@@ -3,7 +3,7 @@ from copy import deepcopy
 import numpy as np
 
 from deeppavlov.core.commands.infer import build_model
-from deeppavlov.core.commands.train import get_iterator_from_config, read_data_by_config, _parse_metrics
+from deeppavlov.core.commands.train import get_iterator_from_config, read_data_by_config
 from deeppavlov.core.commands.utils import parse_config
 
 
@@ -140,14 +140,6 @@ def get_ensemble_prediction(models_configs, mode, batch_size=1):
         iterator = get_iterator(model_config)
         model_predictions[model_ind] = {"config": config, "docs": {}}
 
-        in_y = config['chainer'].get('in_y', ['y'])
-        if isinstance(in_y, str):
-            in_y = [in_y]
-        if isinstance(config['chainer']['out'], str):
-            config['chainer']['out'] = [config['chainer']['out']]
-
-        # metrics_functions = _parse_metrics(config['train'].get('metrics'), in_y, config['chainer']['out'])
-        # expected_outputs = list(set().union(chainer.out_params, *[m.inputs for m in metrics_functions]))
         expected_outputs = list(set(chainer.out_params))
         for x, y_true in iterator.gen_batches(batch_size, mode, shuffle=False):
             y_predicted = list(chainer.compute(list(x), list(y_true), targets=expected_outputs))

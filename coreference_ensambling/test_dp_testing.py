@@ -5,8 +5,7 @@ from deeppavlov.core.commands.infer import build_model
 from deeppavlov.core.commands.train import _parse_metrics, get_iterator_from_config, read_data_by_config
 from deeppavlov.core.commands.utils import parse_config
 
-model_config = Path(
-    "/home/mks/projects/DeepPavlov/deeppavlov/configs/coreference_resolution/test_ensamble/kfold_ens/gold_elmo2_fold_1.json")
+model_config = Path("/home/mks/projects/DeepPavlov/deeppavlov/configs/coreference_resolution/test_ensamble/kfold_ens/gold_elmo2_fold_1.json")
 config = parse_config(model_config)
 model = build_model(config)
 train_config = config.get("train")
