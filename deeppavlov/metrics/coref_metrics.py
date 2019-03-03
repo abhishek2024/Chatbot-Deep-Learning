@@ -25,7 +25,7 @@ log = getLogger(__name__)
 
 
 @register_metric('coref_metrics')
-def coref_metrics(predicted_clusters_l: List, mention_to_predicted_l: List, gold_clusters_l: List, ) -> Dict:
+def coref_metrics(predicted_clusters_l: List, mention_to_predicted_l: List, gold_clusters_l: List) -> Dict:
     evaluator = CorefEvaluator()
 
     for (gold_clusters, predicted_clusters, mention_to_predicted) in zip(gold_clusters_l, predicted_clusters_l,

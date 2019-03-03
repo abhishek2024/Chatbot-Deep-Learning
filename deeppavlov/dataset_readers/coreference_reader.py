@@ -32,15 +32,29 @@ class CorefReader(DatasetReader):
         self.dataset_name = None
 
     def read(self, data_path: str, *args, **kwargs) -> Dict[str, List[str]]:
-        self.file_name = kwargs.get("file")
+        self.train_file = kwargs.get("train")
+        self.test_file = kwargs.get("test")
+        self.valid_file = kwargs.get("valid")
+
         self.data_path = Path(data_path)
         self.folder_path = self.data_path.parent
-        self.dataset_name = "rucoref_conll"
+
+        if not self.train_file:
+            self.dataset_name = "rucoref_conll"
 
         if not self.data_path.exists():
             raise ValueError(f"Russian Coreference dataset in a {self.data_path} folder is absent.")
 
-        return self.read_jsonlines()
+        if self.dataset_name:
+            return self.read_jsonlines()
+        else:
+            data = {}
+            for data_set, mode in zip([self.train_file, self.valid_file, self.test_file], ["train", "valid", "test"]):
+                if data_set:
+                    train_path = self.folder_path.joinpath(data_set)
+                    with train_path.open('r', encoding='utf8') as train_file:
+                        data[mode] = [json.loads(x) for x in train_file]
+            return data
 
     def rucor2conll(self) -> None:
         rucoref2conll(self.data_path, self.folder_path)
@@ -75,3 +89,4 @@ class CorefReader(DatasetReader):
                 docs = [json.loads(x) for x in train_file]
 
         return dict(train=docs)
+

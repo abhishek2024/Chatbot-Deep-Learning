@@ -57,12 +57,9 @@ class CorefModel(TFModel):
                  stop_decay: bool = False,
                  genres: list = ("bc", "bn", "mz", "nw", "pt", "tc", "wb"),
                  gpu_memory_fraction: float = 0.98,
-                 ensemble_prediction: bool = False,
                  **kwargs):
         # Parameters
         # ---------------------------------------------------------------------------------
-        self.ensemble_prediction = ensemble_prediction
-
         self.max_top_antecedents = max_top_antecedents
         self.max_training_sentences = max_training_sentences
         self.top_span_ratio = top_span_ratio
@@ -721,12 +718,6 @@ class CorefModel(TFModel):
         return tf_loss
 
     def __call__(self, *args):
-        if self.ensemble_prediction:
-            return self.ensemble_call(*args)
-        else:
-            return self.simple_call(*args)
-
-    def simple_call(self, *args):
         if self.train_on_gold:
             sentences, speakers, doc_key, mentions_positions = args
             batch = {"sentences": sentences[0], "speakers": speakers[0], "doc_key": doc_key[0],
@@ -744,14 +735,14 @@ class CorefModel(TFModel):
 
         return [predicted_clusters], [mention_to_predicted]
 
-    def ensemble_call(self, *args):
+    def predict_for_ensemble(self, *args):
         if self.train_on_gold:
             sentences, speakers, doc_key, mentions_positions = args
-            batch = {"sentences": sentences[0], "speakers": speakers[0], "doc_key": doc_key[0],
-                     "clusters": mentions_positions[0]}
+            batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key,
+                     "clusters": mentions_positions}
         else:
             sentences, speakers, doc_key = args
-            batch = {"sentences": sentences[0], "speakers": speakers[0], "doc_key": doc_key[0], "clusters": []}
+            batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": []}
 
         self.start_enqueue_thread(batch, False)
         (candidate_mention_scores, top_span_starts, top_span_ends, top_antecedents,

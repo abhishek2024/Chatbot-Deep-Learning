@@ -1,0 +1,134 @@
+{
+  "dataset_reader": {
+    "class_name": "coreference_reader",
+    "data_path": "{DOWNLOADS_PATH}/AnCor/final/ancor.jsonl",
+    "train": "ancor.jsonl"
+  },
+  "dataset_iterator": {
+    "class_name": "coreference_iterator",
+    "seed": 42,
+    "train_on_gold": true,
+    "field_to_split": "train",
+    "split_fields": [
+      "train",
+      "valid",
+      "test"
+    ],
+    "split_proportions": [
+      0.8,
+      0.1,
+      0.1
+    ]
+  },
+  "chainer": {
+    "in": ["sentences", "speakers", "doc_key", "mentions_places"],
+    "in_y": ["clusters"],
+    "pipe": [
+      {
+        "in": ["sentences"],
+        "class_name": "char_splitter",
+        "out": ["x_char"]
+      },
+      {
+        "in": ["x_char"],
+        "out": ["x_char"],
+        "fit_on": ["x_char"],
+        "id": "char_vocab",
+        "class_name": "simple_vocab",
+        "pad_with_zeros": true,
+        "save_path": "{MODELS_PATH}/ancor_final/cv_tmp/fold_3/ancor_rucor_char.dict",
+        "load_path": "{MODELS_PATH}/ancor_final/cv_tmp/fold_3/ancor_rucor_char.dict"
+      },
+      {
+        "id": "embedder",
+        "class_name": "fasttext",
+        "pad_zero": true,
+        "load_path": "~/Work/Embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin"
+      },
+      {
+        "in": ["sentences", "speakers", "doc_key", "mentions_places"],
+        "in_y": ["clusters"],
+        "out": ["predicted_clusters", "mention_to_predicted"],
+        "main": true,
+        "class_name": "coref_new_model",
+        "save_path": "{MODELS_PATH}/ancor_final/cv_tmp/fold_3/best_model.ckpt",
+        "load_path": "{MODELS_PATH}/ancor_final/cv_tmp/fold_3/best_model.ckpt",
+        "train_on_gold": true,
+        "context_embedder": "#embedder",
+        "head_embedder": "#embedder",
+        "char_dict": "#char_vocab",
+        "lm_path": "{DOWNLOADS_PATH}/embeddings/ancor_final/ancor_rucor_elmo2.hdf5",
+        "stop_decay": false,
+        "use_metadata": true,
+        "use_features": true,
+        "model_heads": true,
+        "coarse_to_fine": true,
+        "filter_widths": [3, 4, 5],
+        "filter_size": 50,
+        "char_embedding_size": 8,
+        "contextualization_size": 200,
+        "contextualization_layers": 3,
+        "ffnn_size": 150,
+        "ffnn_depth": 2,
+        "feature_size": 20,
+        "max_span_width": 30,
+        "coref_depth": 2,
+        "lm_layers": 3,
+        "lm_size": 1024,
+        "random_seed": 42,
+        "max_top_antecedents": 50,
+        "max_training_sentences": 50,
+        "top_span_ratio": 0.4,
+        "max_gradient_norm": 5.0,
+        "lstm_dropout_rate": 0.4,
+        "lexical_dropout_rate": 0.5,
+        "dropout_rate": 0.2,
+        "optimizer": "adam",
+        "learning_rate": 0.001,
+        "decay_rate": 0.999,
+        "decay_frequency": 100,
+        "final_rate": 0.0002,
+        "genres": ["bc", "bn", "mz", "nw", "pt", "tc", "wb"],
+        "gpu_memory_fraction": 0.98
+      }
+    ],
+    "out": ["predicted_clusters", "mention_to_predicted", "clusters"]
+  },
+  "train": {
+    "epochs": 200,
+    "batch_size": 1,
+    "metrics": [
+      {
+        "name": "coref_metrics",
+        "inputs": ["predicted_clusters", "mention_to_predicted", "clusters"]
+      }
+    ],
+    "validation_patience": 20,
+    "val_every_n_epochs": 1,
+    "log_every_n_epochs": 1,
+    "show_examples": false,
+    "validate_best": true,
+    "test_best": true
+  },
+  "metadata": {
+    "variables": {
+      "ROOT_PATH": "~/.deeppavlov",
+      "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
+      "MODELS_PATH": "{ROOT_PATH}/coreference"
+    },
+    "requirements": [
+      "{DEEPPAVLOV_PATH}/requirements/tf-gpu.txt",
+      "{DEEPPAVLOV_PATH}/requirements/fasttext.txt"
+    ],
+    "download": [
+      {
+        "url": "http://files.deeppavlov.ai/datasets/coreference_resolution/rucoref_29.10.2015.zip",
+        "subdir": "{DOWNLOADS_PATH}/coreference_resolution/"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
+        "subdir": "{DOWNLOADS_PATH}/embeddings"
+      }
+    ]
+  }
+}

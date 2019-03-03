@@ -1,8 +1,8 @@
 {
   "dataset_reader": {
     "class_name": "coreference_reader",
-    "data_path": "{DOWNLOADS_PATH}/AnCor/train.jsonl",
-    "file": "train.jsonl"
+    "data_path": "{DOWNLOADS_PATH}/AnCor/final/ancor.jsonl",
+    "train": "ancor.jsonl"
   },
   "dataset_iterator": {
     "class_name": "coreference_iterator",
@@ -36,8 +36,8 @@
         "id": "char_vocab",
         "class_name": "simple_vocab",
         "pad_with_zeros": true,
-        "save_path": "{MODELS_PATH}/old_ancor_char.dict",
-        "load_path": "{MODELS_PATH}/old_ancor_char.dict"
+        "save_path": "{MODELS_PATH}/ancor_final/cv_tmp/fold_8/ancor_rucor_char.dict",
+        "load_path": "{MODELS_PATH}/ancor_final/cv_tmp/fold_8/ancor_rucor_char.dict"
       },
       {
         "id": "embedder",
@@ -51,13 +51,13 @@
         "out": ["predicted_clusters", "mention_to_predicted"],
         "main": true,
         "class_name": "coref_new_model",
-        "save_path": "{MODELS_PATH}/checkpoints/new_model_on_gold_telmo2/best_model.ckpt",
-        "load_path": "{MODELS_PATH}/checkpoints/new_model_on_gold_telmo2/best_model.ckpt",
+        "save_path": "{MODELS_PATH}/ancor_final/cv_tmp/fold_8/best_model.ckpt",
+        "load_path": "{MODELS_PATH}/ancor_final/cv_tmp/fold_8/best_model.ckpt",
         "train_on_gold": true,
         "context_embedder": "#embedder",
         "head_embedder": "#embedder",
         "char_dict": "#char_vocab",
-        "lm_path": "{DOWNLOADS_PATH}/embeddings/elmo_cache_4_telmo2.hdf5",
+        "lm_path": "{DOWNLOADS_PATH}/embeddings/ancor_final/ancor_rucor_elmo2.hdf5",
         "stop_decay": false,
         "use_metadata": true,
         "use_features": true,
@@ -92,7 +92,7 @@
         "gpu_memory_fraction": 0.98
       }
     ],
-    "out": ["predicted_clusters", "mention_to_predicted"]
+    "out": ["predicted_clusters", "mention_to_predicted", "clusters"]
   },
   "train": {
     "epochs": 200,
