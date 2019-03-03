@@ -2,7 +2,7 @@ from pathlib import Path
 
 from coreference_ensambling.competition_metrics import compute_competition_metrics, models_metrics
 from coreference_ensambling.dp_metrics import compute_dp_metric_for_ensemble, compute_dp_metric_for_models
-from coreference_ensambling.new_ensembling import get_ensemble_prediction
+from coreference_ensambling.ensembling import get_ensemble_prediction
 from coreference_ensambling.ensambling import get_data
 # Paths
 ensemble_root = Path("/home/mks/projects/DeepPavlov/deeppavlov/configs/coreference_resolution/test_ensamble/")
