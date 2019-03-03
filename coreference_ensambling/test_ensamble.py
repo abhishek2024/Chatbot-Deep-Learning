@@ -2,12 +2,12 @@ from pathlib import Path
 
 from coreference_ensambling.competition_metrics import compute_competition_metrics, models_metrics
 from coreference_ensambling.dp_metrics import compute_dp_metric_for_ensemble, compute_dp_metric_for_models
-from coreference_ensambling.ensembling import get_ensemble_prediction
-from coreference_ensambling.ensambling import get_data
+from coreference_ensambling.ensembling import get_data, get_ensemble_prediction
+
 # Paths
 ensemble_root = Path("/home/mks/projects/DeepPavlov/deeppavlov/configs/coreference_resolution/test_ensamble/")
-ensemble_call_fold = ensemble_root.joinpath("new_kfold_ens")
-ensemble_simple_fold = ensemble_root.joinpath("kfold_ens")
+ensemble_call_fold = ensemble_root.joinpath("ancor_rucor_full", "ensemble")
+ensemble_simple_fold = ensemble_root.joinpath("ancor_rucor_full", "simple")
 
 ancor_data = Path("/home/mks/Work/Datasets/AnCor/ForTraining+morph/")
 chains_files = ancor_data.joinpath("Chains")

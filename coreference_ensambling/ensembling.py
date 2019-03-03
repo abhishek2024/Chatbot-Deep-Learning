@@ -14,6 +14,19 @@ def get_iterator(config, parse_conf=True):
     return get_iterator_from_config(config, data)
 
 
+def get_data(config, mode, parse_conf=True):
+    if parse_conf:
+        config = parse_config(config)
+    data = read_data_by_config(config)
+    generator = get_iterator_from_config(config, data)
+    data_for_model = []
+    gold_predictions = []
+    for x, y_true in generator.gen_batches(1, mode, shuffle=False):
+        data_for_model.append(x)
+        gold_predictions.append(y_true)
+    return data_for_model, gold_predictions
+
+
 def get_model(model_config):
     config = parse_config(model_config)
     chainer = build_model(config)

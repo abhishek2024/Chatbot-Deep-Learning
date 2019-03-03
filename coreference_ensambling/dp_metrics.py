@@ -1,7 +1,6 @@
 from copy import deepcopy
 
-from coreference_ensambling.ensambling import get_data
-from coreference_ensambling.ensembling import get_iterator, get_model, get_predicted_antecedents, \
+from coreference_ensambling.ensembling import get_data, get_iterator, get_model, get_predicted_antecedents, \
     get_predicted_clusters
 from deeppavlov.core.commands.train import _parse_metrics
 from deeppavlov.metrics.coref_metrics import coref_metrics
