@@ -65,6 +65,7 @@ class TransformerChitChat(Serializable):
 
                  bert_vocab_path: str = './vocab',  # vocab config
                  device: str = 'cuda',
+                #  device: str = 'cuda',
                  **kwargs) -> None:
         super().__init__(save_path='', **kwargs)
 
@@ -166,15 +167,15 @@ class TransformerChitChat(Serializable):
     #     "Я люблю суши.",
     # ]
     persona= [
-        # "Я студентка.",
-        # "Я подрабатываю.",
+        "Я студентка.",
+        "Я подрабатываю.",
         "Я хожу в бассейн.",
-        "Я хожу в бассейн.",
-        "Я хожу в бассейн.",
-        "Я хожу в бассейн.",
-        "Я хожу в бассейн.",
-        "Я хожу в бассейн.",
-        "Я хожу в бассейн.",
+        # "Я хожу в бассейн.",
+        # "Я хожу в бассейн.",
+        # "Я хожу в бассейн.",
+        # "Я хожу в бассейн.",
+        # "Я хожу в бассейн.",
+        # "Я хожу в бассейн.",
     ]
 
     def __call__(self, utterances_batch, history_batch, states_batch, *args, **kwargs) -> List[float]:
