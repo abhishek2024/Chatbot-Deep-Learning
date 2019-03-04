@@ -126,7 +126,7 @@
         "src_max_length": 50,
         "tgt_max_length": 50,
         "decoder_vocab": "#y_chars_vocab",
-        "optimizer": "Adam",
+        "optimizer": "RMSprop",
         "learning_rate": 0.01,
         "learning_rate_decay": 0.001,
         "loss": "categorical_crossentropy",
@@ -181,7 +181,7 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/seq2seq/rus-eng/char_level/model_v0"
+      "MODELS_PATH": "{ROOT_PATH}/models/seq2seq/rus-eng_char_model_v0"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt"
@@ -190,6 +190,10 @@
       {
         "url": "http://files.deeppavlov.ai/datasets/rus-eng.tar.gz",
         "subdir": "{DOWNLOADS_PATH}/"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/seq2seq/rus-eng_char_model_v0.tar.gz",
+        "subdir": "{ROOT_PATH}/models/seq2seq/"
       }
     ]
   }

@@ -363,7 +363,6 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
         self.sess.close()
 
     def destroy(self):
-        self.decoder_embedder.destroy()
         del self.model
         del self.encoder_model
         del self.decoder_model
