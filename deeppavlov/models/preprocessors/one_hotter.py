@@ -56,7 +56,7 @@ class OneHotter(Component):
         one_hotted_batch = []
 
         for utt in batch:
-            if isinstance(utt, list):
+            if isinstance(utt, list) or isinstance(utt, np.ndarray):
                 one_hotted_utt = self._to_one_hot(utt, self._depth)
             elif isinstance(utt, int):
                 if self._pad_zeros or self.single_vector:
