@@ -62,7 +62,7 @@
         "in": "x_char",
         "id": "x_chars_vocab",
         "class_name": "simple_vocab",
-        "pad_with_zeros": false,
+        "pad_with_zeros": true,
         "fit_on": [
           "x_char"
         ],
@@ -77,15 +77,21 @@
         "out": "x_chars_ind"
       },
       {
+        "in": "x_chars_ind",
+        "out": "x_chars_onehot",
+        "class_name": "one_hotter",
+        "id": "x_one_hotter",
+        "depth": "#x_chars_vocab.__len__()"
+      },
+      {
         "in": "y_char",
         "id": "y_chars_vocab",
         "class_name": "simple_vocab",
-        "pad_with_zeros": false,
+        "pad_with_zeros": true,
         "special_tokens": [
           "<PAD>",
           "<UNK>",
-          "<BOS>",
-          "<EOS>"
+          "<BOS>"
         ],
         "unk_token": "<UNK>",
         "fit_on": [
@@ -97,15 +103,20 @@
         "out": "y_chars_ind"
       },
       {
-        "in": "x_chars_ind",
-        "in_y": "y_chars_ind",
+        "in": "y_chars_ind",
+        "out": "y_chars_onehot",
+        "class_name": "one_hotter",
+        "id": "y_one_hotter",
+        "depth": "#y_chars_vocab.__len__()"
+      },
+      {
+        "in": "x_chars_onehot",
+        "in_y": "y_chars_onehot",
         "out": "y_chars_ind_pred",
         "main": true,
         "class_name": "keras_seq2seq_char_model",
         "save_path": "{MODELS_PATH}/model",
         "load_path": "{MODELS_PATH}/model",
-        "encoder_embedding_size": 50,
-        "decoder_embedding_size": 50,
         "src_vocab_size": "#x_chars_vocab.__len__()",
         "tgt_vocab_size": "#y_chars_vocab.__len__()",
         "src_pad_id": "#x_chars_vocab.__getitem__('<PAD>')",
@@ -121,8 +132,8 @@
         "loss": "categorical_crossentropy",
         "hidden_size": 256,
         "model_name": "encoder_decoder_model",
-        "encoder_name": "gru_encoder_model",
-        "decoder_name": "gru_decoder_model"
+        "encoder_name": "lstm_encoder_model",
+        "decoder_name": "lstm_decoder_model"
       },
       {
         "ref": "y_chars_vocab",
@@ -152,11 +163,11 @@
     "epochs": 100,
     "batch_size": 64,
     "metrics": [
+      "bleu",
       {
         "name": "per_token_accuracy",
         "inputs": ["y_tok", "y_tok_text"]
-      },
-      "bleu"
+      }
     ],
     "validation_patience": 5,
     "val_every_n_epochs": 5,
