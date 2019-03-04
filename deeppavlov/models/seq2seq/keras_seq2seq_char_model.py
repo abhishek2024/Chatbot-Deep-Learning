@@ -19,15 +19,13 @@ from overrides import overrides
 from copy import deepcopy
 
 from keras.layers import Dense, Input, Embedding
-from keras.layers.recurrent import GRU, LSTM
-from keras.layers.pooling import GlobalMaxPooling1D
+from keras.layers.recurrent import LSTM
 from keras.models import Model
 from keras.regularizers import l2
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.component import Component
 from deeppavlov.models.classifiers.keras_classification_model import KerasClassificationModel
-from deeppavlov.core.layers.keras_layers import multiplicative_self_attention
 
 log = getLogger(__name__)
 
@@ -89,8 +87,8 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
                  src_max_length: Optional[int] = None,
                  tgt_max_length: Optional[int] = None,
                  model_name: str = "encoder_decoder_model",
-                 encoder_name: str = "gru_encoder_model",
-                 decoder_name: str = "gru_decoder_model",
+                 encoder_name: str = "lstm_encoder_model",
+                 decoder_name: str = "lstm_decoder_model",
                  optimizer: str = "Adam",
                  loss: str = "categorical_crossentropy",
                  learning_rate: float = 0.01,
@@ -445,7 +443,7 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
         self._decoder_input_state = [Input(shape=(hidden_size,)),  # h state
                                      Input(shape=(hidden_size,))]  # c state
 
-        decoder_gru = LSTM(
+        decoder_cell = LSTM(
             hidden_size,
             activation='tanh',
             return_sequences=True,
@@ -454,17 +452,17 @@ class KerasSeq2SeqCharModel(KerasClassificationModel):
             recurrent_dropout=decoder_rec_dropout_rate,
             return_state=True)
 
-        _train_decoder_outputs, train_state_h, train_state_c = decoder_gru(
+        _train_decoder_outputs, train_state_h, train_state_c = decoder_cell(
             _decoder_emb_inp,
             initial_state=self._encoder_state)
         self._train_decoder_state = [train_state_h, train_state_c]
 
-        _infer_decoder_outputs, infer_state_h, infer_state_c = decoder_gru(
+        _infer_decoder_outputs, infer_state_h, infer_state_c = decoder_cell(
             _decoder_infer_emb_inp,
             initial_state=self._decoder_input_state)
         self._infer_decoder_state = [infer_state_h, infer_state_c]
 
-        decoder_dense = Dense(self.opt["tgt_vocab_size"], name="dense_gru", activation="softmax")
+        decoder_dense = Dense(self.opt["tgt_vocab_size"], name="dense_", activation="softmax")
         self._train_decoder_outputs = decoder_dense(_train_decoder_outputs)
         self._infer_decoder_outputs = decoder_dense(_infer_decoder_outputs)
 
