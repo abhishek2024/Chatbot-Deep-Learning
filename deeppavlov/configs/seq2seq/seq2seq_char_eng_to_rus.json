@@ -115,9 +115,9 @@
         "src_max_length": 50,
         "tgt_max_length": 50,
         "decoder_vocab": "#y_chars_vocab",
-        "optimizer": "RMSprop",
-        "lear_rate": 0.001,
-        "lear_rate_decay": 0.01,
+        "optimizer": "Adam",
+        "learning_rate": 0.01,
+        "learning_rate_decay": 0.001,
         "loss": "categorical_crossentropy",
         "hidden_size": 256,
         "model_name": "encoder_decoder_model",
@@ -150,7 +150,7 @@
   },
   "train": {
     "epochs": 100,
-    "batch_size": 32,
+    "batch_size": 64,
     "metrics": [
       {
         "name": "per_token_accuracy",
@@ -158,7 +158,7 @@
       },
       "bleu"
     ],
-    "validation_patience": 20,
+    "validation_patience": 5,
     "val_every_n_epochs": 5,
     "log_every_n_epochs": 1,
     "show_examples": true,
