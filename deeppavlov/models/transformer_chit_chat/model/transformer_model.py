@@ -219,12 +219,18 @@ class TransformerModel(nn.Module):
             else:
                 bests = beam_scores.argmax(dim=-1)
 
-            for scores, indx in zip(beam_scores,bests):
-                confidence.append(float(scores[indx]))
+            # for scores, indx in zip(beam_scores,bests):
+            #     confidence.append(float(scores[indx]))
 
-            for i in range(batch_size):
-                best_len = beam_lens[i, bests[i]]
-                best_seq = result[i, bests[i], 1:best_len-1]
-                predicts.append(best_seq.tolist())
+            # for i in range(batch_size):
+            #     best_len = beam_lens[i, bests[i]]
+            #     best_seq = result[i, bests[i], 1:best_len-1]
+            #     predicts.append(best_seq.tolist())
+
+            for r,p,b in zip(result, probs, beam_lens):
+                # best_len = beam_lens[i, bests[i]]
+                # best_seq = result[i, bests[i], 1:best_len-1]
+                predicts.append(r.tolist())
+                confidence.append(p.tolist())
 
         return predicts, confidence
