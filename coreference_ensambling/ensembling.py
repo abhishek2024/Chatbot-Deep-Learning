@@ -3,7 +3,7 @@ from copy import deepcopy
 import numpy as np
 
 from deeppavlov.core.commands.infer import build_model
-from deeppavlov.core.commands.train import get_iterator_from_config, read_data_by_config
+from deeppavlov.core.commands.train import get_iterator_from_config, read_data_by_config, _parse_metrics
 from deeppavlov.core.commands.utils import parse_config
 
 
@@ -12,19 +12,6 @@ def get_iterator(config, parse_conf=True):
         config = parse_config(config)
     data = read_data_by_config(config)
     return get_iterator_from_config(config, data)
-
-
-def get_data(config, mode, parse_conf=True):
-    if parse_conf:
-        config = parse_config(config)
-    data = read_data_by_config(config)
-    generator = get_iterator_from_config(config, data)
-    data_for_model = []
-    gold_predictions = []
-    for x, y_true in generator.gen_batches(1, mode, shuffle=False):
-        data_for_model.append(x)
-        gold_predictions.append(y_true)
-    return data_for_model, gold_predictions
 
 
 def get_model(model_config):
@@ -49,7 +36,8 @@ def get_predicted_clusters(top_span_starts, top_span_ends, predicted_antecedents
     for i, predicted_index in enumerate(predicted_antecedents):
         if predicted_index < 0:
             continue
-        # assert i > predicted_index
+        assert i >= predicted_index
+        # == solo clusters
         predicted_antecedent = (int(top_span_starts[predicted_index]), int(top_span_ends[predicted_index]))
         if predicted_antecedent in mention_to_predicted:
             predicted_cluster = mention_to_predicted[predicted_antecedent]
@@ -76,11 +64,29 @@ def mean_prediction(docs_dict):
         for model_pred in model_predictions:
             padding = (model_pred['top_span_starts'][0], model_pred['top_span_ends'][0])
             for i, span in enumerate(zip(*(model_pred['top_span_starts'], model_pred['top_span_ends']))):
+
+                pred_top_antecedent_scores = np.array(model_pred['top_antecedent_scores'][i])
+
+                # normalize preserving -inf
+                without_inf = [x for x in pred_top_antecedent_scores if x != float('-inf')]
+                if len(without_inf) > 0:
+                    a = min(without_inf)
+                    b = max(without_inf)
+                    pred_top_antecedent_scores = pred_top_antecedent_scores - a
+                    if a != b:
+                        pred_top_antecedent_scores = pred_top_antecedent_scores / (b - a)
+
                 # cleaning padding
                 if span == padding and i != 0:
                     continue
                 if span not in doc_structure:
                     doc_structure[span] = {}
+
+                # add empty
+                if 'empty' not in doc_structure[span]:
+                    doc_structure[span]['empty'] = []
+                doc_structure[span]['empty'].append(pred_top_antecedent_scores[0])
+
                 for k, span_ind in enumerate(model_pred['top_antecedents'][i]):
                     span_id = (model_pred['top_span_starts'][span_ind], model_pred['top_span_ends'][span_ind])
                     # cleaning padding
@@ -88,26 +94,43 @@ def mean_prediction(docs_dict):
                         continue
                     if span_id not in doc_structure[span]:
                         doc_structure[span][span_id] = []
-                    doc_structure[span][span_id].append(
-                        model_pred['top_antecedent_scores'][i][k + 1])
+                    doc_structure[span][span_id].append(pred_top_antecedent_scores[k + 1])
+
         docs_predictions[doc_name] = deepcopy(doc_structure)
 
     # transform docs_predictions in model format
     ensemble_predictions = {}
     mentions_dict = {}
     for doc_name, doc_structure in docs_predictions.items():
-        ensemble_top_spans = list(doc_structure.keys())
+        ensemble_top_spans = list(sorted(doc_structure.keys()))
         ensemble_top_span_starts, ensemble_top_span_ends = [], []
         ensemble_top_antecedents, ensemble_top_antecedent_scores = [], []
-        for span, antecedents in doc_structure.items():
+        for span in sorted(doc_structure.keys()):
+            antecedents = doc_structure[span]
             ensemble_top_span_starts.append(span[0])
             ensemble_top_span_ends.append(span[1])
             span_antecedents = []
-            span_antecedents_scores = [0.]
+            # span_antecedents_scores = [0.]
+            span_antecedents_scores = []
             for antecedent_span_id, antecedent_models_scores in antecedents.items():
-                span_antecedents.append(ensemble_top_spans.index(antecedent_span_id))
-                # span_antecedents_scores.append(np.sum(antecedent_models_scores) / num_models)  # MEANING
-                span_antecedents_scores.append(np.median(antecedent_models_scores))  # median from models preds
+                if antecedent_span_id != 'empty':
+                    span_antecedents.append(ensemble_top_spans.index(antecedent_span_id))
+
+                # span_antecedents_scores.append(np.sum(antecedent_models_scores) / num_models)  # avg
+                # span_antecedents_scores.append(np.median(antecedent_models_scores))  # median from models preds
+                # span_antecedents_scores.append(np.max(antecedent_models_scores))  # median from models preds
+
+                # score = np.median(antecedent_models_scores)
+
+                # avg non inf, if infs > half -> inf
+
+                if antecedent_models_scores.count(float('-inf')) > len(antecedent_models_scores) / 2:
+                    score = float('-inf')
+                else:
+                    score = np.mean([x for x in antecedent_models_scores if x != float('-inf')])
+
+                span_antecedents_scores.append(score)
+
             ensemble_top_antecedents.append(span_antecedents)
             ensemble_top_antecedent_scores.append(span_antecedents_scores)
 
@@ -153,6 +176,14 @@ def get_ensemble_prediction(models_configs, mode, batch_size=1):
         iterator = get_iterator(model_config)
         model_predictions[model_ind] = {"config": config, "docs": {}}
 
+        in_y = config['chainer'].get('in_y', ['y'])
+        if isinstance(in_y, str):
+            in_y = [in_y]
+        if isinstance(config['chainer']['out'], str):
+            config['chainer']['out'] = [config['chainer']['out']]
+
+        # metrics_functions = _parse_metrics(config['train'].get('metrics'), in_y, config['chainer']['out'])
+        # expected_outputs = list(set().union(chainer.out_params, *[m.inputs for m in metrics_functions]))
         expected_outputs = list(set(chainer.out_params))
         for x, y_true in iterator.gen_batches(batch_size, mode, shuffle=False):
             y_predicted = list(chainer.compute(list(x), list(y_true), targets=expected_outputs))

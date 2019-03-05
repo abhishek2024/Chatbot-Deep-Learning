@@ -35,9 +35,10 @@ def get_model_docs_prediction(config, mode='test', batch_size=1):
 def write_predictions(predicted_clusters,
                       results_path: Union[str, Path],
                       morph_folder: Union[str, Path]):
+    # predicted_clusters = {key: clusters[0] for key, clusters in predicted_clusters.items()}
     # predicted_clusters = {key: [set(cluster) for cluster in clusters[0]] for key, clusters in
-    # predicted_clusters.items()}
-    predicted_clusters = {key[2:-2]: set(clusters) for key, clusters in predicted_clusters.items()}
+    #                       predicted_clusters.items()}
+    predicted_clusters = {key[2:-2]: clusters for key, clusters in predicted_clusters.items()}
 
     ancor_format = {}
     for doc, val in predicted_clusters.items():
