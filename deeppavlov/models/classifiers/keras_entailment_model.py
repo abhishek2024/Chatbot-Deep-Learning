@@ -12,29 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from copy import deepcopy
 from logging import getLogger
-from pathlib import Path
-from typing import List, Tuple, Optional, Generator, Union
+from typing import List, Tuple, Optional, Union
 
-import keras.metrics
 import keras.optimizers
 import numpy as np
-from keras import backend as K
 from keras.layers import Dense, Input
 from keras.layers import Activation, Concatenate, Add, Multiply, Subtract
 from keras.layers.convolutional import Conv1D
 from keras.layers.core import Dropout
 from keras.layers.normalization import BatchNormalization
-from keras.layers.pooling import GlobalMaxPooling1D, MaxPooling1D, GlobalAveragePooling1D
-from keras.layers.recurrent import LSTM, GRU
+from keras.layers.pooling import GlobalMaxPooling1D, GlobalAveragePooling1D
+from keras.layers.recurrent import GRU
 from keras.layers.wrappers import Bidirectional
 from keras.models import Model
 from keras.regularizers import l2
 from overrides import overrides
 
-from deeppavlov.core.common.errors import ConfigError
-from deeppavlov.core.common.file import save_json, read_json
 from deeppavlov.core.common.registry import register
 from deeppavlov.models.classifiers.keras_classification_model import KerasClassificationModel
 
@@ -85,54 +79,15 @@ class KerasEntailmentModel(KerasClassificationModel):
         from opt dictionary (from config), if model is being initialized from saved.
         """
 
-        super().__init__(**kwargs)
-
-        if isinstance(self.opt["in"], str):
+        if isinstance(kwargs["in"], str):
             self.n_inputs = 1
         else:
-            self.n_inputs = len(self.opt["in"])
+            self.n_inputs = len(kwargs["in"])
 
-    def pad_texts(self, sentences: List[List[np.ndarray]]) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
-        """
-        Cut and pad tokenized texts to self.opt["text_size"] tokens
+        super().__init__(**kwargs)
 
-        Args:
-            sentences: list of lists of tokens
-
-        Returns:
-            array of embedded texts
-        """
-        pad = np.zeros(self.opt['embedding_size'])
-        cutted_batch = [sen[:self.opt['text_size']] for sen in sentences]
-        if self.opt["padding"] == "pre":
-            cutted_batch = [[pad] * (self.opt['text_size'] - len(tokens)) + list(tokens) for tokens in cutted_batch]
-        elif self.opt["padding"] == "post":
-            cutted_batch = [list(tokens) + [pad] * (self.opt['text_size'] - len(tokens)) for tokens in cutted_batch]
-        else:
-            raise ConfigError("Padding type {} is not acceptable".format(self.opt['padding']))
-        return np.asarray(cutted_batch)
-
-    def check_input(self, texts: List[List[np.ndarray]]) -> np.ndarray:
-        """
-        Check and convert input to array of tokenized embedded samples
-
-        Args:
-            texts: list of tokenized embedded text samples
-
-        Returns:
-            array of tokenized embedded texts samples that are cut and padded
-        """
-        if self.opt["text_size"] is not None:
-            features = self.pad_texts(texts)
-        else:
-            if len(texts[0]):
-                features = np.array(texts)
-            else:
-                features = np.zeros((1, 1, self.opt["embedding_size"]))
-
-        return features
-
-    def train_on_batch(self, **kwargs) -> Union[float, List[float]]:
+    @overrides
+    def train_on_batch(self, *args) -> Union[float, List[float]]:
         """
         Train the model on the given batch
 
@@ -143,13 +98,14 @@ class KerasEntailmentModel(KerasClassificationModel):
         Returns:
             metrics values on the given batch
         """
-        features = [self.check_input(kwargs[i]) for i in range(self.n_inputs)]
-        labels = kwargs[-1]
+        features = [self.check_input(args[i]) for i in range(self.n_inputs)]
+        labels = args[-1]
 
         metrics_values = self.model.train_on_batch(features, np.squeeze(np.array(labels)))
         return metrics_values
 
-    def infer_on_batch(self, **kwargs) -> \
+    @overrides
+    def infer_on_batch(self, *args) -> \
             Union[float, List[float], np.ndarray]:
         """
         Infer the model on the given batch
@@ -162,9 +118,11 @@ class KerasEntailmentModel(KerasClassificationModel):
             metrics values on the given batch, if labels are given
             predictions, otherwise
         """
-        features = [self.check_input(kwargs[i]) for i in range(self.n_inputs)]
-        if len(kwargs) > self.n_inputs:
-            labels = kwargs[-1]
+        features = [self.check_input(args[i]) for i in range(self.n_inputs)]
+        if len(args) > self.n_inputs:
+            labels = args[-1]
+        else:
+            labels = None
 
         if labels:
             metrics_values = self.model.test_on_batch(features, np.squeeze(np.array(labels)))
@@ -173,7 +131,8 @@ class KerasEntailmentModel(KerasClassificationModel):
             predictions = self.model.predict(features)
             return predictions
 
-    def __call__(self, data: List[List[np.ndarray]], *args) -> List[List[float]]:
+    @overrides
+    def __call__(self, *args) -> List[List[float]]:
         """
         Infer on the given data
 
@@ -186,9 +145,10 @@ class KerasEntailmentModel(KerasClassificationModel):
                 vector of probabilities to belong with each class
                 or list of labels sentence belongs with
         """
-        preds = np.array(self.infer_on_batch(data), dtype="float64").tolist()
+        preds = np.array(self.infer_on_batch(*args), dtype="float64").tolist()
         return preds
 
+    @overrides
     def cnn_model_max_and_aver_pool(self, kernel_sizes_cnn: List[int], filters_cnn: int, dense_size: int,
                                     coef_reg_cnn: float = 0., coef_reg_den: float = 0., dropout_rate: float = 0.,
                                     input_projection_size: Optional[int] = None, **kwargs) -> Model:
@@ -273,6 +233,7 @@ class KerasEntailmentModel(KerasClassificationModel):
         model = Model(inputs=inputs, outputs=act_output)
         return model
 
+    @overrides
     def bigru_with_max_aver_pool_model(self, units_gru: int, dense_size: int,
                                        coef_reg_gru: float = 0., coef_reg_den: float = 0.,
                                        dropout_rate: float = 0., rec_dropout_rate: float = 0.,
