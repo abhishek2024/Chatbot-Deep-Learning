@@ -330,7 +330,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         dec_outputs = [list(sample) + [self.opt["tgt_eos_id"]] + [self.opt["tgt_pad_id"]]
                        for sample in y]  # (bs, ts + 2) of integers (tokens ids)
 
-        if self.opt["tgt_max_length"]:
+        if self.decoder_embedder.pad_zero == False:
             pad_emb_dec_inputs = self.texts2decoder_embeddings(
                 text_dec_inputs,
                 text_size=self.opt["tgt_max_length"],
@@ -341,7 +341,7 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
                                              padding_token_id=self.opt["tgt_pad_id"])
         else:
             pad_emb_dec_inputs = self.decoder_embedder(text_dec_inputs)  # padding is here in decoder embedder
-            # pad_dec_outputs = zero_pad(dec_outputs, padding=self.opt["tgt_pad_id"], dtype=np.int32)
+            pad_dec_outputs = zero_pad(dec_outputs, padding=self.opt["tgt_pad_id"], dtype=np.int32)
 
         pad_onehot_dec_outputs = self._ids2onehot(pad_dec_outputs, vocab_size=self.opt["tgt_vocab_size"])
 
