@@ -34,5 +34,4 @@ for d in mention_to_predicted:
         if len(set(mention_to_predicted[d][m])) == 1:
             del mention_to_predicted[d][m]
 
-
 write_predictions(ensemble_predicted_clusters, prediction_root, morph_files)

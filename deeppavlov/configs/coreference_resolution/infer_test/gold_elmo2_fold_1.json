@@ -1,11 +1,24 @@
 {
   "dataset_reader": {
     "class_name": "coreference_reader",
-    "data_path": "{DOWNLOADS_PATH}/AnCor/test.jsonl",
-    "train": "test.jsonl"
+    "data_path": "{DOWNLOADS_PATH}/AnCor/final/ancor.jsonl",
+    "train": "ancor.jsonl"
   },
   "dataset_iterator": {
-    "class_name": "coreference_iterator"
+    "class_name": "coreference_iterator",
+    "seed": 42,
+    "train_on_gold": true,
+    "field_to_split": "train",
+    "split_fields": [
+      "train",
+      "valid",
+      "test"
+    ],
+    "split_proportions": [
+      0.8,
+      0.1,
+      0.1
+    ]
   },
   "chainer": {
     "in": ["sentences", "speakers", "doc_key", "mentions_places"],
@@ -44,7 +57,7 @@
         "context_embedder": "#embedder",
         "head_embedder": "#embedder",
         "char_dict": "#char_vocab",
-        "lm_path": "{DOWNLOADS_PATH}/embeddings/test_elmo2.hdf5",
+        "lm_path": "{DOWNLOADS_PATH}/embeddings/ancor_final/ancor_rucor_elmo2.hdf5",
         "stop_decay": false,
         "use_metadata": true,
         "use_features": true,
@@ -79,7 +92,7 @@
         "gpu_memory_fraction": 0.98
       }
     ],
-    "out": ["predicted_clusters", "mention_to_predicted"]
+    "out": ["predicted_clusters", "sentences"]
   },
   "train": {
     "epochs": 200,
