@@ -7,7 +7,9 @@ from deeppavlov import configs
 from deeppavlov import build_model
 from deeppavlov.agents.default_agent.default_agent import DefaultAgent
 # %%
-model = build_model(config=configs.generative_chit_chat.transformer_chit_chat)
+# model = build_model(config=configs.generative_chit_chat.transformer_chit_chat)
+model = build_model(config=configs.generative_chit_chat.transformer_chit_chat_40k)
+# model = build_model(config=configs.generative_chit_chat.transformer_chit_chat_100k)
 # model = build_model(config=configs.generative_chit_chat.transformer_chit_chat)
 model.load()
 # %%
