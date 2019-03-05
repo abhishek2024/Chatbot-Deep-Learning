@@ -38,23 +38,12 @@
     "pipe": [
       {
         "in": "x",
-        "out": "x_prep",
-        "id": "my_preprocessor",
-        "class_name": "str_lower"
-      },
-      {
-        "in": "x_prep",
         "out": "x_char",
         "class_name": "char_splitter",
         "id": "my_splitter"
       },
       {
         "in": "y",
-        "out": "y_prep",
-        "ref": "my_preprocessor"
-      },
-      {
-        "in": "y_prep",
         "out": "y_char",
         "ref": "my_splitter"
       },
@@ -126,7 +115,7 @@
         "src_max_length": 50,
         "tgt_max_length": 50,
         "decoder_vocab": "#y_chars_vocab",
-        "optimizer": "RMSprop",
+        "optimizer": "Adam",
         "learning_rate": 0.01,
         "learning_rate_decay": 0.001,
         "loss": "categorical_crossentropy",
@@ -146,7 +135,7 @@
         "out": "y_text"
       },
       {
-        "in": "y_prep",
+        "in": "y",
         "out": "y_tok",
         "id": "my_tokenizer",
         "class_name": "nltk_moses_tokenizer"
@@ -173,8 +162,7 @@
     "val_every_n_epochs": 5,
     "log_every_n_epochs": 1,
     "show_examples": true,
-    "validate_best": false,
-    "test_best": false,
+    "evaluation_targets": ["train", "valid", "test"],
     "tensorboard_log_dir": "{MODELS_PATH}/"
   },
   "metadata": {
