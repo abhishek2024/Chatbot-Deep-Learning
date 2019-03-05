@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import collections
 import pprint
 from deeppavlov.models.transformer_chit_chat.hacks_utils import spec_utters, yandex_api, stop_words
 import random
@@ -86,11 +87,24 @@ def len_filter(hypt, min_len=2):
     return len(hypt.split()) > min_len
 
 
+def rm_sw_utter(utter, min_len=2):
+    utter = punct.sub('', utter)
+    words = utter.strip().lower().split()
+    words = collections.OrderedDict(zip(words, [0]*len(words)))
+    [words.pop(i, None)for i in stop_words.stop_words]
+    utter = ' '.join(words.keys())
+    return utter
+
+
 def his_repeat_filter(cntx, hypt, his_len=4, max_repeat=2):
     his = cntx.his[1::2]
-    res = len([None for utter in his[-his_len:] if hypt.strip().lower() == utter.strip().lower()]) < max_repeat
+    his = set([rm_sw_utter(utter) for utter in his])
+    # res = len([None for utter in char_his[-his_len:] if hypt.strip().lower() == utter.strip().lower()]) < max_repeat
+    # print(f'{his} & {set([rm_sw_utter(hypt)])}')
+    res = his & set([rm_sw_utter(hypt)])
     # print(f'{res} - {hypt}')
-    return res
+    return not bool(res)
+
 
 def intersection_persona_filter(cntx, hypt):
     # print(f'hyp - {set(clean_hypt(hypt).split())}')
@@ -98,11 +112,13 @@ def intersection_persona_filter(cntx, hypt):
     # print(f'res - {set(clean_hypt(hypt).split()) & set(cntx.persona_word_set)}')
     return set(clean_hypt(hypt).split()) & set(cntx.persona_word_set)
 
+
 def intersection_last_utter_filter(cntx, hypt):
     # print(f'hyp - {set(clean_hypt(hypt).split())}')
     # print(f'last_uttr_word_set - {cntx.last_uttr_word_set}')
     # print(f'res - {set(clean_hypt(hypt).split()) & cntx.last_uttr_word_set}')
     return set(clean_hypt(hypt).split()) & cntx.last_uttr_word_set
+
 
 def cntx_analysis(cntx):
     # get
@@ -113,29 +129,32 @@ def cntx_analysis(cntx):
     cntx.last_uttr_word_set = set(cntx.char_his[-1].split())
     cntx.last_uttr_word_set = cntx.last_uttr_word_set - (cntx.last_uttr_word_set & stop_words.stop_words)
 
+
 def switch_hypt(cntx):
     hypts = cntx.hypts
     hypts = [(conf, hypt) for conf, hypt in hypts if len_filter(hypt, min_len=2)]
-    hypts= [(conf, hypt) for conf, hypt in hypts if his_repeat_filter(cntx, hypt, his_len=10, max_repeat=1)]
+    # print(f'cntx.his[1::2] = {cntx.his[1::2]}')
+    hypts = [(conf, hypt) for conf, hypt in hypts if his_repeat_filter(cntx, hypt, his_len=100, max_repeat=1)]
     person_hypts = [(conf, hypt) for conf, hypt in hypts if intersection_persona_filter(cntx, hypt)]
     # pprint.pprint(person_hypts)
     last_utter_hypts = [(conf, hypt) for conf, hypt in hypts if intersection_last_utter_filter(cntx, hypt)]
     # pprint.pprint(last_utter_hypts)
     hypts.sort(key=lambda x: x[0], reverse=True)
-    res_hypts=hypts[: 3] + last_utter_hypts + person_hypts
+    res_hypts = hypts[: 3] + last_utter_hypts + person_hypts
     # pprint.pprint(res_hypts)
     if res_hypts:
         return random.sample(res_hypts, 1)[0][1]
     else:
         return random.sample(["Не знаю, что сказать... Как дела?",
-                              "Как все сложно. Извини, не понимаю.", 
+                              "Как все сложно. Извини, не понимаю.",
                               "Не понимаю."], 1)[0]
 
+
 def hacking(persona, his, hyp_answers, confs):
-    cntx=lambda x: x
-    cntx.hypts=[(conf, ans) for conf, ans in zip(confs, hyp_answers)]
-    cntx.persona, cntx.char_persona=clean_pers(persona)
-    cntx.his, cntx.char_his=clean_his(his)
+    def cntx(x): return x
+    cntx.hypts = [(conf, ans) for conf, ans in zip(confs, hyp_answers)]
+    cntx.persona, cntx.char_persona = clean_pers(persona)
+    cntx.his, cntx.char_his = clean_his(his)
     hb_utter = hello_bye(cntx.char_his[-1])
     if hb_utter:
         return hb_utter
@@ -175,9 +194,9 @@ class TransformerChitChat(Serializable):
                  device: str = 'cuda',
                 #  device: str = 'cuda',
                  **kwargs) -> None:
-        super().__init__(save_path = '', **kwargs)
+        super().__init__(save_path='', **kwargs)
 
-        self.model_config=lambda x: x  # not very nice but faster
+        self.model_config = lambda x: x  # not very nice but faster
         self.model_config.n_layers = n_layers
         self.model_config.n_pos_embeddings = n_pos_embeddings
         self.model_config.embeddings_size = embeddings_size
@@ -209,39 +228,39 @@ class TransformerChitChat(Serializable):
         """Load model parameters from self.load_path"""
         self.vocab = BertBPEVocab.from_files(self.bert_vocab_path)
         self.transformer = TransformerModel(n_layers=self.model_config.n_layers,
-                                            n_embeddings = len(self.vocab),
-                                            n_pos_embeddings = self.model_config.n_pos_embeddings,
-                                            embeddings_size = self.model_config.embeddings_size,
-                                            padding_idx = self.vocab.pad_id,
-                                            n_heads = self.model_config.n_heads,
-                                            dropout = self.model_config.dropout,
-                                            embed_dropout = self.model_config.embed_dropout,
-                                            attn_dropout = self.model_config.attn_dropout,
-                                            ff_dropout = self.model_config.ff_dropout,
-                                            bos_id = self.vocab.bos_id,
-                                            eos_id = self.vocab.eos_id,
-                                            max_seq_len = self.model_config.max_seq_len,
-                                            beam_size = self.model_config.beam_size,
-                                            sample = self.model_config.sample,
-                                            length_penalty = self.model_config.length_penalty,
-                                            n_segments = self.model_config.n_segments,
-                                            annealing_topk = self.model_config.annealing_topk,
-                                            annealing = self.model_config.annealing,
-                                            diversity_coef = self.model_config.diversity_coef,
-                                            diversity_groups = self.model_config.diversity_groups,
-                                            bert_mode = self.model_config.bert_mode,
-                                            type_vocab_size = self.model_config.type_vocab_size,
-                                            tie_weights = self.model_config.tie_weights,
-                                            info_bos_id = self.vocab.info_bos_id,
-                                            talker1_bos_id = self.vocab.talker1_bos_id,
-                                            talker2_bos_id = self.vocab.talker2_bos_id,
-                                            bos_token_id = self.vocab.bos_id,
-                                            sep_token_id = self.vocab.sep_id,
+                                            n_embeddings=len(self.vocab),
+                                            n_pos_embeddings=self.model_config.n_pos_embeddings,
+                                            embeddings_size=self.model_config.embeddings_size,
+                                            padding_idx=self.vocab.pad_id,
+                                            n_heads=self.model_config.n_heads,
+                                            dropout=self.model_config.dropout,
+                                            embed_dropout=self.model_config.embed_dropout,
+                                            attn_dropout=self.model_config.attn_dropout,
+                                            ff_dropout=self.model_config.ff_dropout,
+                                            bos_id=self.vocab.bos_id,
+                                            eos_id=self.vocab.eos_id,
+                                            max_seq_len=self.model_config.max_seq_len,
+                                            beam_size=self.model_config.beam_size,
+                                            sample=self.model_config.sample,
+                                            length_penalty=self.model_config.length_penalty,
+                                            n_segments=self.model_config.n_segments,
+                                            annealing_topk=self.model_config.annealing_topk,
+                                            annealing=self.model_config.annealing,
+                                            diversity_coef=self.model_config.diversity_coef,
+                                            diversity_groups=self.model_config.diversity_groups,
+                                            bert_mode=self.model_config.bert_mode,
+                                            type_vocab_size=self.model_config.type_vocab_size,
+                                            tie_weights=self.model_config.tie_weights,
+                                            info_bos_id=self.vocab.info_bos_id,
+                                            talker1_bos_id=self.vocab.talker1_bos_id,
+                                            talker2_bos_id=self.vocab.talker2_bos_id,
+                                            bos_token_id=self.vocab.bos_id,
+                                            sep_token_id=self.vocab.sep_id,
                                             )
-        self.transformer=self.transformer.to(self.device)
-        path=self.load_path
+        self.transformer = self.transformer.to(self.device)
+        path = self.load_path
         log.info(f'[loading from {path}]')
-        state_dict=torch.load(path,
+        state_dict = torch.load(path,
                                 map_location=self.device)
         self.transformer.load_state_dict(state_dict['model'], strict=False)
 
@@ -275,9 +294,6 @@ class TransformerChitChat(Serializable):
     #     "Я люблю суши.",
     # ]
     persona = [
-        "Я студентка.",
-        "Я подрабатываю.",
-        "Я хожу в бассейн.",
         "Я студентка.",
         "Я подрабатываю.",
         "Я хожу в бассейн.",
