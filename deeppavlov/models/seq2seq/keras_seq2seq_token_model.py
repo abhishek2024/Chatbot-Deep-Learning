@@ -18,16 +18,14 @@ from logging import getLogger
 from overrides import overrides
 from copy import deepcopy
 
-from keras.layers import Dense, Input, Bidirectional
-from keras.layers.recurrent import GRU, LSTM
-from keras.layers.pooling import GlobalMaxPooling1D
+from keras.layers import Dense, Input, Bidirectional, Concatenate
+from keras.layers.recurrent import LSTM
 from keras.models import Model
 from keras.regularizers import l2
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.component import Component
 from deeppavlov.models.classifiers.keras_classification_model import KerasClassificationModel
-from deeppavlov.core.layers.keras_layers import multiplicative_self_attention
 from deeppavlov.core.data.utils import zero_pad
 
 log = getLogger(__name__)
@@ -539,5 +537,41 @@ class KerasSeq2SeqTokenModel(KerasClassificationModel):
         decoder_dense = Dense(self.opt["tgt_vocab_size"], name="dense_", activation="softmax")
         self._train_decoder_outputs = decoder_dense(_train_decoder_outputs)
         self._infer_decoder_outputs = decoder_dense(_infer_decoder_outputs)
+
+        return None
+
+    def bilstm_encoder_model(self,
+                             hidden_size: int,
+                             encoder_coef_reg_lstm: float,
+                             encoder_dropout_rate: float,
+                             encoder_rec_dropout_rate: float,
+                             **kwargs) -> None:
+        """
+        Initialize encoder layers for BiLSTM encoder
+
+        Args:
+            hidden_size: size of the hidden layer of decoder.
+                size of the hidden layer of encoder is equal to hidden_size/2
+            encoder_coef_reg_lstm: coefficient for L2 kernel regularizer of encoder LSTM layer
+            encoder_dropout_rate: dropout rate for encoder LSTM layer
+            encoder_rec_dropout_rate: recurrent dropout rate for encoder LSTM layer
+
+        Returns:
+            None
+        """
+        assert hidden_size % 2 == 0
+
+        self._encoder_emb_inp = Input(shape=(None, self.opt["encoder_embedding_size"]))
+
+        _, forward_h, forward_c, backward_h, backward_c = Bidirectional(LSTM(
+            int(hidden_size / 2),
+            activation='tanh',
+            return_sequences=True,
+            return_state=True,
+            kernel_regularizer=l2(encoder_coef_reg_lstm),
+            dropout=encoder_dropout_rate,
+            recurrent_dropout=encoder_rec_dropout_rate))(self._encoder_emb_inp)
+
+        self._encoder_state = [Concatenate()([forward_h, backward_h]), Concatenate()([forward_c, backward_c])]
 
         return None
