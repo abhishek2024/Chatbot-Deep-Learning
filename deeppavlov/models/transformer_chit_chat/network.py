@@ -284,7 +284,13 @@ class TransformerChitChat(Serializable):
         return tagged_utters_ids
 
     def drop_rich_msg(self, objs) -> List[str]:
-        return [obj for obj in objs if type(obj).__name__ != 'RichMessage']
+        new_obj = []
+        for obj in objs:
+            if type(obj).__name__ == 'RichMessage':
+                new_obj.append(obj.json()[0].get('content',''))
+            else:
+                new_obj.append(obj)
+        return new_obj
 
     # persona= [
     #     "Я студентка.",
@@ -305,6 +311,8 @@ class TransformerChitChat(Serializable):
         history_batch = copy.deepcopy(history_batch)
 
         history_batch = [self.drop_rich_msg(his) for his in history_batch]
+        # print(utterances_batch)
+        # print(history_batch)
 
         [history.append(utter) for utter, history in zip(utterances_batch, history_batch)]
         tagged_persona_batch = [self.context2tagged_context(self.persona) for _ in history_batch]
