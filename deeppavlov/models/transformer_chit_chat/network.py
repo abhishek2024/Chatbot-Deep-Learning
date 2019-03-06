@@ -240,11 +240,7 @@ class TransformerChitChat(Serializable):
 
                  bert_vocab_path: str = './vocab',  # vocab config
                  device: str = 'cuda',
-<<<<<<< HEAD
                 #  device: str = 'cuda',
-=======
-                 #  device: str = 'cuda',
->>>>>>> feature/pytorch/transformer_chit_chat
                  **kwargs) -> None:
         super().__init__(save_path='', **kwargs)
 
