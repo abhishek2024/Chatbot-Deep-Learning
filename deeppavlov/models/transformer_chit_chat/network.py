@@ -17,6 +17,7 @@
 import collections
 import pprint
 from deeppavlov.models.transformer_chit_chat.hacks_utils import spec_utters, yandex_api, stop_words
+import numpy as np
 import random
 import re
 import copy
@@ -97,13 +98,26 @@ def rm_sw_utter(utter, min_len=2):
 
 
 def his_repeat_filter(cntx, hypt, his_len=4, max_repeat=2):
-    his = cntx.his[1::2]
+    his = cntx.his[1::2][-his_len:]
     his = set([rm_sw_utter(utter) for utter in his])
     # res = len([None for utter in char_his[-his_len:] if hypt.strip().lower() == utter.strip().lower()]) < max_repeat
     # print(f'{his} & {set([rm_sw_utter(hypt)])}')
     res = his & set([rm_sw_utter(hypt)])
     # print(f'{res} - {hypt}')
     return not bool(res)
+
+
+def hypt_repeat_filter(cntx, hypt):
+    if not hasattr(cntx, 'hypt_set'):
+        cntx.hypt_set = set()
+    hypt = punct.sub('', hypt)
+    hypt = hypt.lower().strip()
+    if hypt in cntx.hypt_set:
+        return False
+    else:
+        cntx.hypt_set.add(hypt)
+        return True
+
 
 
 def intersection_persona_filter(cntx, hypt):
@@ -121,7 +135,6 @@ def intersection_last_utter_filter(cntx, hypt):
 
 
 def cntx_analysis(cntx):
-    # get
     cntx.persona_word_set = set(' '.join(cntx.char_persona).split())
     cntx.persona_word_set = cntx.persona_word_set - (cntx.persona_word_set & stop_words.stop_words)
     cntx.his_word_set = set(' '.join(cntx.char_his).split())
@@ -130,20 +143,55 @@ def cntx_analysis(cntx):
     cntx.last_uttr_word_set = cntx.last_uttr_word_set - (cntx.last_uttr_word_set & stop_words.stop_words)
 
 
+def renew_hypt_conf(hypts, change_conf):
+    hypts = copy.deepcopy(hypts)
+    hypts = [(change_conf(conf, hypt), hypt) for conf, hypt in hypts]
+    return hypts
+
+
 def switch_hypt(cntx):
     hypts = cntx.hypts
     hypts = [(conf, hypt) for conf, hypt in hypts if len_filter(hypt, min_len=2)]
     # print(f'cntx.his[1::2] = {cntx.his[1::2]}')
-    hypts = [(conf, hypt) for conf, hypt in hypts if his_repeat_filter(cntx, hypt, his_len=100, max_repeat=1)]
-    person_hypts = [(conf, hypt) for conf, hypt in hypts if intersection_persona_filter(cntx, hypt)]
-    # pprint.pprint(person_hypts)
-    last_utter_hypts = [(conf, hypt) for conf, hypt in hypts if intersection_last_utter_filter(cntx, hypt)]
-    # pprint.pprint(last_utter_hypts)
+    hypts = [(conf, hypt) for conf, hypt in hypts if his_repeat_filter(cntx, hypt, his_len=60, max_repeat=1)]
+    hypts = [(conf, hypt) for conf, hypt in hypts if hypt_repeat_filter(cntx, hypt)]
+    persona_correlation_hypts = [(conf, hypt) for conf, hypt in hypts if intersection_persona_filter(cntx, hypt)]
+    # pprint.pprint(persona_correlation_hypts)
+    last_correlation_hypts = [(conf, hypt) for conf, hypt in hypts if intersection_last_utter_filter(cntx, hypt)]
+    # pprint.pprint(last_correlation_hypts)
     hypts.sort(key=lambda x: x[0], reverse=True)
-    res_hypts = hypts[: 3] + last_utter_hypts + person_hypts
+    hight_prob_hypts = hypts[: 3]
+
+    hight_prob_hypts = renew_hypt_conf(hight_prob_hypts, lambda c, h: 1)
+    last_correlation_hypts = renew_hypt_conf(last_correlation_hypts, lambda c, h: 4)
+    persona_correlation_hypts = renew_hypt_conf(persona_correlation_hypts, lambda c, h: 2)
+    # hight_prob_hypts = renew_hypt_conf(hight_prob_hypts, lambda c, h: c*1)
+    # last_correlation_hypts = renew_hypt_conf(last_correlation_hypts, lambda c, h: c*2)
+    # persona_correlation_hypts = renew_hypt_conf(persona_correlation_hypts, lambda c, h: c*2)
+    res_hypts = hight_prob_hypts + last_correlation_hypts + persona_correlation_hypts
+
+    def drop_conf_of_question(conf, hypt):
+        if len(cntx.his) < 20 and '?' in hypt:
+            #if last utter is question
+
+            if '?' in cntx.his[-1]:
+                return conf/(2**2)
+            bot_utters = cntx.his[1::2]
+            decrease_pow = len([None for utter in bot_utters[-2:] if '?' in utter])*2 - 1
+            return conf/(2**decrease_pow)
+        else:
+            return conf
+
+    res_hypts = renew_hypt_conf(res_hypts, drop_conf_of_question)
     # pprint.pprint(res_hypts)
     if res_hypts:
-        return random.sample(res_hypts, 1)[0][1]
+        confs, answers = list(zip(*res_hypts))
+        # pprint.pprint(confs)
+        # pprint.pprint(answers)
+
+        confs = np.array(confs)
+        confs = confs/confs.sum()
+        return np.random.choice(answers, p=confs)
     else:
         return random.sample(["Не знаю, что сказать... Как дела?",
                               "Как все сложно. Извини, не понимаю.",
@@ -192,7 +240,7 @@ class TransformerChitChat(Serializable):
 
                  bert_vocab_path: str = './vocab',  # vocab config
                  device: str = 'cuda',
-                #  device: str = 'cuda',
+                 #  device: str = 'cuda',
                  **kwargs) -> None:
         super().__init__(save_path='', **kwargs)
 
@@ -287,7 +335,7 @@ class TransformerChitChat(Serializable):
         new_obj = []
         for obj in objs:
             if type(obj).__name__ == 'RichMessage':
-                new_obj.append(obj.json()[0].get('content',''))
+                new_obj.append(obj.json()[0].get('content', ''))
             else:
                 new_obj.append(obj)
         return new_obj
@@ -300,11 +348,17 @@ class TransformerChitChat(Serializable):
     #     "Я люблю суши.",
     # ]
     persona = [
+    #     "Я студентка.",
+    #     "Я подрабатываю.",
+    #     "Я хожу в бассейн.",
+        "У меня есть парень.",
+        "Я люблю суши.",
         "Я студентка.",
         "Я подрабатываю.",
         "Я хожу в бассейн.",
-        "У меня есть парень.",
-        "Я люблю суши.",
+        # "У меня есть парень.",
+        # "Я студентка.",
+        # "Я подрабатываю.",
     ]
 
     def __call__(self, utterances_batch, history_batch, states_batch, *args, **kwargs) -> List[float]:
