@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import random
-from typing import Any, List, Dict, Tuple
+from typing import Any, List, Tuple
 
 import numpy as np
 import tensorflow as tf
