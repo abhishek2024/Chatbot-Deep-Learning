@@ -441,6 +441,29 @@ class TestQuickStart(object):
             pytest.skip("Unsupported mode: {}".format(mode))
 
 
+# test pipeline manager
+def test_pipeline_manager():
+    modeldir = 'pipeline_manager'
+    pm_configs = "pipeline_manager/test_linear.json"
+
+    c = test_src_dir / pm_configs
+    model_path = download_path / modeldir
+
+    config_path = str(test_src_dir.joinpath(pm_configs))
+    deep_download(config_path)
+    shutil.rmtree(str(model_path),  ignore_errors=True)
+
+    logfile = io.BytesIO(b'')
+    p = pexpect.popen_spawn.PopenSpawn(sys.executable + f" -m deeppavlov pipeline_search {c}",
+                                       timeout=None, logfile=logfile)
+    if p.wait() != 0:
+        logfile.seek(0)
+        raise RuntimeError('Training process of {} returned non-zero exit code: \n{}'
+                           .format(modeldir, ''.join((line.decode() for line in logfile.readlines()))))
+
+    shutil.rmtree(str(download_path), ignore_errors=True)
+
+
 def test_crossvalidation():
     model_dir = 'faq'
     conf_file = 'cv/cv_tfidf_autofaq.json'

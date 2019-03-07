@@ -71,7 +71,7 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
     .. code:: bash
 
         python -m deeppavlov install elmo_ru-news
-        
+
     Examples:
         >>> from deeppavlov.models.embedders.elmo_embedder import ELMoEmbedder
         >>> elmo = ELMoEmbedder("http://files.deeppavlov.ai/deeppavlov_data/elmo_ru-news_wmt11-16_1.5M_steps.tar.gz")

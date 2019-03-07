@@ -98,7 +98,7 @@ def from_params(params: Dict, mode: str = 'infer', serialized: Any = None, **kwa
 
     try:
         spec = inspect.getfullargspec(cls)
-        if 'mode' in spec.args+spec.kwonlyargs or spec.varkw is not None:
+        if 'mode' in spec.args + spec.kwonlyargs or spec.varkw is not None:
             kwargs['mode'] = mode
 
         component = cls(**dict(config_params, **kwargs))
