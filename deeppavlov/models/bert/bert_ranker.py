@@ -155,11 +155,14 @@ class BertRankerModel(LRScheduledTFModel):
             if len(p.shape) == 1:
                 p = np.expand_dims(p, 0)
             pred.append(p)
+        # interact mode
         if len (features_list[0]) == 1 and len(features_list) == 1:
             s = pred[0] @ self.resp_vecs.T
             return [self.resps[np.argmax(s)]]
+        # generate vectors for further usage with the database of responses (and contexts)
         elif len(features_list) != self.num_ranking_samples + 1:
             return np.vstack(pred)
+        # return scores including scores on the database of responses if self.resp_vecs is set to True
         else:
             c_vecs = list(pred[0])
             scores = []
