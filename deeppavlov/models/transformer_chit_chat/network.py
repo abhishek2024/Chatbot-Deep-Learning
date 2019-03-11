@@ -31,7 +31,6 @@ from overrides import overrides
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.nn_model import Serializable
-from deeppavlov.models.elmo.elmo2tfhub import export2hub
 from deeppavlov.models.transformer_chit_chat.model.transformer_model import TransformerModel
 from deeppavlov.models.transformer_chit_chat.model.text import BertBPEVocab
 from deeppavlov.models.transformer_chit_chat.model.utils import pad_sequence
