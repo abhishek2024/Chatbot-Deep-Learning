@@ -26,7 +26,7 @@ from utils.alexa.server import run_alexa_default_agent
 from utils.alice import start_alice_server
 from utils.ms_bot_framework_utils.server import run_ms_bf_default_agent
 from utils.pip_wrapper import install_from_config
-from utils.server_utils.server import start_model_server
+from utils.server_utils.server import start_model_server, skill_server
 from utils.telegram_utils.telegram_ui import interact_model_by_telegram
 
 log = getLogger(__name__)
@@ -49,6 +49,7 @@ parser.add_argument("-d", "--download", action="store_true", help="download mode
 parser.add_argument("--folds", help="number of folds", type=int, default=5)
 
 parser.add_argument("-t", "--token", default=None,  help="telegram bot token", type=str)
+parser.add_argument("--proxy", default=None, help="socks5 or https proxy string for telebot", type=str)
 parser.add_argument("-i", "--ms-id", default=None, help="microsoft bot framework app id", type=str)
 parser.add_argument("-s", "--ms-secret", default=None, help="microsoft bot framework app secret", type=str)
 
@@ -60,10 +61,13 @@ parser.add_argument("--https", action="store_true", help="run model in https mod
 parser.add_argument("--key", default=None, help="ssl key", type=str)
 parser.add_argument("--cert", default=None, help="ssl certificate", type=str)
 
+parser.add_argument("--host", default=None, help="api host", type=str)
 parser.add_argument("-p", "--port", default=None, help="api port", type=str)
+parser.add_argument("--endpoint", default=None, help="api endpoint", type=str)
 
-parser.add_argument("--api-mode", help="rest api mode: 'basic' with batches or 'alice' for  Yandex.Dialogs format",
-                    type=str, default='basic', choices={'basic', 'alice'})
+parser.add_argument("--api-mode", help="rest api mode: 'basic' with batches, 'alice' for Yandex.Dialogs format"""
+                                       " or 'skill' with states batches",
+                    type=str, default='basic', choices={'basic', 'alice', 'skill'})
 
 
 def main():
@@ -89,9 +93,7 @@ def main():
         interact_model(pipeline_config_path)
     elif args.mode == 'interactbot':
         token = args.token
-        interact_model_by_telegram(model_config=pipeline_config_path,
-                                   token=token,
-                                   default_skill_wrap=not args.no_default_skill)
+        interact_model_by_telegram(pipeline_config_path, token, args.proxy)
     elif args.mode == 'interactmsbot':
         ms_id = args.ms_id
         ms_secret = args.ms_secret
@@ -115,11 +117,14 @@ def main():
                                 ssl_cert=ssl_cert,
                                 default_skill_wrap=not args.no_default_skill)
     elif args.mode == 'riseapi':
-        alice = args.api_mode == 'alice'
-        if alice:
+        if args.api_mode == 'alice':
             start_alice_server(pipeline_config_path, https, ssl_key, ssl_cert, port=args.port)
+        elif args.api_mode == 'skill':
+            skill_server(pipeline_config_path, https, ssl_key, ssl_cert,
+                         host=args.host, port=args.port, endpoint=args.endpoint)
         else:
-            start_model_server(pipeline_config_path, https, ssl_key, ssl_cert, port=args.port)
+            start_model_server(pipeline_config_path, https, ssl_key, ssl_cert,
+                               host=args.host, port=args.port, endpoint=args.endpoint)
     elif args.mode == 'predict':
         predict_on_stream(pipeline_config_path, args.batch_size, args.file_path)
     elif args.mode == 'install':
