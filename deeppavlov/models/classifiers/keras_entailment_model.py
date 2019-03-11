@@ -92,8 +92,6 @@ class KerasEntailmentModel(KerasClassificationModel):
         Train the model on the given batch
 
         Args:
-            texts: list of tokenized embedded text samples
-            labels: list of labels
 
         Returns:
             metrics values on the given batch
@@ -111,8 +109,6 @@ class KerasEntailmentModel(KerasClassificationModel):
         Infer the model on the given batch
 
         Args:
-            texts: list of tokenized embedded text samples
-            labels: list of labels
 
         Returns:
             metrics values on the given batch, if labels are given
@@ -137,8 +133,7 @@ class KerasEntailmentModel(KerasClassificationModel):
         Infer on the given data
 
         Args:
-            data: list of tokenized text samples
-            *args: additional arguments
+            *args: arguments
 
         Returns:
             for each sentence:
@@ -184,7 +179,7 @@ class KerasEntailmentModel(KerasClassificationModel):
                               activation=None,
                               kernel_regularizer=l2(coef_reg_cnn),
                               padding='same') for i in range(len(kernel_sizes_cnn))]
-        bn = BatchNormalization()
+        bn = [BatchNormalization() for i in range(len(kernel_sizes_cnn))]
         relu = Activation("relu")
         maxpool = GlobalMaxPooling1D()
         averpool = GlobalAveragePooling1D()
@@ -197,7 +192,7 @@ class KerasEntailmentModel(KerasClassificationModel):
             j_outputs = []
             for i in range(len(kernel_sizes_cnn)):
                 output_i = conv_layers[i](outputs[j])
-                output_i = bn(output_i)
+                output_i = bn[i](output_i)
                 output_i = relu(output_i)
                 output_i_0 = maxpool(output_i)
                 output_i_1 = averpool(output_i)
@@ -206,17 +201,17 @@ class KerasEntailmentModel(KerasClassificationModel):
 
             output = concat_1(j_outputs)
             full_outputs.append(output)
-
-        summ = Add()(full_outputs)
-        mult = Multiply()(full_outputs)
-
-        try:
-            subt = Subtract()(full_outputs)
-            full_outputs.append(subt)
-        except ValueError:
-            pass
-        full_outputs.append(summ)
-        full_outputs.append(mult)
+        #
+        # summ = Add()(full_outputs)
+        # mult = Multiply()(full_outputs)
+        #
+        # try:
+        #     subt = Subtract()(full_outputs)
+        #     full_outputs.append(subt)
+        # except ValueError:
+        #     pass
+        # full_outputs.append(summ)
+        # full_outputs.append(mult)
 
         output = Concatenate()(full_outputs)
 
@@ -282,16 +277,16 @@ class KerasEntailmentModel(KerasClassificationModel):
             output = concat([output1, output2, state1, state2])
             full_outputs.append(output)
 
-        summ = Add()(full_outputs)
-        mult = Multiply()(full_outputs)
-
-        try:
-            subt = Subtract()(full_outputs)
-            full_outputs.append(subt)
-        except ValueError:
-            pass
-        full_outputs.append(summ)
-        full_outputs.append(mult)
+        # summ = Add()(full_outputs)
+        # mult = Multiply()(full_outputs)
+        #
+        # try:
+        #     subt = Subtract()(full_outputs)
+        #     full_outputs.append(subt)
+        # except ValueError:
+        #     pass
+        # full_outputs.append(summ)
+        # full_outputs.append(mult)
 
         output = Concatenate()(full_outputs)
 
