@@ -38,7 +38,7 @@ class MailruReader(DatasetReader):
         valid_fname = data_path / 'dev.tsv'
         test_fname = data_path / 'test.tsv'
         dataset["train"] = self._preprocess_data_train(train_fname)
-        dataset["valid"] = self._preprocess_data_valid(valid_fname)
+        dataset["valid"] = self._preprocess_data_train(valid_fname)
         dataset["test"] = self._preprocess_data_train(test_fname)
         return dataset
 

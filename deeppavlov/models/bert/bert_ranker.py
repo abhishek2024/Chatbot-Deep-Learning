@@ -30,6 +30,7 @@ class BertRankerModel(LRScheduledTFModel):
     # TODO: add head-only pre-training
     def __init__(self, bert_config_file, n_classes, keep_prob,
                  batch_size, num_ranking_samples,
+                 num_resp = 1,
                  one_hot_labels=False,
                  attention_probs_keep_prob=None, hidden_keep_prob=None,
                  pretrained_bert=None,
@@ -37,6 +38,7 @@ class BertRankerModel(LRScheduledTFModel):
                  min_learning_rate=1e-06, **kwargs) -> None:
         super().__init__(**kwargs)
 
+        self.num_resp = num_resp
         self.batch_size = batch_size
         self.num_ranking_samples = num_ranking_samples
         self.resp_eval = resp_eval
@@ -158,7 +160,8 @@ class BertRankerModel(LRScheduledTFModel):
         # interact mode
         if len (features_list[0]) == 1 and len(features_list) == 1:
             s = pred[0] @ self.resp_vecs.T
-            return [self.resps[np.argmax(s)]]
+            ids = np.flip(np.argsort(s[0]), axis=0)[:self.num_resp]
+            return [self.resps[i] for i in ids]
         # generate vectors for further usage with the database of responses (and contexts)
         elif len(features_list) != self.num_ranking_samples + 1:
             return np.vstack(pred)
