@@ -1,0 +1,117 @@
+{
+  "dataset_reader": {
+    "class_name": "coref_dialog_reader",
+    "data_path": "{DOWNLOADS_PATH}/coreference_resolution/maria/prep3.json",
+    "one_utterance_per_dialog": true
+  },
+  "dataset_iterator": {
+    "class_name": "coref_dialog_iterator",
+    "seed": 42,
+    "split_fields": [
+      "train",
+      "valid",
+      "test"
+    ],
+    "split_proportions": [
+      0.9,
+      0.05,
+      0.05
+    ]
+  },
+  "chainer": {
+    "in": ["utterances", "history"],
+    "in_y": ["trash"],
+    "pipe": [
+      {
+        "in": ["utterances", "history"],
+        "class_name": "coref_prepare",
+        "out": ["model_batch"]
+      },
+      {
+        "class_name": "nltk_moses_tokenizer",
+        "id": "tokenizer"
+      },
+      {
+        "in": ["model_batch"],
+        "out": ["model_batch"],
+        "class_name": "deeppavlov.models.coreference_resolution.change_utterence:PerItemWrapper",
+        "component": "#tokenizer"
+      },
+      {
+        "class_name": "simple_vocab",
+        "id": "char_vocab",
+        "pad_with_zeros": true,
+        "save_path": "{MODELS_PATH}/rucor_char.dict",
+        "load_path": "{MODELS_PATH}/rucor_char.dict"
+      },
+      {
+        "id": "embedder",
+        "class_name": "fasttext",
+        "pad_zero": true,
+        "load_path": "~/Work/Embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin"
+      },
+      {
+        "in": ["model_batch"],
+        "out": ["predicted_clusters"],
+        "main": true,
+        "class_name": "coref_model",
+        "train_on_gold": false,
+        "stop_decay": true,
+        "save_path": "{MODELS_PATH}/rucor_checkpoints/old_model_full/best_model.ckpt",
+        "load_path": "{MODELS_PATH}/rucor_checkpoints/old_model_full/best_model.ckpt",
+        "emb_format": "std_emb",
+        "char_vocab": "#char_vocab",
+        "embedder": "#embedder",
+        "embedding_size": 300,
+        "max_antecedents": 250,
+        "max_training_sentences": 50,
+        "max_mention_width": 10,
+        "use_metadata": false,
+        "use_features": true,
+        "model_heads": false,
+        "emb_lowercase": true
+      },
+      {
+        "in": ["model_batch", "predicted_clusters"],
+        "out": ["new_utterances"],
+        "class_name": "mention_padding"
+      },
+      {
+        "in": ["new_utterances"],
+        "out": ["new_utterances"],
+        "class_name": "nltk_moses_tokenizer"
+      }
+    ],
+    "out": ["new_utterances", "utterances"]
+  },
+  "train": {
+    "batch_size": 1,
+    "validation_patience": 20,
+    "val_every_n_epochs": 1,
+    "log_every_n_epochs": 1,
+    "show_examples": false,
+    "validate_best": false,
+    "test_best": false
+  },
+  "metadata": {
+    "variables": {
+      "ROOT_PATH": "~/.deeppavlov",
+      "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
+      "MODELS_PATH": "{ROOT_PATH}/coreference"
+    },
+    "requirements": [
+      "{DEEPPAVLOV_PATH}/requirements/tf-gpu.txt",
+      "{DEEPPAVLOV_PATH}/requirements/fasttext.txt"
+    ],
+    "download": [
+      {
+        "url": "http://files.deeppavlov.ai/datasets/coreference_resolution/rucoref_29.10.2015.zip",
+        "subdir": "{DOWNLOADS_PATH}/coreference_resolution/"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
+        "subdir": "{DOWNLOADS_PATH}/embeddings"
+      }
+    ]
+  }
+}
