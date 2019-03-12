@@ -80,10 +80,6 @@
     ],
     "download": [
       {
-        "url": "http://files.deeppavlov.ai/datasets/thequest_sub_all_bert.tar.gz",
-        "subdir": "{DOWNLOADS_PATH}"
-      },
-      {
         "url": "http://files.deeppavlov.ai/deeppavlov_data/thequest_sub_all_bert_npair_simple.tar.gz",
         "subdir": "{DOWNLOADS_PATH}/"
       }
