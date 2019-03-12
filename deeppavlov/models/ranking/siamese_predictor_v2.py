@@ -15,39 +15,18 @@
 from logging import getLogger
 from typing import List, Iterable, Callable, Union
 
+import pickle
 import numpy as np
 
-from deeppavlov.core.common.registry import register
-from deeppavlov.core.data.simple_vocab import SimpleVocabulary
+from deeppavlov.core.commands.utils import expand_path
 from deeppavlov.core.models.component import Component
 from deeppavlov.models.ranking.keras_siamese_model import SiameseModel
+from deeppavlov.core.common.registry import register
 
 log = getLogger(__name__)
 
-@register('siamese_predictor')
-class SiamesePredictor(Component):
-    """The class for ranking or paraphrase identification using the trained siamese network  in the ``interact`` mode.
-
-    Args:
-        batch_size: A size of a batch.
-        num_context_turns: A number of ``context`` turns in data samples.
-        ranking: Whether to perform ranking.
-            If it is set to ``False`` paraphrase identification will be performed.
-        attention: Whether any attention mechanism is used in the siamese network.
-            If ``False`` then calculated in advance vectors of ``responses``
-            will be used to obtain similarity score for the input ``context``;
-            Otherwise the whole siamese architecture will be used
-            to obtain similarity score for the input ``context`` and each particular ``response``.
-            The parameter will be used if the ``ranking`` is set to ``True``.
-        responses: A instance of :class:`~deeppavlov.core.data.simple_vocab.SimpleVocabulary`
-            with all possible ``responses`` to perform ranking.
-            Will be used if the ``ranking`` is set to ``True``.
-        preproc_func: A ``__call__`` function of the
-            :class:`~deeppavlov.models.preprocessors.siamese_preprocessor.SiamesePreprocessor`.
-        interact_pred_num: The number of the most relevant ``responses`` which will be returned.
-            Will be used if the ``ranking`` is set to ``True``.
-        **kwargs: Other parameters.
-    """
+@register('siamese_predictor_v2')
+class SiamesePredictor_v2(Component):
 
     def __init__(self,
                  model: SiameseModel,
@@ -55,7 +34,7 @@ class SiamesePredictor(Component):
                  num_context_turns: int = 1,
                  ranking: bool = True,
                  attention: bool = False,
-                 responses: SimpleVocabulary = None,
+                 responses_filename: str = None,              # pickled list
                  preproc_func: Callable = None,
                  interact_pred_num: int = 3,
                  *args, **kwargs) -> None:
@@ -71,8 +50,13 @@ class SiamesePredictor(Component):
         self.preproc_func = preproc_func
         self.interact_pred_num = interact_pred_num
         self.model = model
+
+        # load list of all responses
+        responses_filename = expand_path(responses_filename)
+        responses = pickle.load(open(responses_filename, 'rb'))
+
         if self.ranking:
-            self.responses = {el[1]: el[0] for el in responses.items()}
+            self.responses = {idx: r for idx, r in enumerate(responses)}   # convert to dict
             self._build_preproc_responses()
             if not self.attention:
                 self._build_response_embeddings()

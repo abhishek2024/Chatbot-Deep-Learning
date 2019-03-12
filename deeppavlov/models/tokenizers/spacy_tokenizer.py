@@ -29,7 +29,7 @@ logger = getLogger(__name__)
 def _try_load_spacy_model(model_name: str, disable: Iterable[str] = ()):
     disable = set(disable)
     try:
-        model = spacy.load(model_name, disable=disable)
+        model = spacy.load(model_name, disable=disable, parser=False, entity=False)
     except OSError as e:
         try:
             model = __import__(model_name).load(disable=disable)
@@ -79,7 +79,9 @@ class StreamSpacyTokenizer(Component):
 
     """
 
-    def __init__(self, disable: Optional[Iterable[str]] = None, stopwords: Optional[List[str]] = None,
+    def __init__(self, disable: Optional[Iterable[str]] = None,
+                 stopwords: Optional[List[str]] = None,
+                 ignored_words: Optional[List[str]] = None,
                  batch_size: Optional[int] = None, ngram_range: Optional[List[int]] = None,
                  lemmas: bool = False, n_threads: Optional[int] = None,
                  lowercase: Optional[bool] = None, alphas_only: Optional[bool] = None,
@@ -90,6 +92,7 @@ class StreamSpacyTokenizer(Component):
         if ngram_range is None:
             ngram_range = [1, 1]
         self.stopwords = stopwords or []
+        self.ignored_words = ignored_words or []
         self.model = _try_load_spacy_model(spacy_model, disable=disable)
         self.model.add_pipe(self.model.create_pipe('sentencizer'))
         self.tokenizer = self.model.Defaults.create_tokenizer(self.model)
@@ -99,6 +102,10 @@ class StreamSpacyTokenizer(Component):
         self.n_threads = n_threads
         self.lowercase = lowercase
         self.alphas_only = alphas_only
+        for w in self.ignored_words:
+            self.tokenizer.add_special_case(w, [{spacy.symbols.ORTH: w,
+                                                 spacy.symbols.LEMMA: w,
+                                                 spacy.symbols.LOWER: w.lower()}])
 
     def __call__(self, batch: Union[List[str], List[List[str]]]) -> \
             Union[List[List[str]], List[str]]:
@@ -154,8 +161,6 @@ class StreamSpacyTokenizer(Component):
             _lowercase = lowercase
         else:
             _lowercase = self.lowercase
-
-        # print(_lowercase)
 
         for i, doc in enumerate(
                 self.tokenizer.pipe(data, batch_size=_batch_size, n_threads=_n_threads)):
