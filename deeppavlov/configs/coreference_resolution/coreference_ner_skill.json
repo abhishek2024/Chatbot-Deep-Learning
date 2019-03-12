@@ -51,12 +51,6 @@
         "load_path": "~/Work/Embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin"
       },
       {
-        "id": "ner",
-        "config_path": "{CONFIGS_PATH}/ner/ner_rus_lower_vpc_with_context.json",
-        "in": ["model_batch"],
-        "out": ["utterance_tokens", "utterance_tags"]
-      },
-      {
         "in": ["model_batch"],
         "out": ["predicted_clusters"],
         "main": true,
@@ -78,9 +72,9 @@
         "emb_lowercase": true
       },
       {
-        "in": ["model_batch", "predicted_clusters", "utterance_tags"],
+        "in": ["model_batch", "predicted_clusters"],
         "out": ["new_utterances"],
-        "class_name": "mention_padding_ner"
+        "class_name": "mention_padding"
       },
       {
         "in": ["new_utterances"],
@@ -103,8 +97,7 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/coreference",
-      "CONFIGS_PATH": "./deeppavlov/configs/"
+      "MODELS_PATH": "{ROOT_PATH}/coreference"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf-gpu.txt",
