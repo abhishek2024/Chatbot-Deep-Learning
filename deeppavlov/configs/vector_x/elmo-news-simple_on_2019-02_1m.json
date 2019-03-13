@@ -44,11 +44,11 @@
     ]
   },
   "train": {
-    "epochs": 20,
+    "epochs": 40,
     "batch_size": 128,
     "log_every_n_batches": 100,
     "val_every_n_epochs": 1,
-    "validation_patience": 4,
+    "validation_patience": 8,
     "metric_optimization": "minimize",
     "metrics": [
       {
