@@ -162,9 +162,11 @@
     "validation_patience": 5,
     "val_every_n_epochs": 1,
     "log_every_n_epochs": 1,
-    "show_examples": false,
-    "validate_best": true,
-    "test_best": false,
+    "evaluation_targets": [
+      "train",
+      "valid"
+    ],
+    "class_name": "nn_trainer",
     "tensorboard_log_dir": "{MODELS_PATH}"
   },
   "metadata": {
