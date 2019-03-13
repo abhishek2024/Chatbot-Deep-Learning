@@ -1,15 +1,24 @@
 {
   "dataset_reader": {
     "class_name": "basic_classification_reader",
-    "x": "text",
-    "y": "label",
-    "data_path": "{DOWNLOADS_PATH}/chitchat_vs_odqa/",
-    "train": "train_v4.csv",
-    "valid": "valid_v4.csv"
+    "x": "query",
+    "y": "query type",
+    "data_path": "{DOWNLOADS_PATH}/factoid_data/",
+    "train": "factoid_questions.csv"
   },
   "dataset_iterator": {
     "class_name": "basic_classification_iterator",
-    "seed": 42
+    "seed": 42,
+    "split_seed": 23,
+    "field_to_split": "train",
+    "split_fields": [
+      "train",
+      "valid"
+    ],
+    "split_proportions": [
+      0.9,
+      0.1
+    ]
   },
   "chainer": {
     "in": [
@@ -79,19 +88,58 @@
         "embedding_size": "#my_embedder.dim",
         "n_classes": "#classes_vocab.len",
         "kernel_sizes_cnn": [
-          1,
-          2,
-          3
+          3,
+          5,
+          7
         ],
-        "filters_cnn": 256,
+        "filters_cnn": {
+          "evolve_range": [
+            50,
+            100
+          ],
+          "discrete": true
+        },
         "optimizer": "Adam",
-        "learning_rate": 0.01,
-        "learning_rate_decay": 0.1,
+        "learning_rate": {
+          "evolve_range": [
+            0.0001,
+            0.1
+          ],
+          "scale": "log"
+        },
+        "learning_rate_decay": {
+          "evolve_range": [
+            0.0001,
+            0.1
+          ],
+          "scale": "log"
+        },
         "loss": "categorical_crossentropy",
-        "coef_reg_cnn": 1e-4,
-        "coef_reg_den": 1e-4,
-        "dropout_rate": 0.5,
-        "dense_size": 100,
+        "coef_reg_cnn": {
+          "evolve_range": [
+            1e-6,
+            1e-3
+          ]
+        },
+        "coef_reg_den": {
+          "evolve_range": [
+            1e-6,
+            1e-3
+          ]
+        },
+        "dropout_rate": {
+          "evolve_range": [
+            0.1,
+            0.9
+          ]
+        },
+        "dense_size": {
+          "evolve_range": [
+            50,
+            100
+          ],
+          "discrete": true
+        },
         "model_name": "cnn_model_max_and_aver_pool",
         "last_layer_activation": "softmax",
         "restore_lr": false
@@ -118,16 +166,21 @@
     ]
   },
   "train": {
-    "epochs": 10,
-    "batch_size": 32,
+    "epochs": {
+      "evolve_range": [
+        10,
+        100
+      ],
+      "discrete": true
+    },
+    "batch_size": {
+      "evolve_range": [
+        50,
+        500
+      ],
+      "discrete": true
+    },
     "metrics": [
-      {
-        "name": "sets_accuracy",
-        "inputs": [
-          "y",
-          "y_pred_labels"
-        ]
-      },
       {
         "name": "roc_auc",
         "inputs": [
@@ -148,21 +201,30 @@
           "y",
           "y_pred_labels"
         ]
+      },
+      {
+        "name": "sets_accuracy",
+        "inputs": [
+          "y",
+          "y_pred_labels"
+        ]
       }
     ],
     "validation_patience": 5,
     "val_every_n_epochs": 1,
     "log_every_n_epochs": 1,
     "show_examples": false,
-    "validate_best": true,
-    "test_best": true,
+    "evaluation_targets": [
+      "train",
+      "valid"
+    ],
     "tensorboard_log_dir": "{MODELS_PATH}"
   },
   "metadata": {
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/chitchat_vs_odqa_v6"
+      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/evolution_factoid_v0"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
@@ -174,7 +236,7 @@
     },
     "download": [
       {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/classifiers/chitchat_vs_odqa_v5.tar.gz",
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/classifiers/factoid_v0.tar.gz",
         "subdir": "{ROOT_PATH}/models/classifiers/"
       },
       {
