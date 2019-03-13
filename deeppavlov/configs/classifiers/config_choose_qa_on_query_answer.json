@@ -1,0 +1,217 @@
+{
+  "dataset_reader": {
+    "class_name": "basic_classification_reader",
+    "x": [
+      "query",
+      "answer"
+    ],
+    "y": "score",
+    "data_path": "{DOWNLOADS_PATH}/choose_qa_data/",
+    "train": "choose_qa_on_query_and_answer_text.csv"
+  },
+  "dataset_iterator": {
+    "class_name": "basic_classification_iterator",
+    "seed": 42,
+    "split_seed": 23,
+    "field_to_split": "train",
+    "split_fields": [
+      "train",
+      "valid"
+    ],
+    "split_proportions": [
+      0.8,
+      0.2
+    ]
+  },
+  "chainer": {
+    "in": [
+      "sentence1",
+      "sentence2"
+    ],
+    "in_y": [
+      "y"
+    ],
+    "pipe": [
+      {
+        "id": "classes_vocab",
+        "class_name": "simple_vocab",
+        "fit_on": [
+          "y"
+        ],
+        "save_path": "{MODELS_PATH}/classes.dict",
+        "load_path": "{MODELS_PATH}/classes.dict",
+        "in": "y",
+        "out": "y_ids"
+      },
+      {
+        "in": [
+          "sentence1"
+        ],
+        "out": [
+          "sentence1_lower"
+        ],
+        "class_name": "str_lower",
+        "id": "my_preprocessor"
+      },
+      {
+        "in": [
+          "sentence2"
+        ],
+        "out": [
+          "sentence2_lower"
+        ],
+        "ref": "my_preprocessor"
+      },
+      {
+        "in": "sentence1_lower",
+        "out": "sentence1_tok",
+        "id": "my_tokenizer",
+        "class_name": "nltk_tokenizer",
+        "tokenizer": "wordpunct_tokenize"
+      },
+      {
+        "in": "sentence2_lower",
+        "out": "sentence2_tok",
+        "ref": "my_tokenizer"
+      },
+      {
+        "in": "sentence1_tok",
+        "out": "sentence1_emb",
+        "id": "my_embedder",
+        "class_name": "fasttext",
+        "load_path": "{DOWNLOADS_PATH}/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
+        "dim": 300,
+        "pad_zero": true
+      },
+      {
+        "in": "sentence2_tok",
+        "out": "sentence2_emb",
+        "ref": "my_embedder"
+      },
+      {
+        "in": "y_ids",
+        "out": "y_onehot",
+        "class_name": "one_hotter",
+        "depth": "#classes_vocab.len",
+        "single_vector": true
+      },
+      {
+        "in": [
+          "sentence1_emb",
+          "sentence2_emb"
+        ],
+        "in_y": [
+          "y_onehot"
+        ],
+        "out": [
+          "y_pred_probas"
+        ],
+        "main": true,
+        "class_name": "keras_entailment_model",
+        "save_path": "{MODELS_PATH}/model",
+        "load_path": "{MODELS_PATH}/model",
+        "embedding_size": "#my_embedder.dim",
+        "n_classes": "#classes_vocab.len",
+        "kernel_sizes_cnn": [
+          1,
+          2,
+          3
+        ],
+        "filters_cnn": 256,
+        "optimizer": "Adam",
+        "learning_rate": 0.01,
+        "learning_rate_decay": 0.01,
+        "loss": "categorical_crossentropy",
+        "coef_reg_cnn": 1e-4,
+        "coef_reg_den": 1e-4,
+        "dropout_rate": 0.5,
+        "dense_size": 100,
+        "model_name": "cnn_model_max_and_aver_pool",
+        "last_layer_activation": "softmax",
+        "restore_lr": false
+      },
+      {
+        "in": "y_pred_probas",
+        "out": "y_pred_ids",
+        "class_name": "proba2labels",
+        "max_proba": true
+      },
+      {
+        "in": "y_pred_ids",
+        "out": "y_pred_labels",
+        "ref": "classes_vocab"
+      }
+    ],
+    "out": [
+      "y_pred_labels"
+    ]
+  },
+  "train": {
+    "epochs": 100,
+    "batch_size": 64,
+    "metrics": [
+      {
+        "name": "sets_accuracy",
+        "inputs": [
+          "y",
+          "y_pred_labels"
+        ]
+      },
+      {
+        "name": "f1_weighted",
+        "inputs": [
+          "y",
+          "y_pred_labels"
+        ]
+      },
+      {
+        "name": "f1_macro",
+        "inputs": [
+          "y",
+          "y_pred_labels"
+        ]
+      },
+      {
+        "name": "roc_auc",
+        "inputs": [
+          "y_onehot",
+          "y_pred_probas"
+        ]
+      }
+    ],
+    "validation_patience": 5,
+    "val_every_n_epochs": 1,
+    "log_every_n_epochs": 1,
+    "evaluation_targets": [
+      "train",
+      "valid"
+    ],
+    "class_name": "nn_trainer",
+    "tensorboard_log_dir": "{MODELS_PATH}"
+  },
+  "metadata": {
+    "variables": {
+      "ROOT_PATH": "~/.deeppavlov",
+      "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
+      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/choose_qa_on_query_answer_v0"
+    },
+    "requirements": [
+      "{DEEPPAVLOV_PATH}/requirements/tf.txt",
+      "{DEEPPAVLOV_PATH}/requirements/fasttext.txt"
+    ],
+    "labels": {
+      "telegram_utils": "IntentModel",
+      "server_utils": "KerasIntentModel"
+    },
+    "download": [
+      {
+        "url": "http://files.deeppavlov.ai/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
+        "subdir": "{DOWNLOADS_PATH}/embeddings"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/classifiers/rusentiment_v3.tar.gz",
+        "subdir": "{ROOT_PATH}/models/classifiers"
+      }
+    ]
+  }
+}
