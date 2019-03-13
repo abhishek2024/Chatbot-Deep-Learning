@@ -92,54 +92,15 @@
           5,
           7
         ],
-        "filters_cnn": {
-          "evolve_range": [
-            50,
-            100
-          ],
-          "discrete": true
-        },
+        "filters_cnn": 256,
         "optimizer": "Adam",
-        "learning_rate": {
-          "evolve_range": [
-            0.0001,
-            0.1
-          ],
-          "scale": "log"
-        },
-        "learning_rate_decay": {
-          "evolve_range": [
-            0.0001,
-            0.1
-          ],
-          "scale": "log"
-        },
+        "learning_rate": 0.01,
+        "learning_rate_decay": 0.01,
         "loss": "categorical_crossentropy",
-        "coef_reg_cnn": {
-          "evolve_range": [
-            1e-6,
-            1e-3
-          ]
-        },
-        "coef_reg_den": {
-          "evolve_range": [
-            1e-6,
-            1e-3
-          ]
-        },
-        "dropout_rate": {
-          "evolve_range": [
-            0.1,
-            0.9
-          ]
-        },
-        "dense_size": {
-          "evolve_range": [
-            50,
-            100
-          ],
-          "discrete": true
-        },
+        "coef_reg_cnn": 1e-4,
+        "coef_reg_den": 1e-6,
+        "dropout_rate": 0,
+        "dense_size": 100,
         "model_name": "cnn_model_max_and_aver_pool",
         "last_layer_activation": "softmax",
         "restore_lr": false
@@ -166,21 +127,16 @@
     ]
   },
   "train": {
-    "epochs": {
-      "evolve_range": [
-        10,
-        100
-      ],
-      "discrete": true
-    },
-    "batch_size": {
-      "evolve_range": [
-        50,
-        500
-      ],
-      "discrete": true
-    },
+    "epochs": 100,
+    "batch_size": 64,
     "metrics": [
+      {
+        "name": "sets_accuracy",
+        "inputs": [
+          "y",
+          "y_pred_labels"
+        ]
+      },
       {
         "name": "roc_auc",
         "inputs": [
@@ -201,13 +157,6 @@
           "y",
           "y_pred_labels"
         ]
-      },
-      {
-        "name": "sets_accuracy",
-        "inputs": [
-          "y",
-          "y_pred_labels"
-        ]
       }
     ],
     "validation_patience": 5,
@@ -218,17 +167,18 @@
       "train",
       "valid"
     ],
+    "class_name": "nn_trainer",
     "tensorboard_log_dir": "{MODELS_PATH}"
   },
   "metadata": {
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/evolution_factoid_v0"
+      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/factoid_v0"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
-      "{DEEPPAVLOV_PATH}/requirements/tf-hub.txt"
+      "{DEEPPAVLOV_PATH}/requirements/fasttext.txt"
     ],
     "labels": {
       "telegram_utils": "IntentModel",
@@ -244,7 +194,7 @@
         "subdir": "{DOWNLOADS_PATH}/embeddings"
       },
       {
-        "url": "http://files.deeppavlov.ai/datasets/chitchat_vs_odqa.tar.gz",
+        "url": "http://files.deeppavlov.ai/datasets/factoid_data.tar.gz",
         "subdir": "{DOWNLOADS_PATH}/"
       }
     ]
