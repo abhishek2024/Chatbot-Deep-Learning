@@ -3,7 +3,7 @@
     "class_name": "basic_classification_reader",
     "x": "query",
     "y": "which_answer",
-    "data_path": "{DOWNLOADS_PATH}/choose_qa_data_data/",
+    "data_path": "{DOWNLOADS_PATH}/choose_qa_data/",
     "train": "choose_qa_on_query_text.csv"
   },
   "dataset_iterator": {
@@ -92,14 +92,14 @@
           2,
           3
         ],
-        "filters_cnn": 64,
+        "filters_cnn": 128,
         "optimizer": "Adam",
         "learning_rate": 0.01,
-        "learning_rate_decay": 0.001,
+        "learning_rate_decay": 0.01,
         "loss": "categorical_crossentropy",
         "coef_reg_cnn": 1e-4,
-        "coef_reg_den": 1e-4,
-        "dropout_rate": 0.4,
+        "coef_reg_den": 1e-6,
+        "dropout_rate": 0.2,
         "dense_size": 100,
         "model_name": "cnn_model_max_and_aver_pool",
         "last_layer_activation": "softmax",
@@ -193,7 +193,7 @@
         "subdir": "{DOWNLOADS_PATH}/embeddings"
       },
       {
-        "url": "http://files.deeppavlov.ai/datasets/choose_qa_data_data.tar.gz",
+        "url": "http://files.deeppavlov.ai/datasets/choose_qa_data.tar.gz",
         "subdir": "{DOWNLOADS_PATH}/"
       }
     ]
