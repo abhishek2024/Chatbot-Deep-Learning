@@ -156,6 +156,7 @@ class BertRankerModel(LRScheduledTFModel):
             p = self.sess.run(self.y_probas, feed_dict=feed_dict)
             if len(p.shape) == 1:
                 p = np.expand_dims(p, 0)
+            p /= np.linalg.norm(p, keepdims=True)
             pred.append(p)
         # interact mode
         if len (features_list[0]) == 1 and len(features_list) == 1:

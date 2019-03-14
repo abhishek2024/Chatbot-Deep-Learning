@@ -15,13 +15,13 @@
       {
         "class_name": "response_base_loader",
         "id": "loader",
-        "save_path": "{DOWNLOADS_PATH}/thequest_sub_all_bert_npair_simple",
-        "load_path": "{DOWNLOADS_PATH}/thequest_sub_all_bert_npair_simple"
+        "save_path": "{DOWNLOADS_PATH}/thequest_bert_npair_simple",
+        "load_path": "{DOWNLOADS_PATH}/thequest_bert_npair_simple"
       },
       {
         "class_name": "bert_ranker_preprocessor",
         "id": "preproc",
-        "vocab_file": "{DOWNLOADS_PATH}/thequest_sub_all_bert_npair_simple/vocab.txt",
+        "vocab_file": "{DOWNLOADS_PATH}/thequest_bert_npair_simple/vocab.txt",
         "do_lower_case": true,
         "max_seq_length": 128,
         "resps": "#loader.resps",
@@ -36,10 +36,10 @@
         "resp_features": "#preproc.resp_features",
         "n_classes": 2,
         "one_hot_labels": false,
-        "bert_config_file": "{DOWNLOADS_PATH}/thequest_sub_all_bert_npair_simple/bert_config.json",
-        "pretrained_bert": "{DOWNLOADS_PATH}/thequest_sub_all_bert_npair_simple/model.ckpt-599058",
-        "save_path": "{DOWNLOADS_PATH}/thequest_sub_all_bert_npair_simple",
-        "load_path": "{DOWNLOADS_PATH}/thequest_sub_all_bert_npair_simple/model.ckpt-599058",
+        "bert_config_file": "{DOWNLOADS_PATH}/thequest_bert_npair_simple/bert_config.json",
+        "pretrained_bert": "{DOWNLOADS_PATH}/thequest_bert_npair_simple/model.ckpt-599058",
+        "save_path": "{DOWNLOADS_PATH}/thequest_bert_npair_simple",
+        "load_path": "{DOWNLOADS_PATH}/thequest_bert_npair_simple/model.ckpt-599058",
         "num_ranking_samples": 1,
         "num_resp": 3,
         "batch_size": 32,
@@ -66,7 +66,7 @@
     "log_every_n_batches": 100,
     "validate_best": true,
     "test_best": true,
-    "tensorboard_log_dir": "{MODELS_PATH}/thequest_sub_all_bert_model/logs"
+    "tensorboard_log_dir": "{MODELS_PATH}/thequest_bert_model/logs"
   },
   "metadata": {
     "variables": {
@@ -80,7 +80,7 @@
     ],
     "download": [
       {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/thequest_sub_all_bert_npair_simple.tar.gz",
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/thequest_bert_npair_simple.tar.gz",
         "subdir": "{DOWNLOADS_PATH}/"
       }
     ]
