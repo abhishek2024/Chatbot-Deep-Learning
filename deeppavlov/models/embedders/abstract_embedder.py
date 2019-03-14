@@ -56,7 +56,10 @@ class Embedder(Component, Serializable, metaclass=ABCMeta):
         self.load()
 
     def destroy(self):
-        del self.model
+        try:
+            del self.model
+        except AttributeError:
+            pass
 
     @overrides
     def save(self) -> None:
