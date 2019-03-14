@@ -113,17 +113,17 @@
         "embedding_size": "#my_embedder.dim",
         "n_classes": "#classes_vocab.len",
         "kernel_sizes_cnn": [
-          1,
-          2,
-          3
+          3,
+          5,
+          7
         ],
-        "filters_cnn": 256,
+        "filters_cnn": 128,
         "optimizer": "Adam",
         "learning_rate": 0.01,
-        "learning_rate_decay": 0.01,
+        "learning_rate_decay": 0.1,
         "loss": "categorical_crossentropy",
         "coef_reg_cnn": 1e-4,
-        "coef_reg_den": 1e-4,
+        "coef_reg_den": 1e-6,
         "dropout_rate": 0.5,
         "dense_size": 100,
         "model_name": "cnn_model_max_and_aver_pool",
@@ -209,8 +209,12 @@
         "subdir": "{DOWNLOADS_PATH}/embeddings"
       },
       {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/classifiers/rusentiment_v3.tar.gz",
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/classifiers/choose_qa_on_query_answer_v0.tar.gz",
         "subdir": "{ROOT_PATH}/models/classifiers"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/datasets/choose_qa_data.tar.gz",
+        "subdir": "{DOWNLOADS_PATH}/"
       }
     ]
   }
