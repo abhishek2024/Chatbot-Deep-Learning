@@ -144,91 +144,6 @@ class KerasEntailmentModel(KerasClassificationModel):
         return preds
 
     @overrides
-    def cnn_model_max_and_aver_pool(self, kernel_sizes_cnn: List[int], filters_cnn: int, dense_size: int,
-                                    coef_reg_cnn: float = 0., coef_reg_den: float = 0., dropout_rate: float = 0.,
-                                    input_projection_size: Optional[int] = None, **kwargs) -> Model:
-        """
-        Build un-compiled model of shallow-and-wide CNN where average pooling after convolutions is replaced with
-        concatenation of average and max poolings.
-
-        Args:
-            kernel_sizes_cnn: list of kernel sizes of convolutions.
-            filters_cnn: number of filters for convolutions.
-            dense_size: number of units for dense layer.
-            coef_reg_cnn: l2-regularization coefficient for convolutions. Default: ``0.0``.
-            coef_reg_den: l2-regularization coefficient for dense layers. Default: ``0.0``.
-            dropout_rate: dropout rate used after convolutions and between dense layers. Default: ``0.0``.
-            input_projection_size: if not None, adds Dense layer (with ``relu`` activation)
-                                   right after input layer to the size ``input_projection_size``.
-                                   Useful for input dimentionaliry recuction. Default: ``None``.
-            kwargs: other non-used parameters
-
-        Returns:
-            keras.models.Model: uncompiled instance of Keras Model
-        """
-
-        inputs = [Input(shape=(self.opt['text_size'], self.opt['embedding_size']))
-                  for _ in range(self.n_inputs)]
-        outputs = [inputs[i] for i in range(self.n_inputs)]
-
-        if input_projection_size is not None:
-            dense_projection = Dense(input_projection_size, activation='relu')
-            outputs = [dense_projection(outputs[i]) for i in range(self.n_inputs)]
-
-        conv_layers = [Conv1D(filters_cnn, kernel_size=kernel_sizes_cnn[i],
-                              activation=None,
-                              kernel_regularizer=l2(coef_reg_cnn),
-                              padding='same') for i in range(len(kernel_sizes_cnn))]
-        bn = [BatchNormalization() for i in range(len(kernel_sizes_cnn))]
-        relu = Activation("relu")
-        maxpool = GlobalMaxPooling1D()
-        averpool = GlobalAveragePooling1D()
-        concat = Concatenate(axis=-1)
-        concat_1 = Concatenate(axis=1)
-
-        full_outputs = []
-
-        for j in range(self.n_inputs):
-            j_outputs = []
-            for i in range(len(kernel_sizes_cnn)):
-                output_i = conv_layers[i](outputs[j])
-                output_i = bn[i](output_i)
-                output_i = relu(output_i)
-                output_i_0 = maxpool(output_i)
-                output_i_1 = averpool(output_i)
-                output_i = concat([output_i_0, output_i_1])
-                j_outputs.append(output_i)
-
-            output = concat_1(j_outputs)
-            full_outputs.append(output)
-        #
-        # summ = Add()(full_outputs)
-        # mult = Multiply()(full_outputs)
-        #
-        # try:
-        #     subt = Subtract()(full_outputs)
-        #     full_outputs.append(subt)
-        # except ValueError:
-        #     pass
-        # full_outputs.append(summ)
-        # full_outputs.append(mult)
-
-        output = Concatenate()(full_outputs)
-
-        output = Dropout(rate=dropout_rate)(output)
-        output = Dense(dense_size, activation=None,
-                       kernel_regularizer=l2(coef_reg_den))(output)
-        output = BatchNormalization()(output)
-        output = Activation('relu')(output)
-        output = Dropout(rate=dropout_rate)(output)
-        output = Dense(self.n_classes, activation=None,
-                       kernel_regularizer=l2(coef_reg_den))(output)
-        output = BatchNormalization()(output)
-        act_output = Activation(self.opt.get("last_layer_activation", "sigmoid"))(output)
-        model = Model(inputs=inputs, outputs=act_output)
-        return model
-
-    @overrides
     def bigru_with_max_aver_pool_model(self, units_gru: int, dense_size: int,
                                        coef_reg_gru: float = 0., coef_reg_den: float = 0.,
                                        dropout_rate: float = 0., rec_dropout_rate: float = 0.,
@@ -276,17 +191,6 @@ class KerasEntailmentModel(KerasClassificationModel):
 
             output = concat([output1, output2, state1, state2])
             full_outputs.append(output)
-
-        # summ = Add()(full_outputs)
-        # mult = Multiply()(full_outputs)
-        #
-        # try:
-        #     subt = Subtract()(full_outputs)
-        #     full_outputs.append(subt)
-        # except ValueError:
-        #     pass
-        # full_outputs.append(summ)
-        # full_outputs.append(mult)
 
         output = Concatenate()(full_outputs)
 
