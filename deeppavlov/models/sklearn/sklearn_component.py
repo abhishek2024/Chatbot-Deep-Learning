@@ -266,6 +266,8 @@ class SklearnComponent(Estimator):
                     x_features.append(np.vstack(list(x[i])))
                 elif isinstance(x[i][0], str):
                     x_features.append(np.array(x[i]))
+                elif isinstance(x[i][0], float) or isinstance(x[i][0], int):
+                    x_features.append(np.vstack(list(x[i])))
                 else:
                     raise ConfigError('Not implemented this type of vectors')
             else:
