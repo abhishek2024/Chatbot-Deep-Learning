@@ -249,7 +249,7 @@
         "subdir": "{DOWNLOADS_PATH}/embeddings"
       },
       {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/classifiers/choose_qa_on_query_answer_v0.tar.gz",
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/classifiers/choose_qa_on_query_and_answers_v0.tar.gz",
         "subdir": "{ROOT_PATH}/models/classifiers"
       },
       {
