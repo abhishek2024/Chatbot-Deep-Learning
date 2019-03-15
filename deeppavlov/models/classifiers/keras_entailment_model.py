@@ -82,7 +82,10 @@ class KerasEntailmentModel(KerasClassificationModel):
         if isinstance(kwargs["in"], str):
             self.n_inputs = 1
         else:
-            self.n_inputs = len(kwargs["in"])
+            if kwargs.get("additional_inputs_sizes", False):
+                self.n_inputs = len(kwargs["in"]) - len(kwargs["additional_inputs_sizes"])
+            else:
+                self.n_inputs = len(kwargs["in"])
 
         super().__init__(**kwargs)
 
@@ -99,7 +102,14 @@ class KerasEntailmentModel(KerasClassificationModel):
         features = [self.check_input(args[i]) for i in range(self.n_inputs)]
         labels = args[-1]
 
-        metrics_values = self.model.train_on_batch(features, np.squeeze(np.array(labels)))
+        if self.opt.get("additional_inputs_sizes", False):
+            add_inp = [np.array(el).reshape((-1, self.opt["additional_inputs_sizes"][k])) for k, el in
+                       enumerate(args[self.n_inputs:(self.n_inputs + len(self.opt["additional_inputs_sizes"]))])]
+            metrics_values = self.model.train_on_batch(
+                features + add_inp,
+                np.squeeze(np.array(labels)))
+        else:
+            metrics_values = self.model.train_on_batch(features, np.squeeze(np.array(labels)))
         return metrics_values
 
     @overrides
@@ -115,7 +125,7 @@ class KerasEntailmentModel(KerasClassificationModel):
             predictions, otherwise
         """
         features = [self.check_input(args[i]) for i in range(self.n_inputs)]
-        if len(args) > self.n_inputs:
+        if len(args) > self.n_inputs + len(self.opt.get("additional_inputs_sizes", [])):
             labels = args[-1]
         else:
             labels = None
@@ -124,7 +134,13 @@ class KerasEntailmentModel(KerasClassificationModel):
             metrics_values = self.model.test_on_batch(features, np.squeeze(np.array(labels)))
             return metrics_values
         else:
-            predictions = self.model.predict(features)
+            if self.opt.get("additional_inputs_sizes", False):
+                add_inp = [np.array(el).reshape((-1, self.opt["additional_inputs_sizes"][k])) for k, el in
+                           enumerate(args[self.n_inputs:(self.n_inputs + len(self.opt["additional_inputs_sizes"]))])]
+                predictions = self.model.predict(
+                    features + add_inp)
+            else:
+                predictions = self.model.predict(features)
             return predictions
 
     @overrides
@@ -163,9 +179,16 @@ class KerasEntailmentModel(KerasClassificationModel):
         Returns:
             keras.models.Model: uncompiled instance of Keras Model
         """
+        # additional_inputs_sizes is a list of additional inputs shapes
+        if self.opt.get("additional_inputs_sizes", False):
+            inputs = [Input(shape=(self.opt['text_size'], self.opt['embedding_size']))
+                      for _ in range(self.n_inputs)]
+            for j in range(len(self.opt["additional_inputs_sizes"])):
+                inputs.append(Input(shape=(self.opt["additional_inputs_sizes"][j],)))
+        else:
+            inputs = [Input(shape=(self.opt['text_size'], self.opt['embedding_size']))
+                      for _ in range(self.n_inputs)]
 
-        inputs = [Input(shape=(self.opt['text_size'], self.opt['embedding_size']))
-                  for _ in range(self.n_inputs)]
         outputs = [inputs[i] for i in range(self.n_inputs)]
 
         dropout = Dropout(rate=dropout_rate)
@@ -191,6 +214,10 @@ class KerasEntailmentModel(KerasClassificationModel):
 
             output = concat([output1, output2, state1, state2])
             full_outputs.append(output)
+
+        if self.opt.get("additional_inputs_sizes", False):
+            for j in range(len(self.opt["additional_inputs_sizes"])):
+                full_outputs.append(inputs[self.n_inputs + j])
 
         output = Concatenate()(full_outputs)
 

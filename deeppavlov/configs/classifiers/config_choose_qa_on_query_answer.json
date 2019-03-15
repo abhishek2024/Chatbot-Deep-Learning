@@ -5,7 +5,10 @@
       "query",
       "odqa_rubert",
       "odqa_rubert_retr",
-      "kbqa"
+      "kbqa",
+      "odqa_rubert_confidence",
+      "odqa_rubert_retr_confidence",
+      "kbqa_confidence"
     ],
     "y": "model",
     "data_path": "{DOWNLOADS_PATH}/choose_qa_data/",
@@ -30,7 +33,10 @@
       "sentence1",
       "sentence2",
       "sentence3",
-      "sentence4"
+      "sentence4",
+      "confidence2",
+      "confidence3",
+      "confidence4"
     ],
     "in_y": [
       "y"
@@ -142,7 +148,11 @@
           "sentence1_emb",
           "sentence2_emb",
           "sentence3_emb",
-          "sentence4_emb"
+          "sentence4_emb",
+          "confidence2",
+          "confidence3",
+          "confidence4"
+
         ],
         "in_y": [
           "y_onehot"
@@ -168,7 +178,8 @@
         "dense_size": 100,
         "model_name": "bigru_with_max_aver_pool_model",
         "last_layer_activation": "softmax",
-        "restore_lr": false
+        "restore_lr": false,
+        "additional_inputs_sizes": [1,1,1]
       },
       {
         "in": "y_pred_probas",
@@ -233,7 +244,7 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/choose_qa_on_query_and_answers_v0"
+      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/choose_qa_on_query_and_answers_v1"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
