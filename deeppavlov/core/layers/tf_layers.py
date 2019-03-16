@@ -119,7 +119,7 @@ def bi_rnn(units: tf.Tensor,
            seq_lengths=None,
            trainable_initial_states=False,
            use_peepholes=False,
-           name='Bi-'):
+           name='Bi'):
     """ Bi directional recurrent neural network. GRU or LSTM
 
         Args:
