@@ -15,7 +15,6 @@
 import json
 import tensorflow as tf
 import numpy as np
-import functools
 from typing import List, Tuple
 import math
 
@@ -26,7 +25,6 @@ from deeppavlov.core.layers.tf_layers import cudnn_bi_lstm, cudnn_bi_gru, bi_rnn
 from deeppavlov.core.layers.tf_layers import variational_dropout, INITIALIZER
 from deeppavlov.core.models.lr_scheduled_tf_model import LRScheduledTFModel
 from deeppavlov.models.seq2seq_go_bot.kb_attn_layer import KBAttention
-import deeppavlov.models.seq2seq_go_bot.beam_search as beam_search
 
 
 log = get_logger(__name__)
@@ -325,7 +323,6 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
 
                     # Checking init_state shape
                     _batch_size = tf.shape(memory)[0]
-                    _cell_zero_state = _cell.zero_state(_batch_size, dtype=memory.dtype)
                     # TODO: try placing dropout after attention
                     _cell = tf.contrib.rnn.DropoutWrapper(
                         _cell,
@@ -390,7 +387,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                 _logits = _outputs_tr.rnn_output
 
             # INFER MODE
-            _decoder_inf_fn, _, _decoder_inf_init_state = \
+            _, _decoder_inf_cell, _decoder_inf_init_state = \
                 _build_step_fn(memory=_tiled_encoder_outputs,
                                memory_seq_len=_tiled_src_sequence_lengths,
                                init_state=_tiled_encoder_state,
@@ -400,66 +397,25 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
             _start_tokens = tf.tile(tf.constant([self.tgt_sos_id], tf.int32),
                                     [self._batch_size])
 
-            def _symbols_to_inf_logits_fn(ids, step, state):
-                if ids.shape.ndims == 2:
-                    ids = ids[:, -1]
-                _inputs = tf.nn.embedding_lookup(self._decoder_embedding, ids)
-                _outputs, state["decoder"] = _decoder_inf_fn(step,
-                                                             _inputs,
-                                                             state["decoder"])
-                _logits = _projection_layer(_outputs)
-                return _logits, state
-
-            """
             _decoder_inf = tf.contrib.seq2seq.BeamSearchDecoder(
-                    cell=_decoder_cell_inf,
+                    cell=_decoder_inf_cell,
                     embedding=self._decoder_embedding,
                     start_tokens=_start_tokens,
                     end_token=self.tgt_eos_id,
-                    initial_state=_decoder_init_state,
+                    initial_state=_decoder_inf_init_state,
                     beam_width=self.beam_width,
                     output_layer=_projection_layer,
                     length_penalty_weight=0.0)
-            """
 
             # Wrap into variable scope to share attention parameters
             # Required!
             with tf.variable_scope("decode_with_shared_attention", reuse=True):
-                if self.beam_width == 1:
-                    _predictions, _lengths, _probs = beam_search.greedy_decode(
-                        _symbols_to_inf_logits_fn,
-                        initial_ids=_start_tokens,
-                        end_id=self.tgt_eos_id,
-                        decode_length=_max_iters,
-                        state={"decoder": _decoder_inf_init_state},
-                        min_decode_length=0,
-                        last_step_as_input=True,
-                        sample_from=1)
-                else:
-                    _predictions, _probs = beam_search.beam_search(
-                        _symbols_to_inf_logits_fn,
-                        initial_ids=_start_tokens,
-                        beam_size=self.beam_width,
-                        decode_length=_max_iters,
-                        vocab_size=self.tgt_vocab_size,
-                        alpha=0.0,
-                        states={"decoder": _decoder_inf_init_state},
-                        eos_id=self.tgt_eos_id,
-                        tile_states=False,
-                        min_decode_length=0)
-                    _lengths = tf.not_equal(_predictions, 0)
-                    _lengths = tf.cast(_lengths, tf.int32)
-                    _lengths = tf.reduce_sum(_lengths, axis=-1) - 1  # Ignore </s>
-                    _predictions = _predictions[:, :, 1:]  # Ignore <s>.
-                    _predictions = _predictions[:, 0]  # Take only best beam
-                """
-                _outputs_inf, _, _ = \
+                _outputs_inf, _, _ =\
                     tf.contrib.seq2seq.dynamic_decode(_decoder_inf,
                                                       impute_finished=False,
                                                       maximum_iterations=_max_iters,
                                                       output_time_major=False)
-            _predictions = _outputs_inf.predicted_ids[:, :, 0]
-            """
+                _predictions = _outputs_inf.predicted_ids[:, :, 0]
         return _logits, _predictions
 
     def __call__(self, enc_inputs, src_seq_lens, kb_masks, prob=False):
