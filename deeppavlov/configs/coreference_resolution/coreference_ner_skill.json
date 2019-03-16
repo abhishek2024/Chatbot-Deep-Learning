@@ -1,29 +1,13 @@
 {
-  "dataset_reader": {
-    "class_name": "coref_dialog_reader",
-    "data_path": "{DOWNLOADS_PATH}/coreference_resolution/maria/prep3.json",
-    "one_utterance_per_dialog": true
-  },
-  "dataset_iterator": {
-    "class_name": "coref_dialog_iterator",
-    "seed": 42,
-    "split_fields": [
-      "train",
-      "valid",
-      "test"
-    ],
-    "split_proportions": [
-      0.9,
-      0.05,
-      0.05
-    ]
-  },
   "chainer": {
-    "in": ["utterances", "history"],
-    "in_y": ["trash"],
+    "in": [
+      "query",
+      "history",
+      "state"
+    ],
     "pipe": [
       {
-        "in": ["utterances", "history"],
+        "in": ["query", "history"],
         "class_name": "coref_prepare",
         "out": ["model_batch"]
       },
@@ -51,6 +35,16 @@
         "load_path": "~/Work/Embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin"
       },
       {
+        "id": "ner",
+        "config_path": "{CONFIGS_PATH}/ner/ner_rus_lower_vpc_with_context.json"
+      },
+      {
+        "in": ["model_batch"],
+        "out": ["utterance_tokens", "utterance_tags"],
+        "class_name": "deeppavlov.models.coreference_resolution.change_utterence:PerItemWrapper",
+        "component": "#ner"
+      },
+      {
         "in": ["model_batch"],
         "out": ["predicted_clusters"],
         "main": true,
@@ -72,20 +66,29 @@
         "emb_lowercase": true
       },
       {
-        "in": ["model_batch", "predicted_clusters"],
-        "out": ["new_utterances"],
-        "class_name": "mention_padding"
+        "in": "query",
+        "class_name": "deeppavlov.models.coreference_resolution.change_utterence:CorefConfidence",
+        "out": "confidence"
       },
       {
-        "in": ["new_utterances"],
-        "out": ["new_utterances"],
+        "in": ["model_batch", "predicted_clusters", "utterance_tags"],
+        "out": ["response"],
+        "class_name": "mention_padding_ner"
+      },
+      {
+        "in": ["response"],
+        "out": ["response"],
         "class_name": "nltk_moses_tokenizer"
       }
     ],
-    "out": ["new_utterances", "utterances"]
+    "out": [
+      "response",
+      "confidence",
+      "state"
+    ]
   },
   "train": {
-    "batch_size": 1,
+    "batch_size": 32,
     "validation_patience": 20,
     "val_every_n_epochs": 1,
     "log_every_n_epochs": 1,
@@ -97,7 +100,8 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/coreference"
+      "MODELS_PATH": "{ROOT_PATH}/coreference",
+      "CONFIGS_PATH": "./configs/"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf-gpu.txt",

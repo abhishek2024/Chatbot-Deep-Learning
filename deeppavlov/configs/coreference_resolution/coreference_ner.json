@@ -13,9 +13,9 @@
       "test"
     ],
     "split_proportions": [
-      0.9,
-      0.05,
-      0.05
+      0.8,
+      0.1,
+      0.1
     ]
   },
   "chainer": {
@@ -26,16 +26,6 @@
         "in": ["utterances", "history"],
         "class_name": "coref_prepare",
         "out": ["model_batch"]
-      },
-      {
-        "class_name": "nltk_moses_tokenizer",
-        "id": "tokenizer"
-      },
-      {
-        "in": ["model_batch"],
-        "out": ["model_batch"],
-        "class_name": "deeppavlov.models.coreference_resolution.change_utterence:PerItemWrapper",
-        "component": "#tokenizer"
       },
       {
         "class_name": "simple_vocab",
@@ -52,12 +42,16 @@
       },
       {
         "id": "ner",
-        "config_path": "{CONFIGS_PATH}/ner/ner_rus_lower_vpc_with_context.json",
-        "in": ["model_batch"],
-        "out": ["utterance_tokens", "utterance_tags"]
+        "config_path": "{CONFIGS_PATH}/ner/ner_rus_lower_vpc_with_context.json"
       },
       {
         "in": ["model_batch"],
+        "out": ["utterance_tokens", "utterance_tags"],
+        "class_name": "deeppavlov.models.coreference_resolution.change_utterence:PerItemWrapper",
+        "component": "#ner"
+      },
+      {
+        "in": ["utterance_tokens"],
         "out": ["predicted_clusters"],
         "main": true,
         "class_name": "coref_model",
@@ -78,7 +72,7 @@
         "emb_lowercase": true
       },
       {
-        "in": ["model_batch", "predicted_clusters", "utterance_tags"],
+        "in": ["utterance_tokens", "predicted_clusters", "utterance_tags"],
         "out": ["new_utterances"],
         "class_name": "mention_padding_ner"
       },
@@ -104,7 +98,7 @@
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
       "MODELS_PATH": "{ROOT_PATH}/coreference",
-      "CONFIGS_PATH": "./deeppavlov/configs/"
+      "CONFIGS_PATH": "./configs/"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf-gpu.txt",

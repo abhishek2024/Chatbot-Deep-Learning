@@ -19,6 +19,15 @@ class CorefPreprocess(Component):
         return model_batch
 
 
+@register("coref_confidence")
+class CorefConfidence(Component):
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def __call__(self, batch: List[List[str]], **kwargs):
+        return [1.0] * len(batch)
+
+
 @register("mention_padding")
 class MentionPadding(Component):
     def __init__(self, *args, **kwargs):
@@ -101,7 +110,8 @@ class MentionPaddingNer(Component):
     def __init__(self, *args, **kwargs):
         pass
 
-    def __call__(self, model_batch: List[List[Tuple]], clusters_batch: List[List[List[str]]], ner_batch: List[List[Tuple]],
+    def __call__(self, model_batch: List[List[Tuple]], clusters_batch: List[List[List[str]]],
+                 ner_batch: List[List[Tuple]],
                  **kwargs):
         output_batch = []
         for (history, predicted_clusters, ner) in zip(model_batch, clusters_batch, ner_batch):
@@ -113,6 +123,13 @@ class MentionPaddingNer(Component):
     def padding(sentences, predicted_clusters, ner_tokens):
         flatten_sentences = [token for sent in sentences for token in sent]
         flatten_ner_tokens = [token for sent in ner_tokens for token in sent]
+
+        old_clusters = {}
+        for i, cluster in enumerate(predicted_clusters):
+            tmp_list = []
+            for mention in cluster:
+                tmp_list.append(list(flatten_sentences[mention[0]:mention[-1] + 1]))
+            old_clusters[i] = tmp_list
 
         pos_list = []
         for sent in sentences:
@@ -128,13 +145,13 @@ class MentionPaddingNer(Component):
         for i, cluster in enumerate(predicted_clusters):
             for mention in cluster:
                 if mention[0] == mention[1]:
-                    if flatten_ner_tokens[mention[0]] == 'B-PERSON':
+                    if flatten_ner_tokens[mention[0]] == 'B-PER':
                         cluster_names[i] = flatten_sentences[mention[0]:mention[0] + 1]
                         break
                 else:
                     name_end_ = mention[0] - 1
                     for ind in range(mention[0], mention[1] + 1, 1):
-                        if flatten_ner_tokens[ind] == 'B-PERSON' or flatten_ner_tokens[ind] == 'I-PERSON':
+                        if flatten_ner_tokens[ind] == 'B-PER' or flatten_ner_tokens[ind] == 'I-PER':
                             name_end_ = ind
                     if name_end_ != mention[0] - 1:
                         cluster_names[i] = flatten_sentences[mention[0]:name_end_]
@@ -184,6 +201,29 @@ class MentionPaddingNer(Component):
             else:
                 sent.append(token)
 
+        # from pathlib import Path
+        # logs = Path("/home/mks/Downloads/")
+        # if len(cluster_names) != 0:
+        #     with logs.joinpath("coref_ner_logs.txt").open("a", encoding='utf8') as log:
+        #         print("### START ###", file=log)
+        #         for sent in sentences:
+        #             print(sent, file=log)
+        #         print("\n", file=log)
+        #         print(cluster_names, file=log)
+        #         print("\n", file=log)
+        #         print(old_clusters, file=log)
+        #         print("\n", file=log)
+        #         for new_sent in new_sentences:
+        #             print(new_sent, file=log)
+        #         print("### END ###", file=log)
+        #         print("\n", file=log)
+
+        # from pathlib import Path
+        # logs = Path("/home/mks/Downloads/")
+        # if len(cluster_names) != 0:
+        #     with logs.joinpath("coref_count_logs.txt").open("a", encoding='utf8') as log:
+        #         print(cluster_names, file=log)
+
         return new_sentences
 
 
@@ -203,7 +243,7 @@ class PerItemWrapper(Component):
         else:
             out = self.component(batch)
         # log.info(f"in = {batch}, out = {out}")
-        return out
+        return tuple(zip(*out))
 
     def fit(self, data):
         self.component.fit([item for batch in data for item in batch])
