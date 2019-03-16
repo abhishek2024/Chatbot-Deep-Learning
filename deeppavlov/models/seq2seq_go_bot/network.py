@@ -15,6 +15,7 @@
 import json
 import tensorflow as tf
 import numpy as np
+import functools
 from typing import List, Tuple
 import math
 
@@ -25,6 +26,7 @@ from deeppavlov.core.layers.tf_layers import cudnn_bi_lstm, cudnn_bi_gru, bi_rnn
 from deeppavlov.core.layers.tf_layers import variational_dropout, INITIALIZER
 from deeppavlov.core.models.lr_scheduled_tf_model import LRScheduledTFModel
 from deeppavlov.models.seq2seq_go_bot.kb_attn_layer import KBAttention
+import deeppavlov.models.seq2seq_go_bot.beam_search as beam_search
 
 
 log = get_logger(__name__)
@@ -62,9 +64,8 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
     """
 
     GRAPH_PARAMS = ['hidden_size', 'knowledge_base_size', 'target_vocab_size',
-                    'embedding_size',
-                    'kb_embedding_control_sum', 'kb_attention_hidden_sizes',
-                    'cell_type']
+                    'embedding_size', 'kb_embedding_control_sum',
+                    'kb_attention_hidden_sizes', 'cell_type']
 
     def __init__(self,
                  hidden_size: int,
@@ -142,7 +143,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
         self.tgt_eos_id = self.opt['target_end_of_sequence_index']
         self.kb_attn_hidden_sizes = self.opt['kb_attention_hidden_sizes']
         self.embedding_size = self.opt['embedding_size']
-        self.cell_type = self.opt['cell_type']
+        self.cell_type = self.opt['cell_type'].lower()
         self.encoder_use_cudnn = self.opt['encoder_use_cudnn']
         self.beam_width = self.opt['beam_width']
         self.dropout_rate = self.opt['dropout_rate']
@@ -245,16 +246,16 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
             # _units: [batch_size, max_input_time, embedding_size]
             _units = variational_dropout(self._encoder_inputs, self._dropout_keep_prob)
 
-            # _outputs: [batch_size, max_input_time, embedding_size, 2]
+            # _outputs: [batch_size, max_input_time, hidden_size, 2]
             # _state: [batch_size, hidden_size, 2]
             if self.encoder_use_cudnn:
                 if (self.l2_regs[0] > 0) or (self.l2_regs[1] > 0):
                     log.warning("cuDNN RNN are not l2 regularizable")
-                if self.cell_type.lower() == 'lstm':
+                if self.cell_type == 'lstm':
                     _outputs, _state = cudnn_bi_lstm(_units,
                                                      self.hidden_size,
                                                      self._src_sequence_lengths)
-                elif self.cell_type.lower() == 'gru':
+                elif self.cell_type == 'gru':
                     _outputs, _state = cudnn_bi_gru(_units,
                                                     self.hidden_size,
                                                     self._src_sequence_lengths)
@@ -264,31 +265,28 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                           cell_type=self.cell_type,
                                           seq_lengths=self._src_sequence_lengths)
 
-            # _outputs: [batch_size, max_input_time, hidden_size]
+            # _outputs: [batch_size, max_input_time, hidden_size * 2]
             _outputs = tf.concat(_outputs, -1)
+            if self.cell_type == 'lstm':
+                _state = tf.nn.rnn_cell.LSTMStateTuple(tf.concat([_state[0][0],
+                                                                  _state[1][0]], -1),
+                                                       tf.concat([_state[0][1],
+                                                                  _state[1][1]], -1))
+            elif self.cell_type == 'gru':
+                _state = tf.concat(_state, -1)
 
             # TODO: add & validate cell dropout
             # NOTE: not available for CUDNN cells?
             # _outputs = variational_dropout(_outputs, self._state_dropout_keep_prob)
 
         self._encoder_outputs = _outputs
-        if (self.cell_type == 'lstm') and\
-                not isinstance(_state[0], tf.nn.rnn_cell.LSTMStateTuple):
-            self._encoder_state = tf.nn.rnn_cell.LSTMStateTuple(_state[0][0],
-                                                                _state[0][1])
-        else:
-            self._encoder_state = _state[0]
+        self._encoder_state = _state
         # TODO: use not only forward state, but concatenation of states (?)
         # NOTE: should then encoder's hidden size be twice smaller than decoder's?
 
     def _build_decoder(self, scope="Decoder"):
         with tf.variable_scope(scope):
             # Decoder embedding
-            # _decoder_embedding = tf.get_variable(
-            #    "decoder_embedding", [self.tgt_vocab_size + self.kb_size,
-            #                          self.embedding_size])
-            # _decoder_emb_inp = tf.one_hot(self._decoder_inputs,
-            #                              self.tgt_vocab_size + self.kb_size)
             _decoder_emb_inp = tf.nn.embedding_lookup(self._decoder_embedding,
                                                       self._decoder_inputs)
 
@@ -313,86 +311,106 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                     _projection_layer = tf.layers.Dense(self.tgt_vocab_size,
                                                         use_bias=False)
 
-            # Decoder Cell
-            if self.cell_type.lower() == 'lstm':
-                _decoder_cell = tf.nn.rnn_cell.LSTMCell(self.hidden_size,
+            def _build_step_fn(memory, memory_seq_len, init_state, scope, reuse=None):
+                with tf.variable_scope("decode_with_shared_attention", reuse=reuse):
+                    # Decoder Cell
+                    if self.cell_type.lower() == 'lstm':
+                        _cell = tf.nn.rnn_cell.LSTMCell(self.hidden_size * 2,
                                                         initializer=INITIALIZER(),
                                                         name='basic_lstm_cell')
-            elif self.cell_type.lower() == 'gru':
-                _decoder_cell = tf.nn.rnn_cell.GRUCell(self.hidden_size,
+                    elif self.cell_type.lower() == 'gru':
+                        _cell = tf.nn.rnn_cell.GRUCell(self.hidden_size * 2,
                                                        kernel_initializer=INITIALIZER(),
                                                        name='basic_gru_cell')
-            _decoder_cell = tf.contrib.rnn.DropoutWrapper(
-                _decoder_cell,
-                input_size=self.embedding_size + self.hidden_size,
-                dtype=tf.float32,
-                input_keep_prob=self._dropout_keep_prob,
-                output_keep_prob=self._dropout_keep_prob,
-                state_keep_prob=self._state_dropout_keep_prob,
-                variational_recurrent=True)
 
-            def build_dec_cell(enc_out, enc_seq_len, reuse=None):
-                with tf.variable_scope("dec_cell_attn", reuse=reuse):
-                    # Create an attention mechanism
+                    # Checking init_state shape
+                    _batch_size = tf.shape(memory)[0]
+                    _cell_zero_state = _cell.zero_state(_batch_size, dtype=memory.dtype)
+                    # TODO: try placing dropout after attention
+                    _cell = tf.contrib.rnn.DropoutWrapper(
+                        _cell,
+                        input_size=self.embedding_size + self.hidden_size * 2,
+                        dtype=memory.dtype,
+                        input_keep_prob=self._dropout_keep_prob,
+                        output_keep_prob=self._dropout_keep_prob,
+                        state_keep_prob=self._state_dropout_keep_prob,
+                        variational_recurrent=True)
+
+                    # Attention mechanism
                     # _attention_mechanism = tf.contrib.seq2seq.BahdanauAttention(
                     _attention_mechanism = tf.contrib.seq2seq.LuongAttention(
-                        self.hidden_size,
-                        memory=enc_out,
-                        memory_sequence_length=enc_seq_len)
+                        self.hidden_size * 2,
+                        memory=memory,
+                        memory_sequence_length=memory_seq_len)
+
                     _cell = tf.contrib.seq2seq.AttentionWrapper(
-                        _decoder_cell,
+                        _cell,
                         _attention_mechanism,
-                        attention_layer_size=self.hidden_size)
-                    return _cell
+                        attention_layer_size=self.hidden_size * 2,
+                        alignment_history=False,
+                        initial_cell_state=init_state)
+
+                    def _fn(step, inputs, state):
+                        # This scope is defined by tf.contrib.seq2seq.dynamic_decode
+                        # during the training.
+                        with tf.variable_scope("decoder", reuse=reuse):
+                            outputs, state = _cell(inputs, state)
+                            return outputs, state
+
+                    _init_state = _cell.zero_state(_batch_size, dtype=memory.dtype)
+
+                    return _fn, _cell, _init_state
 
             # TRAIN MODE
-            _decoder_cell_tr = build_dec_cell(self._encoder_outputs,
-                                              self._src_sequence_lengths)
-            self._decoder_cell_tr = _decoder_cell_tr
+            _, _decoder_tr_cell, _decoder_tr_init_state = \
+                _build_step_fn(memory=self._encoder_outputs,
+                               memory_seq_len=self._src_sequence_lengths,
+                               init_state=self._encoder_state,
+                               scope="dec_cell_step")
+
             # Train Helper to feed inputs for training:
             # read inputs from dense ground truth vectors
             _helper_tr = tf.contrib.seq2seq.TrainingHelper(
                 _decoder_emb_inp, self._tgt_sequence_lengths, time_major=False)
-            # Copy encoder hidden state to decoder inital state
-            _decoder_init_state = \
-                _decoder_cell_tr.zero_state(self._batch_size, dtype=tf.float32)\
-                .clone(cell_state=self._encoder_state)
+
             # TODO: debug beam search: wrong states?
             _decoder_tr = \
-                tf.contrib.seq2seq.BasicDecoder(_decoder_cell_tr, _helper_tr,
-                                                initial_state=_decoder_init_state,
+                tf.contrib.seq2seq.BasicDecoder(_decoder_tr_cell,
+                                                _helper_tr,
+                                                initial_state=_decoder_tr_init_state,
                                                 output_layer=_projection_layer)
+
             # Wrap into variable scope to share attention parameters
             # Required!
-            with tf.variable_scope('decode_with_shared_attention'):
-                _outputs_inf, _, _ = \
+            with tf.variable_scope("decode_with_shared_attention"):
+                _outputs_tr, _, _ = \
                     tf.contrib.seq2seq.dynamic_decode(_decoder_tr,
                                                       impute_finished=False,
                                                       output_time_major=False)
-            # _logits = decode(_helper, "decode").beam_search_decoder_output.scores
-            _logits = _outputs_inf.rnn_output
+                _logits = _outputs_tr.rnn_output
 
             # INFER MODE
-            _decoder_cell_inf = build_dec_cell(_tiled_encoder_outputs,
-                                               _tiled_src_sequence_lengths,
-                                               reuse=True)
-            self._decoder_cell_inf = _decoder_cell_inf
-            # Infer Helper
+            _decoder_inf_fn, _, _decoder_inf_init_state = \
+                _build_step_fn(memory=_tiled_encoder_outputs,
+                               memory_seq_len=_tiled_src_sequence_lengths,
+                               init_state=_tiled_encoder_state,
+                               scope="dec_cell_step",
+                               reuse=True)
             _max_iters = tf.round(tf.reduce_max(self._src_sequence_lengths) * 2)
-            # NOTE: helper is not needed?
-            # _helper_inf = tf.contrib.seq2seq.GreedyEmbeddingHelper(
-            #    self._decoder_embedding,
-            #    tf.fill([self._batch_size], self.tgt_sos_id), self.tgt_eos_id)
-            #    lambda d: tf.one_hot(d, self.tgt_vocab_size + self.kb_size),
-            # Decoder Init State
-            _decoder_init_state = \
-                _decoder_cell_inf.zero_state(tf.shape(_tiled_encoder_outputs)[0],
-                                             dtype=tf.float32)\
-                .clone(cell_state=_tiled_encoder_state)
-            # Define a beam-search decoder
             _start_tokens = tf.tile(tf.constant([self.tgt_sos_id], tf.int32),
                                     [self._batch_size])
-            # _start_tokens = tf.fill([self._batch_size], self.tgt_sos_id)
+
+            def _symbols_to_inf_logits_fn(ids, step, state):
+                if ids.shape.ndims == 2:
+                    ids = ids[:, -1]
+                _inputs = tf.nn.embedding_lookup(self._decoder_embedding, ids)
+                _outputs, state["decoder"] = _decoder_inf_fn(step,
+                                                             _inputs,
+                                                             state["decoder"])
+                _logits = _projection_layer(_outputs)
+                return _logits, state
+
+            """
             _decoder_inf = tf.contrib.seq2seq.BeamSearchDecoder(
                     cell=_decoder_cell_inf,
                     embedding=self._decoder_embedding,
@@ -402,20 +420,46 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                     beam_width=self.beam_width,
                     output_layer=_projection_layer,
                     length_penalty_weight=0.0)
+            """
 
             # Wrap into variable scope to share attention parameters
             # Required!
             with tf.variable_scope("decode_with_shared_attention", reuse=True):
-                # TODO: try impute_finished = True,
+                if self.beam_width == 1:
+                    _predictions, _lengths, _probs = beam_search.greedy_decode(
+                        _symbols_to_inf_logits_fn,
+                        initial_ids=_start_tokens,
+                        end_id=self.tgt_eos_id,
+                        decode_length=_max_iters,
+                        state={"decoder": _decoder_inf_init_state},
+                        min_decode_length=0,
+                        last_step_as_input=True,
+                        sample_from=1)
+                else:
+                    _predictions, _probs = beam_search.beam_search(
+                        _symbols_to_inf_logits_fn,
+                        initial_ids=_start_tokens,
+                        beam_size=self.beam_width,
+                        decode_length=_max_iters,
+                        vocab_size=self.tgt_vocab_size,
+                        alpha=0.0,
+                        states={"decoder": _decoder_inf_init_state},
+                        eos_id=self.tgt_eos_id,
+                        tile_states=False,
+                        min_decode_length=0)
+                    _lengths = tf.not_equal(_predictions, 0)
+                    _lengths = tf.cast(_lengths, tf.int32)
+                    _lengths = tf.reduce_sum(_lengths, axis=-1) - 1  # Ignore </s>
+                    _predictions = _predictions[:, :, 1:]  # Ignore <s>.
+                    _predictions = _predictions[:, 0]  # Take only best beam
+                """
                 _outputs_inf, _, _ = \
                     tf.contrib.seq2seq.dynamic_decode(_decoder_inf,
                                                       impute_finished=False,
                                                       maximum_iterations=_max_iters,
                                                       output_time_major=False)
             _predictions = _outputs_inf.predicted_ids[:, :, 0]
-            # TODO: rm indexing
-            # _predictions = \
-            #    decode(_helper_infer, "decode", _max_iters, reuse=True).sample_id
+            """
         return _logits, _predictions
 
     def __call__(self, enc_inputs, src_seq_lens, kb_masks, prob=False):
