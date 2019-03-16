@@ -17,17 +17,16 @@ import tensorflow as tf
 import numpy as np
 from typing import List, Tuple
 import math
+from logging import getLogger
 
-from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.errors import ConfigError
-from deeppavlov.core.common.log import get_logger
+from deeppavlov.core.common.registry import register
 from deeppavlov.core.layers.tf_layers import cudnn_bi_lstm, cudnn_bi_gru, bi_rnn
 from deeppavlov.core.layers.tf_layers import variational_dropout, INITIALIZER
 from deeppavlov.core.models.lr_scheduled_tf_model import LRScheduledTFModel
 from deeppavlov.models.seq2seq_go_bot.kb_attn_layer import KBAttention
 
-
-log = get_logger(__name__)
+log = getLogger(__name__)
 
 
 @register("seq2seq_go_bot_nn")

@@ -13,12 +13,12 @@
 # limitations under the License.
 
 from typing import Iterable
+from logging import getLogger
 
 from deeppavlov.core.models.component import Component
-from deeppavlov.core.common.log import get_logger
 
 
-log = get_logger(__name__)
+log = getLogger()
 
 
 class PerItemWrapper(Component):

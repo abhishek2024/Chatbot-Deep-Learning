@@ -17,16 +17,16 @@ import re
 from tqdm import tqdm
 from pathlib import Path
 from typing import Dict, List, Union, Tuple
+from logging import getLogger
 
 from overrides import overrides
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.dataset_reader import DatasetReader
 from deeppavlov.core.data.utils import download_decompress, mark_done
-from deeppavlov.core.common.log import get_logger
 
 
-log = get_logger(__name__)
+log = getLogger()
 
 
 @register('multiwoz_reader')

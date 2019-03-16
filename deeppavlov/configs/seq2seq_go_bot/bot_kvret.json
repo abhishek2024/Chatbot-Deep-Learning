@@ -76,7 +76,6 @@
           "hidden_size": 256,
           "kb_attention_hidden_sizes": [64, 32]
         },
-        "debug": true,
         "debug": false,
         "source_vocab": "#src_token_vocab",
         "target_vocab": "#tgt_token_vocab",
@@ -105,7 +104,13 @@
       }
     ]
   },
-  "train": {},
+  "train": {
+    "class_name": "fit_trainer",
+    "evaluation_targets": [
+      "valid",
+      "test"
+    ]
+  },
   "metadata": {
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",

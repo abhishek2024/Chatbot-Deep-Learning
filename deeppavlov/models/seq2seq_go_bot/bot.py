@@ -13,18 +13,18 @@
 # limitations under the License.
 
 import itertools
+from logging import getLogger
+from typing import Dict, Tuple, List
+
 import numpy as np
-from typing import Dict, List, Tuple
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.models.nn_model import NNModel
-from deeppavlov.core.common.log import get_logger
 from deeppavlov.models.seq2seq_go_bot.network import Seq2SeqGoalOrientedBotNetwork
 from deeppavlov.models.seq2seq_go_bot.network import Seq2SeqGoalOrientedBotWithNerNetwork
 
-
-log = get_logger(__name__)
+log = getLogger()
 
 
 @register("seq2seq_go_bot")

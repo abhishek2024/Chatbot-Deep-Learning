@@ -13,13 +13,14 @@
 # limitations under the License.
 
 from overrides import overrides
+from logging import getLogger
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.component import Component
-from deeppavlov.core.common.log import get_logger
 from deeppavlov.models.tokenizers.utils import detokenize
 
-log = get_logger(__name__)
+
+log = getLogger()
 
 
 @register('detokenizer')
