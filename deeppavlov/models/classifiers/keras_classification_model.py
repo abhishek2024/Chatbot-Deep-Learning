@@ -113,7 +113,6 @@ class KerasClassificationModel(KerasModel):
         self.model = None
 
         super().__init__(**given_opt)
-
         if classes is not None:
             self.classes = self.opt.get("classes")
 
@@ -219,7 +218,7 @@ class KerasClassificationModel(KerasModel):
         """
         features = self.check_input(texts)
 
-        metrics_values = self.model.train_on_batch(features, np.squeeze(np.array(labels)))
+        metrics_values = self.model.train_on_batch(features, np.array(labels))
         return metrics_values
 
     def infer_on_batch(self, texts: List[List[np.ndarray]], labels: list = None) -> \
