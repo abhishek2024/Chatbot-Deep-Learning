@@ -243,7 +243,11 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
     def _build_encoder(self, scope="Encoder"):
         with tf.variable_scope(scope):
             # _units: [batch_size, max_input_time, embedding_size]
-            _units = variational_dropout(self._encoder_inputs, self._dropout_keep_prob)
+            _units = self._encoder_inputs
+            _units = variational_dropout(_units,
+                                         self._dropout_keep_prob,
+                                         fixed_mask_dims=[1])
+            # _units = tf.nn.dropout(_units, self._dropout_keep_prob)
 
             # _outputs: [2, batch_size, max_input_time, hidden_size]
             # _state: [2, batch_size, hidden_size]
@@ -280,7 +284,6 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
 
             # TODO: add & validate cell dropout
             # NOTE: not available for CUDNN cells?
-            # _outputs = variational_dropout(_outputs, self._state_dropout_keep_prob)
 
         self._encoder_outputs = _outputs
         self._encoder_state = _state
@@ -299,14 +302,18 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                 outs = tf.concat(outs, -1)
             elif self.encoder_agg_method == "weight_sum":
                 # outs: [... , last_size]
+                _w_init = tf.constant_initializer([1.0, -1.0])
                 _weights = tf.get_variable('encoder_agg_weights',
                                            [2],
-                                           initializer=tf.zeros_initializer())
+                                           initializer=_w_init,
+                                           trainable=True)
                 _gain = tf.get_variable('encoder_agg_gain',
                                         [],
-                                        initializer=tf.ones_initializer())
+                                        initializer=tf.ones_initializer(),
+                                        trainable=True)
                 _weights_sm = tf.nn.softmax(_weights)
                 outs = tf.reduce_sum(outs * _weights_sm, -1) * _gain
+                self._weights, self._gain = _weights, _gain
             else:
                 # outs: [..., last_size]
                 outs = tf.reduce_sum(outs, -1)
@@ -704,8 +711,14 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(Seq2SeqGoalOrientedBotNetwork):
 
     def _build_ner_head(self, scope="NerHead"):
         with tf.variable_scope(scope):
-            # _encoder_outputs: [batch_size, max_input_time, dec_hidden_size]
+            # _units: [batch_size, max_input_time, encoder_agg_size]
             _units = self._encoder_outputs
+
+            # TODO: try dropout
+            # _units = variational_dropout(_units,
+            #                             self._dropout_keep_prob,
+            #                             fixed_mask_dims=[1])
+            _units = tf.nn.dropout(_units, 0.9)
             for n_hidden in self.ner_hidden_size:
                 # _units: [batch_size, max_input_time, n_hidden]
                 _units = tf.layers.dense(_units, n_hidden, activation=tf.nn.relu,
@@ -718,8 +731,9 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(Seq2SeqGoalOrientedBotNetwork):
             return _logits
 
     def __call__(self, enc_inputs, src_seq_lens, src_tag_masks, kb_masks, prob=False):
-        dec_preds, ner_preds = self.sess.run(
-            [self._dec_preds, self._ner_preds],
+        dec_preds, ner_preds, weights, gain = self.sess.run(
+            [self._dec_preds, self._ner_preds, self._weights, self._gain],
+            # [self._dec_preds, self._ner_preds],
             feed_dict={
                 self._dropout_keep_prob: 1.,
                 self._state_dropout_keep_prob: 1.,
@@ -729,6 +743,7 @@ class Seq2SeqGoalOrientedBotWithNerNetwork(Seq2SeqGoalOrientedBotNetwork):
                 self._kb_mask: kb_masks
             }
         )
+        log.info(f"weights = {weights}, gain = {gain}")
         ner_preds_cut = []
         for i in range(len(ner_preds)):
             nonzero_ids = np.nonzero(src_tag_masks[i])[0]
