@@ -155,7 +155,8 @@
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
-      "{DEEPPAVLOV_PATH}/requirements/tf-hub.txt"
+      "{DEEPPAVLOV_PATH}/requirements/tf-hub.txt",
+      "{DEEPPAVLOV_PATH}/requirements/spacy.txt"
     ],
     "labels": {
       "telegram_utils": "IntentModel",
@@ -163,8 +164,8 @@
     },
     "download": [
       {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/classifiers/rusentiment_v13.tar.gz",
-        "subdir": "{ROOT_PATH}/models/classifiers"
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/classifiers/ensentiment_v0.tar.gz",
+        "subdir": "{MODELS_PATH}"
       }
     ]
   }
