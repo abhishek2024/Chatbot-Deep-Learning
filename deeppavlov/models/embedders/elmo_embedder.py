@@ -138,11 +138,11 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
 
         self.spec = spec if '://' in spec else str(expand_path(spec))
 
-        self.elmo_output_dims = {'word_emb': 512,
-                                 'lstm_outputs1': 1024,
-                                 'lstm_outputs2': 1024,
-                                 'elmo': 1024,
-                                 'default': 1024}
+        self.elmo_output_dims = {'word_emb': 128,
+                                 'lstm_outputs1': 256,
+                                 'lstm_outputs2': 256,
+                                 'elmo': 256,
+                                 'default': 256}
         elmo_output_names = elmo_output_names or ['default']
         self.elmo_output_names = elmo_output_names
         elmo_output_names_set = set(self.elmo_output_names)
