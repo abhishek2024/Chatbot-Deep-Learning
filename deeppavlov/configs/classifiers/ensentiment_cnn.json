@@ -160,7 +160,8 @@
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
       "{DEEPPAVLOV_PATH}/requirements/tf-hub.txt",
-      "{DEEPPAVLOV_PATH}/requirements/spacy.txt"
+      "{DEEPPAVLOV_PATH}/requirements/spacy.txt",
+      "{DEEPPAVLOV_PATH}/requirements/en_core_web_sm.txt"
     ],
     "labels": {
       "telegram_utils": "IntentModel",
