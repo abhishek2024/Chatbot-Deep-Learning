@@ -121,7 +121,9 @@ class MultiWOZDatasetReader(DatasetReader):
             x['episode_done'] = turn[0]['episode_done']
         y = {'text': turn[1]['text'],
              'domains': turn[1]['domains'],
-             'x_tags': turn[0]['tags']}
+             'x_tags': turn[0]['tags'],
+             'state': turn[1]['state']
+            }
         return (x, y)
 
     @staticmethod
@@ -175,6 +177,7 @@ class MultiWOZDatasetReader(DatasetReader):
                     utterances.append(replica)
                 else:
                     replica['domains'] = domains
+                    replica['state'] = turn['metadata']
                     responses.append(replica)
 
             # if last replica was by driver
