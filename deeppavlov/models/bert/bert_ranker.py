@@ -35,20 +35,24 @@ class BertRankerModel(LRScheduledTFModel):
                  attention_probs_keep_prob=None, hidden_keep_prob=None,
                  pretrained_bert=None,
                  resps=None, resp_vecs=None, resp_features=None, resp_eval=True,
+                 conts=None, cont_vecs=None, cont_features=None, cont_eval=True,
                  min_learning_rate=1e-06, **kwargs) -> None:
         super().__init__(**kwargs)
 
-        self.num_resp = num_resp
         self.batch_size = batch_size
         self.num_ranking_samples = num_ranking_samples
-        self.resp_eval = resp_eval
         self.n_classes = n_classes
         self.min_learning_rate = min_learning_rate
         self.keep_prob = keep_prob
         self.one_hot_labels = one_hot_labels
+        self.batch_size = batch_size
+        self.resp_eval = resp_eval
         self.resps = resps
         self.resp_vecs = resp_vecs
-        self.batch_size = batch_size
+        self.cont_eval = cont_eval
+        self.conts = conts
+        self.cont_vecs = cont_vecs
+        self.num_resp = num_resp
 
         self.bert_config = BertConfig.from_json_file(str(expand_path(bert_config_file)))
 
@@ -86,7 +90,15 @@ class BertRankerModel(LRScheduledTFModel):
             self.resp_features = [resp_features[0][i * self.batch_size: (i + 1) * self.batch_size]
                                   for i in range(len(resp_features[0]) // batch_size + 1)]
             self.resp_vecs = self(self.resp_features)
+            self.resp_vecs /= np.linalg.norm(self.resp_vecs, axis=1, keepdims=True)
             np.save(self.save_path / "resp_vecs", self.resp_vecs)
+
+        if self.conts is not None and self.cont_vecs is None:
+            self.cont_features = [cont_features[0][i * self.batch_size: (i + 1) * self.batch_size]
+                                  for i in range(len(cont_features[0]) // batch_size + 1)]
+            self.cont_vecs = self(self.cont_features)
+            self.cont_vecs /= np.linalg.norm(self.cont_vecs, axis=1, keepdims=True)
+            np.save(self.save_path / "cont_vecs", self.cont_vecs)
 
     def _init_graph(self):
         self._init_placeholders()
@@ -156,7 +168,7 @@ class BertRankerModel(LRScheduledTFModel):
             p = self.sess.run(self.y_probas, feed_dict=feed_dict)
             if len(p.shape) == 1:
                 p = np.expand_dims(p, 0)
-            p /= np.linalg.norm(p, keepdims=True)
+            p /= np.linalg.norm(p, axis=1, keepdims=True)
             pred.append(p)
         # interact mode
         if len (features_list[0]) == 1 and len(features_list) == 1:
