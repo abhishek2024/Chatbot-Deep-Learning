@@ -27,9 +27,13 @@ class HybridRankerPredictor(Component):
     def __init__(self,
                  sample_size: int = 14,
                  lambda_coeff: float = 10.,
+                 return_topn: bool = False,
+                 topn: int = 10,
                  **kwargs):
         self.sample_size = sample_size
         self.lambda_coeff = lambda_coeff
+        self.return_topn = return_topn
+        self.topn = topn
 
 
     def __call__(self, candidates_batch, preds_batch):
@@ -52,19 +56,24 @@ class HybridRankerPredictor(Component):
             sorted_scores = [scores[i] for i in sorted_ids]            # [0.9, 0.6, 0.55, 0.54, 0.4, 0.33, 0.32, 0.3]
             # filtered_score_ids = np.where(np.array(sorted_scores) >= 0.5)  # array([0, 1, 2, 3]),)
 
-            i = np.arange(self.sample_size)
-            w = np.exp(-i / self.lambda_coeff)
-            w = w / w.sum()
-            # print("distribution:", w)  # DEBUG
+            if not self.return_topn:
+                i = np.arange(self.sample_size)
+                w = np.exp(-i / self.lambda_coeff)
+                w = w / w.sum()
+                # print("distribution:", w)  # DEBUG
 
-            chosen_index = np.random.choice(sorted_ids[:self.sample_size], p=w)
+                chosen_index = np.random.choice(sorted_ids[:self.sample_size], p=w)
 
-            # logger.debug('candidates: ' + str([candidates_list[i] for i in sorted_ids[:self.sample_size]]) + 'scores: ' +
-            #              str([sorted_scores[i] for i in range(self.sample_size)]))  # DEBUG
-            # logger.debug('answer: ' + str(chosen_index) + " ; " + str(scores[chosen_index]) + " ; " +
-            #              str(candidates_list[chosen_index]))  # DEBUG
+                # logger.debug('candidates: ' + str([candidates_list[i] for i in sorted_ids[:self.sample_size]]) + 'scores: ' +
+                #              str([sorted_scores[i] for i in range(self.sample_size)]))  # DEBUG
+                # logger.debug('answer: ' + str(chosen_index) + " ; " + str(scores[chosen_index]) + " ; " +
+                #              str(candidates_list[chosen_index]))  # DEBUG
 
-            responses_batch.append(candidates_list[chosen_index])
-            responses_preds.append(scores[chosen_index])
+                responses_batch.append(candidates_list[chosen_index])
+                responses_preds.append(scores[chosen_index])
+            else:
+                responses_batch.append(np.array(candidates_list)[sorted_ids[:self.topn]])
+                responses_preds.append(scores[sorted_ids[:self.topn]])
+                # logger.debug('sorted scores: ' + str(scores[sorted_ids[:self.topn]]))
 
         return responses_batch, responses_preds

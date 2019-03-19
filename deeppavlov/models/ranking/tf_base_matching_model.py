@@ -136,7 +136,7 @@ class TensorflowBaseMatchingModel(TFModel, SiameseModel):
         Returns:
             nd.array: predictions for the batch
         """
-        return self.sess.run(self.y_pred, feed_dict=batch)[:, 1]
+        return self.sess.run(self.logits, feed_dict=batch)[:, 1]
 
     def _train_on_batch(self, batch: Dict, y: List[int]) -> float:
         """

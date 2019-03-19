@@ -1,5 +1,5 @@
 {
-  "info": "(v22_a) Alice V5 Bot.  Alice2Alice + Toloka_Alice_only. Total 203780 dialogs",
+  "info": "(v23_g; 18.03) Gopnik V5 Bot. Books_v2 + VK + pBot. +replaced replicas; -hedgehogs; +spherical horse; Total 577285 dialogs",
   "chainer": {
     "in": ["utterances_batch", "history_batch", "states_batch"],
     "pipe": [
@@ -16,8 +16,8 @@
       {
         "class_name": "hashing_tfidf_vectorizer",
         "id": "vectorizer",
-        "save_path": "{MODELS_PATH}/chitchat_2staged_tfidf_smn_v16/train_contexts_tfidf_matrix.npz",
-        "load_path": "{MODELS_PATH}/chitchat_2staged_tfidf_smn_v16/train_contexts_tfidf_matrix.npz",
+        "save_path": "{MODELS_PATH}/chitchat_2staged_tfidf_smn_v17/train_contexts_tfidf_matrix.npz",
+        "load_path": "{MODELS_PATH}/chitchat_2staged_tfidf_smn_v17/train_contexts_tfidf_matrix.npz",
         "tokenizer":
         {
           "class_name": "ru_tokenizer",
@@ -29,7 +29,7 @@
       {
         "info": "2. Find relevant contexts",
         "class_name": "tfidf_ranker_adv",
-        "max_n": [100, 1700, 200],
+        "max_n": [500, 2500, 1000],
         "in": ["queries_batch"],
         "out": ["tfidf_doc_ids", "tfidf_doc_scores"],
         "vectorizer": "#vectorizer"
@@ -37,7 +37,7 @@
       {
         "info": "3. Retrieve response candidates using the context retrieved",
         "class_name": "retrieve_candidates",
-        "map_filename": "{MODELS_PATH}/chitchat_2staged_tfidf_smn_v16/train_index_dict_v16.pickle",
+        "map_filename": "{MODELS_PATH}/chitchat_2staged_tfidf_smn_v17/train_index_dict_v17.pickle",
         "in": ["expanded_context_batch", "tfidf_doc_ids", "tfidf_doc_scores"],
         "out": ["response_candidates", "model_inputs"]
       },
@@ -45,8 +45,8 @@
         "info": "4. Preprocess response candidates and choose the best one",
         "id": "preproc",
         "class_name": "siamese_preprocessor",
-        "load_path": "{MODELS_PATH}/chitchat_2staged_tfidf_smn_v16/preproc/tok.dict",
-        "num_ranking_samples": 2000,
+        "load_path": "{MODELS_PATH}/chitchat_2staged_tfidf_smn_v17/preproc/tok.dict",
+        "num_ranking_samples": 4000,
         "num_context_turns": 10,
         "max_sequence_length": 50,
         "embedding_dim": 200,
@@ -61,14 +61,14 @@
           "special_tokens": ["", "<UNK>"],
           "unk_token": "<UNK>",
           "id": "vocab_1",
-          "load_path": "{MODELS_PATH}/chitchat_2staged_tfidf_smn_v16/vocabs/int_tok.dict",
-          "save_path": "{MODELS_PATH}/chitchat_2staged_tfidf_smn_v16/vocabs/int_tok.dict"
+          "load_path": "{MODELS_PATH}/chitchat_2staged_tfidf_smn_v17/vocabs/int_tok.dict",
+          "save_path": "{MODELS_PATH}/chitchat_2staged_tfidf_smn_v17/vocabs/int_tok.dict"
         },
         "embedder": {
           "id": "word2vec_embedder",
           "class_name": "glove",
           "dim": 200,
-          "load_path": "{MODELS_PATH}/chitchat_2staged_tfidf_smn_v16/chitchat1.w2v.vectors.txt"
+          "load_path": "{MODELS_PATH}/chitchat_2staged_tfidf_smn_v17/chitchat1.w2v.vectors.txt"
         }
       },
       {
@@ -86,16 +86,16 @@
         "embedding_dim": "#word2vec_embedder.dim",
         "emb_matrix": "#embeddings.emb_mat",
         "learning_rate": 1e-3,
-        "batch_size": 2000,
+        "batch_size": 4000,
         "seed": 65,
-        "load_path": "{MODELS_PATH}/chitchat_2staged_tfidf_smn_v16/model_smn/model",
-        "save_path": "{MODELS_PATH}/chitchat_2staged_tfidf_smn_v16/model_smn/model"
+        "load_path": "{MODELS_PATH}/chitchat_2staged_tfidf_smn_v17/model_smn/model",
+        "save_path": "{MODELS_PATH}/chitchat_2staged_tfidf_smn_v17/model_smn/model"
       },
       {
         "info": "5. Return actual response",
         "class_name": "hybrid_ranker_predictor",
-        "sample_size": 13,
-        "lambda_coeff": 10.0,
+        "sample_size": 21,
+        "lambda_coeff": 14.0,
         "in": ["response_candidates", "y_predicted"],
         "out": ["best_responses", "best_responses_scores"]
       }
@@ -118,7 +118,7 @@
     },
     "download": [
       {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/dev/chitchat_2staged_tfidf_smn_v16.tar.gz",
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/dev/chitchat_2staged_tfidf_smn_v17.tar.gz",
         "subdir": "{MODELS_PATH}"
       }
     ]

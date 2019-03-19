@@ -25,7 +25,7 @@ logger = getLogger(__name__)
 class ComposeInputsHybridRanker(Component):
 
     def __init__(self,
-                 context_depth: int = 1,
+                 context_depth: int = 3,
                  model_context_depth: int = 3,
                  num_context_turns: int = 10,
                  use_context_for_query: bool = False,
