@@ -14,7 +14,7 @@
 
 import itertools
 from logging import getLogger
-from typing import Dict, Tuple, List
+from typing import Dict, List, Tuple, Any
 
 import numpy as np
 
@@ -104,19 +104,29 @@ class Seq2SeqGoalOrientedBot(NNModel):
 
     def fit(self, *args):
         raise NotImplementedError("`fit_on` not implemented yet")
-        data = [self.preprocess([x0], [x1], [x2], [x3]) for x0, x1, x2, x3 in zip(*args)]
+        data = [self.preprocess(*([xi] for xi in x)) for x in zip(*args)]
         return self.network.fit(*list(zip(*data)))
 
     def preprocess(self, *args):
-        kb_entry_list, x_tags = itertools.repeat([]), itertools.repeat([])
-        if len(args) == 3:
-            utters, history_list, responses = args
-        elif (len(args) == 4) and (not self.use_ner_head):
-            utters, history_list, kb_entry_list, responses = args
-        elif (len(args) == 4) and self.use_ner_head:
-            utters, history_list, responses, x_tags = args
+        state_feats = None
+        kb_entry_list = itertools.repeat([])
+        x_tags = itertools.repeat([])
+        if self.use_ner_head:
+            if len(args) == 4:
+                utters, history_list, responses, x_tags = args
+            elif len(args) == 5:
+                utters, history_list, kb_entry_list, responses, x_tags = args
+            elif len(args) == 6:
+                utters, history_list, state_feats, \
+                        kb_entry_list, responses, x_tags = args
         else:
-            utters, history_list, kb_entry_list, responses, x_tags = args
+            if len(args) == 3:
+                utters, history_list, responses = args
+            elif len(args) == 4:
+                utters, history_list, kb_entry_list, responses = args
+            elif len(args) == 5:
+                utters, history_list, state_feats, kb_entry_list, responses = args
+        state_feats = state_feats or [[1]] * len(utters)
 
         if self.use_ner_head:
             assert all(len(u) == len(t) for u, t in zip(utters, x_tags)), \
@@ -169,9 +179,10 @@ class Seq2SeqGoalOrientedBot(NNModel):
 
         if self.use_ner_head:
             return (b_enc_ins_np, b_dec_ins_np, b_dec_outs_np, b_src_tags_np,
-                    b_src_lens, b_tgt_masks_np, b_src_tag_masks_np, b_kb_masks_np)
+                    b_src_lens, b_tgt_masks_np, b_src_tag_masks_np,
+                    state_feats, b_kb_masks_np)
         return (b_enc_ins_np, b_dec_ins_np, b_dec_outs_np,
-                b_src_lens, b_tgt_masks_np, b_kb_masks_np)
+                b_src_lens, b_tgt_masks_np, state_feats, b_kb_masks_np)
 
     def train_on_batch(self, *args):
         return self.network.train_on_batch(*self.preprocess(*args))
@@ -212,7 +223,12 @@ class Seq2SeqGoalOrientedBot(NNModel):
                     yield self.kb_keys[idx - self.tgt_vocab_size]
         return [list(_idx2token(utter_idxs)) for utter_idxs in token_idxs]
 
-    def __call__(self, utters, history_list, kb_entry_list=itertools.repeat([])):
+    def __call__(self,
+                 utters: List[List[str]],
+                 history_list: List[List[List[str]]],
+                 state_feats: List[List[Any]] = None,
+                 kb_entry_list: List[dict] = itertools.repeat([])) ->\
+            Tuple[List[str], List[float]]:
         b_enc_ins, b_src_lens = [], []
         if (len(utters) == 1) and not utters[0]:
             utters = [['hi']]
@@ -221,6 +237,8 @@ class Seq2SeqGoalOrientedBot(NNModel):
             b_enc_ins.append(enc_in)
             b_src_lens.append(len(enc_in))
             # TODO: only last user utter is masked with ones, think of better way
+        if state_feats is None:
+            state_feats = [[1]] * len(b_enc_ins)
 
         # Sequence padding
         batch_size = len(b_enc_ins)
@@ -239,12 +257,15 @@ class Seq2SeqGoalOrientedBot(NNModel):
                 b_kb_masks_np[i, self.kb_keys.index(k)] = 1.
 
         if self.use_ner_head:
+            log.info(f"state features have shape {np.shape(state_feats)}")
             pred_idxs, tag_idxs = self.network(b_enc_ins_np, b_src_lens,
-                                               b_src_tag_masks_np, b_kb_masks_np)
+                                               b_src_tag_masks_np,
+                                               state_feats, b_kb_masks_np)
             preds = self._decode_response(pred_idxs)
             return preds, [0.5] * len(preds), tag_idxs
 
-        pred_idxs = self.network(b_enc_ins_np, b_src_lens, b_kb_masks_np)
+        pred_idxs = self.network(b_enc_ins_np, b_src_lens, state_feats,
+                                 b_kb_masks_np)
         preds = self._decode_response(pred_idxs)
         if self.debug:
             log.debug("Dialog prediction = \"{}\"".format(preds[-1]))
