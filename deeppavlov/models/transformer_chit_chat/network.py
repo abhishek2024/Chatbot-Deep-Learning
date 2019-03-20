@@ -167,7 +167,8 @@ def switch_hypt(cntx):
     # hight_prob_hypts = renew_hypt_conf(hight_prob_hypts, lambda c, h: c*1)
     # last_correlation_hypts = renew_hypt_conf(last_correlation_hypts, lambda c, h: c*2)
     # persona_correlation_hypts = renew_hypt_conf(persona_correlation_hypts, lambda c, h: c*2)
-    res_hypts = hight_prob_hypts + last_correlation_hypts + persona_correlation_hypts
+    res_hypts = hypts[: 3]
+    # res_hypts = hight_prob_hypts + last_correlation_hypts + persona_correlation_hypts
 
     def drop_conf_of_question(conf, hypt):
         if len(cntx.his) < 20 and '?' in hypt:
@@ -181,8 +182,8 @@ def switch_hypt(cntx):
         else:
             return conf
 
-    res_hypts = renew_hypt_conf(res_hypts, drop_conf_of_question)
-    # pprint.pprint(res_hypts)
+    # res_hypts = renew_hypt_conf(res_hypts, drop_conf_of_question)
+    pprint.pprint(res_hypts)
     if res_hypts:
         confs, answers = list(zip(*res_hypts))
         # pprint.pprint(confs)
@@ -225,9 +226,9 @@ class TransformerChitChat(Serializable):
                  ff_dropout: float = 0.1,
                  max_seq_len: int = 128,
                  sep_id_enable: bool = True,
-                 beam_size: int = 40,  # 6
+                 beam_size: int = 10,  # 6
                  diversity_coef: float = 0,
-                 diversity_groups: int = 40,  # 1,  # 6
+                 diversity_groups: int = 10,  # 1,  # 6
                  annealing_topk: int = None,
                  annealing: float = 0,  # 0.5
                  length_penalty: float = 0.6,
