@@ -279,21 +279,19 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                           seq_lengths=self._src_sequence_lengths)
 
             # _outputs: [batch_size, max_input_time, aggregation_size]
-            _outputs = self._aggregate_encoder_outs(tf.stack(_outputs, -1))
+            _outputs = self._aggregate_encoder_outs(_outputs)
             # _state: [batch_size, max_input_time, hidden_size]
             if (self.cell_type == 'lstm') and\
                     not isinstance(_state[0], tf.nn.rnn_cell.LSTMStateTuple):
-                _state_c = self._aggregate_encoder_outs(tf.stack([_state[0][0],
-                                                                  _state[1][0]],
-                                                                 -1))
-                _state_h = self._aggregate_encoder_outs(tf.stack([_state[0][1],
-                                                                  _state[1][1]],
-                                                                 -1))
+                _state_c = self._aggregate_encoder_outs([_state[0][0],
+                                                         _state[1][0]])
+                _state_h = self._aggregate_encoder_outs([_state[0][1],
+                                                         _state[1][1]])
                 _intent_c = self._build_intent(_state_c, scope="Intent")
                 _intent_h = self._build_intent(_state_h, scope="Intent")
                 _intent = tf.nn.rnn_cell.LSTMStateTuple(_intent_c, _intent_h)
             else:
-                _state = self._aggregate_encoder_outs(tf.stack(_state, -1))
+                _state = self._aggregate_encoder_outs(_state)
                 _intent = self._build_intent(_state, scope="Intent")
 
             # TODO: add & validate cell dropout
@@ -322,17 +320,20 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                                         initializer=tf.ones_initializer(),
                                         trainable=True)
                 _weights_sm = tf.nn.softmax(_weights)
+
+                outs = tf.stack(outs, -1)
                 outs = tf.reduce_sum(outs * _weights_sm, -1) * _gain
                 self._weights, self._gain = _weights, _gain
             else:
                 # outs: [..., last_size]
+                outs = tf.stack(outs, -1)
                 outs = tf.reduce_sum(outs, -1)
         return outs
 
     def _build_intent(self, enc_feats, scope="Intent"):
         with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
             _enc_weights = tf.get_variable("encoder_weights",
-                                           (self.hidden_size,
+                                           (self.encoder_agg_size,
                                             self.hidden_size),
                                            initializer=tf.truncated_normal_initializer(stddev=0.2))
             _int_weights = tf.get_variable("intent_weights",
@@ -374,11 +375,11 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                 with tf.variable_scope("decode_with_shared_attention", reuse=reuse):
                     # Decoder Cell
                     if self.cell_type.lower() == 'lstm':
-                        _cell = tf.nn.rnn_cell.LSTMCell(self.encoder_agg_size,
+                        _cell = tf.nn.rnn_cell.LSTMCell(self.hidden_size,
                                                         initializer=INITIALIZER(),
                                                         name='basic_lstm_cell')
                     elif self.cell_type.lower() == 'gru':
-                        _cell = tf.nn.rnn_cell.GRUCell(self.encoder_agg_size,
+                        _cell = tf.nn.rnn_cell.GRUCell(self.hidden_size,
                                                        kernel_initializer=INITIALIZER(),
                                                        name='basic_gru_cell')
 
@@ -397,7 +398,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
                     # Attention mechanism
                     # _attention_mechanism = tf.contrib.seq2seq.BahdanauAttention(
                     _attention_mechanism = tf.contrib.seq2seq.LuongAttention(
-                        self.encoder_agg_size,
+                        self.hidden_size,
                         memory=memory,
                         memory_sequence_length=memory_seq_len)
 

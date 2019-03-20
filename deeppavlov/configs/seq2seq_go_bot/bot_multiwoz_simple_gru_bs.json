@@ -57,6 +57,7 @@
         "id": "state_featurizer",
         "class_name": "deeppavlov.models.seq2seq_go_bot.features:StateFeaturizer",
         "save_path": "{BOT_PATH}/state_features.json",
+        "load_path": "{BOT_PATH}/state_features.json",
         "dontcare_value": "dont care",
         "fit_on": ["state"],
         "in": ["state"],
@@ -78,17 +79,18 @@
           "l2_regs": [0.0, 0.0],
           "cell_type": "gru",
           "intent_feature_size": "#state_featurizer.len",
-          "encoder_use_cudnn": false,
+          "encoder_agg_method": "concat",
+          "encoder_use_cudnn": true,
           "learning_rate": 3e-4,
           "learning_rate_drop_patience": 3,
-          "learning_rate_drop_div": 3.0,
-          "dropout_rate": 0.3,
+          "learning_rate_drop_div": 2.0,
+          "dropout_rate": 0.5,
           "state_dropout_rate": 0.03,
           "beam_width": 1,
           "target_start_of_sequence_index": "#tgt_token_vocab.__getitem__('<SOS>')",
           "target_end_of_sequence_index": "#tgt_token_vocab.__getitem__('<EOS>')",
           "target_vocab_size": "#tgt_token_vocab.len",
-          "hidden_size": 64
+          "hidden_size": 256
         },
         "debug": true,
         "debug": false,
@@ -104,7 +106,7 @@
   },
   "train": {
     "epochs": 200,
-    "batch_size": 16,
+    "batch_size": 64,
 
     "metrics": [
       {
@@ -116,13 +118,13 @@
         "inputs": ["y_text", "prediction_text"]
       }
     ],
-    "validation_patience": 30,
+    "validation_patience": 60,
     "val_every_n_epochs": -1,
-    "val_every_n_batches": 2000,
+    "val_every_n_batches": 500,
     "tensorboard_log_dir": "{BOT_PATH}/logs",
 
     "log_every_n_epochs": -1,
-    "log_every_n_batches": 2000,
+    "log_every_n_batches": 500,
     "validate_best": true,
     "show_examples": false
   },
