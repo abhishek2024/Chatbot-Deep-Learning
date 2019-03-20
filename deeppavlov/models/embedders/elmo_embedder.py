@@ -30,7 +30,7 @@ from deeppavlov.core.models.tf_backend import TfModelMeta
 log = getLogger(__name__)
 
 
-@register('elmo_embedder')
+@register("elmo_embedder")
 class ELMoEmbedder(Component, metaclass=TfModelMeta):
     """
     ``ELMo`` (Embeddings from Language Models) representations are pre-trained contextual representations from
@@ -131,30 +131,49 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
 
 
     """
-    def __init__(self, spec: str, elmo_output_names: Optional[List] = None,
-                 dim: Optional[int] = None, pad_zero: bool = False,
-                 concat_last_axis: bool = True, max_token: Optional[int] = None,
-                 mini_batch_size: int = 32, **kwargs) -> None:
 
-        self.spec = spec if '://' in spec else str(expand_path(spec))
+    def __init__(
+        self,
+        spec: str,
+        elmo_output_names: Optional[List] = None,
+        dim: Optional[int] = None,
+        pad_zero: bool = False,
+        concat_last_axis: bool = True,
+        max_token: Optional[int] = None,
+        mini_batch_size: int = 32,
+        compression: int = 0, # orinig - 0, small - 2, mini - 3, micro - 4
+        **kwargs,
+    ) -> None:
 
-        self.elmo_output_dims = {'word_emb': 128,
-                                 'lstm_outputs1': 256,
-                                 'lstm_outputs2': 256,
-                                 'elmo': 256,
-                                 'default': 256}
-        elmo_output_names = elmo_output_names or ['default']
+        self.spec = spec if "://" in spec else str(expand_path(spec))
+
+        self.elmo_output_dims = {
+            "word_emb": 512 // 2**compression,
+            "lstm_outputs1": 1024 // 2**compression,
+            "lstm_outputs2": 1024 // 2**compression,
+            "elmo": 1024 // 2**compression,
+            "default": 1024 // 2**compression,
+        }
+        elmo_output_names = elmo_output_names or ["default"]
         self.elmo_output_names = elmo_output_names
         elmo_output_names_set = set(self.elmo_output_names)
         if elmo_output_names_set - set(self.elmo_output_dims.keys()):
-            log.error(f'Incorrect elmo_output_names = {elmo_output_names} . You can use either  ["default"] or some of'
-                      '["word_emb", "lstm_outputs1", "lstm_outputs2","elmo"]')
+            log.error(
+                f'Incorrect elmo_output_names = {elmo_output_names} . You can use either  ["default"] or some of'
+                '["word_emb", "lstm_outputs1", "lstm_outputs2","elmo"]'
+            )
             sys.exit(1)
 
-        if elmo_output_names_set - {'default'} and elmo_output_names_set - {"word_emb", "lstm_outputs1",
-                                                                            "lstm_outputs2", "elmo"}:
-            log.error('Incompatible conditions: you can use either  ["default"] or list of '
-                      '["word_emb", "lstm_outputs1", "lstm_outputs2","elmo"] ')
+        if elmo_output_names_set - {"default"} and elmo_output_names_set - {
+            "word_emb",
+            "lstm_outputs1",
+            "lstm_outputs2",
+            "elmo",
+        }:
+            log.error(
+                'Incompatible conditions: you can use either  ["default"] or list of '
+                '["word_emb", "lstm_outputs1", "lstm_outputs2","elmo"] '
+            )
             sys.exit(1)
 
         self.pad_zero = pad_zero
@@ -186,13 +205,12 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
         sess_config.gpu_options.allow_growth = True
         sess = tf.Session(config=sess_config)
 
-        tokens_ph = tf.placeholder(shape=(None, None), dtype=tf.string, name='tokens')
-        tokens_length_ph = tf.placeholder(shape=(None,), dtype=tf.int32, name='tokens_length')
+        tokens_ph = tf.placeholder(shape=(None, None), dtype=tf.string, name="tokens")
+        tokens_length_ph = tf.placeholder(shape=(None,), dtype=tf.int32, name="tokens_length")
 
-        elmo_outputs = elmo_module(inputs={"tokens": tokens_ph,
-                                           "sequence_len": tokens_length_ph},
-                                   signature="tokens",
-                                   as_dict=True)
+        elmo_outputs = elmo_module(
+            inputs={"tokens": tokens_ph, "sequence_len": tokens_length_ph}, signature="tokens", as_dict=True
+        )
 
         sess.run(tf.global_variables_initializer())
 
@@ -211,20 +229,20 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
 
         if not batch:
             empty_vec = np.zeros(self.dim, dtype=np.float32)
-            return [empty_vec] if 'default' in self.elmo_output_names else [[empty_vec]]
+            return [empty_vec] if "default" in self.elmo_output_names else [[empty_vec]]
 
         filled_batch = []
         for batch_line in batch:
-            batch_line = batch_line if batch_line else ['']
+            batch_line = batch_line if batch_line else [""]
             filled_batch.append(batch_line)
 
         batch = filled_batch
 
         if self.max_token:
-            batch = [batch_line[:self.max_token] for batch_line in batch]
+            batch = [batch_line[: self.max_token] for batch_line in batch]
         tokens_length = [len(batch_line) for batch_line in batch]
         tokens_length_max = max(tokens_length)
-        batch = [batch_line + ['']*(tokens_length_max - len(batch_line)) for batch_line in batch]
+        batch = [batch_line + [""] * (tokens_length_max - len(batch_line)) for batch_line in batch]
 
         return batch, tokens_length
 
@@ -240,12 +258,12 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
         """
         batch, tokens_length = self._fill_batch(batch)
 
-        elmo_outputs = self.sess.run(self.elmo_outputs,
-                                     feed_dict={self.tokens_ph: batch,
-                                                self.tokens_length_ph: tokens_length})
+        elmo_outputs = self.sess.run(
+            self.elmo_outputs, feed_dict={self.tokens_ph: batch, self.tokens_length_ph: tokens_length}
+        )
 
-        if 'default' in self.elmo_output_names:
-            elmo_output_values = elmo_outputs['default']
+        if "default" in self.elmo_output_names:
+            elmo_output_values = elmo_outputs["default"]
             dim0, dim1 = elmo_output_values.shape
             if self.dim != dim1:
                 shape = (dim0, self.dim if isinstance(self.dim, int) else self.dim[0])
@@ -259,19 +277,21 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
                 shape = (dim0, dim1, self.dim)
                 elmo_output_values = np.resize(elmo_output_values, shape)
 
-            elmo_output_values = [elmo_output_values_line[:length_line]
-                                  for length_line, elmo_output_values_line in zip(tokens_length, elmo_output_values)]
+            elmo_output_values = [
+                elmo_output_values_line[:length_line]
+                for length_line, elmo_output_values_line in zip(tokens_length, elmo_output_values)
+            ]
 
             if not self.concat_last_axis:
                 slice_indexes = np.cumsum(self.dim).tolist()[:-1]
-                elmo_output_values = [[np.array_split(vec, slice_indexes) for vec in tokens]
-                                      for tokens in elmo_output_values]
+                elmo_output_values = [
+                    [np.array_split(vec, slice_indexes) for vec in tokens] for tokens in elmo_output_values
+                ]
 
         return elmo_output_values
 
     @overrides
-    def __call__(self, batch: List[List[str]],
-                 *args, **kwargs) -> Union[List[np.ndarray], np.ndarray]:
+    def __call__(self, batch: List[List[str]], *args, **kwargs) -> Union[List[np.ndarray], np.ndarray]:
         """
         Embed sentences from a batch.
 
@@ -304,7 +324,7 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
             An iterator of three elements ``['<S>', '</S>', '<UNK>']``.
         """
 
-        yield from ['<S>', '</S>', '<UNK>']
+        yield from ["<S>", "</S>", "<UNK>"]
 
     def destroy(self):
         for k in list(self.sess.graph.get_all_collection_keys()):
