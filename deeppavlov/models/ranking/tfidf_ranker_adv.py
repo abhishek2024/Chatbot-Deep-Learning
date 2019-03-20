@@ -32,7 +32,12 @@ class TfidfRankerAdv(Component):
 
     """
 
-    def __init__(self, vectorizer: HashingTfIdfVectorizer, top_n=5, max_n: List[int] = None, active: bool = True, **kwargs):
+    def __init__(self,
+                 vectorizer: HashingTfIdfVectorizer,
+                 top_n=5,
+                 max_n: List[int] = None,
+                 active: bool = True,
+                 **kwargs):
 
         self.max_n = max_n
         self.top_n = top_n
@@ -55,8 +60,13 @@ class TfidfRankerAdv(Component):
 
             doc_scores = []
             doc_ids = []
+
+            max_n = list(self.max_n)
+            if q_tfidfs.shape[0] < len(max_n):
+                max_n[q_tfidfs.shape[0] - 1] += sum(max_n[q_tfidfs.shape[0]:])
+
             for j, q_tfidf in enumerate(q_tfidfs):
-                top_n = self.max_n[j]
+                top_n = max_n[j]
                 # logger.debug("vector: " + str(q_tfidf))
 
                 scores = q_tfidf * self.vectorizer.tfidf_matrix
