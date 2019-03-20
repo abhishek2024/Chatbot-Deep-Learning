@@ -74,6 +74,7 @@ class Seq2SeqGoalOrientedBot(NNModel):
         network_parameters['load_path'] = load_path
         network_parameters['save_path'] = save_path
         self.use_ner_head = ('ner_n_tags' in network_parameters)
+        self.use_kb_attention = (self.kb_size != 0)
         self.network = self._init_network(network_parameters, use_ner_head=self.use_ner_head)
 
     def _init_network(self, params, use_ner_head=False):
@@ -115,7 +116,10 @@ class Seq2SeqGoalOrientedBot(NNModel):
             if len(args) == 4:
                 utters, history_list, responses, x_tags = args
             elif len(args) == 5:
-                utters, history_list, kb_entry_list, responses, x_tags = args
+                if self.use_kb_attention:
+                    utters, history_list, kb_entry_list, responses, x_tags = args
+                else:
+                    utters, history_list, state_feats, responses, x_tags = args
             elif len(args) == 6:
                 utters, history_list, state_feats, \
                         kb_entry_list, responses, x_tags = args
@@ -123,7 +127,10 @@ class Seq2SeqGoalOrientedBot(NNModel):
             if len(args) == 3:
                 utters, history_list, responses = args
             elif len(args) == 4:
-                utters, history_list, kb_entry_list, responses = args
+                if self.use_kb_attention:
+                    utters, history_list, kb_entry_list, responses = args
+                else:
+                    utters, history_list, state_feats, responses = args
             elif len(args) == 5:
                 utters, history_list, state_feats, kb_entry_list, responses = args
         state_feats = state_feats or [[1]] * len(utters)

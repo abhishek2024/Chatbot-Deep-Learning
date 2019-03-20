@@ -423,7 +423,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
             _, _decoder_tr_cell, _decoder_tr_init_state = \
                 _build_step_fn(memory=self._encoder_outputs,
                                memory_seq_len=self._src_sequence_lengths,
-                               init_state=self._encoder_state,
+                               init_state=self._intent,
                                scope="dec_cell_step")
 
             # Train Helper to feed inputs for training:
@@ -433,7 +433,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
 
             # Copy encoder hidden state to decoder inital state
             _decoder_init_state = \
-                _decoder_cell_tr.zero_state(self._batch_size, dtype=tf.float32)\
+                _decoder_tr_cell.zero_state(self._batch_size, dtype=tf.float32)\
                 .clone(cell_state=self._intent)
 
             # TODO: debug beam search: wrong states?
@@ -456,7 +456,7 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
             _, _decoder_inf_cell, _decoder_inf_init_state = \
                 _build_step_fn(memory=_tiled_encoder_outputs,
                                memory_seq_len=_tiled_src_sequence_lengths,
-                               init_state=_tiled_encoder_state,
+                               init_state=_tiled_intent,
                                scope="dec_cell_step",
                                reuse=True)
             _max_iters = tf.round(tf.reduce_max(self._src_sequence_lengths) * 2)
@@ -465,11 +465,6 @@ class Seq2SeqGoalOrientedBotNetwork(LRScheduledTFModel):
             #    self._decoder_embedding,
             #    tf.fill([self._batch_size], self.tgt_sos_id), self.tgt_eos_id)
             #    lambda d: tf.one_hot(d, self.tgt_vocab_size + self.kb_size),
-            # Decoder Init State
-            _decoder_init_state = \
-                _decoder_cell_inf.zero_state(tf.shape(_tiled_encoder_outputs)[0],
-                                             dtype=tf.float32)\
-                .clone(cell_state=_tiled_intent)
             # Define a beam-search decoder
             _start_tokens = tf.tile(tf.constant([self.tgt_sos_id], tf.int32),
                                     [self._batch_size])

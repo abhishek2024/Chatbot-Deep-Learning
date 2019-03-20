@@ -13,15 +13,15 @@
 # limitations under the License.
 
 import json
-from typing import Iterable, List
+from typing import List
+from logging import getLogger
 
 import numpy as np
 
 from deeppavlov.core.models.estimator import Estimator
-from deeppavlov.core.common.log import get_logger
 
 
-log = get_logger(__name__)
+log = getLogger()
 
 
 class StateFeaturizer(Estimator):
@@ -32,6 +32,8 @@ class StateFeaturizer(Estimator):
         self.dim = 2 if dontcare_value else 1
         self.len = 0
         self.keys = []
+        if self.load_path.exists():
+            self.load()
 
     @classmethod
     def _get_depth(cls, d: dict) -> int:
@@ -75,6 +77,7 @@ class StateFeaturizer(Estimator):
     def __call__(self, states: List[dict]) -> List[np.ndarray]:
         feats = []
         for state in states:
+            state = state or {}
             state_flat = self._flatten_dict(state)
             f = self._featurize(state_flat)
             feats.append(f)
