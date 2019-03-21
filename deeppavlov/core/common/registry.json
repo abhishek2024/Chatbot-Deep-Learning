@@ -12,6 +12,7 @@
   "conll2003_reader": "deeppavlov.dataset_readers.conll2003_reader:Conll2003DatasetReader",
   "coref_model": "deeppavlov.models.coreference_resolution.old_model.model:CorefModel",
   "coref_new_model": "deeppavlov.models.coreference_resolution.new_model.model:CorefModel",
+  "coref_speaker_books": "deeppavlov.models.coreference_resolution.old_model.speakers_books_component:SpkBook",
   "coreference_iterator": "deeppavlov.dataset_iterators.coreference_iterator:CorefIterator",
   "coreference_reader": "deeppavlov.dataset_readers.coreference_reader:CorefReader",
   "cos_sim_classifier": "deeppavlov.models.classifiers.cos_sim_classifier:CosineSimilarityClassifier",

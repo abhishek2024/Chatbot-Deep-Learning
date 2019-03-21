@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import nltk
-from typing import List
+from typing import List, Union
 
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.common.registry import register
@@ -38,7 +38,7 @@ class NLTKTokenizer(Component):
         if not callable(self.tokenizer):
             raise AttributeError("Tokenizer {} is not defined in nltk.tokenizer".format(tokenizer))
 
-    def __call__(self, batch: List[str]) -> List[List[str]]:
+    def __call__(self, batch: Union[List[str], List[List[str]]]) -> List[List[str]]:
         """Tokenize given batch
 
         Args:
@@ -47,4 +47,8 @@ class NLTKTokenizer(Component):
         Returns:
             list of lists of tokens
         """
-        return [self.tokenizer(sent) for sent in batch]
+        if isinstance(batch[0], str):
+            tokens = [self.tokenizer(sent) for sent in batch]
+        else:
+            tokens = [[self.tokenizer(sent) for sent in uttr] for uttr in batch]
+        return tokens

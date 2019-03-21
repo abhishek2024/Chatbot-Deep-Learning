@@ -22,8 +22,8 @@ from deeppavlov.core.common.errors import ConfigError
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
 from deeppavlov.models.coreference_resolution.old_model import custom_layers
-from deeppavlov.models.coreference_resolution.old_model.tf_ops import distance_bins, extract_mentions, get_antecedents
-from deeppavlov.models.coreference_resolution.old_model.tf_ops import spans
+from deeppavlov.models.coreference_resolution.old_model.tf_ops import distance_bins, extract_mentions, get_antecedents, \
+    spans
 
 
 @register("coref_model")
@@ -226,7 +226,7 @@ class CorefModel(TFModel):
             the returning method calls the 'truncate_example' function.
         """
         if isinstance(example["clusters"], tuple):
-            clusters = example["clusters"][0]
+            clusters = example["clusters"]
         else:
             clusters = example["clusters"]
 
@@ -238,9 +238,9 @@ class CorefModel(TFModel):
             for mention in cluster:
                 cluster_ids[gold_mention_map[tuple(mention)]] = cluster_id
 
-        sentences = example["sentences"][0]
+        sentences = example["sentences"]
         num_words = sum(len(s) for s in sentences)
-        speakers = custom_layers.flatten(example["speakers"][0])
+        speakers = custom_layers.flatten(example["speakers"])
 
         assert num_words == len(speakers)
 
@@ -248,7 +248,7 @@ class CorefModel(TFModel):
         max_word_length = max(max(max(len(w) for w in s) for s in sentences), max(self.filter_widths))
         char_index = np.zeros([len(sentences), max_sentence_length, max_word_length])
         text_len = np.array([len(s) for s in sentences])
-        doc_key = example["doc_key"][0]
+        doc_key = example["doc_key"]
 
         if self.emb_lowercase:
             for i, sentence in enumerate(sentences):
@@ -778,23 +778,37 @@ class CorefModel(TFModel):
         return self.tf_loss
 
     def __call__(self, *args):
+        model_inputs = self.batch_prepare(*args)
+        model_predicted_clusters = []
+        model_mention_to_predicted = []
+
+        for batch in model_inputs:
+            self.start_enqueue_thread(batch, False)
+
+            _, mention_starts, mention_ends, antecedents, antecedent_scores = self.sess.run(self.predictions)
+
+            predicted_antecedents = self.get_predicted_antecedents(antecedents, antecedent_scores)
+
+            predicted_clusters, mention_to_predicted = self.get_predicted_clusters(mention_starts, mention_ends,
+                                                                                   predicted_antecedents)
+            model_predicted_clusters.append(predicted_clusters)
+            model_mention_to_predicted.append(mention_to_predicted)
+
+        return model_predicted_clusters, model_mention_to_predicted
+
+    def batch_prepare(self, *args):
+        model_inputs = []
         if self.train_on_gold:
-            sentences, speakers, doc_key, clusters = args
-            batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": clusters}
+            sentences_batch, speakers_batch, doc_key_batch, clusters_batch = args
+            for sentences, speakers, doc_key, clusters in zip(sentences_batch, speakers_batch, doc_key_batch,
+                                                              clusters_batch):
+                model_inputs.append(
+                    {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": clusters})
         else:
-            sentences, speakers, doc_key = args
-            batch = {"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": []}
-
-        self.start_enqueue_thread(batch, False)
-
-        _, mention_starts, mention_ends, antecedents, antecedent_scores = self.sess.run(self.predictions)
-
-        predicted_antecedents = self.get_predicted_antecedents(antecedents, antecedent_scores)
-
-        predicted_clusters, mention_to_predicted = self.get_predicted_clusters(mention_starts, mention_ends,
-                                                                               predicted_antecedents)
-
-        return [predicted_clusters], [mention_to_predicted]
+            sentences_batch, speakers_batch, doc_key_batch = args
+            for sentences, speakers, doc_key in zip(sentences_batch, speakers_batch, doc_key_batch):
+                model_inputs.append({"sentences": sentences, "speakers": speakers, "doc_key": doc_key, "clusters": []})
+        return model_inputs
 
     def destroy(self):
         """Reset the model"""
