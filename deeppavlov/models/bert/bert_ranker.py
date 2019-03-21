@@ -86,12 +86,12 @@ class BertRankerModel(LRScheduledTFModel):
         if self.load_path is not None:
             self.load()
 
-        if self.resps is not None and self.resp_vecs is None:
-            self.resp_features = [resp_features[0][i * self.batch_size: (i + 1) * self.batch_size]
-                                  for i in range(len(resp_features[0]) // batch_size + 1)]
-            self.resp_vecs = self(self.resp_features)
-            self.resp_vecs /= np.linalg.norm(self.resp_vecs, axis=1, keepdims=True)
-            np.save(self.save_path / "resp_vecs", self.resp_vecs)
+        # if self.resps is not None and self.resp_vecs is None:
+        #     self.resp_features = [resp_features[0][i * self.batch_size: (i + 1) * self.batch_size]
+        #                           for i in range(len(resp_features[0]) // batch_size + 1)]
+        #     self.resp_vecs = self(self.resp_features)
+        #     self.resp_vecs /= np.linalg.norm(self.resp_vecs, axis=1, keepdims=True)
+        #     np.save(self.save_path / "resp_vecs", self.resp_vecs)
 
         if self.conts is not None and self.cont_vecs is None:
             self.cont_features = [cont_features[0][i * self.batch_size: (i + 1) * self.batch_size]
