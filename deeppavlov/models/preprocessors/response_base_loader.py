@@ -31,14 +31,14 @@ class ResponseBaseLoader(Serializable):
         self.conts = None
         self.cont_vecs = None
         if self.load_path is not None:
-            # resp_file = self.load_path / "responses.csv"
-            # if resp_file.exists():
-            #     with open(resp_file) as f:
-            #         responses = f.readlines()
-            #         self.resps = [el.strip('#\n') for el in responses]
-            # resp_vec_file = self.load_path / "resp_vecs.npy"
-            # if resp_vec_file.exists():
-            #     self.resp_vecs = np.load(resp_vec_file)
+            resp_file = self.load_path / "responses.csv"
+            if resp_file.exists():
+                with open(resp_file) as f:
+                    responses = f.readlines()
+                    self.resps = [el.strip('#\n') for el in responses]
+            resp_vec_file = self.load_path / "resp_vecs.npy"
+            if resp_vec_file.exists():
+                self.resp_vecs = np.load(resp_vec_file)
             cont_file = self.load_path / "contexts.csv"
             if cont_file.exists():
                 with open(cont_file) as f:
