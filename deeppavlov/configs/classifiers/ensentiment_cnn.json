@@ -4,7 +4,7 @@
     "x": "comment_text",
     "y": "target",
     "data_path": "{DOWNLOADS_PATH}/ensentiment/",
-    "train": "dataset_for_assignment.csv"
+    "train": "dataset.csv"
   },
   "dataset_iterator": {
     "class_name": "basic_classification_iterator",

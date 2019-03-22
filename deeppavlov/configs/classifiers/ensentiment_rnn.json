@@ -56,23 +56,17 @@
         "out": "x_tok",
         "id": "my_tokenizer",
         "class_name": "stream_spacy_tokenizer",
-        "ngram_range": [1, 1]
+        "ngram_range": [
+          1,
+          1
+        ]
       },
       {
-        "in": [
-          "x_tok"
-        ],
-        "out": [
-          "x_emb"
-        ],
+        "in": "x_tok",
+        "out": "x_emb",
         "id": "my_embedder",
-        "class_name": "elmo_embedder",
-        "elmo_output_names": [
-          "elmo"
-        ],
-        "mini_batch_size": 16,
-        "max_token": 15,
-        "spec": "https://tfhub.dev/google/elmo/1",
+        "class_name": "fasttext",
+        "load_path": "{DOWNLOADS_PATH}/embeddings/wordpunct_tok_reddit_comments_2017_11_300.bin",
         "pad_zero": true
       },
       {
@@ -128,19 +122,22 @@
     ]
   },
   "train": {
-    "epochs": 100,
+    "epochs": 30,
     "batch_size": 32,
     "metrics": [
-      "f1_weighted",
-      "f1_macro",
-      "sets_accuracy",
       {
         "name": "roc_auc",
-        "inputs": ["y_onehot", "y_pred_probas"]
-      }
+        "inputs": [
+          "y_onehot",
+          "y_pred_probas"
+        ]
+      },
+      "f1_weighted",
+      "f1_macro",
+      "sets_accuracy"
     ],
-    "validation_patience": 1,
-    "val_every_n_epochs": 10,
+    "validation_patience": 5,
+    "val_every_n_epochs": 3,
     "log_every_n_epochs": 1,
     "show_examples": false,
     "validate_best": true,
@@ -151,7 +148,7 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/ensentiment"
+      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/ensentiment_2"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
@@ -167,6 +164,10 @@
       {
         "url": "http://files.deeppavlov.ai/deeppavlov_data/classifiers/ensentiment_v0.tar.gz",
         "subdir": "{MODELS_PATH}"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/embeddings/reddit_fastText/wordpunct_tok_reddit_comments_2017_11_300.bin",
+        "subdir": "{DOWNLOADS_PATH}/embeddings"
       }
     ]
   }
