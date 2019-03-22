@@ -53,6 +53,7 @@ class Embedder(Component, Serializable, metaclass=ABCMeta):
         self.mean = mean
         self.dim = None
         self.model = None
+        self.max_token = kwargs.get("max_token", None)
         self.load()
 
     @overrides
@@ -112,6 +113,9 @@ class Embedder(Component, Serializable, metaclass=ABCMeta):
             list of embedded tokens or array of mean values
         """
         embedded_tokens = []
+        if self.max_token:
+            tokens = tokens[:self.max_token]
+
         for t in tokens:
             try:
                 emb = self.tok2emb[t]
