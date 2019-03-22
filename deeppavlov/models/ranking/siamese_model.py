@@ -82,14 +82,16 @@ class SiameseModel(NNModel):
             np.ndarray: predictions for the batch of samples
         """
         y_pred = []
+        y_emb = np.empty(shape=(0, 0))
         buf = []
         for j, sample in enumerate(samples_generator, start=1):
             n_responses = self._append_sample_to_batch_buffer(sample, buf)
             if len(buf) >= self.batch_size:
                 for i in range(len(buf) // self.batch_size):
                     b = self._make_batch(buf[i*self.batch_size:(i+1)*self.batch_size])
-                    yp = self._predict_on_batch(b)
+                    yp, emb = self._predict_on_batch(b, return_embedding=True)
                     y_pred += list(yp)
+                    y_emb = np.append(y_emb, emb)
                 lenb = len(buf) % self.batch_size
                 if lenb != 0:
                     buf = buf[-lenb:]
@@ -97,12 +99,14 @@ class SiameseModel(NNModel):
                     buf = []
         if len(buf) != 0:
             b = self._make_batch(buf)
-            yp = self._predict_on_batch(b)
+            yp, emb = self._predict_on_batch(b, return_embedding=True)
             y_pred += list(yp)
+            y_emb = np.append(y_emb, emb).reshape((-1, 200))
         y_pred = np.asarray(y_pred)
         # reshape to [batch_size, n_responses] if needed (n_responses > 1)
         y_pred = np.reshape(y_pred, (j, n_responses)) if n_responses > 1 else y_pred
-        return y_pred
+        y_emb = np.reshape(y_emb, (j, n_responses, 200)) if n_responses > 1 else y_emb  # reshape embeddings
+        return y_pred, y_emb
 
     def reset(self) -> None:
         pass

@@ -36,18 +36,21 @@ class HybridRankerPredictor(Component):
         self.topn = topn
 
 
-    def __call__(self, candidates_batch, preds_batch):
+    def __call__(self, candidates_batch, preds_batch, embeddings_batch):
         """
         return list of best responses and its confidences
         """
 
         responses_batch = []
         responses_preds = []
+        responses_embeddings = []
 
         for i in range(len(candidates_batch)):
-            d = {candidates_batch[i][j]: preds_batch[i][j] for j in range(len(preds_batch[i]))}
+            d = {candidates_batch[i][j]: preds_batch[i][j] for j in range(len(preds_batch[i]))}  # {"sent": [logits..]}
+            e = {candidates_batch[i][j]: embeddings_batch[i][j] for j in range(len(preds_batch[i]))}  # {"sent": [embeddings...]}
             candidates_list = list(set(candidates_batch[i]))
             scores = np.array([d[c] for c in candidates_list])
+            embeddings = np.array([e[c] for c in candidates_list])
 
             sorted_ids = np.flip(np.argsort(scores), -1)
             # chosen_index = np.random.choice(sorted_ids[:self.sample_size])  # choose a random answer as the best one
@@ -71,9 +74,11 @@ class HybridRankerPredictor(Component):
 
                 responses_batch.append(candidates_list[chosen_index])
                 responses_preds.append(scores[chosen_index])
+                responses_embeddings.append(embeddings[chosen_index])
             else:
                 responses_batch.append(np.array(candidates_list)[sorted_ids[:self.topn]])
                 responses_preds.append(scores[sorted_ids[:self.topn]])
+                responses_embeddings.append(embeddings[sorted_ids[:self.topn]])
                 # logger.debug('sorted scores: ' + str(scores[sorted_ids[:self.topn]]))
 
-        return responses_batch, responses_preds
+        return responses_batch, responses_embeddings

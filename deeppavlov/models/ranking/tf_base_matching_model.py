@@ -125,7 +125,7 @@ class TensorflowBaseMatchingModel(TFModel, SiameseModel):
             self.response_len_ph: np.array(input_response_len)
         }
 
-    def _predict_on_batch(self, batch: Dict) -> np.ndarray:
+    def _predict_on_batch(self, batch: Dict, return_embedding=False):
         """
         Run a model with the batch of inputs.
         The function returns a list of predictions for the batch in numpy format
@@ -136,7 +136,8 @@ class TensorflowBaseMatchingModel(TFModel, SiameseModel):
         Returns:
             nd.array: predictions for the batch
         """
-        return self.sess.run(self.logits, feed_dict=batch)[:, 1]
+        logits, embeddings = self.sess.run([self.logits, self.embedding], feed_dict=batch)
+        return logits[:, 1], embeddings
 
     def _train_on_batch(self, batch: Dict, y: List[int]) -> float:
         """
