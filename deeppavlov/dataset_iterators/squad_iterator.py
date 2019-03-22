@@ -69,6 +69,29 @@ class SquadIterator(DataLearningIterator):
         return cqas
 
 
+@register('nq_iterator')
+class NaturalQuestionsIterator(DataLearningIterator):
+
+    def split(self, *args, **kwargs) -> None:
+        for dt in ['train', 'valid', 'test']:
+            setattr(self, dt, NaturalQuestionsIterator._extract_cqas(getattr(self, dt)))
+
+    @staticmethod
+    def _extract_cqas(data: Dict[str, Any]) -> List[Tuple[Tuple[str, str], Tuple[List[str], List[int]]]]:
+        cqas = []
+        if data:
+            for article in data:
+                context = article['context']
+                question = article['question']
+                ans_text = []
+                ans_start = []
+                for answer in article['answers']:
+                    ans_text.append(answer['text'])
+                    ans_start.append(answer['answer_start'])
+                cqas.append(((context, question), (ans_text, ans_start)))
+        return cqas
+
+
 @register('multi_squad_iterator')
 class MultiSquadIterator(DataLearningIterator):
     """Dataset iterator for multiparagraph-SQuAD dataset.

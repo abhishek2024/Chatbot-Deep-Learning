@@ -70,6 +70,8 @@
   "nltk_moses_tokenizer": "deeppavlov.models.tokenizers.nltk_moses_tokenizer:NLTKMosesTokenizer",
   "nltk_tokenizer": "deeppavlov.models.tokenizers.nltk_tokenizer:NLTKTokenizer",
   "nn_trainer": "deeppavlov.core.trainers.nn_trainer:NNTrainer",
+  "nq_dataset_reader": "deeppavlov.dataset_readers.squad_dataset_reader:NaturalQuestionsReader",
+  "nq_iterator": "deeppavlov.dataset_iterators.squad_iterator:NaturalQuestionsIterator",
   "odqa_reader": "deeppavlov.dataset_readers.odqa_reader:ODQADataReader",
   "one_hotter": "deeppavlov.models.preprocessors.one_hotter:OneHotter",
   "ontonotes_reader": "deeppavlov.dataset_readers.ontonotes_reader:OntonotesReader",

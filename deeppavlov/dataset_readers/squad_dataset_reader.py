@@ -149,3 +149,23 @@ class MultiSquadDatasetReader(DatasetReader):
                 dataset['train'] = dir_path.joinpath(f)
 
         return dataset
+
+@register('nq_dataset_reader')
+class NaturalQuestionsReader(DatasetReader):
+    
+    def read(self, dir_path: str, *args, **kwargs)\
+            -> Dict[str, Dict[str, Any]]:
+
+        dir_path = Path(dir_path)
+        required_files = ['natural_questions_{}.json'.format(dt) for dt in ['train', 'dev']]
+
+        dataset = {}
+        for f in required_files:
+            with dir_path.joinpath(f).open('r', encoding='utf8') as fp:
+                data = json.load(fp)
+            if f == 'natural_questions_dev.json':
+                dataset['valid'] = data
+            else:
+                dataset['train'] = data
+
+        return dataset
