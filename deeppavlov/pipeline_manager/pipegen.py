@@ -73,14 +73,28 @@ class PipeGen:
         self.enumerator = self.pipeline_enumeration()
         self.generator = self.pipeline_gen()
 
+    def _check_sequence_structure(self) -> None:
+        """ Checks if every component is a list, otherwise wraps it in list. """
+        for i, component in enumerate(self.structure):
+            for j, example in enumerate(component):
+                if example is not None:
+                    if "component_name" not in example.keys():
+i                       self.structure[i][j]['component_name'] = \
+                            f"component_{j}"
+                        # raise ConfigError("The pipeline element in config file, on position {0} and with number {1}"
+                        #                   "don't contain the 'component_name' key.".format(i + 1, j + 1))
+
+
     def _check_component_name(self) -> None:
         """ Checks incoming config for the presence of a "component_name" key in the component description dict. """
         for i, component in enumerate(self.structure):
             for j, example in enumerate(component):
                 if example is not None:
                     if "component_name" not in example.keys():
-                        raise ConfigError("The pipeline element in config file, on position {0} and with number {1}"
-                                          "don't contain the 'component_name' key.".format(i + 1, j + 1))
+i                       self.structure[i][j]['component_name'] = \
+                            f"component_{j}"
+                        # raise ConfigError("The pipeline element in config file, on position {0} and with number {1}"
+                        #                   "don't contain the 'component_name' key.".format(i + 1, j + 1))
 
     def get_len(self) -> None:
         """ Calculate the length of generator. """
