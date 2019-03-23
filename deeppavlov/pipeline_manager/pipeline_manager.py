@@ -144,7 +144,8 @@ class PipelineManager:
         self.date = self.exp_config['pipeline_search'].get('date', datetime.now().strftime('%Y-%m-%d'))
         self.info = self.exp_config['pipeline_search'].get('info')
         self.root = expand_path(
-            Path(self.exp_config['pipeline_search'].get('root', Path('~/.deeppavlov/experiments').resolve())))
+            self.exp_config['pipeline_search'].get('root',
+                '~/.deeppavlov/experiments'))
         self.plot = self.exp_config['pipeline_search'].get('plot', False)
         self.save_best = self.exp_config['pipeline_search'].get('save_best', False)
         self.do_test = self.exp_config['pipeline_search'].get('do_test', False)
@@ -361,7 +362,7 @@ class PipelineManager:
             if gpu:
                 for j, pipe_conf in enumerate(pipe_gen()):
                     gpu_ind_ = j - (j // len(available_gpu)) * len(available_gpu)
-                    yield (j, deepcopy(pipe_conf), gpu_ind_)
+                    yield (j, deepcopy(pipe_conf), available_gpu[gpu_ind_])
             else:
                 for j, pipe_conf in enumerate(pipe_gen()):
                     yield (j, deepcopy(pipe_conf))
