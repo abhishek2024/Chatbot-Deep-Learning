@@ -127,7 +127,7 @@ class ExperimentObserver:
     def save_config(self, conf: dict, dataset_name: str, ind: int) -> None:
         """ Save train config in checkpoint folder. """
         with self.save_path.joinpath(dataset_name, f'pipe_{ind}', 'config.json').open('w', encoding='utf8') as cf:
-            json.dump(conf, cf)
+            json.dump(conf, cf, indent=2)
 
     def save_best_pipe(self) -> None:
         """ Calculate the best pipeline and delete others pipelines checkpoints. """

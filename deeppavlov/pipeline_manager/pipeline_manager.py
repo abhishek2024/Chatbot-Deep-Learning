@@ -208,8 +208,10 @@ class PipelineManager:
         except KeyError:
             visible_gpu = None
 
+        print(f"use_gpu = {self.use_gpu}")
         if self.use_gpu:
-            if isinstance(self.use_gpu, (List[int], int)):
+            if isinstance(self.use_gpu, (list, int)):
+                print(f"visible_gpu = {visible_gpu}")
                 if visible_gpu:
                     self.use_gpu = list(set(self.use_gpu) & set(visible_gpu))
 
@@ -226,6 +228,7 @@ class PipelineManager:
             elif len(self.available_gpu) < len(self.use_gpu):
                 print("PipelineManagerWarning: 'CUDA_VISIBLE_DEVICES' = ({0}), "
                       "but only {1} are available.".format(self.use_gpu, self.available_gpu))
+            print(f"available gpus = {self.available_gpu}")
 
             self.max_num_workers = len(self.available_gpu)
 
@@ -289,7 +292,8 @@ class PipelineManager:
         if gpu:
             for i, pipe_conf in enumerate(self.pipeline_generator()):
                 gpu_ind = i - (i // len(self.available_gpu)) * len(self.available_gpu)
-                yield (deepcopy(pipe_conf), i, self.observer, gpu_ind)
+                yield (deepcopy(pipe_conf), i, self.observer,
+                        self.available_gpu[gpu_ind])
         else:
             for i, pipe_conf in enumerate(self.pipeline_generator()):
                 yield (deepcopy(pipe_conf), i, self.observer)
