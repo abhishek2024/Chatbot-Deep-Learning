@@ -92,7 +92,8 @@ class BertSQuADModel(LRScheduledTFModel):
             pretrained_bert = str(expand_path(pretrained_bert))
 
         if tf.train.checkpoint_exists(pretrained_bert) \
-                and not tf.train.checkpoint_exists(str(self.load_path.resolve())):
+                (self.load_path is None or\
+                not tf.train.checkpoint_exists(str(self.load_path.resolve()))):
             logger.info('[initializing model with Bert from {}]'.format(pretrained_bert))
             var_list = self._get_saveable_variables(
                 exclude_scopes=('Optimizer', 'learning_rate', 'momentum', 'squad'))

@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-# Neural Networks and Deep Learning lab, MIPT
-=======
 # Copyright 2017 Neural Networks and Deep Learning lab, MIPT
->>>>>>> origin/dev
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +24,7 @@ from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.models.tf_model import LRScheduledTFModel
 
-logger = getLogger(__name__)
+log = getLogger(__name__)
 
 
 @register('bert_ner')
@@ -109,7 +105,8 @@ class BertNerModel(LRScheduledTFModel):
             pretrained_bert = str(expand_path(pretrained_bert))
 
         if tf.train.checkpoint_exists(pretrained_bert) \
-                and not tf.train.checkpoint_exists(str(self.load_path.resolve())):
+                and (self.load_path is None or not
+                        tf.train.checkpoint_exists(str(self.load_path.resolve()))):
             log.info('[initializing model with Bert from {}]'.format(pretrained_bert))
             # Exclude optimizer and classification variables from saved variables
             var_list = self._get_saveable_variables(
@@ -264,6 +261,8 @@ class BertNerModel(LRScheduledTFModel):
                                   optimizer_scope_name='Optimizer',
                                   exclude_from_weight_decay=["LayerNorm",
                                                              "layer_norm",
+                                                             "bias",
+                                                             "EMA"])
         else:
             self.train_op = self.get_train_op(self.loss,
                                               optimizer_scope_name='Optimizer',
