@@ -127,6 +127,7 @@ class PipelineManager:
             suited for training estimators from scikit-learn. In our library there is such an opportunity.
 
     """
+    #TODO: fix error when the same experiment is run on the same date
 
     def __init__(self, config_path: Union[str, Dict, Path]) -> None:
         """

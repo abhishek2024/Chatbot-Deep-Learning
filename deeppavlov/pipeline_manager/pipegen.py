@@ -87,7 +87,7 @@ class PipeGen:
                 if example is not None:
                     if "component_name" not in example.keys():
                         self.structure[i][j]['component_name'] = \
-                            f"component_{j}"
+                            f"component_{i}_{j}"
                         # raise ConfigError("The pipeline element in config file, on position {0} and with number {1}"
                         #                   "don't contain the 'component_name' key.".format(i + 1, j + 1))
 
@@ -126,7 +126,6 @@ class PipeGen:
         chainer_components = self.change_load_path(chainer_components, ind, self.save_path, dataset_name,
                                                    self.test_mode)
         new_config['chainer']['pipe'] = chainer_components
-        ind += 1
         return new_config
 
     def pipeline_gen(self) -> Generator:
@@ -141,9 +140,11 @@ class PipeGen:
             if self.mode == 'random':
                 for pipe_ in self.random_conf_gen(pipe_var):
                     yield self._universial(pipe_, p)
+                    p += 1
             else:
                 for pipe_ in self.grid_conf_gen(pipe_var):
                     yield self._universial(pipe_, p)
+                    p += 1
 
     # random generation
     def random_conf_gen(self, pipe_components: List[dict]) -> Generator:
@@ -239,43 +240,24 @@ class PipeGen:
             config: dict; new config with changed save and load paths
         """
         for component in config:
-            if component.get('main') is True:
-                if component.get('save_path', None) is not None:
-                    sp = Path(component['save_path']).name
-                    if not test_mode:
-                        new_save_path = str(save_path / dataset_name / 'pipe_{}'.format(n + 1) / sp)
-                        component['save_path'] = new_save_path
-                    else:
-                        new_save_path = str(save_path / "tmp" / dataset_name /
-                                            'pipe_{}'.format(n + 1) / sp)
-                        component['save_path'] = new_save_path
-                if component.get('load_path', None) is not None:
-                    lp = Path(component['load_path']).name
-                    if not test_mode:
-                        new_load_path = str(save_path / dataset_name / 'pipe_{}'.format(n + 1) / lp)
-                        component['load_path'] = new_load_path
-                    else:
-                        new_load_path = str(save_path / "tmp" / dataset_name /
-                                            'pipe_{}'.format(n + 1) / lp)
-                        component['load_path'] = new_load_path
-            else:
-                if component.get('save_path', None) is not None:
-                    sp = Path(component['save_path']).name
-                    if not test_mode:
-                        new_save_path = str(save_path / dataset_name / sp)
-                        component['save_path'] = new_save_path
-                    else:
-                        new_save_path = str(save_path / "tmp" / dataset_name / sp)
-                        component['save_path'] = new_save_path
-                if component.get('load_path', None) is not None:
-                    lp = Path(component['load_path']).name
-                    if not test_mode:
-                        new_load_path = str(save_path / dataset_name / lp)
-                        component['load_path'] = new_load_path
-                    else:
-                        new_load_path = str(save_path / "tmp" / dataset_name / lp)
-                        component['load_path'] = new_load_path
-
+            if component.get('save_path', None) is not None:
+                sp = Path(component['save_path']).name
+                if not test_mode:
+                    new_save_path = str(save_path / dataset_name / 'pipe_{}'.format(n + 1) / sp)
+                    component['save_path'] = new_save_path
+                else:
+                    new_save_path = str(save_path / "tmp" / dataset_name /
+                                        'pipe_{}'.format(n + 1) / sp)
+                    component['save_path'] = new_save_path
+            if component.get('load_path', None) is not None:
+                lp = Path(component['load_path']).name
+                if not test_mode:
+                    new_load_path = str(save_path / dataset_name / 'pipe_{}'.format(n + 1) / lp)
+                    component['load_path'] = new_load_path
+                else:
+                    new_load_path = str(save_path / "tmp" / dataset_name /
+                                        'pipe_{}'.format(n + 1) / lp)
+                    component['load_path'] = new_load_path
         return config
 
     def __call__(self, *args, **kwargs) -> Generator:
