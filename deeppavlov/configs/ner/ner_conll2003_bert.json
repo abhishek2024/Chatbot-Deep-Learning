@@ -109,10 +109,10 @@
   "metadata": {
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
-      "DOWNLOADS_PATH": "~/.deeppavlov/downloads",
-      "MODELS_PATH": "~/.deeppavlov/models",
-      "BERT_PATH": "~/.deeppavlov/downloads/bert_models/cased_L-12_H-768_A-12",
-      "NER_PATH": "~/.deeppavlov/models/ner_conll2003_bert"
+      "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
+      "MODELS_PATH": "{ROOT_PATH}/models",
+      "BERT_PATH": "{DOWNLOADS_PATH}/bert_models/cased_L-12_H-768_A-12",
+      "NER_PATH": "{MODELS_PATH}/tmp"
     },
     "requirements": [
       "{ROOT_PATH}/requirements/tf.txt",

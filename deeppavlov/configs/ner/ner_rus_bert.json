@@ -106,10 +106,10 @@
   "metadata": {
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
-      "DOWNLOADS_PATH": "~/.deeppavlov/downloads",
-      "MODELS_PATH": "~/.deeppavlov/models",
-      "BERT_PATH": "~/.deeppavlov/downloads/bert_models/rubert_cased_L-12_H-768_A-12_v1",
-      "NER_PATH": "~/.deeppavlov/models/ner_rus_bert"
+      "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
+      "MODELS_PATH": "{ROOT_PATH}/models",
+      "BERT_PATH": "{DOWNLOADS_PATH}/bert_models/rubert_cased_L-12_H-768_A-12_v1",
+      "NER_PATH": "{MODELS_PATH}/ner_rus_bert"
     },
     "requirements": [
       "/cephfs/home/mary.vikhreva/code-projects/Pilot/deeppavlov/requirements/tf.txt",
