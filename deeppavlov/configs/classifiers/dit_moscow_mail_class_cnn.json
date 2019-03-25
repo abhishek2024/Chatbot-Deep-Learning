@@ -2,10 +2,10 @@
   "dataset_reader": {
     "class_name": "basic_classification_reader",
     "x": "mail_text_string",
-    "y": "correct_type_string",
+    "y": "mail_class_string",
     "class_sep": ",",
     "data_path": "{DOWNLOADS_PATH}/dit_moscow_data/",
-    "train": "correct_type_string.csv"
+    "train": "sentiment_mail_class_string.csv"
   },
   "dataset_iterator": {
     "class_name": "basic_classification_iterator",
@@ -101,7 +101,7 @@
         "learning_rate": 0.01,
         "learning_rate_decay": 0.1,
         "loss": "binary_crossentropy",
-        "last_layer_activation": "sigmoid",
+        "last_layer_activation": "softmax",
         "coef_reg_cnn": 1e-3,
         "coef_reg_den": 1e-2,
         "dropout_rate": 0.5,
@@ -112,7 +112,7 @@
         "in": "y_pred_probas",
         "out": "y_pred_ids",
         "class_name": "proba2labels",
-        "confident_threshold": 0.5
+        "max_proba": true
       },
       {
         "in": "y_pred_ids",
@@ -126,9 +126,11 @@
   },
   "train": {
     "epochs": 100,
-    "batch_size": 64,
+    "batch_size": 32,
     "metrics": [
       "sets_accuracy",
+      "f1_weighted",
+      "f1_macro",
       {
         "name": "roc_auc",
         "inputs": ["y_onehot", "y_pred_probas"]
@@ -150,7 +152,7 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/dit_moscow_correct_type_v0"
+      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/dit_moscow_mail_class_v0"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",

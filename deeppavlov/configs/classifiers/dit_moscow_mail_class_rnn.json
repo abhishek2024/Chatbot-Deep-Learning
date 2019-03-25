@@ -2,10 +2,10 @@
   "dataset_reader": {
     "class_name": "basic_classification_reader",
     "x": "mail_text_string",
-    "y": "correct_type_string",
+    "y": "mail_class_string",
     "class_sep": ",",
     "data_path": "{DOWNLOADS_PATH}/dit_moscow_data/",
-    "train": "correct_type_string.csv"
+    "train": "sentiment_mail_class_string.csv"
   },
   "dataset_iterator": {
     "class_name": "basic_classification_iterator",
@@ -91,28 +91,24 @@
         "load_path": "{MODELS_PATH}/model",
         "embedding_size": "#my_embedder.dim",
         "n_classes": "#classes_vocab.len",
-        "kernel_sizes_cnn": [
-          3,
-          5,
-          7
-        ],
-        "filters_cnn": 256,
+        "units_gru": 256,
         "optimizer": "Adam",
         "learning_rate": 0.01,
-        "learning_rate_decay": 0.1,
+        "learning_rate_decay": 0.01,
         "loss": "binary_crossentropy",
-        "last_layer_activation": "sigmoid",
-        "coef_reg_cnn": 1e-3,
-        "coef_reg_den": 1e-2,
-        "dropout_rate": 0.5,
+        "last_layer_activation": "softmax",
+        "coef_reg_gru": 1e-6,
+        "coef_reg_den": 1e-6,
+        "dropout_rate": 0.2,
+        "rec_dropout_rate": 0.2,
         "dense_size": 100,
-        "model_name": "cnn_model"
+        "model_name": "bigru_with_max_aver_pool_model"
       },
       {
         "in": "y_pred_probas",
         "out": "y_pred_ids",
         "class_name": "proba2labels",
-        "confident_threshold": 0.5
+        "max_proba": true
       },
       {
         "in": "y_pred_ids",
@@ -126,9 +122,11 @@
   },
   "train": {
     "epochs": 100,
-    "batch_size": 64,
+    "batch_size": 32,
     "metrics": [
       "sets_accuracy",
+      "f1_weighted",
+      "f1_macro",
       {
         "name": "roc_auc",
         "inputs": ["y_onehot", "y_pred_probas"]
@@ -150,7 +148,7 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/dit_moscow_correct_type_v0"
+      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/dit_moscow_mail_class_v1"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",

@@ -63,8 +63,12 @@
         "in": "x_tok",
         "out": "x_emb",
         "id": "my_embedder",
-        "class_name": "fasttext",
-        "load_path": "{DOWNLOADS_PATH}/embeddings/ft_native_300_ru_twitter_nltk_word_tokenize.bin",
+        "class_name": "elmo_embedder",
+        "elmo_output_names": [
+          "elmo"
+        ],
+        "mini_batch_size": 8,
+        "spec": "http://files.deeppavlov.ai/deeppavlov_data/elmo_ru-twitter_2013-01_2018-04_600k_steps.tar.gz",
         "pad_zero": true,
         "max_token": 1000
       },
@@ -126,7 +130,7 @@
   },
   "train": {
     "epochs": 100,
-    "batch_size": 64,
+    "batch_size": 32,
     "metrics": [
       "sets_accuracy",
       "f1_weighted",
@@ -152,7 +156,7 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/dit_moscow_mail_class_v0"
+      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/dit_moscow_mail_class_v2"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
