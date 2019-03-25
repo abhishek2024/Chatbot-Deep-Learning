@@ -170,6 +170,10 @@
       {
         "url": "http://files.deeppavlov.ai/embeddings/ft_native_300_ru_twitter_nltk_word_tokenize.bin",
         "subdir": "{DOWNLOADS_PATH}/embeddings"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/classifiers/dit_moscow_mail_class_v2.tar.gz",
+        "subdir": "{DOWNLOADS_PATH}/models/classifiers"
       }
     ]
   }

@@ -166,6 +166,10 @@
       {
         "url": "http://files.deeppavlov.ai/embeddings/ft_native_300_ru_twitter_nltk_word_tokenize.bin",
         "subdir": "{DOWNLOADS_PATH}/embeddings"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/classifiers/dit_moscow_response_of_operator_v0.tar.gz",
+        "subdir": "{DOWNLOADS_PATH}/models/classifiers"
       }
     ]
   }
