@@ -19,7 +19,8 @@
         "in": ["model_batch"],
         "out": ["model_batch"],
         "class_name": "deeppavlov.models.coreference_resolution.change_utterence:PerItemWrapper",
-        "component": "#tokenizer"
+        "component": "#tokenizer",
+        "return_out": true
       },
       {
         "class_name": "simple_vocab",

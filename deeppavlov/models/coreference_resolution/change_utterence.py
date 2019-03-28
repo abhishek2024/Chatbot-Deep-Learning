@@ -149,12 +149,12 @@ class MentionPaddingNer(Component):
                         cluster_names[i] = flatten_sentences[mention[0]:mention[0] + 1]
                         break
                 else:
-                    name_end_ = mention[0] - 1
+                    name_end_ = mention[0]  # -1
                     for ind in range(mention[0], mention[1] + 1, 1):
                         if flatten_ner_tokens[ind] == 'B-PER' or flatten_ner_tokens[ind] == 'I-PER':
                             name_end_ = ind
                     if name_end_ != mention[0] - 1:
-                        cluster_names[i] = flatten_sentences[mention[0]:name_end_]
+                        cluster_names[i] = flatten_sentences[mention[0]:name_end_ + 1]
                         break
 
         deviation = 0
@@ -172,9 +172,9 @@ class MentionPaddingNer(Component):
                         elif tag == "sent_end":
                             end_mention = True
                     else:
-                        for ind in range(mention[0], mention[1], 1):
-                            flatten_sentences.pop(ind + deviation)
-                            tag = pos_list.pop(ind + deviation)
+                        for ind in range(mention[0], mention[1] + 1, 1):
+                            flatten_sentences.pop(mention[0] + deviation)
+                            tag = pos_list.pop(mention[0] + deviation)
                             if tag == "sent_start":
                                 start_mention = True
                             elif tag == "sent_end":
@@ -182,13 +182,13 @@ class MentionPaddingNer(Component):
 
                     deviation += len(st_mention) - (mention[1] - mention[0] + 1)
                     for k, tok in enumerate(st_mention):
-                        flatten_sentences.insert(mention[0] + k + deviation, tok)
+                        flatten_sentences.insert(mention[0] + k, tok)
                         if start_mention and k == 0:
-                            pos_list.insert(mention[0] + k + deviation, "sent_start")
+                            pos_list.insert(mention[0] + k, "sent_start")
                         elif end_mention and k == len(st_mention) - 1:
-                            pos_list.insert(mention[0] + k + deviation, "sent_end")
+                            pos_list.insert(mention[0] + k, "sent_end")
                         else:
-                            pos_list.insert(mention[0] + k + deviation, "-")
+                            pos_list.insert(mention[0] + k, "-")
 
         assert len(pos_list) == len(flatten_sentences)
         new_sentences = []
@@ -231,6 +231,7 @@ class PerItemWrapper(Component):
 
     def __init__(self, component: Estimator, **kwargs):
         self.component = component
+        self.return_out = kwargs.get('return_out')
 
     def __call__(self, batch):
         out = []
@@ -243,7 +244,10 @@ class PerItemWrapper(Component):
         else:
             out = self.component(batch)
         # log.info(f"in = {batch}, out = {out}")
-        return tuple(zip(*out))
+        if self.return_out:
+            return out
+        else:
+            return tuple(zip(*out))
 
     def fit(self, data):
         self.component.fit([item for batch in data for item in batch])

@@ -13,7 +13,9 @@
 # limitations under the License.
 
 import random
-from typing import Any, List, Tuple
+from typing import Any
+from typing import List
+from typing import Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -21,8 +23,15 @@ import tensorflow as tf
 from deeppavlov.core.common.errors import ConfigError
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.tf_model import TFModel
-from deeppavlov.models.coreference_resolution import custom_layers
-from deeppavlov.models.coreference_resolution.tf_ops import distance_bins, extract_mentions, get_antecedents
+from deeppavlov.models.coreference_resolution.custom_layers import CustomLSTMCell
+from deeppavlov.models.coreference_resolution.custom_layers import cnn
+from deeppavlov.models.coreference_resolution.custom_layers import ffnn
+from deeppavlov.models.coreference_resolution.custom_layers import flatten
+from deeppavlov.models.coreference_resolution.custom_layers import projection
+from deeppavlov.models.coreference_resolution.custom_layers import shape
+from deeppavlov.models.coreference_resolution.tf_ops import distance_bins
+from deeppavlov.models.coreference_resolution.tf_ops import extract_mentions
+from deeppavlov.models.coreference_resolution.tf_ops import get_antecedents
 from deeppavlov.models.coreference_resolution.tf_ops import spans
 
 
@@ -226,7 +235,7 @@ class CorefModel(TFModel):
         else:
             clusters = example["clusters"]
 
-        gold_mentions = sorted(tuple(m) for m in custom_layers.flatten(clusters))
+        gold_mentions = sorted(tuple(m) for m in flatten(clusters))
         gold_mention_map = {m: i for i, m in enumerate(gold_mentions)}
         cluster_ids = np.zeros(len(gold_mentions))
 
@@ -236,7 +245,7 @@ class CorefModel(TFModel):
 
         sentences = example["sentences"]
         num_words = sum(len(s) for s in sentences)
-        speakers = custom_layers.flatten(example["speakers"])
+        speakers = flatten(example["speakers"])
 
         assert num_words == len(speakers)
 
@@ -362,11 +371,11 @@ class CorefModel(TFModel):
         if self.model_heads:
             mention_indices = tf.expand_dims(tf.range(self.max_mention_width), 0) + tf.expand_dims(
                 mention_starts, 1)  # [num_mentions, max_mention_width]
-            mention_indices = tf.minimum(custom_layers.shape(text_outputs, 0) - 1,
+            mention_indices = tf.minimum(shape(text_outputs, 0) - 1,
                                          mention_indices)  # [num_mentions, max_mention_width]
             mention_text_emb = tf.gather(text_emb, mention_indices)  # [num_mentions, max_mention_width, emb]
 
-            self.head_scores = custom_layers.projection(text_outputs, 1)  # [num_words, 1]
+            self.head_scores = projection(text_outputs, 1)  # [num_words, 1]
 
             mention_head_scores = tf.gather(self.head_scores, mention_indices)  # [num_mentions, max_mention_width, 1]
             mention_mask = tf.expand_dims(tf.sequence_mask(mention_width, self.max_mention_width, dtype=tf.float64), 2)
@@ -390,7 +399,7 @@ class CorefModel(TFModel):
             Output of the fully-connected network, that compute the mentions scores.
         """
         with tf.variable_scope("mention_scores"):
-            return custom_layers.ffnn(mention_emb, self.ffnn_depth, self.ffnn_size, 1, self.dropout)
+            return ffnn(mention_emb, self.ffnn_depth, self.ffnn_size, 1, self.dropout)
             # [num_mentions, 1]
 
     @staticmethod
@@ -424,8 +433,8 @@ class CorefModel(TFModel):
             genre_emb: [genre_emb_size], tf.float64, Genre
         Returns: tf.float64, [num_mentions, max_ant + 1], antecedent scores.
         """
-        num_mentions = custom_layers.shape(mention_emb, 0)
-        max_antecedents = custom_layers.shape(antecedents, 1)
+        num_mentions = shape(mention_emb, 0)
+        max_antecedents = shape(antecedents, 1)
 
         feature_emb_list = []
 
@@ -465,8 +474,8 @@ class CorefModel(TFModel):
 
         with tf.variable_scope("iteration"):
             with tf.variable_scope("antecedent_scoring"):
-                antecedent_scores = custom_layers.ffnn(pair_emb, self.ffnn_depth, self.ffnn_size, 1,
-                                                       self.dropout)  # [num_mentions, max_ant, 1]
+                antecedent_scores = ffnn(pair_emb, self.ffnn_depth, self.ffnn_size, 1,
+                                         self.dropout)  # [num_mentions, max_ant, 1]
 
         antecedent_scores = tf.squeeze(antecedent_scores, 2)  # [num_mentions, max_ant]
 
@@ -476,7 +485,7 @@ class CorefModel(TFModel):
 
         antecedent_scores += tf.expand_dims(mention_scores, 1) + tf.gather(mention_scores,
                                                                            antecedents)  # [num_mentions, max_ant]
-        antecedent_scores = tf.concat([tf.zeros([custom_layers.shape(mention_scores, 0), 1], dtype=tf.float64),
+        antecedent_scores = tf.concat([tf.zeros([shape(mention_scores, 0), 1], dtype=tf.float64),
                                        antecedent_scores],
                                       1)  # [num_mentions, max_ant + 1]
         return antecedent_scores  # [num_mentions, max_ant + 1]
@@ -497,7 +506,7 @@ class CorefModel(TFModel):
         if emb_rank == 2:
             flattened_emb = tf.reshape(emb, [num_sentences * max_sentence_length])
         elif emb_rank == 3:
-            flattened_emb = tf.reshape(emb, [num_sentences * max_sentence_length, custom_layers.shape(emb, 2)])
+            flattened_emb = tf.reshape(emb, [num_sentences * max_sentence_length, shape(emb, 2)])
         else:
             raise ValueError("Unsupported rank: {}".format(emb_rank))
         return tf.boolean_mask(flattened_emb, text_len_mask)
@@ -518,10 +527,10 @@ class CorefModel(TFModel):
         inputs = tf.transpose(text_emb, [1, 0, 2])  # [max_sentence_length, num_sentences, emb]
 
         with tf.variable_scope("fw_cell"):
-            cell_fw = custom_layers.CustomLSTMCell(self.lstm_size, num_sentences, self.dropout)
+            cell_fw = CustomLSTMCell(self.lstm_size, num_sentences, self.dropout)
             preprocessed_inputs_fw = cell_fw.preprocess_input(inputs)
         with tf.variable_scope("bw_cell"):
-            cell_bw = custom_layers.CustomLSTMCell(self.lstm_size, num_sentences, self.dropout)
+            cell_bw = CustomLSTMCell(self.lstm_size, num_sentences, self.dropout)
             preprocessed_inputs_bw = cell_bw.preprocess_input(inputs)
             preprocessed_inputs_bw = tf.reverse_sequence(preprocessed_inputs_bw,
                                                          seq_lengths=text_len,
@@ -606,17 +615,17 @@ class CorefModel(TFModel):
                 tf.get_variable("char_embeddings", [len(self.char_dict), self.char_embedding_size]),
                 char_index)  # [num_sentences, max_sentence_length, max_word_length, emb]
             flattened_char_emb = tf.reshape(char_emb, [num_sentences * max_sentence_length,
-                                                       custom_layers.shape(char_emb, 2),
-                                                       custom_layers.shape(char_emb, 3)])
+                                                       shape(char_emb, 2),
+                                                       shape(char_emb, 3)])
             # [num_sentences * max_sentence_length, max_word_length, emb]
 
-            flattened_aggregated_char_emb = custom_layers.cnn(flattened_char_emb, self.filter_widths, self.filter_size)
+            flattened_aggregated_char_emb = cnn(flattened_char_emb, self.filter_widths, self.filter_size)
             # [num_sentences * max_sentence_length, emb]
 
             aggregated_char_emb = tf.reshape(flattened_aggregated_char_emb,
                                              [num_sentences,
                                               max_sentence_length,
-                                              custom_layers.shape(flattened_aggregated_char_emb, 1)])
+                                              shape(flattened_aggregated_char_emb, 1)])
             # [num_sentences, max_sentence_length, emb]
 
             text_emb_list.append(aggregated_char_emb)
