@@ -102,7 +102,7 @@
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
       "MODELS_PATH": "{ROOT_PATH}/coreference",
-      "CONFIGS_PATH": "./configs/"
+      "CONFIGS_PATH": "{DEEPPAVLOV_PATH}/configs/"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf-gpu.txt",
@@ -120,7 +120,11 @@
       {
         "url": "http://files.deeppavlov.ai/coreference_models/rucor_old_model_full_checkpoint.zip",
         "subdir": "{MODELS_PATH}/rucor_checkpoints/old_model_full/"
-      }
+      },
+      {
+        "url": "http://files.deeppavlov.ai/coreference_models/rucor_char.dict",
+        "subdir": "{MODELS_PATH}"
+     }
     ]
   }
 }
