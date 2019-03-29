@@ -33,7 +33,7 @@
         "id": "embedder",
         "class_name": "fasttext",
         "pad_zero": true,
-        "load_path": "~/Work/Embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin"
+        "load_path": "{DOWNLOADS_PATH}/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin"
       },
       {
         "id": "ner",
@@ -116,6 +116,10 @@
       {
         "url": "http://files.deeppavlov.ai/embeddings/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize/ft_native_300_ru_wiki_lenta_nltk_wordpunct_tokenize.bin",
         "subdir": "{DOWNLOADS_PATH}/embeddings"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/coreference_models/rucor_old_model_full_checkpoint.zip",
+        "subdir": "{MODELS_PATH}/rucor_checkpoints/old_model_full/"
       }
     ]
   }
