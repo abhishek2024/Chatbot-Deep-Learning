@@ -7,7 +7,7 @@
         "info": "Generative model",
         "class_name": "transformer_chit_chat",
         "bert_vocab_path": "{MODELS_PATH}/transformer_chit_chat/model/std_lm_vocab.40k.txt",
-        "load_path": "{MODELS_PATH}/transformer_chit_chat_40k_v01_1_20/model/bert_v40k_fin_v0.1.1.21",
+        "load_path": "{MODELS_PATH}/transformer_chit_chat_40k_v01_1_20/model/bert_v40k_fin_v0.1.1.40",
         "in": ["utterances_batch", "history_batch", "states_batch"],
         "out": ["answer_batch", "confidence","states_batch"]
       }

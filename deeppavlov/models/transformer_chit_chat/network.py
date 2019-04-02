@@ -167,7 +167,7 @@ def switch_hypt(cntx):
     # hight_prob_hypts = renew_hypt_conf(hight_prob_hypts, lambda c, h: c*1)
     # last_correlation_hypts = renew_hypt_conf(last_correlation_hypts, lambda c, h: c*2)
     # persona_correlation_hypts = renew_hypt_conf(persona_correlation_hypts, lambda c, h: c*2)
-    res_hypts = hypts[: 3]
+    res_hypts = hypts[: 1]
     # res_hypts = hight_prob_hypts + last_correlation_hypts + persona_correlation_hypts
 
     def drop_conf_of_question(conf, hypt):
@@ -191,7 +191,7 @@ def switch_hypt(cntx):
 
         confs = np.array(confs)
         confs = confs/confs.sum()
-        return np.random.choice(answers, p=confs)
+        return np.random.choice(answers, p=[1])
     else:
         return random.sample(["Не знаю, что сказать... Как дела?",
                               "Как все сложно. Извини, не понимаю.",
