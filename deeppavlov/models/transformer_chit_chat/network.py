@@ -183,7 +183,7 @@ def switch_hypt(cntx):
             return conf
 
     # res_hypts = renew_hypt_conf(res_hypts, drop_conf_of_question)
-    pprint.pprint(res_hypts)
+    # pprint.pprint(res_hypts)
     if res_hypts:
         confs, answers = list(zip(*res_hypts))
         # pprint.pprint(confs)
@@ -340,6 +340,15 @@ class TransformerChitChat(Serializable):
                 new_obj.append(obj)
         return new_obj
 
+    def drop_max_len(self, objs, max_len=15) -> List[str]:
+        new_obj = []
+        for obj in objs:
+            if type(obj).__name__ == 'RichMessage':
+                new_obj.append(obj.json()[0].get('content', ''))
+            else:
+                new_obj.append(obj)
+        return objs[:max_len]
+
     # persona= [
     #     "Я студентка.",
     #     "Я подрабатываю.",
@@ -365,8 +374,7 @@ class TransformerChitChat(Serializable):
         history_batch = copy.deepcopy(history_batch)
 
         history_batch = [self.drop_rich_msg(his) for his in history_batch]
-        # print(utterances_batch)
-        # print(history_batch)
+        history_batch = [self.drop_max_len(his,15) for his in history_batch]
 
         [history.append(utter) for utter, history in zip(utterances_batch, history_batch)]
         tagged_persona_batch = [self.context2tagged_context(self.persona) for _ in history_batch]
