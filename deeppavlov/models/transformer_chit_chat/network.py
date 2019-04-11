@@ -164,11 +164,11 @@ def switch_hypt(cntx):
     hight_prob_hypts = renew_hypt_conf(hight_prob_hypts, lambda c, h: 1)
     last_correlation_hypts = renew_hypt_conf(last_correlation_hypts, lambda c, h: 4)
     persona_correlation_hypts = renew_hypt_conf(persona_correlation_hypts, lambda c, h: 2)
-    # hight_prob_hypts = renew_hypt_conf(hight_prob_hypts, lambda c, h: c*1)
-    # last_correlation_hypts = renew_hypt_conf(last_correlation_hypts, lambda c, h: c*2)
-    # persona_correlation_hypts = renew_hypt_conf(persona_correlation_hypts, lambda c, h: c*2)
-    res_hypts = hypts[: 1]
-    # res_hypts = hight_prob_hypts + last_correlation_hypts + persona_correlation_hypts
+    hight_prob_hypts = renew_hypt_conf(hight_prob_hypts, lambda c, h: c*1)
+    last_correlation_hypts = renew_hypt_conf(last_correlation_hypts, lambda c, h: c*2)
+    persona_correlation_hypts = renew_hypt_conf(persona_correlation_hypts, lambda c, h: c*2)
+    # res_hypts = hypts[: 3]
+    res_hypts = hight_prob_hypts + last_correlation_hypts + persona_correlation_hypts
 
     def drop_conf_of_question(conf, hypt):
         if len(cntx.his) < 20 and '?' in hypt:
@@ -371,6 +371,7 @@ class TransformerChitChat(Serializable):
     ]
 
     def __call__(self, utterances_batch, history_batch, states_batch, *args, **kwargs) -> List[float]:
+        history_batch = [[his]*10 for his in utterances_batch]
         history_batch = copy.deepcopy(history_batch)
 
         history_batch = [self.drop_rich_msg(his) for his in history_batch]
@@ -388,16 +389,17 @@ class TransformerChitChat(Serializable):
                                             batch_first=True,
                                             padding_value=self.transformer.padding_idx)
         predictions, confidence = self.transformer.predict([tagged_persona_batch, tagged_context_batch])
-        predictions_batch = []
-        for beam_pred, beam_conf in zip(predictions, confidence):
-            lines = []
-            for prediction, conf in zip(beam_pred, beam_conf):
-                tokens = [id for id in prediction if id not in self.vocab.special_tokens_ids]
-                sent = detokenize(self.vocab.ids2string(tokens).split())
-                line = sent
-                # line = f'{conf:4} - ' + sent
-                lines.append(line)
-            # lines.sort(reverse=True)
-            predictions_batch.append(lines)
-        predictions_batch = [hacking(self.persona, his, hyp_answers, confs) for his, hyp_answers, confs in zip(history_batch, predictions_batch, confidence)]
-        return predictions_batch, confidence
+        # predictions_batch = []
+        # for beam_pred, beam_conf in zip(predictions, confidence):
+        #     lines = []
+        #     for prediction, conf in zip(beam_pred, beam_conf):
+        #         tokens = [id for id in prediction if id not in self.vocab.special_tokens_ids]
+        #         sent = detokenize(self.vocab.ids2string(tokens).split())
+        #         line = sent
+        #         # line = f'{conf:4} - ' + sent
+        #         lines.append(line)
+        #     # lines.sort(reverse=True)
+        #     predictions_batch.append(lines)
+        # predictions_batch = [hacking(self.persona, his, hyp_answers, confs) for his, hyp_answers, confs in zip(history_batch, predictions_batch, confidence)]
+        # return predictions_batch, confidence
+        return predictions, confidence
