@@ -124,9 +124,9 @@
     "epochs": 100,
     "batch_size": 32,
     "metrics": [
+      "f1_macro",
       "sets_accuracy",
       "f1_weighted",
-      "f1_macro",
       {
         "name": "roc_auc",
         "inputs": ["y_onehot", "y_pred_probas"]
@@ -135,6 +135,7 @@
     "validation_patience": 5,
     "val_every_n_epochs": 1,
     "log_every_n_epochs": 1,
+    "log_every_n_batches": 100,
     "show_examples": false,
     "evaluation_targets": [
       "train",
@@ -148,7 +149,7 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/dit_moscow_mail_class_v4"
+      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/dit_moscow_mail_class_v6"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
