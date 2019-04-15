@@ -15,7 +15,7 @@ import numpy as np
 import pprint
 # %%
 # model = build_model(config=configs.generative_chit_chat.transformer_chit_chat)
-model = build_model(config=configs.generative_chit_chat.transformer_chit_chat_40k_v05)
+model = build_model(config=configs.generative_chit_chat.transformer_chit_chat_40k_v10)
 # model = build_model(config=configs.generative_chit_chat.transformer_chit_chat_100k)
 # model = build_model(config=configs.generative_chit_chat.transformer_chit_chat)
 model.load()
