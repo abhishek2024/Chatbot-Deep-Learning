@@ -20,8 +20,10 @@ pymorphy2==0.8
 pymorphy2-dicts-ru
 
 # integration tools
-pytelegrambotapi==3.5.2
 requests==2.19.1
+aiohttp==3.5.4
+aiodns==2.0.0
 flask==1.0.2
 flasgger==0.9.1
 flask_cors==3.0.6
+pytelegrambotapi==3.5.2
