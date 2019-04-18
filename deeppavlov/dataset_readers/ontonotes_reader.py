@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import Path
 import pickle
+from logging import getLogger
+from pathlib import Path
 
+from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.dataset_reader import DatasetReader
 from deeppavlov.core.data.utils import download
-from deeppavlov.core.common.registry import register
+
+log = getLogger(__name__)
 
 
 @register('ontonotes_reader')
@@ -25,7 +28,12 @@ class OntonotesReader(DatasetReader):
     """Class to read training datasets in OntoNotes format"""
     URL = 'http://files.deeppavlov.ai/datasets/ontonotes_senna.pckl'
 
-    def read(self, data_path, file_name: str='ontonotes_senna.pckl', provide_senna_pos=False, provide_senna_ner=False):
+    def __init__(self):
+        log.warning('ontonotes_reader is deprecated and will be removed in future versions.'
+                    ' Please, use conll2003_reader with `"dataset_name": "ontonotes"` instead')
+
+    def read(self, data_path, file_name: str = 'ontonotes_senna.pckl', provide_senna_pos=False,
+             provide_senna_ner=False):
         path = Path(data_path).resolve() / file_name
         if not path.exists():
             download(str(path), self.URL)

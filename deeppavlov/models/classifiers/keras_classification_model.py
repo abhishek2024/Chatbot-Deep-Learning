@@ -14,6 +14,7 @@
 
 from pathlib import Path
 from typing import List, Tuple, Optional, Generator, Union
+from logging import getLogger
 from copy import deepcopy
 
 import numpy as np
@@ -35,36 +36,32 @@ from overrides import overrides
 from deeppavlov.core.common.errors import ConfigError
 from deeppavlov.core.common.file import save_json, read_json
 from deeppavlov.core.common.registry import register
-from deeppavlov.core.models.keras_model import KerasModel
-from deeppavlov.core.common.log import get_logger
+from deeppavlov.core.models.keras_model import LRScheduledKerasModel
 from deeppavlov.core.layers.keras_layers import additive_self_attention, multiplicative_self_attention
 
-
-log = get_logger(__name__)
+log = getLogger(__name__)
 
 
 @register('keras_classification_model')
-class KerasClassificationModel(KerasModel):
+class KerasClassificationModel(LRScheduledKerasModel):
     """
     Class implements Keras model for classification task for multi-class multi-labeled data.
 
     Args:
-        text_size: maximal length of text in tokens (words),
-                longer texts are cutted,
-                shorter ones are padded by zeros (pre-padding)
         embedding_size: embedding_size from embedder in pipeline
         n_classes: number of considered classes
         model_name: particular method of this class to initialize model configuration
         optimizer: function name from keras.optimizers
         loss: function name from keras.losses.
-        learning_rate: learning rate for optimizer.
-        learning_rate_decay: learning rate decay for optimizer
         last_layer_activation: parameter that determines activation function after classification layer.
                 For multi-label classification use `sigmoid`,
                 otherwise, `softmax`.
         restore_lr: in case of loading pre-trained model \
                 whether to init learning rate with the final learning rate value from saved opt
         classes: list or generator of considered classes
+        text_size: maximal length of text in tokens (words),
+                longer texts are cut,
+                shorter ones are padded with zeros (pre-padding)
         padding: ``pre`` or ``post`` padding to use
 
     Attributes:
@@ -80,23 +77,32 @@ class KerasClassificationModel(KerasModel):
         padding: ``pre`` or ``post`` padding to use
     """
 
-    def __init__(self, text_size: int, embedding_size: int, n_classes: int,
+    def __init__(self, embedding_size: int, n_classes: int,
                  model_name: str, optimizer: str = "Adam", loss: str = "binary_crossentropy",
-                 learning_rate: float = 0.01, learning_rate_decay: float = 0.,
-                 last_layer_activation="sigmoid",
+                 learning_rate: Union[None, float, List[float]] = None,
+                 learning_rate_decay: Optional[Union[float, str]] = 0.,
+                 last_layer_activation: str = "sigmoid",
                  restore_lr: bool = False,
                  classes: Optional[Union[list, Generator]] = None,
+                 text_size: Optional[int] = None,
                  padding: Optional[str] = "pre",
                  **kwargs):
         """
         Initialize model using parameters
         from opt dictionary (from config), if model is being initialized from saved.
         """
+        if learning_rate is None and isinstance(learning_rate_decay, float):
+            learning_rate = 0.01
+        elif learning_rate is None and learning_rate_decay is None:
+            learning_rate = 0.01
+            learning_rate_decay = 0.
+        elif isinstance(learning_rate, float) and "learning_rate_drop_patience" in kwargs:
+            learning_rate_decay = "no"
+
         if classes is not None:
             classes = list(classes)
 
-        given_opt = {"text_size": text_size,
-                     "embedding_size": embedding_size,
+        given_opt = {"embedding_size": embedding_size,
                      "n_classes": n_classes,
                      "model_name": model_name,
                      "optimizer": optimizer,
@@ -106,6 +112,7 @@ class KerasClassificationModel(KerasModel):
                      "last_layer_activation": last_layer_activation,
                      "restore_lr": restore_lr,
                      "classes": classes,
+                     "text_size": text_size,
                      "padding": padding,
                      **kwargs}
         self.opt = deepcopy(given_opt)
@@ -120,50 +127,15 @@ class KerasClassificationModel(KerasModel):
         if self.n_classes == 0:
             raise ConfigError("Please, provide vocabulary with considered intents.")
 
-        self.load(model_name=model_name)
-        # in case of pre-trained after loading in self.opt we have stored parameters
-        # now we can restore lear rate if needed
-        if restore_lr:
-            learning_rate = self.opt.get("final_learning_rate", learning_rate)
-
-        self.model = self.compile(self.model, optimizer_name=optimizer, loss_name=loss,
-                                  learning_rate=learning_rate, learning_rate_decay=learning_rate_decay)
-
-        self._change_not_fixed_params(**given_opt)
+        self.load()
 
         summary = ['Model was successfully initialized!', 'Model summary:']
         self.model.summary(print_fn=summary.append)
         log.info('\n'.join(summary))
 
-    def _change_not_fixed_params(self, **kwargs) -> None:
-        """
-        Change changable parameters from saved model to given ones.
-
-        Args:
-            kwargs: dictionary of new parameters
-
-        Returns:
-            None
-        """
-        fixed_params = [
-            "n_classes",
-            "model_name",
-            "embedding_size",
-            "fasttext_md5",
-            "kernel_sizes_cnn",
-            "filters_cnn",
-            "dense_size",
-            "units_gru",
-            "units_lstm",
-            "units_lstm_1",
-            "units_lstm_2",
-            "self_att_hid",
-            "self_att_out"
-        ]
-        for param in kwargs.keys():
-            if param not in fixed_params:
-                self.opt[param] = kwargs.get(param)
-        return
+    @overrides
+    def get_optimizer(self):
+        return self.model.optimizer
 
     def pad_texts(self, sentences: List[List[np.ndarray]]) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
         """
@@ -185,35 +157,56 @@ class KerasClassificationModel(KerasModel):
             raise ConfigError("Padding type {} is not acceptable".format(self.opt['padding']))
         return np.asarray(cutted_batch)
 
-    def train_on_batch(self, texts: List[List[np.ndarray]], labels: list) -> [float, List[float]]:
+    def check_input(self, texts: List[List[np.ndarray]]) -> np.ndarray:
+        """
+        Check and convert input to array of tokenized embedded samples
+
+        Args:
+            texts: list of tokenized embedded text samples
+
+        Returns:
+            array of tokenized embedded texts samples that are cut and padded
+        """
+        if self.opt["text_size"] is not None:
+            features = self.pad_texts(texts)
+        else:
+            if len(texts[0]):
+                features = np.array(texts)
+            else:
+                features = np.zeros((1, 1, self.opt["embedding_size"]))
+
+        return features
+
+    def train_on_batch(self, texts: List[List[np.ndarray]], labels: list) -> Union[float, List[float]]:
         """
         Train the model on the given batch
 
         Args:
-            texts: list of tokenized text samples
+            texts: list of tokenized embedded text samples
             labels: list of labels
 
         Returns:
             metrics values on the given batch
         """
-        features = self.pad_texts(texts)
+        features = self.check_input(texts)
 
         metrics_values = self.model.train_on_batch(features, np.squeeze(np.array(labels)))
         return metrics_values
 
-    def infer_on_batch(self, texts: List[List[np.ndarray]], labels: list = None) -> [float, List[float], np.ndarray]:
+    def infer_on_batch(self, texts: List[List[np.ndarray]], labels: list = None) -> \
+            Union[float, List[float], np.ndarray]:
         """
         Infer the model on the given batch
 
         Args:
-            texts: list of tokenized text samples
+            texts: list of tokenized embedded text samples
             labels: list of labels
 
         Returns:
             metrics values on the given batch, if labels are given
             predictions, otherwise
         """
-        features = self.pad_texts(texts)
+        features = self.check_input(texts)
 
         if labels:
             metrics_values = self.model.test_on_batch(features, np.squeeze(np.array(labels)))
@@ -257,8 +250,7 @@ class KerasClassificationModel(KerasModel):
 
         return model
 
-    @overrides
-    def load(self, model_name: str) -> None:
+    def _load(self, model_name: str) -> None:
         """
         Initialize uncompiled model from saved params and weights
 
@@ -280,7 +272,7 @@ class KerasClassificationModel(KerasModel):
 
                 log.info("[initializing `{}` from saved]".format(self.__class__.__name__))
 
-                self.opt = read_json(opt_path)
+                self.opt["final_learning_rate"] = read_json(opt_path).get("final_learning_rate")
 
                 model_func = getattr(self, model_name, None)
                 if callable(model_func):
@@ -289,7 +281,10 @@ class KerasClassificationModel(KerasModel):
                     raise AttributeError("Model {} is not defined".format(model_name))
 
                 log.info("[loading weights from {}]".format(weights_path.name))
-                model.load_weights(str(weights_path))
+                try:
+                    model.load_weights(str(weights_path))
+                except ValueError:
+                    ConfigError("Some non-changable parameters of neural network differ from given pre-trained model")
 
                 self.model = model
 
@@ -303,7 +298,8 @@ class KerasClassificationModel(KerasModel):
             return None
 
     def compile(self, model: Model, optimizer_name: str, loss_name: str,
-                learning_rate: float = 0.01, learning_rate_decay: float = 0.) -> Model:
+                learning_rate: Optional[Union[float, List[float]]],
+                learning_rate_decay: Optional[Union[float, str]]) -> Model:
         """
         Compile model with given optimizer and loss
 
@@ -319,13 +315,9 @@ class KerasClassificationModel(KerasModel):
         """
         optimizer_func = getattr(keras.optimizers, optimizer_name, None)
         if callable(optimizer_func):
-            if not (learning_rate is None):
-                if not (learning_rate_decay is None):
-                    self.optimizer = optimizer_func(lr=learning_rate, decay=learning_rate_decay)
-                else:
-                    self.optimizer = optimizer_func(lr=learning_rate)
-            elif not (learning_rate_decay is None):
-                self.optimizer = optimizer_func(decay=learning_rate_decay)
+            if isinstance(learning_rate, float) and isinstance(learning_rate_decay, float):
+                # in this case decay will be either given in config or, by default, learning_rate_decay=0.
+                self.optimizer = optimizer_func(lr=learning_rate, decay=learning_rate_decay)
             else:
                 self.optimizer = optimizer_func()
         else:
@@ -340,6 +332,22 @@ class KerasClassificationModel(KerasModel):
         model.compile(optimizer=self.optimizer,
                       loss=loss)
         return model
+
+    @overrides
+    def load(self, model_name: Optional[str] = None) -> None:
+
+        model_name = model_name or self.opt.get('model_name')
+        self._load(model_name=model_name)
+        # in case of pre-trained after loading in self.opt we have stored parameters
+        # now we can restore lear rate if needed
+        if self.opt.get("restore_lr", False) and ("final_learning_rate" in self.opt):
+            self.opt["learning_rate"] = self.opt["final_learning_rate"]
+
+        self.model = self.compile(self.model,
+                                  optimizer_name=self.opt["optimizer"],
+                                  loss_name=self.opt["loss"],
+                                  learning_rate=self.opt["learning_rate"],
+                                  learning_rate_decay=self.opt["learning_rate_decay"])
 
     @overrides
     def save(self, fname: str = None) -> None:
@@ -368,8 +376,9 @@ class KerasClassificationModel(KerasModel):
         # if model was loaded from one path and saved to another one
         # then change load_path to save_path for config
         self.opt["epochs_done"] = self.epochs_done
-        self.opt["final_learning_rate"] = K.eval(self.optimizer.lr) / (1. +
-                                                                       K.eval(self.optimizer.decay) * self.batches_seen)
+        if isinstance(self.opt.get("learning_rate", None), float):
+            self.opt["final_learning_rate"] = K.eval(self.optimizer.lr) / (1. +
+                                                                           K.eval(self.optimizer.decay) * self.batches_seen)
 
         if self.opt.get("load_path") and self.opt.get("save_path"):
             if self.opt.get("save_path") != self.opt.get("load_path"):
@@ -745,7 +754,7 @@ class KerasClassificationModel(KerasModel):
             output_i = MaxPooling1D()(output_i)
             outputs.append(output_i)
 
-        output = concatenate(outputs, axis=1)
+        output = concatenate(outputs, axis=-1)
         output = Dropout(rate=dropout_rate)(output)
 
         output = Bidirectional(LSTM(units_lstm, activation='tanh',

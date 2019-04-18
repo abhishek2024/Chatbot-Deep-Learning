@@ -13,15 +13,15 @@
 # limitations under the License.
 
 import inspect
-from typing import Dict
+from logging import getLogger
+from typing import Dict, Any
 
 from deeppavlov.core.commands.utils import expand_path, parse_config
 from deeppavlov.core.common.errors import ConfigError
-from deeppavlov.core.common.log import get_logger
-from deeppavlov.core.common.registry import get_model, cls_from_str
+from deeppavlov.core.common.registry import get_model
 from deeppavlov.core.models.component import Component
 
-log = get_logger(__name__)
+log = getLogger(__name__)
 
 _refs = {}
 
@@ -54,7 +54,7 @@ def _init_param(param, mode):
     return param
 
 
-def from_params(params: Dict, mode: str = 'infer', **kwargs) -> Component:
+def from_params(params: Dict, mode: str = 'infer', serialized: Any = None, **kwargs) -> Component:
     """Builds and returns the Component from corresponding dictionary of parameters."""
     # what is passed in json:
     config_params = {k: _resolve(v) for k, v in params.items()}
@@ -62,7 +62,10 @@ def from_params(params: Dict, mode: str = 'infer', **kwargs) -> Component:
     # get component by reference (if any)
     if 'ref' in config_params:
         try:
-            return _refs[config_params['ref']]
+            component = _refs[config_params['ref']]
+            if serialized is not None:
+                component.deserialize(serialized)
+            return component
         except KeyError:
             e = ConfigError('Component with id "{id}" was referenced but not initialized'
                             .format(id=config_params['ref']))
@@ -74,9 +77,13 @@ def from_params(params: Dict, mode: str = 'infer', **kwargs) -> Component:
         refs = _refs.copy()
         _refs.clear()
         config = parse_config(expand_path(config_params['config_path']))
-        model = build_model(config)
+        model = build_model(config, serialized=serialized)
         _refs.clear()
         _refs.update(refs)
+        try:
+            _refs[config_params['id']] = model 
+        except KeyError:
+            pass
         return model
 
     cls_name = config_params.pop('class_name', None)
@@ -103,4 +110,6 @@ def from_params(params: Dict, mode: str = 'infer', **kwargs) -> Component:
         log.exception("Exception in {}".format(cls))
         raise
 
+    if serialized is not None:
+        component.deserialize(serialized)
     return component

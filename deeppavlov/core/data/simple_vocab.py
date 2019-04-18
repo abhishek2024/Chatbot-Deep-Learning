@@ -13,18 +13,18 @@
 # limitations under the License.
 
 from collections import Counter, defaultdict, Iterable
-from typing import Optional, Tuple
 from itertools import chain
+from logging import getLogger
+from typing import Optional, Tuple, List
 
 import numpy as np
 
-from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.errors import ConfigError
-from deeppavlov.core.common.log import get_logger
-from deeppavlov.core.models.estimator import Estimator
+from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.utils import zero_pad, is_str_batch, flatten_str_batch
+from deeppavlov.core.models.estimator import Estimator
 
-log = get_logger(__name__)
+log = getLogger(__name__)
 
 
 @register('simple_vocab')
@@ -93,6 +93,9 @@ class SimpleVocabulary(Estimator):
                 cnt = self.freqs[token]
                 f.write('{}\t{:d}\n'.format(token, cnt))
 
+    def serialize(self) -> List[Tuple[str, int]]:
+        return [(token, self.freqs[token]) for token in self._i2t]
+
     def load(self):
         self.reset()
         if self.load_path:
@@ -109,6 +112,12 @@ class SimpleVocabulary(Estimator):
                                   self.__class__.__name__))
         else:
             raise ConfigError("`load_path` for {} is not provided!".format(self))
+
+    def deserialize(self, data: List[Tuple[str, int]]) -> None:
+        self.reset()
+        if data:
+            tokens, counts = zip(*data)
+            self._add_tokens_with_freqs(tokens, counts)
 
     def load_line(self, ln):
         if self.freq_drop_load:

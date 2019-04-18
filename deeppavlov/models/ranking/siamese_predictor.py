@@ -12,16 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import numpy as np
+from logging import getLogger
 from typing import List, Iterable, Callable, Union
 
-from deeppavlov.core.common.log import get_logger
+import numpy as np
+
+from deeppavlov.core.common.registry import register
+from deeppavlov.core.data.simple_vocab import SimpleVocabulary
 from deeppavlov.core.models.component import Component
 from deeppavlov.models.ranking.keras_siamese_model import SiameseModel
-from deeppavlov.core.data.simple_vocab import SimpleVocabulary
-from deeppavlov.core.common.registry import register
 
-log = get_logger(__name__)
+log = getLogger(__name__)
 
 @register('siamese_predictor')
 class SiamesePredictor(Component):
@@ -137,6 +138,12 @@ class SiamesePredictor(Component):
             el = self.preproc_func(responses[i*self.batch_size: (i+1)*self.batch_size])
             self.preproc_responses += list(el)
 
+    def rebuild_responses(self, candidates) -> None:
+        self.attention = True
+        self.interact_pred_num = 1
+        self.preproc_responses = list()
+        self.responses = {idx: sentence for idx, sentence in enumerate(candidates)}
+        self._build_preproc_responses()
 
 
 

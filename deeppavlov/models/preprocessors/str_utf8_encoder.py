@@ -14,20 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Union, List, Tuple
-from itertools import chain
-from pathlib import Path
 from collections import Counter, OrderedDict
+from itertools import chain
+from logging import getLogger
+from typing import Union, List, Tuple
 
 import numpy as np
 from overrides import overrides
 
-from deeppavlov.core.common.registry import register
 from deeppavlov.core.common.errors import ConfigError
-from deeppavlov.core.common.log import get_logger
+from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.estimator import Estimator
 
-log = get_logger(__name__)
+log = getLogger(__name__)
 
 StrUTF8EncoderInfo = Union[List[str], List['StrUTF8EncoderInfo']]
 
@@ -139,9 +138,8 @@ class StrUTF8Encoder(Estimator):
                 for ln in self.load_path.open('r', encoding='utf8'):
                     token = ln.strip().split()[0]
                     self.tokens.append(token)
-            elif isinstance(self.load_path, Path):
-                if not self.load_path.parent.is_dir():
-                    raise ConfigError(f"Provided `load_path` for {self.__class__.__name__} doesn't exist!")
+            else:
+                raise ConfigError(f"Provided `load_path` for {self.__class__.__name__} doesn't exist!")
         else:
             raise ConfigError(f"`load_path` for {self} is not provided!")
 

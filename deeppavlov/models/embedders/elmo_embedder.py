@@ -13,8 +13,8 @@
 # limitations under the License.
 
 import sys
+from logging import getLogger
 from typing import Iterator, List, Union, Optional
-
 
 import numpy as np
 import tensorflow as tf
@@ -22,13 +22,12 @@ import tensorflow_hub as hub
 from overrides import overrides
 
 from deeppavlov.core.commands.utils import expand_path
-from deeppavlov.core.common.log import get_logger
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.utils import zero_pad, chunk_generator
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.models.tf_backend import TfModelMeta
 
-log = get_logger(__name__)
+log = getLogger(__name__)
 
 
 @register('elmo_embedder')
@@ -59,6 +58,20 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
         max_token: The number limitation of words per a batch line.
         mini_batch_size: It is used to reduce the memory requirements of the device.
 
+
+    If some required packages are missing, install all the requirements by running in command line:
+
+    .. code:: bash
+
+        python -m deeppavlov install <path_to_config>
+
+    where ``<path_to_config>`` is a path to one of the :config:`provided config files <elmo_embedder>`
+    or its name without an extension, for example :
+
+    .. code:: bash
+
+        python -m deeppavlov install elmo_ru-news
+        
     Examples:
         >>> from deeppavlov.models.embedders.elmo_embedder import ELMoEmbedder
         >>> elmo = ELMoEmbedder("http://files.deeppavlov.ai/deeppavlov_data/elmo_ru-news_wmt11-16_1.5M_steps.tar.gz")
@@ -134,13 +147,13 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
         self.elmo_output_names = elmo_output_names
         elmo_output_names_set = set(self.elmo_output_names)
         if elmo_output_names_set - set(self.elmo_output_dims.keys()):
-            log.error(f'Incorrect elmo_output_names = {elmo_output_names} . You can use either  ["default"] or some of'\
+            log.error(f'Incorrect elmo_output_names = {elmo_output_names} . You can use either  ["default"] or some of'
                       '["word_emb", "lstm_outputs1", "lstm_outputs2","elmo"]')
             sys.exit(1)
 
-        if elmo_output_names_set - set(['default']) and elmo_output_names_set - set(["word_emb", "lstm_outputs1",
-                                                                                     "lstm_outputs2", "elmo"]):
-            log.error('Incompatible conditions: you can use either  ["default"] or list of '\
+        if elmo_output_names_set - {'default'} and elmo_output_names_set - {"word_emb", "lstm_outputs1",
+                                                                            "lstm_outputs2", "elmo"}:
+            log.error('Incompatible conditions: you can use either  ["default"] or list of '
                       '["word_emb", "lstm_outputs1", "lstm_outputs2","elmo"] ')
             sys.exit(1)
 
@@ -215,8 +228,7 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
 
         return batch, tokens_length
 
-    def _mini_batch_fit(self, batch: List[List[str]],
-                        *args, **kwargs) -> Union[List[np.ndarray], np.ndarray]:
+    def _mini_batch_fit(self, batch: List[List[str]], *args, **kwargs) -> Union[List[np.ndarray], np.ndarray]:
         """
         Embed sentences from a batch.
 
@@ -250,9 +262,6 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
             elmo_output_values = [elmo_output_values_line[:length_line]
                                   for length_line, elmo_output_values_line in zip(tokens_length, elmo_output_values)]
 
-            if self.pad_zero:
-                elmo_output_values = zero_pad(elmo_output_values)
-
             if not self.concat_last_axis:
                 slice_indexes = np.cumsum(self.dim).tolist()[:-1]
                 elmo_output_values = [[np.array_split(vec, slice_indexes) for vec in tokens]
@@ -281,6 +290,9 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
         else:
             elmo_output_values = self._mini_batch_fit(batch, *args, **kwargs)
 
+        if self.pad_zero:
+            elmo_output_values = zero_pad(elmo_output_values)
+
         return elmo_output_values
 
     def __iter__(self) -> Iterator:
@@ -295,4 +307,7 @@ class ELMoEmbedder(Component, metaclass=TfModelMeta):
         yield from ['<S>', '</S>', '<UNK>']
 
     def destroy(self):
-        self.sess.close()
+        if hasattr(self, 'sess'):
+            for k in list(self.sess.graph.get_all_collection_keys()):
+                self.sess.graph.clear_collection(k)
+        super().destroy()

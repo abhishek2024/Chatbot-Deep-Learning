@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Union
 from abc import ABCMeta, abstractmethod
+from typing import Union
 
 
 class RichItem(metaclass=ABCMeta):
@@ -52,6 +52,15 @@ class RichItem(metaclass=ABCMeta):
         """
         return None
 
+    def alexa(self):
+        """Returns Amazon Alexa compatible state of the control instance
+        including its nested controls.
+
+        Returns:
+            control: Amazon Alexa representation of control state.
+        """
+        return None
+
 
 class RichControl(RichItem, metaclass=ABCMeta):
     """Base class for rich controls.
@@ -73,6 +82,9 @@ class RichControl(RichItem, metaclass=ABCMeta):
         self.content = None
         self.control_json: dict = {'type': control_type, 'content': None}
 
+    def __str__(self) -> str:
+        return ''
+
 
 class RichMessage(RichItem):
     """Container for rich controls.
@@ -87,6 +99,10 @@ class RichMessage(RichItem):
 
     def __init__(self) -> None:
         self.controls: list = []
+
+    def __str__(self) -> str:
+        result = '\n'.join(filter(bool, map(str, self.controls)))
+        return result
 
     def add_control(self, control: RichControl):
         """Adds RichControl instance to RichMessage.
@@ -128,3 +144,14 @@ class RichMessage(RichItem):
         """
         telegram_controls = [control.telegram() for control in self.controls]
         return telegram_controls
+
+    def alexa(self) -> list:
+        """Returns list of Amazon Alexa compatible states of the RichMessage
+        instance nested controls.
+
+        Returns:
+            alexa_controls: Amazon Alexa representation of RichMessage instance nested
+                controls.
+        """
+        alexa_controls = [control.alexa() for control in self.controls]
+        return alexa_controls
