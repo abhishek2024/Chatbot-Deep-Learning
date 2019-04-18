@@ -317,7 +317,7 @@ class KerasClassificationModel(LRScheduledKerasModel):
         if callable(optimizer_func):
             if isinstance(learning_rate, float) and isinstance(learning_rate_decay, float):
                 # in this case decay will be either given in config or, by default, learning_rate_decay=0.
-                self.optimizer = optimizer_func(lr=learning_rate, decay=learning_rate_decay)
+                self.optimizer = optimizer_func(lr=learning_rate, decay=learning_rate_decay, clipnorm=1.)
             else:
                 self.optimizer = optimizer_func()
         else:
