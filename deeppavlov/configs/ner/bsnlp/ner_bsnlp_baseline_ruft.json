@@ -170,12 +170,8 @@
     "download": [
       {
         "url": "http://files.deeppavlov.ai/embeddings/lenta_lower_100.bin",
-        "subdir": "{MODELS_PATH}"
-      },
-      {
-        "url": "http://files.deeppavlov.ai/embeddings/glove.6B.100d.txt",
         "subdir": "{DOWNLOADS_PATH}/embeddings"
       }
-    ]
+   ] 
   }
 }
