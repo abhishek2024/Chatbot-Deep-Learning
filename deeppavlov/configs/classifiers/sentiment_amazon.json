@@ -29,7 +29,17 @@
         "out": "y_ids"
       },
       {
-        "in": "x",
+        "in": [
+          "x"
+        ],
+        "out": [
+          "x_prep"
+        ],
+        "class_name": "dirty_comments_preprocessor",
+        "remove_punctuation": false
+      },
+      {
+        "in": "x_prep",
         "out": "x_tok",
         "id": "my_tokenizer",
         "class_name": "nltk_tokenizer",
@@ -39,12 +49,9 @@
         "in": ["x_tok"],
         "out": ["x_emb"],
         "id": "my_embedder",
-        "class_name": "elmo_embedder",
-        "elmo_output_names": [
-          "elmo"
-        ],
-        "mini_batch_size": 8,
-        "spec": "https://tfhub.dev/google/elmo/2"
+        "class_name": "fasttext",
+        "load_path": "{DOWNLOADS_PATH}/embeddings/wiki.en.bin",
+        "pad_zero": true
       },
       {
         "in": "y_ids",
@@ -76,9 +83,8 @@
         "filters_cnn": 256,
         "optimizer": "Adam",
         "learning_rate": 0.01,
-        "learning_rate_decay": 0.1,
-        "loss": "categorical_crossentropy",
-        "text_size": 50,
+        "learning_rate_decay": 0.01,
+        "loss": "binary_crossentropy",
         "last_layer_activation": "softmax",
         "coef_reg_cnn": 1e-3,
         "coef_reg_den": 1e-2,
@@ -104,10 +110,11 @@
   },
   "train": {
     "epochs": 100,
-    "batch_size": 512,
+    "batch_size": 64,
     "metrics": [
-      "sets_accuracy",
       "f1_macro",
+      "f1_weighted",
+      "sets_accuracy",
       {
         "name": "roc_auc",
         "inputs": ["y_onehot", "y_pred_probas"]
@@ -116,16 +123,17 @@
     "validation_patience": 5,
     "val_every_n_epochs": 1,
     "log_every_n_epochs": 1,
+    "log_every_n_batches": 500,
     "show_examples": false,
     "validate_best": true,
     "test_best": true,
-    "tensorboard_log_dir": "classifiers/amazon_review_v0"
+    "tensorboard_log_dir": "{MODELS_PATH}/logs"
   },
   "metadata": {
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/amazon_review_v0"
+      "MODELS_PATH": "{ROOT_PATH}/models/classifiers/amazon_review_v1"
     },
     "requirements": [
       "../dp_requirements/tf.txt",
