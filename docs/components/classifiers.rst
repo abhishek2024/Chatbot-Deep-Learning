@@ -135,6 +135,14 @@ to 4 points scale). Test set is initial one from a web-site, valid is a
 Stratified division 1/5 from the train set from web-site with 42 seed,
 and the train set is the rest.
 
+`AffectiveText <http://web.eecs.umich.edu/~mihalcea/affectivetext/>`__,
+`DailyDialogs <http://yanran.li/dailydialog.html>`__,
+`EmotionStimulus <http://www.site.uottawa.ca/~diana/resources/emotion_stimulus_data/>`__,
+`TEC <http://saifmohammad.com/WebPages/SentimentEmotionLabeledData.html>`__
+contain **sentiment classification** on six of Ekman's emotions (`joy`, `surprise`, `sadness`, `anger`,
+`fear`, `disgust`, `sad`), `shame` and `no emotion` classes. In our experiments all these datasets are combined,
+shuffled and splitted on `train`, `valid` and `test` in proportion 8/1/1.
+
 `Twitter mokoron dataset <http://study.mokoron.com/>`__ contains
 **sentiment classification** of Russian tweets for positive and negative
 replies [2]_. It was automatically labeled.
@@ -183,6 +191,11 @@ Therefore, this model is available only for interaction.
 |                  |                    |      | :config:`English BERT <classifiers/insults_kaggle_bert.json>`                                   |             | 0.9255 | 0.8612 |  1200 Mb  |
 +------------------+--------------------+      +-------------------------------------------------------------------------------------------------+-------------+--------+--------+-----------+
 | 5 topics         | `AG News`_         |      | :config:`Wiki emb <classifiers/topic_ag_news.json>`                                             | Accuracy    | 0.8922 | 0.9059 |  8.5 Gb   |
++------------------+--------------------+      +-------------------------------------------------------------------------------------------------+             +--------+--------+-----------+
+| Ekman's emotions | `AffectiveText`_   |      | :config:`Wiki emb <classifiers/english_ekmans_emotions.json>`                                   |             | 0.8209 | 0.8525 |  8.5 Gb   |
+|                  | `DailyDialogs`_    |      |                                                                                                 |             |        |        |  8.5 Gb   |
+|                  | `EmotionStimulus`_ |      |                                                                                                 |             |        |        |  8.5 Gb   |
+|                  | `TEC`_             |      |                                                                                                 |             |        |        |  8.5 Gb   |
 +------------------+--------------------+------+-------------------------------------------------------------------------------------------------+             +--------+--------+-----------+
 | Sentiment        |`Twitter mokoron`_  | Ru   | :config:`RuWiki+Lenta emb w/o preprocessing <classifiers/sentiment_twitter.json>`               |             | 0.9965 | 0.9961 |  6.2 Gb   |
 +                  +                    +      +-------------------------------------------------------------------------------------------------+             +--------+--------+-----------+
@@ -203,6 +216,10 @@ Therefore, this model is available only for interaction.
 .. _`SNIPS-2017`: https://github.com/snipsco/nlu-benchmark/tree/master/2017-06-custom-intent-engines
 .. _`Insults`: https://www.kaggle.com/c/detecting-insults-in-social-commentary
 .. _`AG News`: https://www.di.unipi.it/~gulli/AG_corpus_of_news_articles.html
+.. _`AffectiveText`: http://web.eecs.umich.edu/~mihalcea/affectivetext/
+.. _`DailyDialogs`: http://yanran.li/dailydialog.html
+.. _`EmotionStimulus`: http://www.site.uottawa.ca/~diana/resources/emotion_stimulus_data/
+.. _`TEC`: http://saifmohammad.com/WebPages/SentimentEmotionLabeledData.html
 .. _`Twitter mokoron`: http://study.mokoron.com/
 .. _`RuSentiment`: http://text-machine.cs.uml.edu/projects/rusentiment/
 .. _`Yahoo-L31`: https://webscope.sandbox.yahoo.com/catalog.php?datatype=l
