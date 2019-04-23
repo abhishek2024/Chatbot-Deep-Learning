@@ -107,8 +107,18 @@ class Wrapper(metaclass=ABCMeta):
 
         await self._out_gateway.respond(response, utterance_id)
 
-    def _process_skill(self, utterance: str, utterance_id: Hashable):
-        pass
+    async def _process_skill(self, utterance: str, utterance_id: Hashable):
+        self._histories[utterance_id].append(utterance)
 
-    def _process_agent(self, utterance: str, utterance_id: Hashable):
-        pass
+        response = await self._infer_gateway.infer(utterance, self._histories[utterance_id], self._states[utterance_id])
+        # TODO: may be this unpacking logic should be moved to infer gateway
+        response = list(response) + [None] * (2 - len(response)) if isinstance(response, tuple) else [response, None]
+
+        self._histories[utterance_id].append(str(response[0]))
+        self._states[utterance_id] = response[1]
+
+        await self._out_gateway.respond(str(response[0]), utterance_id)
+
+    async def _process_agent(self, utterance: str, utterance_id: Hashable):
+        response = await self._infer_gateway.infer(utterance, utterance_id)
+        await self._out_gateway.respond(response, utterance_id)
