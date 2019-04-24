@@ -15,7 +15,7 @@
 from logging import getLogger
 
 import tensorflow as tf
-from tensorflow.contrib.layers import xavier_initializer as xav
+from tensorflow.keras.initializers import glorot_uniform as xav
 
 from deeppavlov.core.layers import tf_csoftmax_attention as csoftmax_attention
 

@@ -20,7 +20,9 @@ from typing import Optional, List, Union
 
 import numpy as np
 import tensorflow as tf
-from keras import backend as K
+from tensorflow import keras
+
+from tensorflow.keras import backend as K
 from overrides import overrides
 
 from deeppavlov.core.models.nn_model import NNModel

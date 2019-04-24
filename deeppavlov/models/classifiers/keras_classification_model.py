@@ -18,19 +18,21 @@ from logging import getLogger
 from copy import deepcopy
 
 import numpy as np
-import keras.metrics
-import keras.optimizers
-from keras import backend as K
-from keras.layers import Dense, Input
-from keras.layers import concatenate, Activation, Concatenate, Reshape
-from keras.layers.convolutional import Conv1D
-from keras.layers.core import Dropout
-from keras.layers.normalization import BatchNormalization
-from keras.layers.pooling import GlobalMaxPooling1D, MaxPooling1D, GlobalAveragePooling1D
-from keras.layers.recurrent import LSTM, GRU
-from keras.layers.wrappers import Bidirectional
-from keras.models import Model
-from keras.regularizers import l2
+import tensorflow.keras.metrics
+import tensorflow.keras.optimizers
+
+from tensorflow import keras
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import Dense, Input
+from tensorflow.keras.layers import concatenate, Activation, Concatenate, Reshape
+from tensorflow.keras.layers import Convolution1D as Conv1D
+from tensorflow.keras.layers import Dropout
+from tensorflow.keras.layers import BatchNormalization
+from tensorflow.keras.layers import GlobalMaxPooling1D, MaxPooling1D, GlobalAveragePooling1D
+from tensorflow.keras.layers import LSTM, GRU
+from tensorflow.keras.layers import Bidirectional
+from tensorflow.keras.models import Model
+from tensorflow.keras.regularizers import l2
 from overrides import overrides
 
 from deeppavlov.core.common.errors import ConfigError

@@ -23,7 +23,9 @@ from deeppavlov.core.common.check_gpu import check_gpu_existence
 log = getLogger(__name__)
 
 
-INITIALIZER = tf.orthogonal_initializer
+#INITIALIZER = tf.orthogonal_initializer
+INITIALIZER = tf.keras.initializers.Orthogonal
+
 # INITIALIZER = xavier_initializer
 
 
