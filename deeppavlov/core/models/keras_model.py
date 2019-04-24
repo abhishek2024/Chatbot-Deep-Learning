@@ -67,10 +67,10 @@ class KerasModel(NNModel, metaclass=TfModelMeta):
         Returns:
             tensorflow.Session
         """
-        config = tf.ConfigProto()
+        config = tf.compat.v1.ConfigProto()
         config.gpu_options.allow_growth = True
         config.gpu_options.visible_device_list = '0'
-        return tf.Session(config=config)
+        return tf.compat.v1.Session(config=config)
 
     @abstractmethod
     def load(self, *args, **kwargs) -> None:

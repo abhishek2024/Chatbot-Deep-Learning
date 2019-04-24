@@ -30,7 +30,7 @@ def _graph_wrap(func, graph):
 
 def _keras_wrap(func, graph, session):
     """Constructs function encapsulated in the graph and the session."""
-    import keras.backend as K
+    import tensorflow.keras.backend as K
 
     @wraps(func)
     def _wrapped(*args, **kwargs):
@@ -46,7 +46,7 @@ class TfModelMeta(with_metaclass(type, ABCMeta)):
         obj = cls.__new__(cls)
         from .keras_model import KerasModel
         if issubclass(cls, KerasModel):
-            import keras.backend as K
+            import tensorflow.keras.backend as K
             if K.backend() != 'tensorflow':
                 obj.__init__(*args, **kwargs)
                 return obj
