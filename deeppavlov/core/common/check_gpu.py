@@ -27,7 +27,7 @@ def check_gpu_existence():
     r"""Return True if at least one GPU is available"""
     global _gpu_available
     if _gpu_available is None:
-        sess_config = tf.ConfigProto()
+        sess_config = tf.compat.v1.ConfigProto()
         sess_config.gpu_options.allow_growth = True
         try:
             with tf.Session(config=sess_config):
