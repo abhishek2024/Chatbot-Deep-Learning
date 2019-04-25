@@ -108,7 +108,7 @@ class NerNetwork(LRScheduledTFModel):
         super().__init__(**kwargs)
         self._add_training_placeholders(dropout_keep_prob)
         self._xs_ph_list = []
-        self._y_ph = tf.placeholder(tf.int32, [None, None], name='y_ph')
+        self._y_ph = tf.compat.v1.placeholder(tf.int32, [None, None], name='y_ph')
         self._input_features = []
 
         # ================ Building input features =================
@@ -167,50 +167,50 @@ class NerNetwork(LRScheduledTFModel):
         self.load()
 
     def _add_training_placeholders(self, dropout_keep_prob):
-        self._dropout_ph = tf.placeholder_with_default(dropout_keep_prob, shape=[], name='dropout')
-        self.training_ph = tf.placeholder_with_default(False, shape=[], name='is_training')
+        self._dropout_ph = tf.compat.v1.placeholder_with_default(dropout_keep_prob, shape=[], name='dropout')
+        self.training_ph = tf.compat.v1.placeholder_with_default(False, shape=[], name='is_training')
 
     def _add_word_embeddings(self, token_emb_mat, token_emb_dim=None):
         if token_emb_mat is None:
-            token_ph = tf.placeholder(tf.float32, [None, None, token_emb_dim], name='Token_Ind_ph')
+            token_ph = tf.compat.v1.placeholder(tf.float32, [None, None, token_emb_dim], name='Token_Ind_ph')
             emb = token_ph
         else:
-            token_ph = tf.placeholder(tf.int32, [None, None], name='Token_Ind_ph')
+            token_ph = tf.compat.v1.placeholder(tf.int32, [None, None], name='Token_Ind_ph')
             emb = embedding_layer(token_ph, token_emb_mat)
         self._xs_ph_list.append(token_ph)
         self._input_features.append(emb)
 
     def _add_mask(self):
-        mask_ph = tf.placeholder(tf.float32, [None, None], name='Mask_ph')
+        mask_ph = tf.compat.v1.placeholder(tf.float32, [None, None], name='Mask_ph')
         self._xs_ph_list.append(mask_ph)
         return mask_ph
 
     def _add_char_embeddings(self, char_emb_mat):
-        character_indices_ph = tf.placeholder(tf.int32, [None, None, None], name='Char_ph')
+        character_indices_ph = tf.compat.v1.placeholder(tf.int32, [None, None, None], name='Char_ph')
         char_embs = character_embedding_network(character_indices_ph, emb_mat=char_emb_mat)
         self._xs_ph_list.append(character_indices_ph)
         self._input_features.append(char_embs)
 
     def _add_capitalization(self, capitalization_dim):
-        capitalization_ph = tf.placeholder(tf.float32, [None, None, capitalization_dim], name='Capitalization_ph')
+        capitalization_ph = tf.compat.v1.placeholder(tf.float32, [None, None, capitalization_dim], name='Capitalization_ph')
         self._xs_ph_list.append(capitalization_ph)
         self._input_features.append(capitalization_ph)
 
     def _add_pos(self, pos_features_dim):
-        pos_ph = tf.placeholder(tf.float32, [None, None, pos_features_dim], name='POS_ph')
+        pos_ph = tf.compat.v1.placeholder(tf.float32, [None, None, pos_features_dim], name='POS_ph')
         self._xs_ph_list.append(pos_ph)
         self._input_features.append(pos_ph)
 
     def _add_additional_features(self, features_list):
         for feature, dim in features_list:
-            feat_ph = tf.placeholder(tf.float32, [None, None, dim], name=feature + '_ph')
+            feat_ph = tf.compat.v1.placeholder(tf.float32, [None, None, dim], name=feature + '_ph')
             self._xs_ph_list.append(feat_ph)
             self._input_features.append(feat_ph)
 
     def _build_cudnn_rnn(self, units, n_hidden_list, cell_type, intra_layer_dropout, mask):
-        sequence_lengths = tf.to_int32(tf.reduce_sum(mask, axis=1))
+        sequence_lengths = tf.compat.v1.to_int32(tf.reduce_sum(mask, axis=1))
         for n, n_hidden in enumerate(n_hidden_list):
-            with tf.variable_scope(cell_type.upper() + '_' + str(n)):
+            with tf.compat.v1.variable_scope(cell_type.upper() + '_' + str(n)):
                 if cell_type.lower() == 'lstm':
                     units, _ = cudnn_bi_lstm(units, n_hidden, sequence_lengths)
                 elif cell_type.lower() == 'gru':
@@ -223,7 +223,7 @@ class NerNetwork(LRScheduledTFModel):
             return units
 
     def _build_rnn(self, units, n_hidden_list, cell_type, intra_layer_dropout, mask):
-        sequence_lengths = tf.to_int32(tf.reduce_sum(mask, axis=1))
+        sequence_lengths = tf.compat.v1.to_int32(tf.reduce_sum(mask, axis=1))
         for n, n_hidden in enumerate(n_hidden_list):
             units, _ = bi_rnn(units, n_hidden, cell_type=cell_type,
                               seq_lengths=sequence_lengths, name='Layer_' + str(n))
@@ -243,9 +243,10 @@ class NerNetwork(LRScheduledTFModel):
             units = tf.layers.dense(units, n_hididden, activation=tf.nn.relu,
                                     kernel_initializer=INITIALIZER(),
                                     kernel_regularizer=tf.nn.l2_loss)
-        logits = tf.layers.dense(units, n_tags, activation=None,
-                                 kernel_initializer=INITIALIZER(),
-                                 kernel_regularizer=tf.nn.l2_loss)
+        logits = tf.compat.v1.layers.dense(units, n_tags, activation=None
+                                 #,kernel_initializer=INITIALIZER()
+                                 #,kernel_regularizer=tf.compat.v1.nn.l2_loss
+                                 )
         return logits
 
     def _build_train_predict(self, logits, mask, n_tags, use_crf, l2_reg):
