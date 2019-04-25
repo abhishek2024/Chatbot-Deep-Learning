@@ -145,7 +145,7 @@ def bi_rnn(units: tf.Tensor,
                 size and H is number of hidden units
     """
 
-    with tf.variable_scope(name + '_' + cell_type.upper()):
+    with tf.compat.v1.variable_scope(name + '_' + cell_type.upper()):
         if cell_type == 'gru':
             forward_cell = tf.nn.rnn_cell.GRUCell(n_hidden, kernel_initializer=INITIALIZER())
             backward_cell = tf.nn.rnn_cell.GRUCell(n_hidden, kernel_initializer=INITIALIZER())
@@ -155,8 +155,10 @@ def bi_rnn(units: tf.Tensor,
             else:
                 initial_state_fw = initial_state_bw = None
         elif cell_type == 'lstm':
-            forward_cell = tf.nn.rnn_cell.LSTMCell(n_hidden, use_peepholes=use_peepholes, initializer=INITIALIZER())
-            backward_cell = tf.nn.rnn_cell.LSTMCell(n_hidden, use_peepholes=use_peepholes, initializer=INITIALIZER())
+            #forward_cell = tf.keras.layers.LSTMCell(n_hidden, use_peepholes=use_peepholes, initializer=INITIALIZER())
+            forward_cell = tf.keras.layers.LSTMCell(n_hidden)
+            #backward_cell = tf.keras.layers.LSTMCell(n_hidden, use_peepholes=use_peepholes, initializer=INITIALIZER())
+            backward_cell = tf.keras.layers.LSTMCell(n_hidden)
             if trainable_initial_states:
                 initial_state_fw = tf.nn.rnn_cell.LSTMStateTuple(
                     tf.tile(tf.get_variable('init_fw_c', [1, n_hidden]), (tf.shape(units)[0], 1)),
@@ -169,7 +171,7 @@ def bi_rnn(units: tf.Tensor,
         else:
             raise RuntimeError('cell_type must be either "gru" or "lstm"s')
         (rnn_output_fw, rnn_output_bw), (fw, bw) = \
-            tf.nn.bidirectional_dynamic_rnn(forward_cell,
+            tf.compat.v1.nn.bidirectional_dynamic_rnn(forward_cell,
                                             backward_cell,
                                             units,
                                             dtype=tf.float32,
@@ -179,7 +181,7 @@ def bi_rnn(units: tf.Tensor,
     kernels = [var for var in forward_cell.trainable_variables +
                backward_cell.trainable_variables if 'kernel' in var.name]
     for kernel in kernels:
-        tf.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES, tf.nn.l2_loss(kernel))
+        tf.compat.v1.add_to_collection(tf.compat.v1.GraphKeys.REGULARIZATION_LOSSES, tf.nn.l2_loss(kernel))
     return (rnn_output_fw, rnn_output_bw), (fw, bw)
 
 
@@ -403,27 +405,28 @@ def character_embedding_network(char_placeholder: tf.Tensor,
     else:
         char_embedding_dim = emb_mat.shape[1]
     char_emb_var = tf.Variable(emb_mat, trainable=True)
-    with tf.variable_scope('Char_Emb_Network'):
+    with tf.compat.v1.variable_scope('Char_Emb_Network'):
         # Character embedding layer
         c_emb = tf.nn.embedding_lookup(char_emb_var, char_placeholder)
 
         # Character embedding network
         conv_results_list = []
         for filter_width in filter_widths:
-            conv_results_list.append(tf.layers.conv2d(c_emb,
+            conv_results_list.append(tf.compat.v1.layers.conv2d(c_emb,
                                                       char_embedding_dim,
                                                       (1, filter_width),
-                                                      padding='same',
-                                                      kernel_initializer=INITIALIZER))
-        units = tf.concat(conv_results_list, axis=3)
+                                                      padding='same'
+                                                      #,kernel_initializer=INITIALIZER
+                                                      ))
+        units = tf.compat.v1.concat(conv_results_list, axis=3)
         units = tf.reduce_max(units, axis=2)
         if highway_on_top:
-            sigmoid_gate = tf.layers.dense(units,
+            sigmoid_gate = tf.keras.layers.Dense(units,
                                            1,
                                            activation=tf.sigmoid,
                                            kernel_initializer=INITIALIZER,
                                            kernel_regularizer=tf.nn.l2_loss)
-            deeper_units = tf.layers.dense(units,
+            deeper_units = tf.keras.layers.Dense(units,
                                            tf.shape(units)[-1],
                                            kernel_initializer=INITIALIZER,
                                            kernel_regularizer=tf.nn.l2_loss)
@@ -712,7 +715,7 @@ def cudnn_compatible_lstm(units, n_hidden, n_layers=1, trainable_initial_states=
                 where H - number of hidden units
         """
 
-    with tf.variable_scope(name, reuse=reuse):
+    with tf.compat.v1.variable_scope(name, reuse=reuse):
         if trainable_initial_states:
             init_h = tf.get_variable('init_h', [n_layers, 1, n_hidden])
             init_h = tf.tile(init_h, (1, tf.shape(units)[0], 1))
@@ -724,17 +727,18 @@ def cudnn_compatible_lstm(units, n_hidden, n_layers=1, trainable_initial_states=
         initial_h = initial_h or init_h
         initial_c = initial_c or init_c
 
-        with tf.variable_scope('cudnn_lstm', reuse=reuse):
-            def single_cell(): return tf.contrib.cudnn_rnn.CudnnCompatibleLSTMCell(n_hidden)
+        with tf.compat.v1.variable_scope('cudnn_lstm', reuse=reuse):
+            #def single_cell(): return tf.compat.v1.contrib.cudnn_rnn.CudnnCompatibleLSTMCell(n_hidden)
+            def single_cell(): return tf.keras.layers.LSTMCell(n_hidden)
 
-            cell = tf.nn.rnn_cell.MultiRNNCell([single_cell() for _ in range(n_layers)])
+            cell = tf.compat.v1.nn.rnn_cell.MultiRNNCell([single_cell() for _ in range(n_layers)])
 
             units = tf.transpose(units, (1, 0, 2))
 
-            init = tuple([tf.nn.rnn_cell.LSTMStateTuple(ic, ih) for ih, ic in
+            init = tuple([tf.compat.v1.nn.rnn_cell.LSTMStateTuple(ic, ih) for ih, ic in
                           zip(tf.unstack(initial_h, axis=0), tf.unstack(initial_c, axis=0))])
 
-            h, state = tf.nn.dynamic_rnn(cell=cell, inputs=units, time_major=True, initial_state=init)
+            h, state = tf.compat.v1.nn.dynamic_rnn(cell=cell, inputs=units, time_major=True, initial_state=init)
 
             h = tf.transpose(h, (1, 0, 2))
             h_last = state[-1].h
@@ -849,17 +853,17 @@ def cudnn_bi_lstm(units,
         c_last - last cell state, tf.Tensor with dimensionality [B x H * 2]
             where H - number of hidden units
         """
-    with tf.variable_scope(name, reuse=reuse):
+    with tf.compat.v1.variable_scope(name, reuse=reuse):
         if seq_lengths is None:
             seq_lengths = tf.ones([tf.shape(units)[0]], dtype=tf.int32) * tf.shape(units)[1]
-        with tf.variable_scope('Forward'):
+        with tf.compat.v1.variable_scope('Forward'):
             h_fw, (h_fw_last, c_fw_last) = cudnn_lstm_wrapper(units,
                                                               n_hidden,
                                                               n_layers=n_layers,
                                                               trainable_initial_states=trainable_initial_states,
                                                               seq_lengths=seq_lengths)
 
-        with tf.variable_scope('Backward'):
+        with tf.compat.v1.variable_scope('Backward'):
             reversed_units = tf.reverse_sequence(units, seq_lengths=seq_lengths, seq_dim=1, batch_dim=0)
             h_bw, (h_bw_last, c_bw_last) = cudnn_lstm_wrapper(reversed_units,
                                                               n_hidden,
