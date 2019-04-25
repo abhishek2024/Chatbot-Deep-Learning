@@ -118,9 +118,9 @@ class TFModel(NNModel, metaclass=TfModelMeta):
             train_op
         """
         if optimizer_scope_name is None:
-            opt_scope = tf.variable_scope('Optimizer')
+            opt_scope = tf.compat.v1.variable_scope('Optimizer')
         else:
-            opt_scope = tf.variable_scope(optimizer_scope_name)
+            opt_scope = tf.compat.v1.variable_scope(optimizer_scope_name)
         with opt_scope:
             if learnable_scopes is None:
                 variables_to_train = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
@@ -130,7 +130,7 @@ class TFModel(NNModel, metaclass=TfModelMeta):
                     variables_to_train.extend(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope_name))
 
             if optimizer is None:
-                optimizer = tf.train.AdamOptimizer
+                optimizer = tf.optimizers.Adam
 
             # For batch norm it is necessary to update running averages
             extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
@@ -180,7 +180,7 @@ class LRScheduledTFModel(TFModel, LRScheduledModel):
     """
 
     def __init__(self,
-                 optimizer: str = 'AdamOptimizer',
+                 optimizer: str = 'Adam',
                  clip_norm: float = None,
                  momentum: float = None,
                  **kwargs) -> None:
@@ -189,17 +189,15 @@ class LRScheduledTFModel(TFModel, LRScheduledModel):
         try:
             self._optimizer = cls_from_str(optimizer)
         except Exception:
-            self._optimizer = getattr(tf.train, optimizer.split(':')[-1])
-        if not issubclass(self._optimizer, tf.train.Optimizer):
+            self._optimizer = getattr(tf.keras.optimizers, optimizer.split(':')[-1])
+        if not issubclass(self._optimizer, tf.optimizers.Optimizer):
             raise ConfigError("`optimizer` should be tensorflow.train.Optimizer subclass")
         self._clip_norm = clip_norm
 
         if (momentum is None) and\
-                self._optimizer not in (tf.train.AdagradOptimizer,
-                                        tf.train.AdagradOptimizer,
-                                        tf.train.GradientDescentOptimizer,
-                                        tf.train.ProximalGradientDescentOptimizer,
-                                        tf.train.ProximalAdagradOptimizer):
+                self._optimizer not in (tf.optimizers.Adagrad,
+                                        tf.optimizers.Adagrad,
+                                        tf.optimizers.SGD):
             momentum = 0.9
         kwargs['momentum'] = momentum
 
@@ -225,7 +223,7 @@ class LRScheduledTFModel(TFModel, LRScheduledModel):
     def get_train_op(self,
                      *args,
                      learning_rate: Union[float, tf.compat.v1.placeholder] = None,
-                     optimizer: tf.keras.optimizers.Optimizer = None,
+                     optimizer: tf.optimizers.Optimizer = None,
                      momentum: Union[float, tf.compat.v1.placeholder] = None,
                      clip_norm: float = None,
                      **kwargs):
@@ -238,9 +236,9 @@ class LRScheduledTFModel(TFModel, LRScheduledModel):
         kwargs['clip_norm'] = clip_norm or self._clip_norm
 
         momentum_param = 'momentum'
-        if kwargs['optimizer'] == tf.keras.optimizers.AdamOptimizer:
+        if kwargs['optimizer'] == tf.optimizers.Adam:
             momentum_param = 'beta1'
-        elif kwargs['optimizer'] == tf.keras.optimizers.AdadeltaOptimizer:
+        elif kwargs['optimizer'] == tf.optimizers.Adadelta:
             momentum_param = 'rho'
 
         if momentum is not None:
