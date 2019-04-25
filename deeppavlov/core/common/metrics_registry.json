@@ -9,6 +9,7 @@
   "f1_weighted": "deeppavlov.metrics.fmeasure:round_f1_weighted",
   "google_bleu": "deeppavlov.metrics.bleu:google_bleu",
   "log_loss": "deeppavlov.metrics.log_loss:sk_log_loss",
+  "ndcg": "deeppavlov.metrics.ndcg:nDCG",
   "ner_f1": "deeppavlov.metrics.fmeasure:ner_f1",
   "per_item_accuracy": "deeppavlov.metrics.accuracy:per_item_accuracy",
   "per_item_bleu": "deeppavlov.metrics.bleu:per_item_bleu",
