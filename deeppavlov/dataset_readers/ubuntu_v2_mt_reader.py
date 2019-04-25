@@ -49,6 +49,7 @@ class UbuntuV2MTReader(DatasetReader):
         dataset["train"] = self.preprocess_data_train(train_fname)
         dataset["valid"] = self.preprocess_data_validation(valid_fname)
         dataset["test"] = self.preprocess_data_validation(test_fname)
+        print(len(dataset["train"]), dataset["train"][0], type(dataset["train"][0]), len(dataset["train"][0][0]))
         return dataset
     
     def preprocess_data_train(self, train_fname: Union[Path, str]) -> List[Tuple[List[str], int]]:

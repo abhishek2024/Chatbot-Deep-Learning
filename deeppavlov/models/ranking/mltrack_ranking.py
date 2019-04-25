@@ -23,6 +23,7 @@ from deeppavlov.core.models.component import Component
 
 log = getLogger(__name__)
 
+
 @register('mltrack_ranking')
 class MLtrackRanking(Component):
 

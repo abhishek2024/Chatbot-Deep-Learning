@@ -12,30 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import csv
-from pathlib import Path
 from typing import List, Dict, Tuple, Union
+from pathlib import Path
+import csv
+import json
 
-from deeppavlov.core.commands.utils import expand_path
-from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.dataset_reader import DatasetReader
-
+from deeppavlov.core.common.registry import register
+from deeppavlov.core.commands.utils import expand_path
 
 @register('ubuntu_v2_reader')
 class UbuntuV2Reader(DatasetReader):
     """The class to read the Ubuntu V2 dataset from csv files.
 
     Please, see https://github.com/rkadlec/ubuntu-ranking-dataset-creator.
+
+    Args:
+        data_path: A path to a folder with dataset csv files.
     """
 
     def read(self, data_path: str,
              *args, **kwargs) -> Dict[str, List[Tuple[List[str], int]]]:
-        """Read the Ubuntu V2 dataset from csv files.
-
-        Args:
-            data_path: A path to a folder with dataset csv files.
-        """
-
         data_path = expand_path(data_path)
         dataset = {'train': None, 'valid': None, 'test': None}
         train_fname = Path(data_path) / 'train.csv'
@@ -47,7 +44,7 @@ class UbuntuV2Reader(DatasetReader):
         self.classes_vocab_test = {}
         dataset["train"] = self.preprocess_data_train(train_fname)
         dataset["valid"] = self.preprocess_data_validation(valid_fname)
-        dataset["test"] = self.preprocess_data_validation(test_fname)
+        dataset["test"] = self.preprocess_data_test(test_fname)
         return dataset
     
     def preprocess_data_train(self, train_fname: Union[Path, str]) -> List[Tuple[List[str], int]]:
@@ -63,6 +60,8 @@ class UbuntuV2Reader(DatasetReader):
                 labels.append(int(el[2]))
         data = list(zip(contexts, responses))
         data = list(zip(data, labels))
+        with open('train_ubuntu.json', 'w') as outfile:
+            json.dump(data, outfile)
         return data
 
     def preprocess_data_validation(self, fname: Union[Path, str]) -> List[Tuple[List[str], int]]:
@@ -76,4 +75,21 @@ class UbuntuV2Reader(DatasetReader):
                 responses.append(el[1:])
         data = [[el[0]] + el[1] for el in zip(contexts, responses)]
         data = [(el, 1) for el in data]
+        with open('valid_ubuntu.json', 'w') as outfile:
+            json.dump(data, outfile)
+        return data
+
+    def preprocess_data_test(self, fname: Union[Path, str]) -> List[Tuple[List[str], int]]:
+        contexts = []
+        responses = []
+        with open(fname, 'r') as f:
+            reader = csv.reader(f)
+            next(reader)
+            for el in reader:
+                contexts.append(el[0])
+                responses.append(el[1:])
+        data = [[el[0]] + el[1] for el in zip(contexts, responses)]
+        data = [(el, 1) for el in data]
+        with open('test_ubuntu.json', 'w') as outfile:
+            json.dump(data, outfile)
         return data
