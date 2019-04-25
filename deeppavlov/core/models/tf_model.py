@@ -34,7 +34,7 @@ log = getLogger(__name__)
 class TFModel(NNModel, metaclass=TfModelMeta):
     """Parent class for all components using TensorFlow."""
 
-    sess: tf.Session
+    sess: tf.compat.v1.Session
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -224,9 +224,9 @@ class LRScheduledTFModel(TFModel, LRScheduledModel):
 
     def get_train_op(self,
                      *args,
-                     learning_rate: Union[float, tf.placeholder] = None,
-                     optimizer: tf.train.Optimizer = None,
-                     momentum: Union[float, tf.placeholder] = None,
+                     learning_rate: Union[float, tf.compat.v1.placeholder] = None,
+                     optimizer: tf.keras.optimizers.Optimizer = None,
+                     momentum: Union[float, tf.compat.v1.placeholder] = None,
                      clip_norm: float = None,
                      **kwargs):
         if learning_rate is not None:
@@ -238,9 +238,9 @@ class LRScheduledTFModel(TFModel, LRScheduledModel):
         kwargs['clip_norm'] = clip_norm or self._clip_norm
 
         momentum_param = 'momentum'
-        if kwargs['optimizer'] == tf.train.AdamOptimizer:
+        if kwargs['optimizer'] == tf.keras.optimizers.AdamOptimizer:
             momentum_param = 'beta1'
-        elif kwargs['optimizer'] == tf.train.AdadeltaOptimizer:
+        elif kwargs['optimizer'] == tf.keras.optimizers.AdadeltaOptimizer:
             momentum_param = 'rho'
 
         if momentum is not None:
