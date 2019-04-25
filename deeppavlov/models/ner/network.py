@@ -93,7 +93,7 @@ class NerNetwork(LRScheduledTFModel):
                  gpu: int = None,
                  seed: int = None,
                  **kwargs) -> None:
-        tf.set_random_seed(seed)
+        tf.random.set_seed(seed)
         np.random.seed(seed)
 
         assert n_tags != 0, 'Number of classes equal 0! It seems that vocabularies is not loaded.' \
