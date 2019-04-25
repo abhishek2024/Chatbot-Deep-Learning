@@ -24,8 +24,8 @@
   "roc_auc": "deeppavlov.metrics.roc_auc_score:roc_auc_score",
   "sets_accuracy": "deeppavlov.metrics.accuracy:sets_accuracy",
   "slots_accuracy": "deeppavlov.metrics.accuracy:slots_accuracy",
-  "squad_v2_em": "deeppavlov.metrics.squad_metrics:squad_v2_exact_match",
   "squad_v1_em": "deeppavlov.metrics.squad_metrics:squad_v1_exact_match",
-  "squad_v2_f1": "deeppavlov.metrics.squad_metrics:squad_v2_f1",
-  "squad_v1_f1": "deeppavlov.metrics.squad_metrics:squad_v1_f1"
+  "squad_v1_f1": "deeppavlov.metrics.squad_metrics:squad_v1_f1",
+  "squad_v2_em": "deeppavlov.metrics.squad_metrics:squad_v2_exact_match",
+  "squad_v2_f1": "deeppavlov.metrics.squad_metrics:squad_v2_f1"
 }
