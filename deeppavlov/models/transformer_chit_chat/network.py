@@ -53,6 +53,12 @@ def hello_bye(input_utter):
     return answers
 
 
+def start(input_utter):
+    # correct
+    if '/start' in input_utter:
+        return 'Хочу пообщаться'
+
+
 def split_text(text):
     text = text.split('<t>')
     return [t.strip() for t in text]
@@ -154,35 +160,45 @@ def switch_hypt(cntx):
     # print(f'cntx.his[1::2] = {cntx.his[1::2]}')
     hypts = [(conf, hypt) for conf, hypt in hypts if his_repeat_filter(cntx, hypt, his_len=60, max_repeat=1)]
     hypts = [(conf, hypt) for conf, hypt in hypts if hypt_repeat_filter(cntx, hypt)]
-    persona_correlation_hypts = [(conf, hypt) for conf, hypt in hypts if intersection_persona_filter(cntx, hypt)]
-    # pprint.pprint(persona_correlation_hypts)
-    last_correlation_hypts = [(conf, hypt) for conf, hypt in hypts if intersection_last_utter_filter(cntx, hypt)]
-    # pprint.pprint(last_correlation_hypts)
-    hypts.sort(key=lambda x: x[0], reverse=True)
-    hight_prob_hypts = hypts[: 3]
+    # persona_correlation_hypts = [(conf, hypt) for conf, hypt in hypts if intersection_persona_filter(cntx, hypt)]
+    # # pprint.pprint(persona_correlation_hypts)
+    # last_correlation_hypts = [(conf, hypt) for conf, hypt in hypts if intersection_last_utter_filter(cntx, hypt)]
+    # # pprint.pprint(last_correlation_hypts)
+    # hypts.sort(key=lambda x: x[0], reverse=True)
+    # hight_prob_hypts = hypts[: 3]
 
-    hight_prob_hypts = renew_hypt_conf(hight_prob_hypts, lambda c, h: 1)
-    last_correlation_hypts = renew_hypt_conf(last_correlation_hypts, lambda c, h: 4)
-    persona_correlation_hypts = renew_hypt_conf(persona_correlation_hypts, lambda c, h: 2)
+    # hight_prob_hypts = renew_hypt_conf(hight_prob_hypts, lambda c, h: 1)
+    # last_correlation_hypts = renew_hypt_conf(last_correlation_hypts, lambda c, h: 4)
+    # persona_correlation_hypts = renew_hypt_conf(persona_correlation_hypts, lambda c, h: 2)
     # hight_prob_hypts = renew_hypt_conf(hight_prob_hypts, lambda c, h: c*1)
     # last_correlation_hypts = renew_hypt_conf(last_correlation_hypts, lambda c, h: c*2)
     # persona_correlation_hypts = renew_hypt_conf(persona_correlation_hypts, lambda c, h: c*2)
-    res_hypts = hypts[: 1]
+    # res_hypts = hypts[: 1]
+    res_hypts = hypts
     # res_hypts = hight_prob_hypts + last_correlation_hypts + persona_correlation_hypts
 
     def drop_conf_of_question(conf, hypt):
         if len(cntx.his) < 20 and '?' in hypt:
             #if last utter is question
 
-            if '?' in cntx.his[-1]:
-                return conf/(2**2)
+            # if '?' in cntx.his[-1]:
+            #     return 0
             bot_utters = cntx.his[1::2]
-            decrease_pow = len([None for utter in bot_utters[-2:] if '?' in utter])*2 - 1
-            return conf/(2**decrease_pow)
+            decrease_pow = len([None for utter in bot_utters[-2:] if '?' in utter])
+            # decrease_pow = len([None for utter in bot_utters[-2:] if '?' in utter])*2 - 1
+            if decrease_pow < 1:
+                return conf
+            else:
+                return 0
+                # return conf/(2**decrease_pow)
+                
         else:
             return conf
 
-    # res_hypts = renew_hypt_conf(res_hypts, drop_conf_of_question)
+    res_hypts = renew_hypt_conf(res_hypts, drop_conf_of_question)
+
+    res_hypts.sort(key=lambda x: x[0], reverse=True)
+    res_hypts = res_hypts[: 3]
     # pprint.pprint(res_hypts)
     if res_hypts:
         confs, answers = list(zip(*res_hypts))
@@ -191,7 +207,8 @@ def switch_hypt(cntx):
 
         confs = np.array(confs)
         confs = confs/confs.sum()
-        return np.random.choice(answers, p=[1])
+        return np.random.choice(answers, p=confs)
+        # return np.random.choice(answers, p=[1])
     else:
         return random.sample(["Не знаю, что сказать... Как дела?",
                               "Как все сложно. Извини, не понимаю.",
@@ -206,6 +223,9 @@ def hacking(persona, his, hyp_answers, confs):
     hb_utter = hello_bye(cntx.char_his[-1])
     if hb_utter:
         return hb_utter
+    st_utter = start(cntx.char_his[-1])
+    if st_utter:
+        return st_utter
     cntx_analysis(cntx)
     return switch_hypt(cntx)
 
@@ -347,7 +367,7 @@ class TransformerChitChat(Serializable):
                 new_obj.append(obj.json()[0].get('content', ''))
             else:
                 new_obj.append(obj)
-        return objs[:max_len]
+        return objs[-max_len:]
 
     # persona= [
     #     "Я студентка.",
@@ -374,7 +394,7 @@ class TransformerChitChat(Serializable):
         history_batch = copy.deepcopy(history_batch)
 
         history_batch = [self.drop_rich_msg(his) for his in history_batch]
-        history_batch = [self.drop_max_len(his,15) for his in history_batch]
+        history_batch = [self.drop_max_len(his,6) for his in history_batch]
 
         [history.append(utter) for utter, history in zip(utterances_batch, history_batch)]
         tagged_persona_batch = [self.context2tagged_context(self.persona) for _ in history_batch]
