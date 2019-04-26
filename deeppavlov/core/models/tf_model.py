@@ -123,17 +123,17 @@ class TFModel(NNModel, metaclass=TfModelMeta):
             opt_scope = tf.compat.v1.variable_scope(optimizer_scope_name)
         with opt_scope:
             if learnable_scopes is None:
-                variables_to_train = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+                variables_to_train = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.TRAINABLE_VARIABLES)
             else:
                 variables_to_train = []
                 for scope_name in learnable_scopes:
                     variables_to_train.extend(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope_name))
 
             if optimizer is None:
-                optimizer = tf.optimizers.Adam
+                optimizer = tf.compat.v1.train.AdamOptimizers
 
             # For batch norm it is necessary to update running averages
-            extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+            extra_update_ops = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.UPDATE_OPS)
             with tf.control_dependencies(extra_update_ops):
 
                 def clip_if_not_none(grad):
@@ -141,7 +141,11 @@ class TFModel(NNModel, metaclass=TfModelMeta):
                         return tf.clip_by_norm(grad, clip_norm)
 
                 opt = optimizer(learning_rate, **kwargs)
-                grads_and_vars = opt.compute_gradients(loss, var_list=variables_to_train)
+
+                print(loss)
+                print(variables_to_train)
+
+                grads_and_vars = opt.get_gradients(loss, variables_to_train)
                 if clip_norm is not None:
                     grads_and_vars = [(clip_if_not_none(grad), var)
                                       for grad, var in grads_and_vars]
@@ -237,7 +241,7 @@ class LRScheduledTFModel(TFModel, LRScheduledModel):
 
         momentum_param = 'momentum'
         if kwargs['optimizer'] == tf.optimizers.Adam:
-            momentum_param = 'beta1'
+            momentum_param = 'beta_1'
         elif kwargs['optimizer'] == tf.optimizers.Adadelta:
             momentum_param = 'rho'
 
