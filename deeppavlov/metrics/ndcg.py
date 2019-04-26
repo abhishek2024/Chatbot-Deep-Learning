@@ -54,5 +54,5 @@ def ndcg(relevance: Union[List[List[int]], np.ndarray],
     ideal_order = [np.flip(np.argsort(el), -1) for el in relevance]
     dcg = np.array([_dcg(rel, el) for rel, el in zip(relevance, order)])
     idcg = np.array([_dcg(rel, el) for rel, el in zip(relevance, ideal_order)])
-    ndcg = np.mean([d / i for d, i in zip(dcg, idcg) if i != 0])
+    ndcg = np.mean([d / i for d, i in zip(dcg, idcg) if i != 0])[0]
     return ndcg

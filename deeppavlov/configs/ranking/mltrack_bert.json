@@ -53,19 +53,6 @@
         "out": [
           "y_pred"
         ]
-      },
-      {
-        "in": [
-          "y_pred",
-          "ids",
-          "y"
-        ],
-        "out": [
-          "relevance",
-          "ranking"
-        ],
-        "class_name": "mltrack_ranking",
-        "save_path": "{ROOT_PATH}"
       }
     ],
     "out": [
@@ -75,16 +62,7 @@
   "train": {
     "epochs": 3,
     "batch_size": 36,
-    "metrics": [
-      {
-      "name": "ndcg",
-      "inputs": ["relevance", "ranking"]
-      }
-    ],
-    "val_every_n_epochs": 3,
-    "evaluation_targets": [
-      "test"
-    ],
+    "evaluation_targets": [],
     "validate_first": false,
     "tensorboard_log_dir": "{MODELS_PATH}/"
   },

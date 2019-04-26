@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from logging import getLogger
-from typing import List, Union
+from typing import List, Union, Tuple
 
 import numpy as np
 
@@ -42,7 +42,7 @@ class MLtrackRanking(Component):
 
     def __call__(self, data: Union[np.ndarray, List[List[float]], List[List[int]]],
                  ids: List[str], y_true: List[int],
-                 *args, **kwargs) -> Union[List[List[int]], List[np.ndarray]]:
+                 *args, **kwargs) -> Tuple[List[np.ndarray], List[np.ndarray]]:
         """
         Process ranking using probabilities
 
