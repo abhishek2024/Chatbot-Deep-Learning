@@ -37,10 +37,11 @@ from deeppavlov.models.transformer_chit_chat.model.utils import pad_sequence
 from deeppavlov.models.tokenizers.utils import detokenize
 import torch
 import pathlib
+
 log = getLogger(__name__)
 
 
-punct = re.compile('[!.,?]')
+punct = re.compile("[!.,?]")
 
 
 def hello_bye(input_utter):
@@ -55,36 +56,36 @@ def hello_bye(input_utter):
 
 def start(input_utter):
     # correct
-    if '/start' in input_utter:
-        return 'Хочу пообщаться'
+    if "/start" in input_utter:
+        return "Хочу пообщаться"
 
 
 def split_text(text):
-    text = text.split('<t>')
+    text = text.split("<t>")
     return [t.strip() for t in text]
 
 
 def clean_text(text):
     text = text.strip().lower()
-    char_text = punct.sub('', text)
-    char_text = ' '.join([spec_utters.MORPH.parse(word)[0].normal_form for word in char_text.split()])
+    char_text = punct.sub("", text)
+    char_text = " ".join([spec_utters.MORPH.parse(word)[0].normal_form for word in char_text.split()])
     return split_text(text), split_text(char_text)
 
 
 def clean_hypt(hypt):
     hypt = hypt.strip().lower()
-    char_hypt = punct.sub('', hypt)
-    char_hypt = ' '.join([spec_utters.MORPH.parse(word)[0].normal_form for word in char_hypt.split()])
+    char_hypt = punct.sub("", hypt)
+    char_hypt = " ".join([spec_utters.MORPH.parse(word)[0].normal_form for word in char_hypt.split()])
     return char_hypt
 
 
 def clean_pers(pers):
-    text = ' <t> '.join(pers)
+    text = " <t> ".join(pers)
     return clean_text(text)
 
 
 def clean_his(his):
-    text = ' <t> '.join(his)
+    text = " <t> ".join(his)
     text = yandex_api.send(text)
     return clean_text(text)
 
@@ -94,11 +95,11 @@ def len_filter(hypt, min_len=2):
 
 
 def rm_sw_utter(utter, min_len=2):
-    utter = punct.sub('', utter)
+    utter = punct.sub("", utter)
     words = utter.strip().lower().split()
-    words = collections.OrderedDict(zip(words, [0]*len(words)))
-    [words.pop(i, None)for i in stop_words.stop_words]
-    utter = ' '.join(words.keys())
+    words = collections.OrderedDict(zip(words, [0] * len(words)))
+    [words.pop(i, None) for i in stop_words.stop_words]
+    utter = " ".join(words.keys())
     return utter
 
 
@@ -110,9 +111,9 @@ def his_repeat_filter(cntx, hypt, his_len=4, max_repeat=2):
 
 
 def hypt_repeat_filter(cntx, hypt):
-    if not hasattr(cntx, 'hypt_set'):
+    if not hasattr(cntx, "hypt_set"):
         cntx.hypt_set = set()
-    hypt = punct.sub('', hypt)
+    hypt = punct.sub("", hypt)
     hypt = hypt.lower().strip()
     if hypt in cntx.hypt_set:
         return False
@@ -121,11 +122,10 @@ def hypt_repeat_filter(cntx, hypt):
         return True
 
 
-
 def cntx_analysis(cntx):
-    cntx.persona_word_set = set(' '.join(cntx.char_persona).split())
+    cntx.persona_word_set = set(" ".join(cntx.char_persona).split())
     cntx.persona_word_set = cntx.persona_word_set - (cntx.persona_word_set & stop_words.stop_words)
-    cntx.his_word_set = set(' '.join(cntx.char_his).split())
+    cntx.his_word_set = set(" ".join(cntx.char_his).split())
     cntx.his_word_set = cntx.his_word_set - (cntx.his_word_set & stop_words.stop_words)
     cntx.last_uttr_word_set = set(cntx.char_his[-1].split())
     cntx.last_uttr_word_set = cntx.last_uttr_word_set - (cntx.last_uttr_word_set & stop_words.stop_words)
@@ -147,41 +147,43 @@ def switch_hypt(cntx):
     res_hypts = hypts
 
     def drop_conf_of_question(conf, hypt):
-        if len(cntx.his) < 20 and '?' in hypt:
-            #if last utter is question
+        if len(cntx.his) < 20 and "?" in hypt:
+            # if last utter is question
 
             # if '?' in cntx.his[-1]:
             #     return 0
             bot_utters = cntx.his[1::2]
-            decrease_pow = len([None for utter in bot_utters[-2:] if '?' in utter])
+            decrease_pow = len([None for utter in bot_utters[-2:] if "?" in utter])
             # decrease_pow = len([None for utter in bot_utters[-2:] if '?' in utter])*2 - 1
             if decrease_pow < 1:
                 return conf
             else:
                 return 0
                 # return conf/(2**decrease_pow)
-                
+
         else:
             return conf
 
     res_hypts = renew_hypt_conf(res_hypts, drop_conf_of_question)
 
     res_hypts.sort(key=lambda x: x[0], reverse=True)
-    res_hypts = res_hypts[: 3]
+    res_hypts = res_hypts[:3]
     if res_hypts:
         confs, answers = list(zip(*res_hypts))
 
         confs = np.array(confs)
-        confs = confs/confs.sum()
+        confs = confs / confs.sum()
         return np.random.choice(answers, p=confs)
     else:
-        return random.sample(["Не знаю, что сказать... Как дела?",
-                              "Как все сложно. Извини, не понимаю.",
-                              "Не понимаю."], 1)[0]
+        return random.sample(
+            ["Не знаю, что сказать... Как дела?", "Как все сложно. Извини, не понимаю.", "Не понимаю."], 1
+        )[0]
 
 
 def hacking(persona, his, hyp_answers, confs):
-    def cntx(x): return x
+    def cntx(x):
+        return x
+
     cntx.hypts = [(conf, ans) for conf, ans in zip(confs, hyp_answers)]
     cntx.persona, cntx.char_persona = clean_pers(persona)
     cntx.his, cntx.char_his = clean_his(his)
@@ -195,39 +197,40 @@ def hacking(persona, his, hyp_answers, confs):
     return switch_hypt(cntx)
 
 
-@register('transformer_chit_chat')
+@register("transformer_chit_chat")
 class TransformerChitChat(Serializable):
     """
     """
 
-    def __init__(self,
-                 n_layers: int = 12,  # model config
-                 n_pos_embeddings: int = 512,
-                 embeddings_size: int = 768,
-                 n_heads: int = 12,
-                 dropout: float = 0.1,
-                 embed_dropout: float = 0.1,
-                 attn_dropout: float = 0.1,
-                 ff_dropout: float = 0.1,
-                 max_seq_len: int = 128,
-                 sep_id_enable: bool = True,
-                 beam_size: int = 10,  # 6
-                 diversity_coef: float = 0,
-                 diversity_groups: int = 10,  # 1,  # 6
-                 annealing_topk: int = None,
-                 annealing: float = 0,  # 0.5
-                 length_penalty: float = 0.6,
-                 n_segments: bool = True,
-                 bert_mode: bool = True,
-                 type_vocab_size: int = 4,
-                 tie_weights: bool = True,
-                 sample: bool = True,
-
-                 bert_vocab_path: str = './vocab',  # vocab config
-                 device: str = 'cuda',
-                 #  device: str = 'cuda',
-                 **kwargs) -> None:
-        super().__init__(save_path='', **kwargs)
+    def __init__(
+        self,
+        n_layers: int = 12,  # model config
+        n_pos_embeddings: int = 512,
+        embeddings_size: int = 768,
+        n_heads: int = 12,
+        dropout: float = 0.1,
+        embed_dropout: float = 0.1,
+        attn_dropout: float = 0.1,
+        ff_dropout: float = 0.1,
+        max_seq_len: int = 128,
+        sep_id_enable: bool = True,
+        beam_size: int = 10,  # 6
+        diversity_coef: float = 0,
+        diversity_groups: int = 10,  # 1,  # 6
+        annealing_topk: int = None,
+        annealing: float = 0,  # 0.5
+        length_penalty: float = 0.6,
+        n_segments: bool = True,
+        bert_mode: bool = True,
+        type_vocab_size: int = 4,
+        tie_weights: bool = True,
+        sample: bool = True,
+        bert_vocab_path: str = "./vocab",  # vocab config
+        device: str = "cuda",
+        #  device: str = 'cuda',
+        **kwargs,
+    ) -> None:
+        super().__init__(save_path="", **kwargs)
 
         self.model_config = lambda x: x  # not very nice but faster
         self.model_config.n_layers = n_layers
@@ -260,42 +263,42 @@ class TransformerChitChat(Serializable):
     def load(self) -> None:
         """Load model parameters from self.load_path"""
         self.vocab = BertBPEVocab.from_files(self.bert_vocab_path)
-        self.transformer = TransformerModel(n_layers=self.model_config.n_layers,
-                                            n_embeddings=len(self.vocab),
-                                            n_pos_embeddings=self.model_config.n_pos_embeddings,
-                                            embeddings_size=self.model_config.embeddings_size,
-                                            padding_idx=self.vocab.pad_id,
-                                            n_heads=self.model_config.n_heads,
-                                            dropout=self.model_config.dropout,
-                                            embed_dropout=self.model_config.embed_dropout,
-                                            attn_dropout=self.model_config.attn_dropout,
-                                            ff_dropout=self.model_config.ff_dropout,
-                                            bos_id=self.vocab.bos_id,
-                                            eos_id=self.vocab.eos_id,
-                                            max_seq_len=self.model_config.max_seq_len,
-                                            beam_size=self.model_config.beam_size,
-                                            sample=self.model_config.sample,
-                                            length_penalty=self.model_config.length_penalty,
-                                            n_segments=self.model_config.n_segments,
-                                            annealing_topk=self.model_config.annealing_topk,
-                                            annealing=self.model_config.annealing,
-                                            diversity_coef=self.model_config.diversity_coef,
-                                            diversity_groups=self.model_config.diversity_groups,
-                                            bert_mode=self.model_config.bert_mode,
-                                            type_vocab_size=self.model_config.type_vocab_size,
-                                            tie_weights=self.model_config.tie_weights,
-                                            info_bos_id=self.vocab.info_bos_id,
-                                            talker1_bos_id=self.vocab.talker1_bos_id,
-                                            talker2_bos_id=self.vocab.talker2_bos_id,
-                                            bos_token_id=self.vocab.bos_id,
-                                            sep_token_id=self.vocab.sep_id,
-                                            )
+        self.transformer = TransformerModel(
+            n_layers=self.model_config.n_layers,
+            n_embeddings=len(self.vocab),
+            n_pos_embeddings=self.model_config.n_pos_embeddings,
+            embeddings_size=self.model_config.embeddings_size,
+            padding_idx=self.vocab.pad_id,
+            n_heads=self.model_config.n_heads,
+            dropout=self.model_config.dropout,
+            embed_dropout=self.model_config.embed_dropout,
+            attn_dropout=self.model_config.attn_dropout,
+            ff_dropout=self.model_config.ff_dropout,
+            bos_id=self.vocab.bos_id,
+            eos_id=self.vocab.eos_id,
+            max_seq_len=self.model_config.max_seq_len,
+            beam_size=self.model_config.beam_size,
+            sample=self.model_config.sample,
+            length_penalty=self.model_config.length_penalty,
+            n_segments=self.model_config.n_segments,
+            annealing_topk=self.model_config.annealing_topk,
+            annealing=self.model_config.annealing,
+            diversity_coef=self.model_config.diversity_coef,
+            diversity_groups=self.model_config.diversity_groups,
+            bert_mode=self.model_config.bert_mode,
+            type_vocab_size=self.model_config.type_vocab_size,
+            tie_weights=self.model_config.tie_weights,
+            info_bos_id=self.vocab.info_bos_id,
+            talker1_bos_id=self.vocab.talker1_bos_id,
+            talker2_bos_id=self.vocab.talker2_bos_id,
+            bos_token_id=self.vocab.bos_id,
+            sep_token_id=self.vocab.sep_id,
+        )
         self.transformer = self.transformer.to(self.device)
         path = self.load_path
-        log.info(f'[loading from {path}]')
-        state_dict = torch.load(path,
-                                map_location=self.device)
-        self.transformer.load_state_dict(state_dict['model'], strict=False)
+        log.info(f"[loading from {path}]")
+        state_dict = torch.load(path, map_location=self.device)
+        self.transformer.load_state_dict(state_dict["model"], strict=False)
 
     @overrides
     def save(self) -> None:
@@ -319,8 +322,8 @@ class TransformerChitChat(Serializable):
     def drop_rich_msg(self, objs) -> List[str]:
         new_obj = []
         for obj in objs:
-            if type(obj).__name__ == 'RichMessage':
-                new_obj.append(obj.json()[0].get('content', ''))
+            if type(obj).__name__ == "RichMessage":
+                new_obj.append(obj.json()[0].get("content", ""))
             else:
                 new_obj.append(obj)
         return new_obj
@@ -328,36 +331,31 @@ class TransformerChitChat(Serializable):
     def drop_max_len(self, objs, max_len=15) -> List[str]:
         new_obj = []
         for obj in objs:
-            if type(obj).__name__ == 'RichMessage':
-                new_obj.append(obj.json()[0].get('content', ''))
+            if type(obj).__name__ == "RichMessage":
+                new_obj.append(obj.json()[0].get("content", ""))
             else:
                 new_obj.append(obj)
         return objs[-max_len:]
 
-    persona = [
-        "У меня есть парень.",
-        "Я люблю суши.",
-        "Я студентка.",
-        "Я подрабатываю.",
-        "Я хожу в бассейн.",
+    persona = ["У меня есть парень.", "Я люблю суши.", "Я студентка.", "Я подрабатываю.", "Я хожу в бассейн."]
 
     def __call__(self, utterances_batch, history_batch, states_batch, *args, **kwargs) -> List[float]:
         history_batch = copy.deepcopy(history_batch)
 
         history_batch = [self.drop_rich_msg(his) for his in history_batch]
-        history_batch = [self.drop_max_len(his,6) for his in history_batch]
+        history_batch = [self.drop_max_len(his, 6) for his in history_batch]
 
         [history.append(utter) for utter, history in zip(utterances_batch, history_batch)]
         tagged_persona_batch = [self.context2tagged_context(self.persona) for _ in history_batch]
         tagged_persona_batch = [torch.tensor(d, dtype=torch.long, device=self.device) for d in tagged_persona_batch]
-        tagged_persona_batch = pad_sequence(tagged_persona_batch,
-                                            batch_first=True,
-                                            padding_value=self.transformer.padding_idx)
+        tagged_persona_batch = pad_sequence(
+            tagged_persona_batch, batch_first=True, padding_value=self.transformer.padding_idx
+        )
         tagged_context_batch = [self.context2tagged_context(context) for context in history_batch]
         tagged_context_batch = [torch.tensor(d, dtype=torch.long, device=self.device) for d in tagged_context_batch]
-        tagged_context_batch = pad_sequence(tagged_context_batch,
-                                            batch_first=True,
-                                            padding_value=self.transformer.padding_idx)
+        tagged_context_batch = pad_sequence(
+            tagged_context_batch, batch_first=True, padding_value=self.transformer.padding_idx
+        )
         predictions, confidence = self.transformer.predict([tagged_persona_batch, tagged_context_batch])
         predictions_batch = []
         for beam_pred, beam_conf in zip(predictions, confidence):
@@ -368,5 +366,8 @@ class TransformerChitChat(Serializable):
                 line = sent
                 lines.append(line)
             predictions_batch.append(lines)
-        predictions_batch = [hacking(self.persona, his, hyp_answers, confs) for his, hyp_answers, confs in zip(history_batch, predictions_batch, confidence)]
+        predictions_batch = [
+            hacking(self.persona, his, hyp_answers, confs)
+            for his, hyp_answers, confs in zip(history_batch, predictions_batch, confidence)
+        ]
         return predictions_batch, confidence
