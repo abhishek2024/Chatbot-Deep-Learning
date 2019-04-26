@@ -243,10 +243,11 @@ class NerNetwork(LRScheduledTFModel):
             units = tf.layers.dense(units, n_hididden, activation=tf.nn.relu,
                                     kernel_initializer=INITIALIZER(),
                                     kernel_regularizer=tf.nn.l2_loss)
-        logits = tf.compat.v1.layers.dense(units, n_tags, activation=None
+        logits = tf.keras.layers.Dense(units, n_tags, activation=None)
+        #logits = tf.compat.v1.layers.dense(units, n_tags, activation=None
                                  #,kernel_initializer=INITIALIZER()
                                  #,kernel_regularizer=tf.compat.v1.nn.l2_loss
-                                 )
+                                 #)
         return logits
 
     def _build_train_predict(self, logits, mask, n_tags, use_crf, l2_reg):
