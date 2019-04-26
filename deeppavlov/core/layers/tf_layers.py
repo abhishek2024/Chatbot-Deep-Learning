@@ -412,13 +412,20 @@ def character_embedding_network(char_placeholder: tf.Tensor,
         # Character embedding network
         conv_results_list = []
         for filter_width in filter_widths:
-            conv_results_list.append(tf.compat.v1.layers.conv2d(c_emb,
-                                                      char_embedding_dim,
+            conv_results_list.append(tf.convert_to_tensor(tf.keras.layers.Conv2D(c_emb,
+                                                        char_embedding_dim,
                                                       (1, filter_width),
                                                       padding='same'
                                                       #,kernel_initializer=INITIALIZER
-                                                      ))
-        units = tf.compat.v1.concat(conv_results_list, axis=3)
+                                                      )))
+#            conv_results_list.append(tf.compat.v1.layers.conv2d(c_emb,
+ #                                                     char_embedding_dim,
+  #                                                    (1, filter_width),
+   #                                                   padding='same'
+    #                                                  #,kernel_initializer=INITIALIZER
+     #                                                 ))
+        print(conv_results_list)
+        units = tf.concat(conv_results_list, axis=3)
         units = tf.reduce_max(units, axis=2)
         if highway_on_top:
             sigmoid_gate = tf.keras.layers.Dense(units,
