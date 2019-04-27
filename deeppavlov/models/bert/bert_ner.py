@@ -92,6 +92,7 @@ class BertNerModel(LRScheduledTFModel):
                  learning_rate_drop_div: float = 2.0,
                  load_before_drop: bool = True,
                  clip_norm: float = 1.0,
+                 dont_load_head=False,
                  **kwargs) -> None:
         super().__init__(learning_rate=learning_rate,
                          learning_rate_drop_div=learning_rate_drop_div,
@@ -115,6 +116,7 @@ class BertNerModel(LRScheduledTFModel):
         self.freeze_embeddings = freeze_embeddings
         self.bert_learning_rate_multiplier = bert_learning_rate / learning_rate
         self.min_learning_rate = min_learning_rate
+        self.dont_load_head = dont_load_head
 
         self.bert_config = BertConfig.from_json_file(str(expand_path(bert_config_file)))
 
@@ -146,8 +148,14 @@ class BertNerModel(LRScheduledTFModel):
             saver.restore(self.sess, pretrained_bert)
 
         if self.load_path is not None:
-            self.load()
-
+            if self.dont_load_head:
+                log.info('Restoring model without task specific top layer')
+                self.load(exclude_scopes=['Optimizer',
+                                          'learning_rate',
+                                          'momentum',
+                                          'ner'])
+            else:
+                self.load()
         if self.ema:
             self.sess.run(self.ema.init_op)
 
