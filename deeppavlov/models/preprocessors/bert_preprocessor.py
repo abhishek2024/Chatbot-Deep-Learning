@@ -311,16 +311,50 @@ class BertSepRankerPredictorPreprocessor(BertSepRankerPreprocessor):
             cont_batch = [[el] for el in conts]
             self.cont_features = self(cont_batch)
 
+
+def return_eou_eot(text):
+    sp_text = []
+    turns = text.split('__eot__')
+    turns = turns[:-1]
+    assert (len(turns) == len(re.findall('__eot__', text)))
+    for t in turns:
+        utts = t.split('__eou__')
+        utts = utts[:-1]
+        assert (len(utts) == len(re.findall('__eou__', t)))
+        for u in utts:
+            sp_text.append(u)
+            sp_text.append('__eou__')
+        sp_text.append('__eot__')
+    return sp_text
+
+
 def get_features(examples, seq_length, tokenizer):
   """Loads a data file into a list of `InputBatch`s."""
 
   features = []
   for (ex_index, example) in enumerate(examples):
-    tokens_a = tokenizer.tokenize(example.text_a)
+    # tokens_a = tokenizer.tokenize(example.text_a)
+    #
+    # tokens_b = None
+    # if example.text_b:
+    #   tokens_b = tokenizer.tokenize(example.text_b)
 
+    tokens_a = []
+    sp_text_a = return_eou_eot(example.text_a)
+    for el in sp_text_a:
+        if el != '__eot__' and el != '__eou__':
+            tokens_a += tokenizer.tokenize(el)
+        else:
+            tokens_a.append(el)
     tokens_b = None
     if example.text_b:
-      tokens_b = tokenizer.tokenize(example.text_b)
+        tokens_b = []
+        sp_text_b = return_eou_eot(example.text_b)
+        for el in sp_text_b:
+            if el != '__eot__' and el != '__eou__':
+                tokens_b += tokenizer.tokenize(el)
+            else:
+                tokens_b.append(el)
 
     if tokens_b:
       # Modifies `tokens_a` and `tokens_b` in place so that the total
