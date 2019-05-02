@@ -24,13 +24,13 @@ model make sure that all required packages are installed using the command:
 
 .. code:: bash
 
-    python -m deeppavlov install kbqa_mix_lowercase
+    python -m deeppavlov install kbqa_rus
 
 To use a pre-trained model from CLI use the following command:
 
 .. code:: bash
 
-    python deeppavlov/deep.py interact kbqa_mix_lowercase [-d]
+    python deeppavlov/deep.py interact kbqa_rus [-d]
 
 where ``kbqa_mix_lowercase`` is the name of the config and ``-d`` is an optional download key. The key ``-d`` is used
 to download the pre-trained model along with embeddings and all other files needed to run the model. Also command
@@ -45,7 +45,7 @@ Available config:
     +-----------------------------------------------+-------------------+-----------------+------------+
     | Model                                         | Dataset           | Embeddings Size | Model Size |
     +===============================================+===================+=================+============+
-    | :config:`kbqa <kbqa/kbqa_mix_lowercase.json>` | Simple Questions  |     7.7 GB      |   8.9 MB   |
+    | :config:`kbqa <kbqa/kbqa_rus.json>`           | Simple Questions  |     7.7 GB      |   8.9 MB   |
     |                                               | and Zero-Shot IE  |                 |            |
     +-----------------------------------------------+-------------------+-----------------+------------+
 
@@ -56,6 +56,6 @@ Models can be used from Python using the following code:
 
     from deeppavlov import configs, build_model
 
-    kbqa_model = build_model(configs.kbqa.kbqa_mix_lowercase, download=True)
+    kbqa_model = build_model(configs.kbqa.kbqa_rus, download=True)
     kbqa_model(['Когда родился Пушкин?'])
     >>> ["1799-05-26"]
