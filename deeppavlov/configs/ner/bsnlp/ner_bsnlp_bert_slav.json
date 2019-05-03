@@ -99,7 +99,7 @@
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
       "MODELS_PATH": "{ROOT_PATH}/models",
       "BERT_PATH": "{DOWNLOADS_PATH}/bert_models/rubert_cased_L-12_H-768_A-12_v1",
-      "NER_PATH": "{MODELS_PATH}/ner_rus_bert"
+      "NER_PATH": "{MODELS_PATH}/ner_slav_bert"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
