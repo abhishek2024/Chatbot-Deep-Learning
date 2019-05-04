@@ -23,6 +23,8 @@ from deeppavlov.core.layers.tf_layers import cudnn_bi_lstm, cudnn_bi_gru, bi_rnn
 from deeppavlov.core.layers.tf_layers import embedding_layer, character_embedding_network, variational_dropout
 from deeppavlov.core.models.tf_model import LRScheduledTFModel
 
+tf.compat.v1.disable_v2_behavior()
+
 log = getLogger(__name__)
 
 
@@ -93,7 +95,7 @@ class NerNetwork(LRScheduledTFModel):
                  gpu: int = None,
                  seed: int = None,
                  **kwargs) -> None:
-        tf.random.set_seed(seed)
+        tf.compat.v1.set_random_seed(seed)
         np.random.seed(seed)
 
         assert n_tags != 0, 'Number of classes equal 0! It seems that vocabularies is not loaded.' \
@@ -158,12 +160,12 @@ class NerNetwork(LRScheduledTFModel):
 
         # ================= Initialize the session =================
 
-        sess_config = tf.ConfigProto(allow_soft_placement=True)
+        sess_config = tf.compat.v1.ConfigProto(allow_soft_placement=True)
         sess_config.gpu_options.allow_growth = True
         if gpu is not None:
             sess_config.gpu_options.visible_device_list = str(gpu)
-        self.sess = tf.Session(config=sess_config)
-        self.sess.run(tf.global_variables_initializer())
+        self.sess = tf.compat.v1.Session(config=sess_config)
+        self.sess.run(tf.compat.v1.global_variables_initializer())
         self.load()
 
     def _add_training_placeholders(self, dropout_keep_prob):
@@ -208,7 +210,7 @@ class NerNetwork(LRScheduledTFModel):
             self._input_features.append(feat_ph)
 
     def _build_cudnn_rnn(self, units, n_hidden_list, cell_type, intra_layer_dropout, mask):
-        sequence_lengths = tf.compat.v1.to_int32(tf.reduce_sum(mask, axis=1))
+        sequence_lengths = tf.cast(tf.reduce_sum(input_tensor=mask, axis=1), dtype=tf.int32)
         for n, n_hidden in enumerate(n_hidden_list):
             with tf.compat.v1.variable_scope(cell_type.upper() + '_' + str(n)):
                 if cell_type.lower() == 'lstm':
@@ -223,7 +225,7 @@ class NerNetwork(LRScheduledTFModel):
             return units
 
     def _build_rnn(self, units, n_hidden_list, cell_type, intra_layer_dropout, mask):
-        sequence_lengths = tf.compat.v1.to_int32(tf.reduce_sum(mask, axis=1))
+        sequence_lengths = tf.cast(tf.reduce_sum(input_tensor=mask, axis=1), dtype=tf.int32)
         for n, n_hidden in enumerate(n_hidden_list):
             units, _ = bi_rnn(units, n_hidden, cell_type=cell_type,
                               seq_lengths=sequence_lengths, name='Layer_' + str(n))
@@ -240,33 +242,31 @@ class NerNetwork(LRScheduledTFModel):
         if top_dropout:
             units = variational_dropout(units, self._dropout_ph)
         if two_dense_on_top:
-            units = tf.layers.dense(units, n_hididden, activation=tf.nn.relu,
+            units = tf.compat.v1.layers.dense(units, n_hididden, activation=tf.nn.relu,
                                     kernel_initializer=INITIALIZER(),
                                     kernel_regularizer=tf.nn.l2_loss)
-        logits = tf.keras.layers.Dense(units, n_tags, activation=None)
-        #logits = tf.compat.v1.layers.dense(units, n_tags, activation=None
-                                 #,kernel_initializer=INITIALIZER()
-                                 #,kernel_regularizer=tf.compat.v1.nn.l2_loss
-                                 #)
+        logits = tf.compat.v1.layers.dense(units, n_tags, activation=None,
+                                 kernel_initializer=INITIALIZER(),
+                                 kernel_regularizer=tf.nn.l2_loss)
         return logits
 
     def _build_train_predict(self, logits, mask, n_tags, use_crf, l2_reg):
         if use_crf:
-            sequence_lengths = tf.reduce_sum(mask, axis=1)
+            sequence_lengths = tf.reduce_sum(input_tensor=mask, axis=1)
             log_likelihood, transition_params = tf.contrib.crf.crf_log_likelihood(logits, self._y_ph, sequence_lengths)
             loss_tensor = -log_likelihood
             self._transition_params = transition_params
         else:
             ground_truth_labels = tf.one_hot(self._y_ph, n_tags)
-            loss_tensor = tf.nn.softmax_cross_entropy_with_logits(labels=ground_truth_labels, logits=logits)
+            loss_tensor = tf.nn.softmax_cross_entropy_with_logits(labels=tf.stop_gradient(ground_truth_labels), logits=logits)
             loss_tensor = loss_tensor * mask
-            self._y_pred = tf.argmax(logits, axis=-1)
+            self._y_pred = tf.argmax(input=logits, axis=-1)
 
-        loss = tf.reduce_mean(loss_tensor)
+        loss = tf.reduce_mean(input_tensor=loss_tensor)
 
         # L2 regularization
         if l2_reg > 0:
-            loss += l2_reg * tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
+            loss += l2_reg * tf.reduce_sum(input_tensor=tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.REGULARIZATION_LOSSES))
 
         train_op = self.get_train_op(loss)
         return train_op, loss

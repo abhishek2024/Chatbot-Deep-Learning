@@ -31,7 +31,7 @@ from deeppavlov.core.models.lr_scheduled_model import LRScheduledModel
 log = getLogger(__name__)
 
 
-class TFModel(NNModel, metaclass=TfModelMeta):
+class TFModel(NNModel):
     """Parent class for all components using TensorFlow."""
 
     sess: tf.compat.v1.Session
@@ -46,12 +46,12 @@ class TFModel(NNModel, metaclass=TfModelMeta):
                                ' have sess attribute!'.format(self.__class__.__name__))
         path = str(self.load_path.resolve())
         # Check presence of the model files
-        if tf.train.checkpoint_exists(path):
-            log.info('[loading model from {}]'.format(path))
+#        if tf.compat.v1.train.checkpoint_exists(path):
+ #           log.info('[loading model from {}]'.format(path))
             # Exclude optimizer variables from saved variables
-            var_list = self._get_saveable_variables(exclude_scopes)
-            saver = tf.train.Saver(var_list)
-            saver.restore(self.sess, path)
+  #          var_list = self._get_saveable_variables(exclude_scopes)
+   #         saver = tf.compat.v1.train.Saver(var_list)
+    #        saver.restore(self.sess, path)
 
     def deserialize(self, weights: Iterable[Tuple[str, np.ndarray]]) -> None:
         assign_ops = []
@@ -59,8 +59,8 @@ class TFModel(NNModel, metaclass=TfModelMeta):
         for var_name, value in weights:
             var = self.sess.graph.get_tensor_by_name(var_name)
             value = np.asarray(value)
-            assign_placeholder = tf.placeholder(var.dtype, shape=value.shape)
-            assign_op = tf.assign(var, assign_placeholder)
+            assign_placeholder = tf.compat.v1.placeholder(var.dtype, shape=value.shape)
+            assign_op = tf.compat.v1.assign(var, assign_placeholder)
             assign_ops.append(assign_op)
             feed_dict[assign_placeholder] = value
         self.sess.run(assign_ops, feed_dict=feed_dict)
@@ -73,11 +73,11 @@ class TFModel(NNModel, metaclass=TfModelMeta):
         path = str(self.save_path.resolve())
         log.info('[saving model to {}]'.format(path))
         var_list = self._get_saveable_variables(exclude_scopes)
-        saver = tf.train.Saver(var_list)
+        saver = tf.compat.v1.train.Saver(var_list)
         saver.save(self.sess, path)
 
     def serialize(self) -> Tuple[Tuple[str, np.ndarray], ...]:
-        tf_vars = tf.global_variables()
+        tf_vars = tf.compat.v1.global_variables()
         values = self.sess.run(tf_vars)
         return tuple(zip([var.name for var in tf_vars], values))
 
@@ -90,7 +90,7 @@ class TFModel(NNModel, metaclass=TfModelMeta):
 
     @staticmethod
     def _get_trainable_variables(exclude_scopes=tuple()):
-        all_vars = tf.global_variables()
+        all_vars = tf.compat.v1.global_variables()
         vars_to_train = [var for var in all_vars if all(sc not in var.name for sc in exclude_scopes)]
         return vars_to_train
 
@@ -127,10 +127,10 @@ class TFModel(NNModel, metaclass=TfModelMeta):
             else:
                 variables_to_train = []
                 for scope_name in learnable_scopes:
-                    variables_to_train.extend(tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope_name))
+                    variables_to_train.extend(tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.TRAINABLE_VARIABLES, scope=scope_name))
 
             if optimizer is None:
-                optimizer = tf.compat.v1.train.AdamOptimizers
+                optimizer = tf.compat.v1.train.AdamOptimizer
 
             # For batch norm it is necessary to update running averages
             extra_update_ops = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.UPDATE_OPS)
@@ -141,14 +141,11 @@ class TFModel(NNModel, metaclass=TfModelMeta):
                         return tf.clip_by_norm(grad, clip_norm)
 
                 opt = optimizer(learning_rate, **kwargs)
-
-                print(loss)
-                print(variables_to_train)
-
-                grads_and_vars = opt.get_gradients(loss, variables_to_train)
+                grads_and_vars = opt.compute_gradients(loss, var_list=variables_to_train)
                 if clip_norm is not None:
                     grads_and_vars = [(clip_if_not_none(grad), var)
                                       for grad, var in grads_and_vars]
+                print(grads_and_vars)
                 train_op = opt.apply_gradients(grads_and_vars)
         return train_op
 
@@ -158,7 +155,7 @@ class TFModel(NNModel, metaclass=TfModelMeta):
         Print number of *trainable* parameters in the network
         """
         log.info('Number of parameters: ')
-        variables = tf.trainable_variables()
+        variables = tf.compat.v1.trainable_variables()
         blocks = defaultdict(int)
         for var in variables:
             # Get the top level scope name of variable
@@ -184,7 +181,7 @@ class LRScheduledTFModel(TFModel, LRScheduledModel):
     """
 
     def __init__(self,
-                 optimizer: str = 'Adam',
+                 optimizer: str = 'AdamOptimizer',
                  clip_norm: float = None,
                  momentum: float = None,
                  **kwargs) -> None:
@@ -193,15 +190,17 @@ class LRScheduledTFModel(TFModel, LRScheduledModel):
         try:
             self._optimizer = cls_from_str(optimizer)
         except Exception:
-            self._optimizer = getattr(tf.keras.optimizers, optimizer.split(':')[-1])
-        if not issubclass(self._optimizer, tf.optimizers.Optimizer):
+            self._optimizer = getattr(tf.compat.v1.train, optimizer.split(':')[-1])
+        if not issubclass(self._optimizer, tf.compat.v1.train.Optimizer):
             raise ConfigError("`optimizer` should be tensorflow.train.Optimizer subclass")
         self._clip_norm = clip_norm
 
         if (momentum is None) and\
-                self._optimizer not in (tf.optimizers.Adagrad,
-                                        tf.optimizers.Adagrad,
-                                        tf.optimizers.SGD):
+                self._optimizer not in (tf.compat.v1.train.AdagradOptimizer,
+                                        tf.compat.v1.train.AdagradOptimizer,
+                                        tf.compat.v1.train.GradientDescentOptimizer,
+                                        tf.compat.v1.train.ProximalGradientDescentOptimizer,
+                                        tf.compat.v1.train.ProximalAdagradOptimizer):
             momentum = 0.9
         kwargs['momentum'] = momentum
 
@@ -218,16 +217,16 @@ class LRScheduledTFModel(TFModel, LRScheduledModel):
     @overrides
     def _update_graph_variables(self, learning_rate=None, momentum=None):
         if learning_rate is not None:
-            self.sess.run(tf.assign(self._lr_var, learning_rate))
+            self.sess.run(tf.compat.v1.assign(self._lr_var, learning_rate))
             # log.info(f"Learning rate = {learning_rate}")
         if momentum is not None:
-            self.sess.run(tf.assign(self._mom_var, momentum))
+            self.sess.run(tf.compat.v1.assign(self._mom_var, momentum))
             # log.info(f"Momentum      = {momentum}")
 
     def get_train_op(self,
                      *args,
                      learning_rate: Union[float, tf.compat.v1.placeholder] = None,
-                     optimizer: tf.optimizers.Optimizer = None,
+                     optimizer: tf.compat.v1.train.Optimizer = None,
                      momentum: Union[float, tf.compat.v1.placeholder] = None,
                      clip_norm: float = None,
                      **kwargs):
@@ -237,12 +236,12 @@ class LRScheduledTFModel(TFModel, LRScheduledModel):
         else:
             kwargs['learning_rate'] = self._lr_var
         kwargs['optimizer'] = optimizer or self.get_optimizer()
-        kwargs['clip_norm'] = clip_norm or self._clip_norm
+        kwargs['clip_norm'] = None#clip_norm or self._clip_norm
 
         momentum_param = 'momentum'
-        if kwargs['optimizer'] == tf.optimizers.Adam:
-            momentum_param = 'beta_1'
-        elif kwargs['optimizer'] == tf.optimizers.Adadelta:
+        if kwargs['optimizer'] == tf.compat.v1.train.AdamOptimizer:
+            momentum_param = 'beta1'
+        elif kwargs['optimizer'] == tf.compat.v1.train.AdadeltaOptimizer:
             momentum_param = 'rho'
 
         if momentum is not None:
