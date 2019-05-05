@@ -79,8 +79,6 @@ def ner_token_f1(y_true, y_pred):
 
     results['__total__'], accuracy, total_true_entities, total_predicted_entities, total_correct = _global_stats_f1(results)
     n_tokens = len(y_true)
-    log.debug('TOKEN LEVEL F1')
-    _print_conll_report(results, accuracy, total_true_entities, total_predicted_entities, n_tokens, total_correct)
     return results['__total__']['f1']
 
 
