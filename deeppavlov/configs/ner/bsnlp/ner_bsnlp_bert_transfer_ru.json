@@ -97,7 +97,7 @@
       "DOWNLOADS_PATH": "~/.deeppavlov/downloads",
       "MODELS_PATH": "~/.deeppavlov/models",
       "BERT_PATH": "~/models/bert/bg_cs_pl_runews_512/",
-      "NER_PATH": "~/.deeppavlov/models/ner_bsnlp_bert_transfer_ru"
+      "NER_PATH": "~/.deeppavlov/models/ner_bsnlp_bert_transfer_ru_crf"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",

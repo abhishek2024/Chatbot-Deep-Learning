@@ -1,8 +1,7 @@
 {
   "dataset_reader": {
     "class_name": "conll2003_reader",
-    "data_path": "{DOWNLOADS_PATH}/total_rus/",
-    "dataset_name": "collection_rus",
+    "data_path": "{DOWNLOADS_PATH}/bsnlp/",
     "provide_pos": false
   },
   "dataset_iterator": {
@@ -43,7 +42,7 @@
         "n_tags": "#tag_vocab.len",
         "keep_prob": 0.1,
         "bert_config_file": "{BERT_PATH}/bert_config.json",
-        "pretrained_bert": "{BERT_PATH}/bert_model.ckpt",
+        "pretrained_bert": "{BERT_PATH}/model",
         "attention_probs_keep_prob": 0.5,
         "use_crf": true,
         "ema_decay": 0.9,
@@ -98,8 +97,8 @@
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
       "MODELS_PATH": "{ROOT_PATH}/models",
-      "BERT_PATH": "{DOWNLOADS_PATH}/bert_models/rubert_cased_L-12_H-768_A-12_v1",
-      "NER_PATH": "{MODELS_PATH}/ner_slav_bert"
+      "BERT_PATH": "~/models/bert/bg_cs_pl_runews_512/",
+      "NER_PATH": "{MODELS_PATH}/ner_bsnlp_bert_slav"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",

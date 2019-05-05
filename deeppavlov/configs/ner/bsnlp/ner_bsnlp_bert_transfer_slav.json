@@ -41,7 +41,7 @@
       {
         "class_name": "bert_ner",
         "n_tags": "#tag_vocab.len",
-        "use_crf": false,
+        "use_crf": true,
         "return_probas": false,
         "bert_config_file": "{BERT_PATH}/bert_config.json",
         "pretrained_bert": "{BERT_PATH}/model",
@@ -56,7 +56,7 @@
         "learning_rate_drop_patience": 20,
         "learning_rate_drop_div": 4,
         "min_learning_rate": 1e-6,
-        "dont_load_head": false,
+        "dont_load_head": true,
         "in": ["x_subword_tok_ids", "x_subword_mask", "pred_subword_mask"],
         "in_y": ["y_subword_ind"],
         "out": ["y_pred_ind"]
@@ -97,7 +97,7 @@
       "DOWNLOADS_PATH": "~/.deeppavlov/downloads",
       "MODELS_PATH": "~/.deeppavlov/models",
       "BERT_PATH": "~/models/bert/bg_cs_pl_runews_512/",
-      "NER_PATH_SOURCE": "{MODELS_PATH}/ner_bsnlp_bert_transfer_ru",
+      "NER_PATH_SOURCE": "{MODELS_PATH}/ner_bsnlp_bert_transfer_ru_crf",
       "NER_PATH": "{MODELS_PATH}/ner_bsnlp_bert_transfer_slav"
     },
     "requirements": [

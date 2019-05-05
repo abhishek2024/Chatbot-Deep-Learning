@@ -4,7 +4,7 @@
     "data_path": "~/.deeppavlov/downloads/bsnlp/",
     "provide_pos": false
   },
-  "dataset_iterator": {
+  "dataset_iterator": {ckpt
     "class_name": "data_learning_iterator"
   },
   "chainer": {
