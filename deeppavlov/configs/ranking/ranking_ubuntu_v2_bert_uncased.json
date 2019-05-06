@@ -15,7 +15,7 @@
         "class_name": "bert_ranker_preprocessor",
         "vocab_file": "{DOWNLOADS_PATH}/bert_models/uncased_L-12_H-768_A-12/vocab.txt",
         "do_lower_case": true,
-        "max_seq_length": 128,
+        "max_seq_length": 512,
         "in": ["x"],
         "out": ["bert_features"]
       },
@@ -51,7 +51,7 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/ubuntu_v2_uncased_bert_model"
+      "MODELS_PATH": "{ROOT_PATH}/models/ubuntu_v2_uncased_bert_msl_model"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
@@ -67,7 +67,7 @@
         "subdir": "{DOWNLOADS_PATH}/bert_models"
       },
       {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/ubuntu_v2_uncased_bert_model.tar.gz",
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/ubuntu_v2_uncased_bert_msl_model.tar.gz",
         "subdir": "{ROOT_PATH}/models"
       }
     ]
