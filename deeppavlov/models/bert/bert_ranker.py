@@ -127,9 +127,15 @@ class BertSepRankerModel(LRScheduledTFModel):
     def __init__(self, bert_config_file, keep_prob=0.9,
                  attention_probs_keep_prob=None, hidden_keep_prob=None,
                  optimizer=None, weight_decay_rate=0.01,
-                 pretrained_bert=None, min_learning_rate=1e-06, **kwargs) -> None:
+                 pretrained_bert=None, min_learning_rate=1e-06,
+                 loss_type=0, normalize=False, margin=1.0,
+                 cos_sim=True, concat_emb=False,**kwargs) -> None:
         super().__init__(**kwargs)
-
+        self.concat_emb = concat_emb
+        self.loss_type = loss_type
+        self.normalize = normalize
+        self.margin = margin
+        self.cos_sim = cos_sim
         self.min_learning_rate = min_learning_rate
         self.keep_prob = keep_prob
         self.optimizer = optimizer
@@ -213,9 +219,36 @@ class BertSepRankerModel(LRScheduledTFModel):
         with tf.variable_scope("loss"):
             output_layer_a = tf.nn.dropout(output_layer_a, keep_prob=self.keep_prob_ph)
             output_layer_b = tf.nn.dropout(output_layer_b, keep_prob=self.keep_prob_ph)
-            self.loss = tf.contrib.losses.metric_learning.npairs_loss(self.y_ph, output_layer_a, output_layer_b)
-            logits = tf.multiply(output_layer_a, output_layer_b)
-            self.y_probas = tf.reduce_sum(logits, 1)
+
+            if self.normalize:
+                output_layer_a = tf.nn.l2_normalize(output_layer_a, axis=1)
+                output_layer_b = tf.nn.l2_normalize(output_layer_b, axis=1)
+
+            if self.concat_emb:
+                embeddings = tf.concat([output_layer_a, output_layer_b], axis=0)
+                labels = tf.concat([self.y_ph, self.y_ph], axis=0)
+
+            if self.loss_type == 0:
+                self.loss = tf.contrib.losses.metric_learning.npairs_loss(self.y_ph, output_layer_a, output_layer_b)
+            elif self.loss_type == 1:
+                self.loss = tf.contrib.losses.metric_learning.contrastive_loss(
+                    self.y_ph, output_layer_a, output_layer_b, margin=self.margin)
+            elif self.loss_type == 2:
+                self.loss = tf.contrib.losses.metric_learning.triplet_semihard_loss(
+                    labels, embeddings, margin=self.margin)
+            elif self.loss_type == 3:
+                self.loss = tf.contrib.losses.metric_learning.lifted_struct_loss(
+                    labels, embeddings, margin=self.margin)
+            elif self.loss_type == 4:
+                self.loss = tf.contrib.losses.metric_learning.cluster_loss(
+                    labels, embeddings, margin_multiplier=self.margin)
+
+            if self.cos_sim:
+                logits = tf.multiply(output_layer_a, output_layer_b)
+                self.y_probas = tf.reduce_sum(logits, 1)
+            else:
+                self.y_probas = - tf.norm(output_layer_a - output_layer_b, axis=1)
+
             self.pooled_out = output_layer_a
 
     def _init_placeholders(self):
