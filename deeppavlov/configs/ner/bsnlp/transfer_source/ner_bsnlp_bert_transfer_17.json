@@ -2,7 +2,6 @@
   "dataset_reader": {
     "class_name": "conll2003_reader",
     "data_path": "{DOWNLOADS_PATH}/bsnlp_17/",
-    "dataset_name": "collection_rus",
     "provide_pos": false
   },
   "dataset_iterator": {
@@ -94,10 +93,10 @@
   "metadata": {
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
-      "DOWNLOADS_PATH": "~/.deeppavlov/downloads",
+      "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
       "MODELS_PATH": "~/.deeppavlov/models",
       "BERT_PATH": "~/models/bert/bg_cs_pl_runews_512/",
-      "NER_PATH": "~/.deeppavlov/models/ner_bsnlp_bert_transfer_17"
+      "NER_PATH": "{MODELS_PATH}/ner_bsnlp_bert_transfer_17"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
