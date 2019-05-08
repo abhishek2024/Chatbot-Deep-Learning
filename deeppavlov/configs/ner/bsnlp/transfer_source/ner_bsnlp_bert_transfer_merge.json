@@ -40,7 +40,7 @@
       {
         "class_name": "bert_ner",
         "n_tags": "#tag_vocab.len",
-        "use_crf": false,
+        "use_crf": true,
         "return_probas": false,
         "bert_config_file": "{BERT_PATH}/bert_config.json",
         "pretrained_bert": "{BERT_PATH}/model",

@@ -1,7 +1,7 @@
 {
   "dataset_reader": {
     "class_name": "conll2003_reader",
-    "data_path": "~/.deeppavlov/downloads/bsnlp/",
+    "data_path": "~/.deeppavlov/downloads/bsnlp_final/",
     "provide_pos": false
   },
   "dataset_iterator": {
@@ -79,7 +79,7 @@
         "inputs": ["y", "y_pred"]
       }
     ],
-    "validation_patience": 150,
+    "validation_patience": 200,
     "val_every_n_batches": 10,
     "test_best": true,
     "validate_best": true,

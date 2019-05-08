@@ -100,6 +100,7 @@
       "BERT_PATH": "~/models/bert/bg_cs_pl_runews_512/",
       "NER_PATH": "{MODELS_PATH}/ner_bsnlp_bert_slav"
     },
+
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
       "{DEEPPAVLOV_PATH}/requirements/bert_dp.txt"
