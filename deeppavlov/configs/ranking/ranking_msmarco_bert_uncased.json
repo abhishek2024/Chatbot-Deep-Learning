@@ -51,7 +51,7 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/msmarco_uncased_bert_model"
+      "MODELS_PATH": "{ROOT_PATH}/models/msmarco_uncased_bert_dev200_model"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
@@ -67,7 +67,7 @@
         "subdir": "{DOWNLOADS_PATH}/bert_models"
       },
       {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/msmarco_uncased_bert_model.tar.gz",
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/msmarco_uncased_bert_dev200_model.tar.gz",
         "subdir": "{ROOT_PATH}/models"
       }
     ]
