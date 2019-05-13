@@ -21,14 +21,6 @@ agent_config:
       env:
         CUDA_VISIBLE_DEVICES: ""
 
-    - name: hellobot
-      url: http://10.11.1.251:8106/ruler_call/
-      path: null
-
-    - name: sberchat
-      url: http://23.102.48.212:8443/api/
-      path: null
-
   ANNOTATORS:
     - name: ner
       url: http://10.11.1.251:8103/skill
