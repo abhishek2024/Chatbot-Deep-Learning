@@ -35,7 +35,7 @@
     "out": ["predictions"]
   },
   "train": {
-    "batch_size": 8,
+    "batch_size": 4,
     "pytest_max_batches": 2,
     "train_metrics": [],
     "metrics": ["mrr@10", "r@1"],
@@ -51,7 +51,7 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/msmarco_uncased_bert_msl512_dev200_bs8_model"
+      "MODELS_PATH": "{ROOT_PATH}/models/msmarco_uncased_bert_msl512_dev200_bs4_model"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
@@ -67,7 +67,7 @@
         "subdir": "{DOWNLOADS_PATH}/bert_models"
       },
       {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/msmarco_uncased_bert_msl512_dev200_bs8_model.tar.gz",
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/msmarco_uncased_bert_msl512_dev200_bs4_model.tar.gz",
         "subdir": "{ROOT_PATH}/models"
       }
     ]
