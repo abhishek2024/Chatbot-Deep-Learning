@@ -43,7 +43,7 @@
         "bert_config_file": "{DOWNLOADS_PATH}/bert_models/uncased_L-12_H-768_A-12/bert_config.json",
         "pretrained_bert": "{DOWNLOADS_PATH}/bert_models/uncased_L-12_H-768_A-12/bert_model.ckpt",
         "save_path": "{MODELS_PATH}",
-        "load_path": "{MODELS_PATH}/model",
+        "load_path": "{MODELS_PATH}/model.ckpt-599058",
         "learning_rate": 2e-05,
         "in": ["bert_features"],
         "in_y": ["y"],
