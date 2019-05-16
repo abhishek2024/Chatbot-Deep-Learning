@@ -284,7 +284,31 @@ class KerasClassificationModel(LRScheduledKerasModel):
                 try:
                     model.load_weights(str(weights_path))
                 except ValueError:
-                    ConfigError("Some non-changable parameters of neural network differ from given pre-trained model")
+                    # non-changable parameters of neural network are changed
+                    if self.opt.get("partial_weights_init", False):
+                        log.warning("Network sizes differ. Loading part of pre-trained weights!!!")
+                        pretrained_opt = read_json(opt_path)
+                        pretrained_model = model_func(**pretrained_opt)
+                        pretrained_model.load_weights(str(weights_path))
+                        # at the moment we have model with new sizes and randomly initialized weights
+
+                        for j in range(len(model.layers)):
+                            weights = model.layers[j].get_weights()
+                            pretrained_weights = pretrained_model.layers[j].get_weights()
+
+                            # weights is a list with arrays
+                            for i in range(len(weights)):
+                                # slices = tuple([slice(0, s) for s in weights.shape])
+                                # weights[i] = np.zeros(weights[i].shape, dtype='float')
+                                shape = np.min((weights[i].shape, pretrained_weights[i].shape), axis=0)
+                                slices = tuple([slice(0, s) for s in shape])
+                                weights[i][slices] = pretrained_weights[i][slices]
+                            model.layers[j].set_weights(weights)
+
+                        log.info("Network weights are partially initialized with pre-trained")
+
+                    else:
+                        ConfigError("Some non-changable parameters of network differ from given pre-trained model")
 
                 self.model = model
 
