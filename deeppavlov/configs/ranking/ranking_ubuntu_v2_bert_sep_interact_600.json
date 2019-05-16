@@ -69,7 +69,7 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/mailru_bert_npair_simple_norm_vec_predictor_model"
+      "MODELS_PATH": "{ROOT_PATH}/models/mailru_bert_npair_simple_norm_vec"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
