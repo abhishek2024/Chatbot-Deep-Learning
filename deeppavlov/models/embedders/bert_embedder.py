@@ -54,8 +54,6 @@ class BertEmbedder(Component, metaclass=TfModelMeta):
         self.mean = mean
         self.dim = None
 
-        super().__init__(**kwargs)
-
         self.bert_config = BertConfig.from_json_file(str(expand_path(bert_config_file)))
 
         if attention_probs_keep_prob is not None:
@@ -74,17 +72,11 @@ class BertEmbedder(Component, metaclass=TfModelMeta):
         if pretrained_bert is not None:
             pretrained_bert = str(expand_path(pretrained_bert))
 
-        if tf.train.checkpoint_exists(pretrained_bert) \
-                and not tf.train.checkpoint_exists(str(self.load_path.resolve())):
+        if tf.train.checkpoint_exists(pretrained_bert) :
             log.info('[initializing model with Bert from {}]'.format(pretrained_bert))
-            # Exclude optimizer and classification variables from saved variables
-            var_list = self._get_saveable_variables(
-                exclude_scopes=('Optimizer', 'learning_rate', 'momentum', 'output_weights', 'output_bias'))
-            saver = tf.train.Saver(var_list)
+            saver = tf.train.Saver()
             saver.restore(self.sess, pretrained_bert)
 
-        if self.load_path is not None:
-            self.load()
 
     def _init_graph(self):
         self._init_placeholders()
@@ -97,13 +89,15 @@ class BertEmbedder(Component, metaclass=TfModelMeta):
                               use_one_hot_embeddings=False,
                               )
         if self.mean:
-            # get_sequence_output returns the encoded sequence tensor of shape
-            # [batch_size, seq_length, hidden_size] that is exactly tokens embeddings
-            self.embeddings = self.bert.get_sequence_output()
-        else:
             # get_pooled_output returns the encoded tensor of shape
             # [batch_size, hidden_size] that is exactly sentence embeddings
             self.embeddings = self.bert.get_pooled_output()
+        else:
+            # get_sequence_output returns the encoded sequence tensor of shape
+            # [batch_size, seq_length, hidden_size] that is exactly tokens embeddings
+            self.embeddings = self.bert.get_sequence_output()
+
+        self.dim = self.embeddings.shape[-1].value
 
     def _init_placeholders(self):
         self.input_ids_ph = tf.placeholder(shape=(None, None), dtype=tf.int32, name='ids_ph')
