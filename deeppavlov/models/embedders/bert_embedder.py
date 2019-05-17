@@ -12,21 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
 from logging import getLogger
-from typing import Iterator, List, Union, Optional
+from typing import List, Union
 
 import numpy as np
 import tensorflow as tf
-import tensorflow_hub as hub
 from overrides import overrides
 from bert_dp.modeling import BertConfig, BertModel
-from bert_dp.optimization import AdamWeightDecayOptimizer
 from bert_dp.preprocessing import InputFeatures
 
 from deeppavlov.core.commands.utils import expand_path
 from deeppavlov.core.common.registry import register
-from deeppavlov.core.data.utils import zero_pad, chunk_generator
+from deeppavlov.core.data.utils import zero_pad
 from deeppavlov.core.models.component import Component
 from deeppavlov.core.models.tf_backend import TfModelMeta
 
@@ -76,7 +73,6 @@ class BertEmbedder(Component, metaclass=TfModelMeta):
             log.info('[initializing model with Bert from {}]'.format(pretrained_bert))
             saver = tf.train.Saver()
             saver.restore(self.sess, pretrained_bert)
-
 
     def _init_graph(self):
         self._init_placeholders()
@@ -140,8 +136,8 @@ class BertEmbedder(Component, metaclass=TfModelMeta):
         embeddings = self.sess.run(self.embeddings, feed_dict=feed_dict)
 
         if self.pad_zero:
-            batch = zero_pad(embeddings)
-        return batch
+            embeddings = zero_pad(embeddings)
+        return embeddings
 
     def destroy(self):
         if hasattr(self, 'sess'):
