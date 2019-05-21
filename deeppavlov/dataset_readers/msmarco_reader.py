@@ -130,9 +130,9 @@ class MSMARCOReader(DatasetReader):
             sample.append(qid_query[qid])
             for pid in cand_pids:
                 sample.append(self.collection[pid])
-            if len(sample) < 1005:
-                sample += (1005 - len(sample)) * ['EMPTY_PASSAGE']
-            assert(len(sample) == 1005)
+            if len(sample) < 1001:
+                sample += (1001 - len(sample)) * ['EMPTY_PASSAGE']
+            assert(len(sample) == 1001)
             data.append(sample)
         data = list(zip(data, labels))
         data = random.sample(data, 200)
