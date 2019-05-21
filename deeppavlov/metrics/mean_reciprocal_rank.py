@@ -36,7 +36,7 @@ def mean_reciprocal_rank_at_k(y_true: List[int], y_pred: List[List[np.ndarray]],
     mrr = 0
     num_examples = float(len(y_pred))
     predictions = np.array(y_pred)
-    predictions = np.flip(np.argsort(predictions, -1), -1)[:, :k]
+    predictions = np.flip(np.lexsort((np.random.random(y_pred.shape), y_pred), -1), -1)[:, :k]
     for label, prediction in zip(y_true, predictions):
         range_true = range(label)
         for i, el in enumerate(prediction):
