@@ -16,6 +16,7 @@ from logging import getLogger
 from typing import List, Any, Tuple
 
 import numpy as np
+import scipy as sp
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.estimator import Component
@@ -33,21 +34,33 @@ class TfidfRanker(Component):
         top_n: a number of doc ids to return
         active: whether to return a number specified by :attr:`top_n` (``True``) or all ids
          (``False``)
+        threshold: whether to return documents only with tfidf score more than threshold value
+        cosine: to use cosine tfidf similarity
 
     Attributes:
         top_n: a number of doc ids to return
         vectorizer: an instance of vectorizer class
         active: whether to return a number specified by :attr:`top_n` or all ids
+        threshold: whether to return documents only with tfidf score more than threshold value
         index2doc: inverted :attr:`doc_index`
         iterator: a dataset iterator used for generating batches while fitting the vectorizer
+        norms: l-2 norms of tfidf documents vectors
 
     """
 
-    def __init__(self, vectorizer: HashingTfIdfVectorizer, top_n=5, active: bool = True, **kwargs):
+    def __init__(self, vectorizer: HashingTfIdfVectorizer, top_n: int = 5,  active: bool = True, threshold: float = 0.0,
+                 cosine: bool = False, **kwargs):
 
         self.top_n = top_n
         self.vectorizer = vectorizer
         self.active = active
+        self.cosine = cosine
+        self.threshold = threshold
+
+        if self.cosine:
+            norms = sp.sparse.linalg.norm(vectorizer.tfidf_matrix, axis=0)
+            # fix zero norm docs
+            self.norms = (norms == 0) * 1 + norms
 
     def __call__(self, questions: List[str]) -> Tuple[List[Any], List[float]]:
         """Rank documents and return top n document titles with scores.
@@ -65,19 +78,26 @@ class TfidfRanker(Component):
 
         for q_tfidf in q_tfidfs:
             scores = q_tfidf * self.vectorizer.tfidf_matrix
-            scores = np.squeeze(
-                scores.toarray() + 0.0001)  # add a small value to eliminate zero scores
+            if self.cosine:
+                q_norm = np.sqrt(np.sum(q_tfidf.multiply(q_tfidf), axis=1)).sum()
+                q_norm = q_norm if q_norm > 0 else 1.0
+                denominator = q_norm * self.norms
+                scores = np.squeeze(np.array(scores / denominator))
+            else:
+                scores = np.squeeze(scores.toarray() + 0.0001)  # add a small value to eliminate zero scores
 
             if self.active:
-                thresh = self.top_n
+                top_n = self.top_n
             else:
-                thresh = len(self.vectorizer.doc_index)
+                top_n = len(self.vectorizer.doc_index)
 
-            if thresh >= len(scores):
-                o = np.argpartition(-scores, len(scores) - 1)[0:thresh]
+            if top_n >= len(scores):
+                o = np.argpartition(-scores, len(scores) - 1)[0:top_n]
             else:
-                o = np.argpartition(-scores, thresh)[0:thresh]
-            o_sort = o[np.argsort(-scores[o])]
+                o = np.argpartition(-scores, top_n)[0:top_n]
+
+            o_filtered = o[scores[o] >= self.threshold]
+            o_sort = o_filtered[np.argsort(-scores[o_filtered])]
 
             doc_scores = scores[o_sort]
             doc_ids = [self.vectorizer.index2doc[i] for i in o_sort]

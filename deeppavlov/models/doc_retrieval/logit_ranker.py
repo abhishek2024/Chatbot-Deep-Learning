@@ -77,6 +77,10 @@ class LogitRanker(Component):
                 results = sorted(results, key=lambda x: (x[0] != '', x[2]), reverse=True)
             else:
                 results = sorted(results, key=itemgetter(2), reverse=True)
-            batch_best_answers.append(results[0][0])
-            batch_best_answers_scores.append(results[0][2])
+            if len(results) > 0:
+                batch_best_answers.append(results[0][0])
+                batch_best_answers_scores.append(results[0][2])
+            else:
+                batch_best_answers.append(None)
+                batch_best_answers_scores.append(None)
         return batch_best_answers, batch_best_answers_scores
