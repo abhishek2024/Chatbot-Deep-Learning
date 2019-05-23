@@ -14,6 +14,8 @@
 
 from logging import getLogger
 from typing import List, Generator, Any, Optional, Union, Tuple
+import string
+import re
 
 # from nltk.corpus import stopwords
 # STOPWORDS = stopwords.words('russian')
@@ -23,6 +25,7 @@ from nltk.tokenize.toktok import ToktokTokenizer
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.component import Component
 from deeppavlov.models.tokenizers.utils import detokenize, ngramize
+from deeppavlov.models.preprocessors.sanitizer import Sanitizer
 
 logger = getLogger(__name__)
 
@@ -61,10 +64,13 @@ class RussianTokenizer(Component):
 
     def __init__(self, stopwords: Optional[List[str]] = None, ngram_range: List[int] = None,
                  lemmas: bool = False, lowercase: Optional[bool] = None,
-                 alphas_only: Optional[bool] = None, **kwargs):
+                 alphas_only: Optional[bool] = None, use_sanitizer: bool = True,
+                 remove_punct: bool = True, **kwargs):
 
         if ngram_range is None:
             ngram_range = [1, 1]
+        if use_sanitizer is True:
+            self.sanitizer = Sanitizer()
         self.stopwords = stopwords or []
         self.tokenizer = ToktokTokenizer()
         self.lemmatizer = pymorphy2.MorphAnalyzer()
@@ -73,6 +79,7 @@ class RussianTokenizer(Component):
         self.lowercase = lowercase
         self.alphas_only = alphas_only
         self.tok2morph = {}
+        self.remove_punct = remove_punct
 
     def __call__(self, batch: Union[List[str], List[List[str]]]) -> \
             Union[List[List[str]], List[str]]:
@@ -99,7 +106,7 @@ class RussianTokenizer(Component):
         raise TypeError(
             "StreamSpacyTokenizer.__call__() is not implemented for `{}`".format(type(batch[0])))
 
-    def _tokenize(self, data: List[str], ngram_range: Tuple[int, int]=(1, 1), lowercase: bool=True)\
+    def _tokenize(self, data: List[str], ngram_range: Tuple[int, int] = (1, 1), lowercase: bool = True) \
             -> Generator[List[str], Any, None]:
         """Tokenize a list of documents.
 
@@ -135,7 +142,7 @@ class RussianTokenizer(Component):
             processed_doc = ngramize(filtered, ngram_range=_ngram_range)
             yield from processed_doc
 
-    def _lemmatize(self, data: List[str], ngram_range: Tuple[int, int]=(1, 1)) -> \
+    def _lemmatize(self, data: List[str], ngram_range: Tuple[int, int] = (1, 1)) -> \
             Generator[List[str], Any, None]:
         """Lemmatize a list of documents.
 
@@ -154,7 +161,7 @@ class RussianTokenizer(Component):
         # size = len(data)
         _ngram_range = self.ngram_range or ngram_range
 
-        tokenized_data = list(self._tokenize(data))
+        tokenized_data = [self.tokenizer.tokenize(doc) for doc in data]
 
         for i, doc in enumerate(tokenized_data):
             # DEBUG
@@ -171,7 +178,7 @@ class RussianTokenizer(Component):
             processed_doc = ngramize(filtered, ngram_range=_ngram_range)
             yield from processed_doc
 
-    def _filter(self, items: List[str], alphas_only: bool=True) -> List[str]:
+    def _filter(self, items: List[str], alphas_only: bool = True) -> List[str]:
         """Filter a list of tokens/lemmas.
 
         Args:
@@ -187,12 +194,17 @@ class RussianTokenizer(Component):
         else:
             _alphas_only = self.alphas_only
 
+        if self.remove_punct:
+            items = [i for i in items if i not in string.punctuation]
+
+        sanitized_items = self.sanitizer([items])[0]
+
         if _alphas_only:
-            filter_fn = lambda x: x.isalpha() and not x.isspace() and x not in self.stopwords
+            filter_fn = lambda x:  len(re.sub(r'[^a-zA-Zа-яА-Я-]', '', x)) == len(x) and not x.isspace() and x not in self.stopwords
         else:
             filter_fn = lambda x: not x.isspace() and x not in self.stopwords
 
-        return list(filter(filter_fn, items))
+        return list(filter(filter_fn, sanitized_items))
 
     def set_stopwords(self, stopwords: List[str]) -> None:
         """Redefine a list of stopwords.
@@ -205,5 +217,3 @@ class RussianTokenizer(Component):
 
        """
         self.stopwords = stopwords
-
-
