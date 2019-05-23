@@ -98,7 +98,7 @@ class DocumentChunker(Component):
             result.append(batch_chunks)
 
         if self.flatten_result:
-            if isinstance(result[0][0], list):
+            if len(result[0]) > 0 and isinstance(result[0][0], list):
                 for i in range(len(result)):
                     flattened = list(chain.from_iterable(result[i]))
                     result[i] = flattened

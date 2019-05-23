@@ -34,25 +34,29 @@ class TfidfRanker(Component):
         top_n: a number of doc ids to return
         active: whether to return a number specified by :attr:`top_n` (``True``) or all ids
          (``False``)
+        threshold: whether to return documents only with tfidf score more than threshold value
         cosine: to use cosine tfidf similarity
 
     Attributes:
         top_n: a number of doc ids to return
         vectorizer: an instance of vectorizer class
         active: whether to return a number specified by :attr:`top_n` or all ids
+        threshold: whether to return documents only with tfidf score more than threshold value
         index2doc: inverted :attr:`doc_index`
         iterator: a dataset iterator used for generating batches while fitting the vectorizer
         norms: l-2 norms of tfidf documents vectors
 
     """
 
-    def __init__(self, vectorizer: HashingTfIdfVectorizer, top_n: int = 5,  active: bool = True, cosine: bool = False,
-                 **kwargs):
+    def __init__(self, vectorizer: HashingTfIdfVectorizer, top_n: int = 5,  active: bool = True, threshold: float = 0.0,
+                 cosine: bool = False, **kwargs):
 
         self.top_n = top_n
         self.vectorizer = vectorizer
         self.active = active
         self.cosine = cosine
+        self.threshold = threshold
+
         if self.cosine:
             norms = sp.sparse.linalg.norm(vectorizer.tfidf_matrix, axis=0)
             # fix zero norm docs
@@ -91,7 +95,9 @@ class TfidfRanker(Component):
                 o = np.argpartition(-scores, len(scores) - 1)[0:top_n]
             else:
                 o = np.argpartition(-scores, top_n)[0:top_n]
-            o_sort = o[np.argsort(-scores[o])]
+
+            o_filtered = o[scores[o] >= self.threshold]
+            o_sort = o_filtered[np.argsort(-scores[o_filtered])]
 
             doc_scores = scores[o_sort]
             doc_ids = [self.vectorizer.index2doc[i] for i in o_sort]
