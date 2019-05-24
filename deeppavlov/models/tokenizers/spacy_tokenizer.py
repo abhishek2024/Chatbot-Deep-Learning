@@ -14,6 +14,7 @@
 
 from logging import getLogger
 from typing import List, Generator, Any, Optional, Union, Tuple, Iterable
+import string
 
 import spacy
 import spacy.language
@@ -21,6 +22,7 @@ import spacy.language
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.component import Component
 from deeppavlov.models.tokenizers.utils import detokenize, ngramize
+from deeppavlov.models.preprocessors.sanitizer import Sanitizer
 
 logger = getLogger(__name__)
 
@@ -78,12 +80,15 @@ class StreamSpacyTokenizer(Component):
     def __init__(self, disable: Optional[Iterable[str]] = None, stopwords: Optional[List[str]] = None,
                  batch_size: Optional[int] = None, ngram_range: Optional[List[int]] = None,
                  lemmas: bool = False, lowercase: Optional[bool] = None, alphas_only: Optional[bool] = None,
-                 spacy_model: str = 'en_core_web_sm', **kwargs):
+                 spacy_model: str = 'en_core_web_sm', use_sanitizer: bool = True,
+                 remove_punct: bool = True, **kwargs):
 
         if disable is None:
             disable = ['parser', 'ner']
         if ngram_range is None:
             ngram_range = [1, 1]
+        if use_sanitizer is True:
+            self.sanitizer = Sanitizer()
         self.stopwords = stopwords or []
         self.model = _try_load_spacy_model(spacy_model, disable=disable)
         self.batch_size = batch_size
@@ -91,6 +96,7 @@ class StreamSpacyTokenizer(Component):
         self.lemmas = lemmas
         self.lowercase = lowercase
         self.alphas_only = alphas_only
+        self.remove_punct = remove_punct
 
     def __call__(self, batch: Union[List[str], List[List[str]]]) -> Union[List[List[str]], List[str]]:
         """Tokenize or detokenize strings, depends on the type structure of passed arguments.
@@ -178,7 +184,7 @@ class StreamSpacyTokenizer(Component):
             processed_doc = ngramize(filtered, ngram_range=_ngram_range)
             yield from processed_doc
 
-    def _filter(self, items: List[str], alphas_only: bool=True) -> List[str]:
+    def _filter(self, items: List[str], alphas_only: bool = True) -> List[str]:
         """Filter a list of tokens/lemmas.
 
         Args:
@@ -194,12 +200,17 @@ class StreamSpacyTokenizer(Component):
         else:
             _alphas_only = self.alphas_only
 
+        if self.remove_punct:
+            items = [i for i in items if i not in string.punctuation]
+
+        sanitized_items = self.sanitizer([items])[0]
+
         if _alphas_only:
             filter_fn = lambda x: x.isalpha() and not x.isspace() and x not in self.stopwords
         else:
             filter_fn = lambda x: not x.isspace() and x not in self.stopwords
 
-        return list(filter(filter_fn, items))
+        return list(filter(filter_fn, sanitized_items))
 
     def set_stopwords(self, stopwords: List[str]) -> None:
         """Redefine a list of stopwords.
