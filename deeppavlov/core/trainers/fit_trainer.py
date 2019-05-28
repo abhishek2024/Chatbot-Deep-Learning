@@ -222,16 +222,16 @@ class FitTrainer:
         }
 
         if show_examples:
-            y_predicted = zip(*[y_predicted_group
-                                for out_name, y_predicted_group in zip(expected_outputs, y_predicted)
-                                if out_name in self._chainer.out_params])
-            if len(self._chainer.out_params) == 1:
-                y_predicted = [y_predicted_item[0] for y_predicted_item in y_predicted]
-            report['examples'] = [{
-                'x': x_item,
-                'y_predicted': y_predicted_item,
-                'y_true': y_true_item
-            } for x_item, y_predicted_item, y_true_item in zip(x, y_predicted, y_true)]
+            test_metric = metrics[0]
+            false_out_ids = [i for i in range(examples)
+                             if outputs[test_metric.inputs[0]][i] != outputs[test_metric.inputs[1]][i]]
+            with open('errors.jsonl', 'wt') as f_err:
+                for i in false_out_ids:
+                    example = {out_name: outputs[out_name][i] for out_name in expected_outputs}
+                    f_err.write(json.dumps(example) + '\n')
+            report['examples'] = [{out_name: outputs[out_name][i]
+                                   for out_name in expected_outputs}
+                                  for i in false_out_ids[:4]]
 
         return report
 
