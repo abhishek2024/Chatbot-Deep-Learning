@@ -70,7 +70,7 @@ class RussianTokenizer(Component):
         if ngram_range is None:
             ngram_range = [1, 1]
         if use_sanitizer is True:
-            self.sanitizer = Sanitizer(),
+            self.sanitizer = Sanitizer()
         if stopwords == 'nltk':
             self.stopwords = STOPWORDS
         else:
