@@ -17,8 +17,8 @@ from typing import List, Generator, Any, Optional, Union, Tuple
 import string
 import re
 
-# from nltk.corpus import stopwords
-# STOPWORDS = stopwords.words('russian')
+from nltk.corpus import stopwords
+STOPWORDS = stopwords.words('russian')
 import pymorphy2
 from nltk.tokenize.toktok import ToktokTokenizer
 
@@ -70,8 +70,11 @@ class RussianTokenizer(Component):
         if ngram_range is None:
             ngram_range = [1, 1]
         if use_sanitizer is True:
-            self.sanitizer = Sanitizer()
-        self.stopwords = stopwords or []
+            self.sanitizer = Sanitizer(),
+        if stopwords == 'nltk':
+            self.stopwords = STOPWORDS
+        else:
+            self.stopwords = stopwords or []
         self.tokenizer = ToktokTokenizer()
         self.lemmatizer = pymorphy2.MorphAnalyzer()
         self.ngram_range = tuple(ngram_range)  # cast JSON array to tuple
