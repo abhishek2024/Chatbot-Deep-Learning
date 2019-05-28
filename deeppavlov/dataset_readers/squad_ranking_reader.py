@@ -48,7 +48,7 @@ class SquadRankingReader(DatasetReader):
             for el in f:
                 sample = json.loads(el)
                 query = sample["question"]
-                contexts = [x["context"].replace('\n\n', ' ').replace('\n', ' ').replace() for x in sample["contexts"]]
+                contexts = [x["context"].replace('\n\n', ' ').replace('\n', ' ').replace('\t', ' ') for x in sample["contexts"]]
                 labels = [1 if len(x["answer"]) != 0 else 0 for x in sample["contexts"]]
                 for c, l in zip(contexts, labels):
                     data.append(([query, c], l))
@@ -57,7 +57,15 @@ class SquadRankingReader(DatasetReader):
     def _preprocess_data_valid_test(self, fname: Path) -> List[Tuple[List[str], int]]:
         data = []
         with open(fname, 'r') as f:
-            reader = csv.reader(f, delimiter='\t')
-            for el in reader:
-                data.append((el, 1))
+            for el in f:
+                sample = json.loads(el)
+                query = sample["question"]
+                contexts = [x["context"].replace('\n\n', ' ').replace('\n', ' ').replace('\t', ' ') for x in sample["contexts"]]
+                labels = [1 if len(x["answer"]) != 0 else 0 for x in sample["contexts"]]
+                pos_conts = [el[0] for el in zip(contexts, labels) if el[1] == 1]
+                neg_conts = [el[0] for el in zip(contexts, labels) if el[1] == 0]
+                for c in pos_conts:
+                    sample = [query] + [c] + neg_conts
+                    sample += sample + (22 - len(sample)) * ["EMPTY_DOCUMENT"]
+                    data.append((sample, 1))
         return data
