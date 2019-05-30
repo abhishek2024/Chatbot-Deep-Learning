@@ -180,7 +180,7 @@ def switch_hypt(cntx):
         )[0]
 
 
-def hacking(persona, his, hyp_answers, confs):
+def hacking(persona, his, hyp_answers, confs, hb_enable=True):
     def cntx(x):
         return x
 
@@ -188,7 +188,7 @@ def hacking(persona, his, hyp_answers, confs):
     cntx.persona, cntx.char_persona = clean_pers(persona)
     cntx.his, cntx.char_his = clean_his(his)
     hb_utter = hello_bye(cntx.char_his[-1])
-    if hb_utter:
+    if hb_enable and hb_utter:
         return hb_utter
     st_utter = start(cntx.char_his[-1])
     if st_utter:
@@ -227,6 +227,7 @@ class TransformerChitChat(Serializable):
         sample: bool = True,
         bert_vocab_path: str = "./vocab",  # vocab config
         device: str = "cuda",
+        hb_enable: bool = True,
         #  device: str = 'cuda',
         **kwargs,
     ) -> None:
@@ -257,6 +258,8 @@ class TransformerChitChat(Serializable):
 
         self.device = device
         self.bert_vocab_path = str(pathlib.Path(bert_vocab_path).expanduser())
+
+        self.hb_enable = hb_enable
         self.load()
 
     @overrides
@@ -367,7 +370,7 @@ class TransformerChitChat(Serializable):
                 lines.append(line)
             predictions_batch.append(lines)
         predictions_batch = [
-            hacking(self.persona, his, hyp_answers, confs)
+            hacking(self.persona, his, hyp_answers, confs, self.hb_enable)
             for his, hyp_answers, confs in zip(history_batch, predictions_batch, confidence)
         ]
         return predictions_batch, confidence
