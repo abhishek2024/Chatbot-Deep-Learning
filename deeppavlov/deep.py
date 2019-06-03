@@ -117,7 +117,7 @@ def main():
             start_alice_server(pipeline_config_path, https, ssl_key, ssl_cert, port=args.port)
         elif args.api_mode == 'skill':
             skill_server(pipeline_config_path, https, ssl_key, ssl_cert,
-                         host=args.host, port=args.port, endpoint=args.endpoint)
+                         host=args.host, port=args.port, endpoint=args.endpoint, batch_size=args.batch_size)
         else:
             start_model_server(pipeline_config_path, https, ssl_key, ssl_cert,
                                host=args.host, port=args.port, endpoint=args.endpoint)
