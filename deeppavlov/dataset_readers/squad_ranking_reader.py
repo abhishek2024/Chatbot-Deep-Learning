@@ -60,12 +60,12 @@ class SquadRankingReader(DatasetReader):
             for el in f:
                 sample = json.loads(el)
                 query = sample["question"]
-                contexts = [x["context"].replace('\n\n', ' ').replace('\n', ' ').replace('\t', ' ') for x in sample["contexts"]]
+                c = [x["context"].replace('\n\n', ' ').replace('\n', ' ').replace('\t', ' ') for x in sample["contexts"]]
                 labels = [1 if len(x["answer"]) != 0 else 0 for x in sample["contexts"]]
-                pos_conts = [el[0] for el in zip(contexts, labels) if el[1] == 1]
-                neg_conts = [el[0] for el in zip(contexts, labels) if el[1] == 0]
+                pc = [el[0] for el in zip(contexts, labels) if el[1] == 1]
+                nc = [el[0] for el in zip(contexts, labels) if el[1] == 0]
                 for c in pos_conts:
                     sample = [query] + [c] + neg_conts
                     sample += sample + (22 - len(sample)) * ["EMPTY_DOCUMENT"]
-                    data.append((sample, 1))
+                    data.append((sample[:11], 1))
         return data
