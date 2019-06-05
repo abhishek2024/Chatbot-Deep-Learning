@@ -70,7 +70,7 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/ubuntu_v2_uncased_bert_sep_predictor_model"
+      "MODELS_PATH": "{ROOT_PATH}/models/mailru_bert_npair_simple_norm_vec"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
