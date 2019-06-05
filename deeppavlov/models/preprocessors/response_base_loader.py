@@ -40,7 +40,7 @@ class ResponseBaseLoader(Serializable):
         if self.load_path is not None:
             resp_file = self.load_path / "ruwiki_par.db"
             if resp_file.exists():
-                conn = sqlite3.connect(resp_file)
+                conn = sqlite3.connect(str(resp_file))
                 cur = conn.cursor()
                 cur.execute("SELECT * FROM documents")
                 self.resps = cur.fetchall()
