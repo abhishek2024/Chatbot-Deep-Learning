@@ -88,8 +88,11 @@
       {
         "url": "http://files.deeppavlov.ai/deeppavlov_data/mailru_bert_npair_simple_norm_vec.tar.gz",
         "subdir": "{ROOT_PATH}/models"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/datasets/wikipedia/ruwiki_par.db",
+        "subdir": "{ROOT_PATH}/models/mailru_bert_npair_simple_norm_vec"
       }
-
     ]
   }
 }
