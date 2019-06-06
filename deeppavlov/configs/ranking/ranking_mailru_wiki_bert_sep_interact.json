@@ -21,7 +21,7 @@
       {
         "class_name": "bert_sep_ranker_predictor_preprocessor",
         "id": "preproc",
-        "vocab_file": "{DOWNLOADS_PATH}/bert_models/uncased_L-12_H-768_A-12/vocab.txt",
+        "vocab_file": "{MODELS_PATH}/vocab.txt",
         "do_lower_case": true,
         "max_seq_length": 128,
         "resps": "#loader.resps",
@@ -40,8 +40,8 @@
         "cont_vecs": "#loader.cont_vecs",
         "cont_features": "#preproc.cont_features",
         "interact_mode": 0,
-        "bert_config_file": "{DOWNLOADS_PATH}/bert_models/uncased_L-12_H-768_A-12/bert_config.json",
-        "pretrained_bert": "{DOWNLOADS_PATH}/bert_models/uncased_L-12_H-768_A-12/bert_model.ckpt",
+        "bert_config_file": "{MODELS_PATH}/bert_config.json",
+        "pretrained_bert": "{MODELS_PATH}/model.ckpt-599058",
         "save_path": "{MODELS_PATH}",
         "load_path": "{MODELS_PATH}/model.ckpt-599058",
 

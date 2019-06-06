@@ -374,8 +374,12 @@ class BertSepRankerPredictor(BertSepRankerModel):
 
         if self.resps is not None and self.resp_vecs is None:
             logger.info("Building BERT vector representations for the response base...")
-            self.resp_features = [resp_features[0][i * self.batch_size: (i + 1) * self.batch_size]
+            if len(resp_features[0]) % batch_size != 0:
+                self.resp_features = [resp_features[0][i * self.batch_size: (i + 1) * self.batch_size]
                                   for i in range(len(resp_features[0]) // batch_size + 1)]
+            else:
+                self.resp_features = [resp_features[0][i * self.batch_size: (i + 1) * self.batch_size]
+                                      for i in range(len(resp_features[0]) // batch_size)]
             self.resp_vecs = self._get_predictions(self.resp_features)
             self.resp_vecs /= np.linalg.norm(self.resp_vecs, axis=1, keepdims=True)
             np.save(self.save_path / "resp_vecs", self.resp_vecs)
