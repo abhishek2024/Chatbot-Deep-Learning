@@ -44,7 +44,7 @@ class ResponseBaseLoader(Serializable):
                 cur = conn.cursor()
                 cur.execute("SELECT * FROM documents")
                 raws = cur.fetchall()
-                self.resps = [el[2] for el in raws]
+                self.resps = [el[2].replace('\n', ' ').replace('#', '') for el in raws]
             else:
                 logger.error("Please provide responses.csv file to the {} directory".format(self.load_path))
                 sys.exit(1)
