@@ -48,7 +48,7 @@ class ResponseBaseLoader(Serializable):
                 cur = conn.cursor()
                 cur.execute("SELECT * FROM documents")
                 raws = cur.fetchall()
-                self.resps = [el[2].replace('\n', ' ').replace('#', '') for el in raws][:4]
+                self.resps = [el[2].replace('\n', ' ').replace('#', '') for el in raws]
             else:
                 logger.error("Please provide responses.csv file to the {} directory".format(self.load_path))
                 sys.exit(1)
@@ -59,7 +59,10 @@ class ResponseBaseLoader(Serializable):
                 self.resp_features = self._convert_dicts_to_features(resp_feats)
             resp_vec_file = self.load_path / "resp_vecs.npy"
             if resp_vec_file.exists():
-                self.resp_vecs = np.load(resp_vec_file)
+                base_size = len(self.resps)
+                # self.resp_vecs = np.load(resp_vec_file)
+                self.resp_vecs = np.memmap(self.save_path / "resp_vecs.npy", mode='r',
+                                           dtype='float32', shape=(base_size, 768))
 
     def _convert_dicts_to_features(self, feature_dicts):
         features = []
@@ -67,8 +70,8 @@ class ResponseBaseLoader(Serializable):
             unique_id = el['unique_id']
             tokens = el['tokens']
             input_ids = el['input_ids']
-            input_mask = [el['input_mask']]
-            input_type_ids = [el['input_type_ids']]
+            input_mask = el['input_mask']
+            input_type_ids = el['input_type_ids']
             f = InputFeatures(unique_id, tokens, input_ids, input_mask, input_type_ids)
             features.append(f)
         features = [features]

@@ -13,6 +13,7 @@
 # limitations under the License.
 import random
 import re
+from tqdm import tqdm
 from logging import getLogger
 from typing import Tuple, List, Optional, Union
 
@@ -280,8 +281,9 @@ class BertSepRankerPreprocessor(BertPreprocessor):
             ex = [InputExample(unique_id=0, text_a=text_a, text_b=text_b) for text_a, text_b in
                   zip(s, s_empt)]
             examples.append(ex)
-        features = [convert_examples_to_features(el, self.max_seq_length, self.tokenizer) for el in examples]
-
+        features = []
+        for el in tqdm(examples):
+            features.append(convert_examples_to_features(el, self.max_seq_length, self.tokenizer))
         return features
 
 

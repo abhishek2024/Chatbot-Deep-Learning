@@ -375,19 +375,19 @@ class BertSepRankerPredictor(BertSepRankerModel):
 
         if self.resps is not None and self.resp_vecs is None:
             logger.info("Building BERT vector representations for the response base...")
-            base_size = len(self.resp_features)
-            self.resp_vecs = np.memmap(self.save_path / "resp_vecs", mode='w+',
-                                       shape=(base_size, 768))
-            if len(resp_features[0]) % batch_size != 0:
-                self.resp_features = [resp_features[0][i * self.batch_size: (i + 1) * self.batch_size]
-                                  for i in range(len(resp_features[0]) // batch_size + 1)]
-            else:
-                self.resp_features = [resp_features[0][i * self.batch_size: (i + 1) * self.batch_size]
-                                      for i in range(len(resp_features[0]) // batch_size)]
-            for i, f in tqdm(enumerate(self.resp_features)):
-                vec = self._get_predictions(f)
-                self.resp_vecs[i * self.batch_size: i * self.batch_size + vec.shape[0], :] = vec
-                self.resp_vecs.flush()
+            base_size = len(self.resp_features[0])
+            self.resp_vecs = np.memmap(self.save_path / "resp_vecs.npy", mode='w+',
+                                       dtype='float32', shape=(base_size, 768))
+            for i in tqdm(range(len(resp_features[0]) // batch_size + 1)):
+                feature_batch = resp_features[0][i * self.batch_size: (i + 1) * self.batch_size]
+                if len(feature_batch) > 0:
+                    vec = self._get_predictions(feature_batch)
+                    self.resp_vecs[i * self.batch_size: i * self.batch_size + vec.shape[0], :] = vec[:]
+                    self.resp_vecs.flush()
+            del self.resp_vecs
+            self.resp_vecs = np.memmap(self.save_path / "resp_vecs.npy", mode='r',
+                                       dtype='float32', shape=(base_size, 768))
+
 
         if self.conts is not None and self.cont_vecs is None:
             logger.info("Building BERT vector representations for the context base...")
@@ -412,7 +412,7 @@ class BertSepRankerPredictor(BertSepRankerModel):
             text response with the highest similarity score and its similarity score from the response base
         """
 
-        pred = self._get_predictions(features_li)
+        pred = self._get_predictions(features_li[0])
         return self._retrieve_db_response(pred)
 
     def _get_predictions(self, features_batch):
