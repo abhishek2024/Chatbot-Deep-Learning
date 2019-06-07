@@ -17,6 +17,7 @@ from typing import List, Dict, Union
 from collections import OrderedDict
 import re
 from operator import itemgetter
+from tqdm import tqdm
 
 import numpy as np
 import tensorflow as tf
@@ -374,22 +375,25 @@ class BertSepRankerPredictor(BertSepRankerModel):
 
         if self.resps is not None and self.resp_vecs is None:
             logger.info("Building BERT vector representations for the response base...")
+            base_size = len(self.resp_features)
+            self.resp_vecs = np.memmap(self.save_path / "resp_vecs", mode='w+',
+                                       shape=(base_size, 768))
             if len(resp_features[0]) % batch_size != 0:
                 self.resp_features = [resp_features[0][i * self.batch_size: (i + 1) * self.batch_size]
                                   for i in range(len(resp_features[0]) // batch_size + 1)]
             else:
                 self.resp_features = [resp_features[0][i * self.batch_size: (i + 1) * self.batch_size]
                                       for i in range(len(resp_features[0]) // batch_size)]
-            self.resp_vecs = self._get_predictions(self.resp_features)
-            self.resp_vecs /= np.linalg.norm(self.resp_vecs, axis=1, keepdims=True)
-            np.save(self.save_path / "resp_vecs", self.resp_vecs)
+            for i, f in tqdm(enumerate(self.resp_features)):
+                vec = self._get_predictions(f)
+                self.resp_vecs[i * self.batch_size: i * self.batch_size + vec.shape[0], :] = vec
+                self.resp_vecs.flush()
 
         if self.conts is not None and self.cont_vecs is None:
             logger.info("Building BERT vector representations for the context base...")
             self.cont_features = [cont_features[0][i * self.batch_size: (i + 1) * self.batch_size]
                                   for i in range(len(cont_features[0]) // batch_size + 1)]
             self.cont_vecs = self._get_predictions(self.cont_features)
-            self.cont_vecs /= np.linalg.norm(self.cont_vecs, axis=1, keepdims=True)
             np.save(self.save_path / "cont_vecs", self.resp_vecs)
 
     def train_on_batch(self, features, y):
@@ -411,22 +415,19 @@ class BertSepRankerPredictor(BertSepRankerModel):
         pred = self._get_predictions(features_li)
         return self._retrieve_db_response(pred)
 
-    def _get_predictions(self, features_li):
+    def _get_predictions(self, features_batch):
         """Get BERT vector representations for a list of feature batches."""
 
-        pred = []
-        for features in features_li:
-            input_ids = [f.input_ids for f in features]
-            input_masks = [f.input_mask for f in features]
-            input_type_ids = [f.input_type_ids for f in features]
-            feed_dict = self._build_feed_dict(input_ids, input_masks, input_type_ids,
-                                              input_ids, input_masks, input_type_ids)
-            p = self.sess.run(self.pooled_out, feed_dict=feed_dict)
-            if len(p.shape) == 1:
-                p = np.expand_dims(p, 0)
-            p /= np.linalg.norm(p, axis=1, keepdims=True)
-            pred.append(p)
-        return np.vstack(pred)
+        input_ids = [f.input_ids for f in features_batch]
+        input_masks = [f.input_mask for f in features_batch]
+        input_type_ids = [f.input_type_ids for f in features_batch]
+        feed_dict = self._build_feed_dict(input_ids, input_masks, input_type_ids,
+                                          input_ids, input_masks, input_type_ids)
+        p = self.sess.run(self.pooled_out, feed_dict=feed_dict)
+        if len(p.shape) == 1:
+            p = np.expand_dims(p, 0)
+        p /= np.linalg.norm(p, axis=1, keepdims=True)
+        return p
 
     def _retrieve_db_response(self, ctx_vec):
         """Retrieve a text response from the base based on the policy determined by `interact_mode`.

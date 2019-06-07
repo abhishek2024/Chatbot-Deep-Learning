@@ -25,9 +25,12 @@
         "do_lower_case": true,
         "max_seq_length": 128,
         "resps": "#loader.resps",
+        "resp_features": "#loader.resp_features",
         "resp_vecs": "#loader.resp_vecs",
         "conts": "#loader.conts",
+        "cont_features": "#loader.cont_features",
         "cont_vecs": "#loader.cont_vecs",
+        "save_path": "{MODELS_PATH}",
         "in": ["x"],
         "out": ["bert_features"]
       },
@@ -44,7 +47,6 @@
         "pretrained_bert": "{MODELS_PATH}/model.ckpt-599058",
         "save_path": "{MODELS_PATH}",
         "load_path": "{MODELS_PATH}/model.ckpt-599058",
-
         "learning_rate": 2e-05,
         "in": ["bert_features"],
         "in_y": ["y"],

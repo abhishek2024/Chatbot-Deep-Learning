@@ -17,6 +17,7 @@ from logging import getLogger
 from typing import Tuple, List, Optional, Union
 
 import numpy as np
+import pickle as pkl
 from bert_dp.preprocessing import convert_examples_to_features, InputExample, InputFeatures
 from bert_dp.tokenization import FullTokenizer
 
@@ -24,6 +25,7 @@ from deeppavlov.core.commands.utils import expand_path
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.data.utils import zero_pad
 from deeppavlov.core.models.component import Component
+from deeppavlov.core.commands.utils import expand_path
 
 log = getLogger(__name__)
 
@@ -298,15 +300,34 @@ class BertSepRankerPredictorPreprocessor(BertSepRankerPreprocessor):
     """
 
     def __init__(self,
-                 resps=None, resp_vecs=None, conts=None, cont_vecs=None, **kwargs) -> None:
+                 save_path=None,
+                 resps=None, resp_features=None, resp_vecs=None,
+                 conts=None, cont_features=None, cont_vecs=None, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.resp_features = None
-        self.cont_features = None
-        if resps is not None and resp_vecs is None:
+        self.save_path = expand_path(save_path)
+        self.resp_features = resp_features
+        self.cont_features = cont_features
+        if resps is not None and resp_features is None and resp_vecs is None:
             log.info("Building BERT features for the response base...")
             resp_batch = [[el] for el in resps]
             self.resp_features = self(resp_batch)
-        if conts is not None and cont_vecs is None:
+            self.save()
+        if conts is not None and cont_features is None and cont_vecs is None:
             log.info("Building BERT features for the context base...")
             cont_batch = [[el] for el in conts]
             self.cont_features = self(cont_batch)
+
+    def save(self):
+        dicts = self._convert_features_to_dicts(self.resp_features)
+        with open(self.save_path / "resp_feats.pkl", 'wb') as f:
+            pkl.dump(dicts, f)
+
+    def _convert_features_to_dicts(self, features):
+        dicts = []
+        for el in features[0]:
+            d = {'unique_id': el.unique_id, 'tokens': el.tokens,
+                 'input_ids': el.input_ids, 'input_mask': el.input_mask,
+                 'input_type_ids': el.input_type_ids}
+            dicts.append(d)
+        dicts = [dicts]
+        return dicts
