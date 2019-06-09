@@ -277,13 +277,13 @@ class BertSepRankerPreprocessor(BertPreprocessor):
         s_empt = [None] * len(samples[0])
         # TODO: add unique id
         examples = []
-        for s in tqdm(samples):
+        for i in tqdm(range(len(samples))):
             ex = [InputExample(unique_id=0, text_a=text_a, text_b=text_b) for text_a, text_b in
-                  zip(s, s_empt)]
+                  zip(samples[i], s_empt)]
             examples.append(ex)
         features = []
-        for el in tqdm(examples):
-            features.append(convert_examples_to_features(el, self.max_seq_length, self.tokenizer))
+        for i in tqdm(range(len(examples))):
+            features.append(convert_examples_to_features(examples[i], self.max_seq_length, self.tokenizer))
         return features
 
 
