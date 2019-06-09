@@ -72,7 +72,7 @@
     "variables": {
       "ROOT_PATH": "~/.deeppavlov",
       "DOWNLOADS_PATH": "{ROOT_PATH}/downloads",
-      "MODELS_PATH": "{ROOT_PATH}/models/mailru_bert_npair_simple_norm_vec"
+      "MODELS_PATH": "{ROOT_PATH}/models/wiki_mailru_bert_npair_simple_norm_vec"
     },
     "requirements": [
       "{DEEPPAVLOV_PATH}/requirements/tf.txt",
@@ -88,12 +88,12 @@
         "subdir": "{DOWNLOADS_PATH}/bert_models"
       },
       {
-        "url": "http://files.deeppavlov.ai/deeppavlov_data/mailru_bert_npair_simple_norm_vec.tar.gz",
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/wiki_mailru_bert_npair_simple_norm_vec.tar.gz",
         "subdir": "{ROOT_PATH}/models"
       },
       {
         "url": "http://files.deeppavlov.ai/datasets/wikipedia/ruwiki_par.db",
-        "subdir": "{ROOT_PATH}/models/mailru_bert_npair_simple_norm_vec"
+        "subdir": "{ROOT_PATH}/models/wiki_mailru_bert_npair_simple_norm_vec"
       }
     ]
   }
