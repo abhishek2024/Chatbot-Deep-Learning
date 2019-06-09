@@ -46,8 +46,6 @@ class SquadRankingReader(DatasetReader):
         dataset["train"] = self._preprocess_data_train(train_fname)
         dataset["valid"] = self._preprocess_data_valid_test(valid_fname)
         dataset["test"] = dataset["valid"]
-        print(len(dataset['train']))
-        print(len(dataset['valid']))
         return dataset
 
     def _preprocess_data_train(self, fname: Path) -> List[Tuple[List[str], int]]:

@@ -14,7 +14,7 @@
     "in_y": ["y"],
     "pipe": [
       {
-        "class_name": "bert_ranker_preprocessor",
+        "class_name": "bert_sep_ranker_preprocessor",
         "vocab_file": "{DOWNLOADS_PATH}/bert_models/uncased_L-12_H-768_A-12/vocab.txt",
         "do_lower_case": true,
         "max_seq_length": 128,
@@ -41,7 +41,7 @@
     "pytest_max_batches": 2,
     "train_metrics": [],
     "metrics": ["r@1", "r@2", "r@5"],
-    "validation_patience": 1,
+    "validation_patience": 2,
     "val_every_n_batches": -1,
     "val_every_n_epochs": 1,
     "log_every_n_batches": -1,
