@@ -89,7 +89,7 @@
       },
       {
         "url": "http://files.deeppavlov.ai/deeppavlov_data/wiki_mailru_bert_npair_simple_norm_vec.tar.gz",
-        "subdir": "{ROOT_PATH}/models"
+        "subdir": "{ROOT_PATH}/models/wiki_mailru_bert_npair_simple_norm_vec"
       },
       {
         "url": "http://files.deeppavlov.ai/datasets/wikipedia/ruwiki_par.db",
