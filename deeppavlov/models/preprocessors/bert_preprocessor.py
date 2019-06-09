@@ -277,7 +277,7 @@ class BertSepRankerPreprocessor(BertPreprocessor):
         s_empt = [None] * len(samples[0])
         # TODO: add unique id
         examples = []
-        for s in samples:
+        for s in tqdm(samples):
             ex = [InputExample(unique_id=0, text_a=text_a, text_b=text_b) for text_a, text_b in
                   zip(s, s_empt)]
             examples.append(ex)
