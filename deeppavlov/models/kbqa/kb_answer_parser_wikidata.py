@@ -110,16 +110,18 @@ class KBAnswerParserWikidata(Component, Serializable):
                                                           [relation_from_template],
                                                           [relation_prob])
                 else:
-                    entity_from_ner = self.extract_entities(tokens, tags)
-                    entity_triplets, entity_linking_confidences = self.linker(entity_from_ner, tokens)
-                    top_k_relations, top_k_probs = self._parse_relations_probs(relations_probs)
-                    top_k_relation_names = [self._relations_mapping[rel] for rel in top_k_relations]
-                    if self._debug:
-                        log.debug("top k relations {}" .format(str(top_k_relation_names)))
-                    obj, confidence = self._match_triplet(entity_triplets,
-                                                          entity_linking_confidences,
-                                                          top_k_relations,
-                                                          top_k_probs)
+                    obj = ''
+                    confidence = 0.0
+                    #entity_from_ner = self.extract_entities(tokens, tags)
+                    #entity_triplets, entity_linking_confidences = self.linker(entity_from_ner, tokens)
+                    #top_k_relations, top_k_probs = self._parse_relations_probs(relations_probs)
+                    #top_k_relation_names = [self._relations_mapping[rel] for rel in top_k_relations]
+                    #if self._debug:
+                    #    log.debug("top k relations {}" .format(str(top_k_relation_names)))
+                    #obj, confidence = self._match_triplet(entity_triplets,
+                    #                                      entity_linking_confidences,
+                    #                                      top_k_relations,
+                    #                                      top_k_probs)
                 objects_batch.append(obj)
                 confidences_batch.append(confidence)
             else:
