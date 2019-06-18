@@ -135,5 +135,6 @@ class MSMARCOReader(DatasetReader):
             assert(len(sample) == 1001)
             data.append(sample)
         data = list(zip(data, labels))
-        data = random.sample(data, 200)
+        data = data[:100]
+        # data = random.sample(data, 200)
         return data
