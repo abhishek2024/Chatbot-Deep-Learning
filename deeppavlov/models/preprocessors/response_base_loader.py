@@ -13,11 +13,11 @@
 # limitations under the License.
 
 import sys
+import csv
 import pickle as pkl
 from logging import getLogger
 
 import numpy as np
-import sqlite3
 
 from deeppavlov.core.common.registry import register
 from deeppavlov.core.models.serializable import Serializable
@@ -42,13 +42,13 @@ class ResponseBaseLoader(Serializable):
 
     def load(self):
         if self.load_path is not None:
-            resp_file = self.load_path / "ruwiki_par.db"
+            resp_file = self.load_path / "responses.csv"
             if resp_file.exists():
-                conn = sqlite3.connect(str(resp_file))
-                cur = conn.cursor()
-                cur.execute("SELECT * FROM documents")
-                raws = cur.fetchall()
-                self.resps = [el[2].replace('\n', ' ').replace('#', '') for el in raws]
+                self.resps = []
+                with open(resp_file) as f:
+                    reader = csv.reader(f, delimiter='\t')
+                    for el in reader:
+                        self.resps.append(el[1])
             else:
                 logger.error("Please provide responses.csv file to the {} directory".format(self.load_path))
                 sys.exit(1)
