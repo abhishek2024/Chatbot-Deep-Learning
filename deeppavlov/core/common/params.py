@@ -57,7 +57,9 @@ def _init_param(param, mode):
 def from_params(params: Dict, mode: str = 'infer', serialized: Any = None, **kwargs) -> Component:
     """Builds and returns the Component from corresponding dictionary of parameters."""
     # what is passed in json:
-    config_params = {k: _resolve(v) for k, v in params.items()}
+
+    config_params = dict(params)
+    # config_params = {k: _resolve(v) for k, v in params.items()}
 
     # get component by reference (if any)
     if 'ref' in config_params:
