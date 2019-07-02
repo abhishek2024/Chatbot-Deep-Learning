@@ -137,7 +137,7 @@ def renew_hypt_conf(hypts, change_conf):
     return hypts
 
 
-def switch_hypt(cntx):
+def switch_hypt(cntx, topn=False):
     hypts = cntx.hypts
     hypts = [(conf, hypt) for conf, hypt in hypts if len_filter(hypt, min_len=2)]
     # print(f'cntx.his[1::2] = {cntx.his[1::2]}')
@@ -167,20 +167,19 @@ def switch_hypt(cntx):
     res_hypts = renew_hypt_conf(res_hypts, drop_conf_of_question)
 
     res_hypts.sort(key=lambda x: x[0], reverse=True)
-    res_hypts = res_hypts[:3]
-    if res_hypts:
-        confs, answers = list(zip(*res_hypts))
+    rest_res_hypts = res_hypts[:3]
+    if rest_res_hypts:
+        confs, answers = list(zip(*rest_res_hypts))
 
         confs = np.array(confs)
         confs = confs / confs.sum()
-        return np.random.choice(answers, p=confs)
+        return np.random.choice(answers, p=confs) if not topn else res_hypts
     else:
-        return random.sample(
-            ["Не знаю, что сказать... Как дела?", "Как все сложно. Извини, не понимаю.", "Не понимаю."], 1
-        )[0]
+        rest_res_hypts = ["Не знаю, что сказать... Как дела?", "Как все сложно. Извини, не понимаю.", "Не понимаю."]
+        return random.sample(rest_res_hypts, 1)[0] if not topn else rest_res_hypts
 
 
-def hacking(persona, his, hyp_answers, confs, hb_enable=True):
+def hacking(persona, his, hyp_answers, confs, hb_enable=True, topn=False):
     def cntx(x):
         return x
 
@@ -189,12 +188,12 @@ def hacking(persona, his, hyp_answers, confs, hb_enable=True):
     cntx.his, cntx.char_his = clean_his(his)
     hb_utter = hello_bye(cntx.char_his[-1])
     if hb_enable and hb_utter:
-        return hb_utter
+        return [hb_utter] if topn else hb_utter
     st_utter = start(cntx.char_his[-1])
     if st_utter:
-        return st_utter
+        return [st_utter] if topn else st_utter
     cntx_analysis(cntx)
-    return switch_hypt(cntx)
+    return switch_hypt(cntx, topn)
 
 
 @register("transformer_chit_chat")
@@ -228,6 +227,7 @@ class TransformerChitChat(Serializable):
         bert_vocab_path: str = "./vocab",  # vocab config
         device: str = "cuda",
         hb_enable: bool = True,
+        topn: bool = False,
         #  device: str = 'cuda',
         **kwargs,
     ) -> None:
@@ -260,6 +260,7 @@ class TransformerChitChat(Serializable):
         self.bert_vocab_path = str(pathlib.Path(bert_vocab_path).expanduser())
 
         self.hb_enable = hb_enable
+        self.topn = topn
         self.load()
 
     @overrides
@@ -370,7 +371,7 @@ class TransformerChitChat(Serializable):
                 lines.append(line)
             predictions_batch.append(lines)
         predictions_batch = [
-            hacking(self.persona, his, hyp_answers, confs, self.hb_enable)
+            hacking(self.persona, his, hyp_answers, confs, self.hb_enable, self.topn)
             for his, hyp_answers, confs in zip(history_batch, predictions_batch, confidence)
         ]
         return predictions_batch, confidence
