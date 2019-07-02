@@ -143,6 +143,14 @@
       {
         "url": "http://files.deeppavlov.ai/deeppavlov_data/bert/rubert_cased_L-12_H-768_A-12_v1.tar.gz",
         "subdir": "{DOWNLOADS_PATH}/bert_models"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/dev/toloka_chitchat/toloka_eval_rubert_2019-06-07.tar.gz",
+        "subdir": "{ROOT_PATH}/models/classifiers/"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/dev/toloka_chitchat/toloka_eval_07-06-2019.tar.gz",
+        "subdir": "{DOWNLOADS_PATH}/"
       }
     ]
   }

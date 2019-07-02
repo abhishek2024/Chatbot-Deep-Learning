@@ -168,6 +168,14 @@
       "server_utils": "KerasIntentModel"
     },
     "download": [
+      {
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/dev/toloka_chitchat/toloka_eval_rutwitter_elmo_2019-06-07.tar.gz",
+        "subdir": "{ROOT_PATH}/models/classifiers/"
+      },
+      {
+        "url": "http://files.deeppavlov.ai/deeppavlov_data/dev/toloka_chitchat/toloka_eval_07-06-2019.tar.gz",
+        "subdir": "{DOWNLOADS_PATH}/"
+      }
     ]
   }
 }
