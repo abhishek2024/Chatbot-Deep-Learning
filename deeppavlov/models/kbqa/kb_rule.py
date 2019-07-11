@@ -52,12 +52,13 @@ class KBRule(Component, Serializable):
         answer entity.
     """
 
-    def __init__(self, load_path: str, linker: EntityLinker, debug: bool = False,
+    def __init__(self, load_path: str, linker: EntityLinker, debug: bool = False, use_templates: bool = True,
                  relations_maping_filename: str = None, fasttext_load_path: str = None,
                  templates_filename: str = None, udpipe_path: str = None, *args, **kwargs) -> None:
         
         super().__init__(save_path=None, load_path=load_path)
         self._debug = debug
+        self.use_templates = use_templates
         self._relations_filename = relations_maping_filename
         self.q_to_name: Optional[Dict[str, Dict[str, str]]] = None
         self._relations_mapping: Optional[Dict[str, str]] = None
@@ -91,17 +92,18 @@ class KBRule(Component, Serializable):
                 obj = ""
                 q_tokens = nltk.word_tokenize(sentence)
                 entity_from_template, relation_from_template = self.entities_and_rels_from_templates(q_tokens)
-                if entity_from_template:
+                if entity_from_template and self.use_templates:
                     entity_triplets, entity_linking_confidences = self.linker(entity_from_template, q_tokens)
                     obj = self.match_triplet(entity_triplets, [relation_from_template])
                     objects_batch.append(obj)
                 else:
+                    # getting entity tokens and relation tokens from syntactic tree
                     detected_entity, detected_rel = self.entities_and_rels_from_tree(q_tokens)
                     if detected_entity:
-                        print("detected_entity", detected_entity, "detected_rel", detected_rel)
                         entity_triplets, entity_linking_confidences = self.linker(detected_entity, q_tokens)
                         entity_triplets_flat = [item for sublist in entity_triplets for item in sublist]
-                        obj = self.match_rel(entity_triplets_flat, detected_rel)
+                        # matching relation tokens and relation in wikidata
+                        obj = self.match_rel(entity_triplets_flat, detected_rel, sentence)
                         objects_batch.append(obj)
                     else:
                         objects_batch.append('')
@@ -112,6 +114,7 @@ class KBRule(Component, Serializable):
 
         return parsed_objects_batch
         
+    # rules which extract entity and relation from syntactic tree
     def find_entity(self, tree, q_tokens):
         detected_entity = ""
         detected_rel = ""
@@ -143,6 +146,7 @@ class KBRule(Component, Serializable):
 
         return False, detected_entity, detected_rel
 
+    # if we have not found noun entity we look for adjective entities
     def find_entity_adj(self, tree):
         detected_rel = ""
         detected_entity = ""
@@ -154,11 +158,53 @@ class KBRule(Component, Serializable):
         
         return False, detected_entity, detected_rel
 
-    def match_rel(self, entity_triplets, detected_rel):
+    # rules which filter triplets if the question is about place or date
+    def filter_triplets(self, triplets, sentence):
+        # rels such as "located in", "location", etc.
+        where_rels = ["P131", "P30", "P17", "P276", "P19", "P20", "P119"]
+        # rels such as "date of birth", etc.
+        when_rels = ["P585", "P569", "P570", "P571", "P580", "P582"]
+        filtered_triplets = []
+        where_templates = ["где"]
+        when_templates = ["когда", "дата", "дату", "в каком году", "год"]
+        fl_where = False
+        fl_when = False
+        for template in when_templates:
+            if template in sentence.lower():
+                fl_when = True
+                break
+        for template in where_templates:
+            if template in sentence.lower():
+                fl_where = True
+                break
+
+        if fl_when:
+            for triplet in triplets:
+                rel_id = triplet[0]
+                if rel_id in when_rels:
+                    filtered_triplets.append(triplet)
+        elif fl_where:
+            for triplet in triplets:
+                rel_id = triplet[0]
+                if rel_id in where_rels:
+                    filtered_triplets.append(triplet)
+        else:
+            filtered_triplets = triplets
+
+        return filtered_triplets
+
+    """
+    method which calculates cosine similarity between average fasttext embedding of
+    tokens of relation extracted from syntactic tree and all relations from wikidata
+    and we find which relation from wikidata has the biggest cosine similarity
+    """
+    def match_rel(self, entity_triplets, detected_rel, sentence):
         av_detected_emb = self.av_emb(detected_rel)
         max_score = 0.0
-        wiki_rel = ""
         found_obj = ""
+        # filter triplets if the question is about place or date
+        entity_triplets = self.filter_triplets(entity_triplets, sentence)
+        # look for reealtion from wikidata with biggest cosine similarity
         for triplet in entity_triplets:
             scores = []
             rel_id = triplet[0]
@@ -166,7 +212,6 @@ class KBRule(Component, Serializable):
             if rel_id in self._relations_mapping:
                 rel_name = self._relations_mapping[rel_id]["name"]
                 if rel_name == detected_rel:
-                    wiki_rel = rel_name
                     found_obj = obj
                     return found_obj
                 else:
@@ -176,7 +221,6 @@ class KBRule(Component, Serializable):
                         rel_aliases = self._relations_mapping[rel_id]["aliases"]
                         for alias in rel_aliases:
                             if alias == detected_rel:
-                                wiki_rel = alias
                                 found_obj = obj
                                 return found_obj
                             else:
@@ -184,13 +228,11 @@ class KBRule(Component, Serializable):
                                 scores.append(np.dot(av_detected_emb, alias_emb))
                     if np.asarray(scores).mean() > max_score:
                         max_score = np.asarray(scores).mean()
-                        wiki_rel = rel_name
                         found_obj = obj
-                    print(rel_name, rel_id, np.asarray(scores).mean())
-        print("wiki_rel", wiki_rel, max_score)
 
         return found_obj
 
+    # method which calculates average fasttext embedding
     def av_emb(self, rel):
         rel_tokens = nltk.word_tokenize(rel)
         emb = []
@@ -206,10 +248,8 @@ class KBRule(Component, Serializable):
                                    "как ты считаешь"]
 
         question = ''.join([ch for ch in question_init if ch not in punctuation]).lower()
-        print("question", question)
         is_kbqa = (all(template not in question for template in not_kbqa_question_templates) or
                    any(template in question for template in kbqa_question_templates))
-        print("is_kbqa", is_kbqa)
         return is_kbqa
 
     def parse_wikidata_object(self, objects_batch):
@@ -228,8 +268,9 @@ class KBRule(Component, Serializable):
                 parsed_objects.append('Not Found')
         return parsed_objects
 
-    def entities_and_rels_from_templates(self, tokens):
+    def entities_and_rels_from_templates(self, tokens: List[List[str]]) -> Tuple[str, int]:
         s_sanitized = ' '.join([ch for ch in tokens if ch not in punctuation]).lower()
+        s_sanitized = s_sanitized.replace("'", '').replace("`", '')
         ent = ''
         relation = ''
         for template in self.templates:

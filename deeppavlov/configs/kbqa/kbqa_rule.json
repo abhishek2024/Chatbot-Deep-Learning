@@ -32,6 +32,7 @@
         "udpipe_path": "/home/dmitry/.deeppavlov/downloads/wikidata_rus/russian-syntagrus-ud-2.3-181115.udpipe",
         "templates_filename": "templates.pickle",
         "debug": false,
+        "use_templates": true,
         "lemmatize": true,
         "linker": "#linker"
       }
