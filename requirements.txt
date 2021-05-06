@@ -15,6 +15,6 @@ requests==2.19.1
 pytelegrambotapi==3.5.2
 flask==1.0.2
 flasgger==0.9.1
-flask_cors==3.0.6
+flask_cors==3.0.9
 rusenttokenize==0.0.4
 pyopenssl==18.0.0
